@@ -38,7 +38,7 @@ const _exists = (name) => {
 export const createStore = (name, initialData, option = {}) => {
     if (!isValidStoreName(name)) return;
 
-    if (!isValidData(inatialData)) return;
+    if (!isValidData(initialData)) return;
 
     if (_stores[name] !== undefined) {
         warn(
@@ -52,16 +52,16 @@ export const createStore = (name, initialData, option = {}) => {
     _stores[name] = clean;
     _subscribers[name] = _subscribers[name] || [];
     _initial[name] = JSON.parse(JSON.stringify(clean));
-    _meth[name] = {
+    _meta[name] = {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         updateCount: 0,
-        options,
+        options: option,
     };
 
-    if (option.presist) {
-        _presistSave(name);
-        _presistLoad(name);
+    if (option.persist) {
+        _persistSave(name);
+        _persistLoad(name);
     }
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
@@ -152,10 +152,10 @@ export const resetStore = (name) =>{
     if(!_initial[name]) return;
 
     _stores[name] = JSON.parse(JSON.stringify(_initial[name]));
-    _meta[name].updateAt = new Date().toISOString();
+    _meta[name].updatedAt = new Date().toISOString();
 
     _notify(name);
-    log(`Srtore "${name}" reset to initial state/value`);
+    log(`Store "${name}" reset to initial state/value`);
 };
 
 //this my need to refactoe or improvement
@@ -165,16 +165,16 @@ export const mergeStore = (name, data)=>{
 
     const current = _stores[name];
 
-    if(typeof current !== "onject" || Array.isArray(current)){
+    if(typeof current !== "object" || Array.isArray(current)){
         error(
             `mergeStore("${name}") only works on object stories.\n`+
-            `Use setSrore("${name}", value) instead.`
+            `Use setStore("${name}", value) instead.`
         );
         return;
     }
 
     _stores[name] = {...current, ...sanitize(data)};
-    _meta[name].updateAt = new Date().toISOString();
+    _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
 
     _notify(name);
@@ -214,4 +214,25 @@ export const _subscribe = (name, fn)=>{
 
 export const _getSnapshot = (name) =>{
     return _stores[name]??null;
+}
+
+const _persistSave = (name) =>{
+    try{
+        if(typeof window === "undefined") return;
+        localStorage.setItem(`stroid_${name}`, JSON.stringify(_stores[name]))
+    }catch(e){
+        warn(`Could not persist store "${name}" to localStorage`);
+    }
+}
+
+const _persistLoad = (name) =>{
+    try{
+        if(typeof window === "undefined" ) return;
+        const saved = localStorage.getItem(`stroid_${name}`);
+        if(!saved) return;
+        _stores[name] = JSON.parse(saved);
+        log(`Store "${name}" loaded from localStorage`);
+    }catch(e){
+        warn(`Could not load store "${name}" from localStorage`);
+    }
 }
