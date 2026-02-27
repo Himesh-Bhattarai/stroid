@@ -1,5 +1,5 @@
 
-import { getStore, setStore } from "./store.js";
+import { getStore, setStore, hasStore } from "./store.js";
 import { warn, error } from "./utils.js";
 
 
@@ -65,7 +65,7 @@ class TargetNode {
 
     get value() {
         if (!this._key) {
-            warn("target() was called without a key — returning null");
+            warn("target() was called without a key - returning null");
             return null;
         }
         return getStore(this._storeName, this._fullPath);
@@ -73,7 +73,7 @@ class TargetNode {
 
     set(newValue) {
         if (!this._key) {
-            warn("target() was called without a key — cannot set value");
+            warn("target() was called without a key - cannot set value");
             return;
         }
         setStore(this._storeName, this._fullPath, newValue);
@@ -86,6 +86,7 @@ export const chain = (storeName) => {
         // Trigger the suggestion logic from utils via a dummy check or direct call if possible
         // Since _exists is internal to store.js, we rely on the fact that getStore/setStore 
         // will call _exists and log the error/suggestion anyway.
+        warn(`chain("${storeName}") called before store exists; operations will no-op until created.`);
     }
     return new StroidChain(storeName);
 };

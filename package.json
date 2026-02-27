@@ -5,8 +5,10 @@
   "type": "module",
   "main": "src/index.js",
   "exports": "./src/index.js",
+  "types": "index.d.ts",
   "files": [
-    "src"
+    "src",
+    "index.d.ts"
   ],
   "scripts": {
     "test": "node --test"
