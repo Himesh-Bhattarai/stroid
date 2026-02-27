@@ -182,3 +182,36 @@ export const mergeStore = (name, data)=>{
 }
 
 
+export const clearAllStores = ()=>{
+    const names = Object.keys(_stores);
+    names.forEach(deleteStore);
+    warn(`All stores cleared (${names.length} stores removed)`);
+};
+
+export const hasStore = (name) =>{
+    return _stores[name] !== undefined;
+};
+
+
+export const listStores = ()=>{
+    return Object.keys(_stores);
+}
+
+
+export const getStoreMeta = (name) =>{
+    if(!_exists(name)) return null;
+    return {..._meta[name]}
+}
+
+export const _subscribe = (name, fn)=>{
+    if(!_subscribers[name]) _subscribers[name] = [];
+    _subscribers[name].push(fn);
+    
+    return () =>{
+        _subscribers[name] = _subscribers[name].filter((s) => s !== fn);
+    };
+};
+
+export const _getSnapshot = (name) =>{
+    return _stores[name]??null;
+}
