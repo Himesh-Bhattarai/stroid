@@ -1,0 +1,52 @@
+name: status-commit
+
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, edited, reopened]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        shell: bash
+        run: |
+          set -euo pipefail
+          regex='^[[:space:]]*(STATUS|Status|status)\(((infinity)|([0-9]{3}))\)[[:space:]]*:[[:space:]]+.+' 
+          skip='^(Merge|Revert|fixup!|squash!)'
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            before="${{ github.event.before }}"
+            sha="${{ github.sha }}"
+            range="$sha"
+            if [[ "$before" != "0000000000000000000000000000000000000000" ]]; then
+              range="$before..$sha"
+            fi
+          fi
+          failed=0
+          while read -r commit; do
+            msg=$(git log -1 --pretty=%s "$commit")
+            if echo "$msg" | grep -Eq "$skip"; then continue; fi
+            if ! echo "$msg" | grep -Eq "$regex"; then
+              echo "::error title=Bad commit format::$msg"
+              failed=1
+            fi
+          done <<<"$(git rev-list "$range")"
+          exit $failed
+
+      - name: Validate PR title
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        run: |
+          regex='^[[:space:]]*(STATUS|Status|status)\(((infinity)|([0-9]{3}))\)[[:space:]]*:[[:space:]]+.+' 
+          title="${{ github.event.pull_request.title }}"
+          if ! echo "$title" | grep -Eq "$regex"; then
+            echo "::error title=Bad PR title::Title must start with STATUS(code): message"
+            exit 1
+          fi

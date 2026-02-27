@@ -1,0 +1,29 @@
+name: Status Issue
+description: Track work with STATUS context
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened or what’s needed?
+    validations:
+      required: true
+  - type: dropdown
+    id: desired_status
+    attributes:
+      label: Desired STATUS code when fixed
+      options:
+        - 201 (working as expected)
+        - 203 (docs-only change)
+        - 301 (new feature)
+        - 302 (enhancement)
+        - 300 (refactor)
+        - 409 (risky/fragile)
+        - 500 (broken)
+        - 601 (bug fix)
+        - infinity (gold master)
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps / notes
+      description: Repro steps or context
