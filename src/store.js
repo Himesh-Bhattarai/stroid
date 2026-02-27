@@ -13,10 +13,10 @@ import {
     suggestStoreName,
 } from "./utils.js";
 
-const _stores = {};   
-const _subscribers = {};  
-const _initial = {};   
-const _meta = {};  
+const _stores = {};
+const _subscribers = {};
+const _initial = {};
+const _meta = {};
 
 
 
@@ -35,15 +35,79 @@ const _exists = (name) => {
 };
 
 
-export const createStore = (name, initialData, option={})=>{
-    if(!isValidStoreName(name)) return;
+export const createStore = (name, initialData, option = {}) => {
+    if (!isValidStoreName(name)) return;
 
-    if(!isValidData(inatialData)) return;
+    if (!isValidData(inatialData)) return;
 
-    if(_stores[name] !== undefined ){
+    if (_stores[name] !== undefined) {
         warn(
-            `Store "${name}" already exists and will be overwritten.\n`+
+            `Store "${name}" already exists and will be overwritten.\n` +
             `Use setStore("${name}", data) to update instead.`
         );
     }
+
+
+    const clean = sanitize(initialData);
+    _stores[name] = clean;
+    _subscribers[name] = _subscribers[name] || [];
+    _initial[name] = JSON.parse(JSON.stringify(clean));
+    _meth[name] = {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        updateCount: 0,
+        options,
+    };
+
+    if (option.presist) {
+        _presistSave(name);
+        _presistLoad(name);
+    }
+
+    log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
+
+    return clean;
+
 }
+
+
+//SETSTORE
+
+export const setStore = (name, keyOrData, value) => {
+    if (!_exists(name)) return;
+
+    let updated;
+
+    if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
+        if (!isValidData(keyOrData)) return;
+        updated = { ..._stores[name], ...sanitize(keyOrData) };
+    }
+
+    else if (typeof keyOrData === "string" || Array.isArray(keyOrData)) {
+        if (!validateDepth(keyOrData)) return;
+        updated = setByPath(_stores[name], keyOrData, sanitize(value));
+    }
+
+    else {
+        error(
+            `setStore("${name}") — invalid arguments.\n` +
+            `Usage:\n` +
+            `  setStore("${name}", "field", value)\n` +
+            `  setStore("${name}", "nested.field", value)\n` +
+            `  setStore("${name}", { field: value })`
+        );
+        return;
+    }
+
+    _stores[name] = updated;
+    _meta[name].updatedAt = new Date().toISOString();
+    _meta[name].updateCount++;
+
+    if (_meta[name].options?.persist) _persistSave(name);
+
+    _notify(name);
+
+    log(`Store "${name}" updated`);
+};
+
+
