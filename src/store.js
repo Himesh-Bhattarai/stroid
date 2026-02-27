@@ -144,3 +144,17 @@ export const deleteStore = (name) =>{
 
     log(`Store "${name}" deleted`);
 };
+
+//resetStore
+
+export const resetStore = (name) =>{
+    if(!_exists(name)) return;
+    if(!_initial[name]) return;
+
+    _stores[name] = JSON.parse(JSON.stringify(_initial[name]));
+    _meta[name].updateAt = new Date().toISOString();
+
+    _notify(name);
+    log(`Srtore "${name}" reset to initial state/value`);
+};
+
