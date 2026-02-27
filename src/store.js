@@ -111,3 +111,36 @@ export const setStore = (name, keyOrData, value) => {
 };
 
 
+export const getStore = (name, path) =>{
+    if(!_exists(name)) return null;
+    const data = _stores[name];
+
+    if(path === undefined){
+        return Array.isArray(data) ? [...data] : {...data};
+    }
+
+    if(!validateDepth(path)) return null;
+    return getByPath(data, path);
+}
+
+// deleteStore/removeStore
+
+export const deleteStore = (name) =>{
+    if(!_exists(name)) return;
+
+    const subs = _subscribers[name];
+    subs?.forEach((fn) => fn(null));
+
+    delete _stores[name];
+    delete _subscribers[name];
+    delete _initial[name];
+    delete _meta[name];
+
+    try{
+        if(typeof window !== "undefined"){
+            localStorage.removeItem(`stroid_${name}`);
+        }
+    }catch (_) {}
+
+    log(`Store "${name}" deleted`);
+};
