@@ -33,3 +33,17 @@ const _exists = (name) => {
     suggestStoreName(name, Object.keys(_stores));
     return false;
 };
+
+
+export const createStore = (name, initialData, option={})=>{
+    if(!isValidStoreName(name)) return;
+
+    if(!isValidData(inatialData)) return;
+
+    if(_stores[name] !== undefined ){
+        warn(
+            `Store "${name}" already exists and will be overwritten.\n`+
+            `Use setStore("${name}", data) to update instead.`
+        );
+    }
+}
