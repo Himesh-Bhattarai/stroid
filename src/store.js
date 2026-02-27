@@ -158,3 +158,27 @@ export const resetStore = (name) =>{
     log(`Srtore "${name}" reset to initial state/value`);
 };
 
+//this my need to refactoe or improvement
+export const mergeStore = (name, data)=>{
+    if(!_exists(name)) return;
+    if(!isValidData(data)) return;
+
+    const current = _stores[name];
+
+    if(typeof current !== "onject" || Array.isArray(current)){
+        error(
+            `mergeStore("${name}") only works on object stories.\n`+
+            `Use setSrore("${name}", value) instead.`
+        );
+        return;
+    }
+
+    _stores[name] = {...current, ...sanitize(data)};
+    _meta[name].updateAt = new Date().toISOString();
+    _meta[name].updateCount++;
+
+    _notify(name);
+    log(`Store "${name}" merged with data`)
+}
+
+
