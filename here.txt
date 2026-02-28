@@ -1,0 +1,130 @@
+# Stroid Feature Reference (concise)
+All features in one place with short examples. Import from subpaths to keep bundles small.
+
+## Core store API (`stroid/core`)
+- `createStore(name, initial, options?)`
+  ```js
+  import { createStore } from "stroid/core";
+  createStore("user", { name: "Alex", profile: { theme: "dark" } }, { devtools: true, persist: true });
+  ```
+- `getStore(name, path?)`
+  ```js
+  getStore("user");                  // full clone
+  getStore("user", "profile.theme"); // "dark"
+  ```
+- `setStore(name, path|mutator|object, value?)`
+  ```js
+  setStore("user", "profile.theme", "light");      // path must exist
+  setStore("user", draft => { draft.name = "Ada"; }); // mutator on cloned draft
+  setStore("user", { role: "admin" });             // shallow merge at root
+  ```
+- `setStoreBatch(fn)` batches notifications.
+  ```js
+  setStoreBatch(() => {
+    setStore("user", "count", 1);
+    setStore("user", "profile.theme", "light");
+  });
+  ```
+- `mergeStore` (shallow), `resetStore`, `deleteStore`, `clearAllStores`, `hasStore`, `listStores`.
+
+## Fluent chain helper (`stroid/core`)
+```js
+import { chain } from "stroid/core";
+chain("user").nested("profile").target("theme").set("dark");
+const theme = chain("user").nested("profile").target("theme").value;
+```
+Paths must exist; warns if store missing.
+
+## React hooks (`stroid/react`)
+- `useStore(name, pathOrSelector?, equality?)`
+  ```js
+  const theme = useStore("user", "profile.theme"); // narrow subscription
+  ```
+- `useStoreField(name, path)`
+  ```js
+  const name = useStoreField("user", "name");
+  ```
+- `useSelector(name, selector, equality?)`
+  ```js
+  const greeting = useSelector("user", u => `Hi ${u.name}`);
+  ```
+- `useAsyncStore(name)` — reads async shape `{ data, loading, error, status, cached }`.
+- `useStoreStatic(name, path?)` — read once, no subscription (RSC-friendly).
+- `useFormStore(name, path)` — input binding.
+  ```js
+  const { value, onChange } = useFormStore("profile", "email");
+  ```
+Perf: prefer selectors/fields; `useStore` without selector re-renders on every change.
+
+## Async caching (`stroid/async`)
+- `fetchStore(name, url|promise, options)`
+  Options: `ttl`, `staleWhileRevalidate`, `dedupe`, `retry`, `retryDelay`, `retryBackoff`, `transform`, `onSuccess`, `onError`, `signal`, `cacheKey`.
+  ```js
+  import { fetchStore, enableRevalidateOnFocus } from "stroid/async";
+  await fetchStore("todos", "/api/todos", { ttl: 30_000, staleWhileRevalidate: true, cacheKey: "list" });
+  enableRevalidateOnFocus("todos"); // optional focus/online revalidate
+  ```
+- `refetchStore(name)` uses last call; dedupe keyed by `name:cacheKey`; LWW via request version; abort if `signal` provided.
+
+## Persistence
+```js
+createStore("auth", { token: null }, {
+  persist: { key: "auth", driver: localStorage, encrypt: enc, decrypt: dec }
+});
+```
+- Supports `true` (localStorage), `"session"`, or custom driver.
+- Checksum + optional `migrations`, `version`; schema validation on load.
+- Warns on key collisions; synchronous driver calls (large states can block).
+
+## Sync (BroadcastChannel)
+```js
+createStore("cart", { items: [] }, {
+  sync: { conflictResolver: ({ local, incoming }) => incoming }
+});
+```
+- Per-store enable; falls back to no-op if BroadcastChannel missing.
+- Default LWW uses `Date.now()` (clock skew possible).
+
+## SSR
+- Use `createStoreForRequest` on server; `hydrateStores(snapshot)` on client.
+- Global `createStore` blocked in prod Node unless `allowSSRGlobalStore: true`.
+- Hydration shallow-merges objects, replaces primitives.
+
+## DevTools / History / Metrics
+- `devtools: true` enables Redux DevTools.
+- `historyLimit` (default 50) keeps shallow diffs; time-travel is shallow.
+- Metrics: counts/timings in store meta; async metrics via `getAsyncMetrics`.
+
+## Validation & middleware
+- `schema` (Zod/Yup/Valibot/predicate) or `validator` boolean.
+- Middleware chain (sync): `onSet`, `onReset`, `onDelete`, `onCreate`, `onError`, `redactor`, custom array.
+- Validation failures call `onError` and block write.
+
+## Types (TS)
+- `StoreDefinition<Name, State>` for typed stores.
+- `Path<State>` / `PathValue<State, P>` for typed paths when using definitions.
+- String-name overloads are runtime-only (less type safety).
+
+## Subpath imports
+- `stroid/core` — core API + chain.
+- `stroid/react` — hooks only.
+- `stroid/async` — async helpers.
+- `stroid/testing` — testing utilities.
+- Root `stroid` exports everything.
+
+## Testing utilities (`stroid/testing`)
+```js
+import { createMockStore, resetAllStoresForTest, withMockedTime } from "stroid/testing";
+const mock = createMockStore("user", { name: "Test" });
+withMockedTime(() => { /* advance timers here */ });
+resetAllStoresForTest();
+```
+
+## Limitations / gotchas
+- ESM-only; subpaths currently share an internal chunk (true isolation planned v1.1).
+- `setStore` path writes require existing path (no auto-create).
+- `useStore` without selector/path subscribes to full store.
+- `fetchStore` cacheKey is per `name:cacheKey`; reusing with different URLs reuses cache.
+- Date/Map/Set are stored as JSON-friendly forms (Date → ISO string, Map → object, Set → array); re-wrap on read.
+- Persistence is synchronous; large states can block.
+- History diffs are shallow only.
