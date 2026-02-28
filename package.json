@@ -34,6 +34,14 @@
     "CHANGELOG.md",
     "LICENSE"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Himesh-Bhattarai/stroid.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Himesh-Bhattarai/stroid/issues"
+  },
+  "homepage": "https://github.com/Himesh-Bhattarai/stroid#readme",
   "sideEffects": false,
   "scripts": {
     "test": "node --import tsx --test \"tests/**/*.test.ts\"",
