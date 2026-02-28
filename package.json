@@ -1,20 +1,61 @@
 {
   "name": "stroid",
   "version": "0.0.1",
-  "description": "Lightweight state storage utilities for JavaScript apps.",
+  "description": "Compact state management library with persistence, async caching, sync, and React hooks.",
   "type": "module",
-  "main": "src/index.js",
-  "exports": "./src/index.js",
-  "types": "index.d.ts",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./async": {
+      "types": "./dist/async.d.ts",
+      "import": "./dist/async.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "dist/index.d.ts",
   "files": [
-    "src",
-    "index.d.ts"
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
   ],
+  "sideEffects": false,
   "scripts": {
-    "test": "node --test"
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.types.json",
+    "build": "tsup"
   },
   "engines": {
     "node": ">=18"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.2.46",
+    "eslint": "^8.57.0",
+    "eslint-config-standard-with-typescript": "^39.1.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-promise": "^6.1.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.7.2"
+  }
 }

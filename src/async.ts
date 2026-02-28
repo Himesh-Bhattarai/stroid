@@ -1,9 +1,46 @@
-import { createStore, setStore, hasStore, getStore } from "./store.js";
-import { error, warn } from "./utils.js";
+import { createStore, setStore, hasStore } from "./store.js";
+import { error, warn, isDev } from "./utils.js";
 
-const _fetchRegistry = {};   // last fetch config per store
-const _inflight = {};        // in-flight promise per store
-const _cacheMeta = {};       // { timestamp, data }
+export interface FetchOptions {
+    transform?: (result: unknown) => unknown;
+    onSuccess?: (data: unknown) => void;
+    onError?: (message: string) => void;
+    method?: string;
+    headers?: Record<string, string>;
+    body?: unknown;
+    ttl?: number; // ms
+    staleWhileRevalidate?: boolean;
+    dedupe?: boolean;
+    retry?: number;
+    retryDelay?: number;
+    retryBackoff?: number;
+    signal?: AbortSignal;
+    cacheKey?: string;
+}
+
+type AsyncState = {
+    data: unknown;
+    loading: boolean;
+    error: string | null;
+    status: "idle" | "loading" | "success" | "error" | "aborted";
+    cached?: boolean;
+};
+
+const _fetchRegistry: Record<string, { url: string | Promise<unknown>; options: FetchOptions }> = {};
+const _inflight: Partial<Record<string, Promise<unknown>>> = {};
+const _requestVersion: Record<string, number> = {};
+const _cacheMeta: Record<string, { timestamp: number; data: unknown }> = {};
+const _noSignalWarned = new Set<string>();
+
+const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
+
+const shouldUseCache = (name: string, ttl?: number): boolean => {
+    if (!ttl) return false;
+    const meta = _cacheMeta[name];
+    if (!meta) return false;
+    return Date.now() - meta.timestamp < ttl;
+};
+
 const _asyncMetrics = {
     cacheHits: 0,
     cacheMisses: 0,
@@ -14,16 +51,11 @@ const _asyncMetrics = {
     lastMs: 0,
 };
 
-const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-
-const shouldUseCache = (name, ttl) => {
-    if (!ttl) return false;
-    const meta = _cacheMeta[name];
-    if (!meta) return false;
-    return Date.now() - meta.timestamp < ttl;
-};
-
-export const fetchStore = async (name, urlOrPromise, options = {}) => {
+export const fetchStore = async (
+    name: string,
+    urlOrPromise: string | Promise<unknown>,
+    options: FetchOptions = {}
+): Promise<unknown> => {
     if (!name || typeof name !== "string") {
         error(`fetchStore requires a store name as first argument`);
         return;
@@ -41,19 +73,25 @@ export const fetchStore = async (name, urlOrPromise, options = {}) => {
         method,
         headers,
         body,
-        ttl,                    // ms
+        ttl,
         staleWhileRevalidate = false,
         dedupe = true,
         retry = 0,
         retryDelay = 400,
         retryBackoff = 1.7,
         signal,
-        cacheKey,               // optional key to vary cache per input
+        cacheKey,
     } = options;
+
+    if (!signal && isDev() && !_noSignalWarned.has(name)) {
+        _noSignalWarned.add(name);
+        warn(
+            `fetchStore("${name}") called without an AbortSignal. Provide "signal" to enable cancellation (recommended).`
+        );
+    }
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
 
-    // create store if missing
     if (!hasStore(name)) {
         createStore(name, {
             data: null,
@@ -63,7 +101,6 @@ export const fetchStore = async (name, urlOrPromise, options = {}) => {
         });
     }
 
-    // serve from cache if still fresh
     if (shouldUseCache(cacheSlot, ttl)) {
         _asyncMetrics.cacheHits += 1;
         const cached = _cacheMeta[cacheSlot].data;
@@ -75,19 +112,18 @@ export const fetchStore = async (name, urlOrPromise, options = {}) => {
             cached: true,
         });
         if (!staleWhileRevalidate) return cached;
-        // if SWR, continue to fetch in background
-    }
-    else {
+    } else {
         _asyncMetrics.cacheMisses += 1;
     }
 
-    // dedupe in-flight
     if (dedupe && _inflight[cacheSlot]) {
         _asyncMetrics.dedupes += 1;
-        return _inflight[cacheSlot];
+        return _inflight[cacheSlot]!;
     }
 
-    // set loading state
+    const currentVersion = (_requestVersion[cacheSlot] ?? 0) + 1;
+    _requestVersion[cacheSlot] = currentVersion;
+
     setStore(name, {
         loading: true,
         error: null,
@@ -100,15 +136,14 @@ export const fetchStore = async (name, urlOrPromise, options = {}) => {
     const controller = !signal && typeof AbortController !== "undefined"
         ? new AbortController()
         : null;
-
     const mergedSignal = signal || controller?.signal;
 
-    const runFetch = async () => {
+    const runFetch = async (): Promise<unknown> => {
         let attempts = 0;
-        let delayMs = retryDelay;
+        let delayMs = retryDelay ?? 400;
         while (true) {
             try {
-                let result;
+                let result: unknown;
 
                 if (typeof urlOrPromise === "string") {
                     const fetchOptions = _buildFetchOptions({
@@ -128,11 +163,9 @@ export const fetchStore = async (name, urlOrPromise, options = {}) => {
                     } else {
                         result = await response.text();
                     }
-                }
-                else if (typeof urlOrPromise === "object" && typeof urlOrPromise.then === "function") {
+                } else if (typeof (urlOrPromise as any).then === "function") {
                     result = await urlOrPromise;
-                }
-                else {
+                } else {
                     error(
                         `fetchStore("${name}") - second argument must be a URL string or Promise.\n` +
                         `Examples:\n` +
@@ -143,6 +176,10 @@ export const fetchStore = async (name, urlOrPromise, options = {}) => {
                 }
 
                 const transformed = transform ? transform(result) : result;
+
+                if (_requestVersion[cacheSlot] !== currentVersion) {
+                    return null; // stale, ignore
+                }
 
                 _cacheMeta[cacheSlot] = { timestamp: Date.now(), data: transformed };
 
@@ -160,7 +197,7 @@ export const fetchStore = async (name, urlOrPromise, options = {}) => {
                 return transformed;
             } catch (err) {
                 attempts += 1;
-                const isAbort = err?.name === "AbortError";
+                const isAbort = (err as any)?.name === "AbortError";
                 if (isAbort) {
                     warn(`fetchStore("${name}") aborted`);
                     setStore(name, {
@@ -171,13 +208,15 @@ export const fetchStore = async (name, urlOrPromise, options = {}) => {
                     return null;
                 }
 
-                if (attempts <= retry) {
+                if (attempts <= (retry ?? 0)) {
                     await delay(delayMs);
-                    delayMs *= retryBackoff;
+                    delayMs *= retryBackoff ?? 1.7;
                     continue;
                 }
 
-                const errorMessage = err?.message || "Something went wrong";
+                if (_requestVersion[cacheSlot] !== currentVersion) return null;
+
+                const errorMessage = (err as any)?.message || "Something went wrong";
                 setStore(name, {
                     data: null,
                     loading: false,
@@ -203,22 +242,45 @@ export const fetchStore = async (name, urlOrPromise, options = {}) => {
     return promise;
 };
 
-export const refetchStore = async (name) => {
+export const refetchStore = async (name: string): Promise<unknown> => {
     const last = _fetchRegistry[name];
     if (!last) {
-        warn(
-            `refetchStore("${name}") - no previous fetch found.\n` +
-            `Call fetchStore("${name}", url) first.`
-        );
+        if (isDev()) {
+            warn(
+                `refetchStore("${name}") - no previous fetch found.\n` +
+                `Call fetchStore("${name}", url) first.`
+            );
+        }
         return;
     }
     return fetchStore(name, last.url, last.options);
 };
 
-export const getAsyncMetrics = () => ({ ..._asyncMetrics });
+const _revalidateKeys = new Set<string>();
 
-const _buildFetchOptions = (options) => {
-    const fetchOpts = {};
+export const enableRevalidateOnFocus = (name?: string): (() => void) => {
+    if (typeof window === "undefined" || typeof window.addEventListener !== "function") return () => {};
+    const key = name ?? "*";
+    if (_revalidateKeys.has(key)) return () => {};
+    const handler = () => {
+        if (key === "*") {
+            Object.keys(_fetchRegistry).forEach((k) => { void refetchStore(k); });
+        } else {
+            void refetchStore(key);
+        }
+    };
+    window.addEventListener("focus", handler);
+    window.addEventListener("online", handler);
+    _revalidateKeys.add(key);
+    return () => {
+        window.removeEventListener("focus", handler);
+        window.removeEventListener("online", handler);
+        _revalidateKeys.delete(key);
+    };
+};
+
+const _buildFetchOptions = (options: FetchOptions): RequestInit => {
+    const fetchOpts: RequestInit = {};
 
     if (options.method) {
         fetchOpts.method = options.method.toUpperCase();
@@ -242,3 +304,5 @@ const _buildFetchOptions = (options) => {
 
     return fetchOpts;
 };
+
+export const getAsyncMetrics = () => ({ ..._asyncMetrics });

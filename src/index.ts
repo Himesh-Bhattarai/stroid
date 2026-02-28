@@ -34,6 +34,7 @@ export {
 export {
     fetchStore,    
     refetchStore,   
+    enableRevalidateOnFocus,
     getAsyncMetrics,
 } from "./async.js";
 
@@ -47,10 +48,4 @@ export {
     useFormStore,
 } from "./hooks.js";
 
-// Testing utilities
-export {
-    createMockStore,
-    withMockedTime,
-    resetAllStoresForTest,
-    benchmarkStoreSet,
-} from "./testing.js";
+// Testing utilities moved to stroid/testing subpath to avoid bundling by default
