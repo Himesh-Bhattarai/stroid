@@ -1,0 +1,206 @@
+name: AI Discussion Bot (Gemini)
+
+on:
+  discussion_comment:
+    types: [created]
+  discussion:
+    types: [created]
+
+jobs:
+  respond:
+    runs-on: ubuntu-latest
+    permissions:
+      discussions: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if bot should respond
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const payload = context.payload;
+            let body = '';
+            let authorLogin = '';
+            let discussionTitle = '';
+            let discussionNumber = '';
+
+            if (payload.discussion) {
+              body = payload.discussion.body || '';
+              authorLogin = payload.discussion.user?.login || 'User';
+              discussionTitle = payload.discussion.title || '';
+              discussionNumber = payload.discussion.number?.toString() || '';
+            }
+            if (payload.comment) {
+              body = payload.comment.body || '';
+              authorLogin = payload.comment.user?.login || 'User';
+              discussionTitle = payload.discussion?.title || '';
+              discussionNumber = (payload.comment.discussion?.number || payload.discussion?.number)?.toString() || '';
+            }
+
+            const mentionedUser = context.repo.owner;
+            const mentioned = body.includes(`@${mentionedUser}`);
+
+            console.log(`Mentioned @${mentionedUser}: ${mentioned}`);
+            console.log(`Author: ${authorLogin}`);
+
+            core.setOutput('should_respond', mentioned ? 'true' : 'false');
+            core.setOutput('discussion_number', discussionNumber);
+            core.setOutput('question_body', body);
+            core.setOutput('discussion_title', discussionTitle);
+            core.setOutput('author_login', authorLogin);
+
+      - name: Collect codebase context
+        if: steps.check.outputs.should_respond == 'true'
+        run: |
+          echo "=== REPOSITORY: ${{ github.repository }} ===" > /tmp/context.txt
+          echo "" >> /tmp/context.txt
+          echo "=== REPO STRUCTURE ===" >> /tmp/context.txt
+          find . -type f \
+            -not -path './.git/*' \
+            -not -path './node_modules/*' \
+            -not -path './.github/*' \
+            -not -name '*.png' -not -name '*.jpg' -not -name '*.jpeg' \
+            -not -name '*.gif' -not -name '*.ico' -not -name '*.svg' \
+            -not -name '*.woff' -not -name '*.ttf' -not -name '*.zip' \
+            -not -name '*.lock' -not -name '*.bin' \
+            | head -100 >> /tmp/context.txt
+
+          echo "" >> /tmp/context.txt
+          echo "=== FILE CONTENTS ===" >> /tmp/context.txt
+
+          find . -type f \
+            -not -path './.git/*' \
+            -not -path './node_modules/*' \
+            -not -path './.github/*' \
+            \( -name '*.md' -o -name '*.txt' -o -name '*.js' -o -name '*.ts' \
+               -o -name '*.py' -o -name '*.jsx' -o -name '*.tsx' -o -name '*.json' \
+               -o -name '*.yml' -o -name '*.yaml' -o -name '*.html' -o -name '*.css' \
+               -o -name '*.go' -o -name '*.rs' -o -name '*.java' -o -name '*.php' \
+               -o -name '*.rb' -o -name '*.sh' -o -name '*.env.example' -o -name '*.c' \
+               -o -name '*.cpp' -o -name '*.h' \) \
+            | head -60 | while read file; do
+              size=$(wc -c < "$file")
+              if [ "$size" -lt 15000 ]; then
+                echo "" >> /tmp/context.txt
+                echo "--- FILE: $file ---" >> /tmp/context.txt
+                cat "$file" >> /tmp/context.txt
+              fi
+            done
+
+          head -c 80000 /tmp/context.txt > /tmp/context_trimmed.txt
+          mv /tmp/context_trimmed.txt /tmp/context.txt
+          echo "Context size: $(wc -c < /tmp/context.txt) bytes"
+
+      - name: Generate Answer with Gemini
+        if: steps.check.outputs.should_respond == 'true'
+        id: ai_answer
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          QUESTION: ${{ steps.check.outputs.question_body }}
+          DISCUSSION_TITLE: ${{ steps.check.outputs.discussion_title }}
+          AUTHOR: ${{ steps.check.outputs.author_login }}
+          REPO_NAME: ${{ github.repository }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          CODEBASE=$(cat /tmp/context.txt)
+
+          PAYLOAD=$(jq -n \
+            --arg codebase "$CODEBASE" \
+            --arg question "$QUESTION" \
+            --arg title "$DISCUSSION_TITLE" \
+            --arg repo "$REPO_NAME" \
+            --arg owner "$REPO_OWNER" \
+            --arg author "$AUTHOR" \
+            '{
+              contents: [{
+                parts: [{
+                  text: (
+                    "You are an AI assistant for the GitHub repository: " + $repo + "\n" +
+                    "The repository owner is: @" + $owner + "\n\n" +
+                    "=== FULL CODEBASE CONTEXT ===\n" + $codebase + "\n\n" +
+                    "=== INSTRUCTIONS ===\n" +
+                    "A user named @" + $author + " has asked a question in GitHub Discussions.\n" +
+                    "Discussion Title: " + $title + "\n" +
+                    "Their message: " + $question + "\n\n" +
+                    "Respond STRICTLY in this Markdown format:\n\n" +
+                    "---\n\n" +
+                    "👋 Hey @" + $author + "!\n\n" +
+                    "Thank you for your interest in **" + $repo + "**! 🎉\n\n" +
+                    "**Your Question:**\n" +
+                    "[Restate their concern in 1 clear sentence]\n\n" +
+                    "---\n\n" +
+                    "CASE 1 — If question IS relevant to the repo:\n" +
+                    "**💡 Answer / Solution:**\n" +
+                    "[Detailed helpful answer. Reference specific files or code from the repo. Use code blocks where needed.]\n\n" +
+                    "CASE 2 — If question is NOT relevant to the repo:\n" +
+                    "**⚠️ Out of Scope:**\n" +
+                    "I appreciate you reaching out! However, your question does not seem related to this repository. This repo is focused on [briefly describe repo from codebase]. For off-topic questions, please refer to appropriate external resources. Feel free to ask anything directly related to this project!\n\n" +
+                    "---\n\n" +
+                    "> 📝 **Note:** This response was **AI-generated** and may not be 100% accurate.\n" +
+                    "> If this answer is correct, **@" + $owner + "** will react with a 👍 to verify it!\n" +
+                    "> When in doubt, wait for the repo owner to confirm. ✅\n"
+                  )
+                }]
+              }]
+            }')
+
+          RESPONSE=$(curl -s \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          ANSWER=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "⚠️ Sorry, I was unable to generate a response at this time. Please wait for the repository owner to respond."')
+
+          echo "$ANSWER" > /tmp/answer.txt
+          echo "Answer length: $(wc -c < /tmp/answer.txt) chars"
+
+      - name: Post Answer to Discussion
+        if: steps.check.outputs.should_respond == 'true'
+        uses: actions/github-script@v7
+        env:
+          DISCUSSION_NUMBER: ${{ steps.check.outputs.discussion_number }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const answer = fs.readFileSync('/tmp/answer.txt', 'utf8');
+            const discussionNumber = parseInt(process.env.DISCUSSION_NUMBER);
+
+            const { repository } = await github.graphql(`
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  discussion(number: $number) {
+                    id
+                  }
+                }
+              }
+            `, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              number: discussionNumber
+            });
+
+            const discussionId = repository.discussion.id;
+
+            const result = await github.graphql(`
+              mutation($discussionId: ID!, $body: String!) {
+                addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
+                  comment {
+                    id
+                    url
+                  }
+                }
+              }
+            `, {
+              discussionId: discussionId,
+              body: answer
+            });
+
+            console.log('✅ Posted answer to discussion #' + discussionNumber);
+            console.log('Comment URL:', result.addDiscussionComment.comment.url);
