@@ -5,11 +5,19 @@
 Mutable-friendly updates · Selectors · Persistence · Async caching · Sync · Drop-in presets — all in one ergonomic package.
 
 [![npm version](https://img.shields.io/npm/v/stroid)](https://www.npmjs.com/package/stroid)
-[![license](https://img.shields.io/npm/l/stroid)](./LICENSE)
+[![npm downloads](https://img.shields.io/npm/dm/stroid)](https://www.npmjs.com/package/stroid)
+[![bundlephobia minzip](https://img.shields.io/bundlephobia/minzip/stroid)](https://bundlephobia.com/package/stroid)
+[![Codecov](https://codecov.io/gh/Himesh-Bhattarai/stroid/branch/main/graph/badge.svg)](https://app.codecov.io/gh/Himesh-Bhattarai/stroid)
+[![GitHub stars](https://img.shields.io/github/stars/Himesh-Bhattarai/stroid?style=social)](https://github.com/Himesh-Bhattarai/stroid/stargazers)
+[![open issues](https://img.shields.io/github/issues/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid/issues)
+[![open PRs](https://img.shields.io/github/issues-pr/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid/pulls)
+[![license](https://img.shields.io/github/license/Himesh-Bhattarai/stroid)](./LICENSE)
 [![ESM only](https://img.shields.io/badge/ESM-only-blue)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
 [![tree-shakeable](https://img.shields.io/badge/tree--shakeable-yes-brightgreen)](https://bundlephobia.com/package/stroid)
 [![side-effect free](https://img.shields.io/badge/side--effect%20free-yes-brightgreen)](https://bundlephobia.com/package/stroid)
 [![no dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](https://www.npmjs.com/package/stroid?activeTab=dependencies)
+
+Jump to: [Installation](#installation) | [Quick Start](#quick-start) | [Core API](#core-api) | [React Hooks](#react-hooks) | [Persistence](#persistence) | [Async Helper](#async-helper) | [Testing](#testing) | [Roadmap](#roadmap)
 
 ---
 
@@ -78,6 +86,15 @@ Mutable-friendly updates · Selectors · Persistence · Async caching · Sync ·
 ---
 
 ## Why Stroid?
+
+**Why we built it this way**
+- One consistent API for every state need so teams avoid multiple mental models.
+- No providers, no boilerplate, no magic — setup stays explicit and debuggable.
+- Batteries included but opt-out capable; features like persistence or sync can be disabled per store.
+- Mutable draft updates keep developer ergonomics high while producing safe immutable results.
+- Tiny core, extensible via middleware instead of hidden globals.
+
+Clear design principles make the trade-offs obvious and help developers decide when Stroid is the right fit.
 
 Most state libraries make you choose between simplicity and power. Stroid gives you both — mutable-friendly updates, built-in async/SWR, persistence with migrations, tab sync, SSR safety, drop-in presets, and ESM subpath imports, all in one package with no plugins required.
 
