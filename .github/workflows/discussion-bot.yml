@@ -43,11 +43,16 @@ jobs:
               discussionNumber = (payload.comment.discussion?.number || payload.discussion?.number)?.toString() || '';
             }
 
-            const mentionedUser = context.repo.owner;
-            const mentioned = body.includes(`@${mentionedUser}`);
+            const mentionedUser = context.repo.owner.toLowerCase();
 
-            console.log(`Mentioned @${mentionedUser}: ${mentioned}`);
-            console.log(`Author: ${authorLogin}`);
+            // Match @username as a whole word (not part of another word/email)
+            const mentionRegex = new RegExp(`(?<![\\w.])@${mentionedUser}(?![\\w])`, 'i');
+            const mentioned = mentionRegex.test(body);
+
+            console.log(`Repo Owner: @${mentionedUser}`);
+            console.log(`Body: ${body}`);
+            console.log(`Mention detected: ${mentioned}`);
+            console.log(`Asked by: @${authorLogin}`);
 
             core.setOutput('should_respond', mentioned ? 'true' : 'false');
             core.setOutput('discussion_number', discussionNumber);
@@ -155,7 +160,21 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
 
-          ANSWER=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "⚠️ Sorry, I was unable to generate a response at this time. Please wait for the repository owner to respond."')
+          echo "=== GEMINI RAW RESPONSE ==="
+          echo "$RESPONSE" | jq '.' || echo "$RESPONSE"
+          echo "==========================="
+
+          ERROR=$(echo "$RESPONSE" | jq -r '.error.message // empty')
+          if [ -n "$ERROR" ]; then
+            echo "Gemini API Error: $ERROR"
+          fi
+
+          ANSWER=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
+
+          if [ -z "$ANSWER" ]; then
+            echo "Empty answer - check GEMINI_API_KEY secret and API response above"
+            ANSWER="⚠️ Sorry, I was unable to generate a response at this time. Please wait for the repository owner to respond."
+          fi
 
           echo "$ANSWER" > /tmp/answer.txt
           echo "Answer length: $(wc -c < /tmp/answer.txt) chars"
