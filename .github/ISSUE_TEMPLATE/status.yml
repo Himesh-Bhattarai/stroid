@@ -1,11 +1,13 @@
 name: Status Issue
 description: Track work with STATUS context
+labels:
+  - status
 body:
   - type: textarea
     id: summary
     attributes:
       label: Summary
-      description: What happened or what’s needed?
+      description: What happened or what's needed?
     validations:
       required: true
   - type: dropdown

@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest an idea or improvement.
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What problem should this solve?
+      placeholder: e.g. "Add dark mode toggle to docs"
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why this matters
+      placeholder: Who benefits and how?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: Describe how it could work. Include API or UX details if relevant.
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Other approaches you tried or considered.
+    validations:
+      required: false
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks / concerns
+      placeholder: Breaking changes, performance, accessibility, etc.
+    validations:
+      required: false
