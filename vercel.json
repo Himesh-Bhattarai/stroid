@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "root": "stroid-website",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next"
+}

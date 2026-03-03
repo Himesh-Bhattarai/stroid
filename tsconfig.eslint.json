@@ -3,5 +3,11 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/**/*", "tests/**/*", "docs/**/*", "package.json"]
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "docs/**/*",
+    "package.json",
+    "stroid-website/**/*"
+  ]
 }

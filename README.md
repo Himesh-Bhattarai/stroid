@@ -4,6 +4,7 @@
 
 Mutable-friendly updates · Selectors · Persistence · Async caching · Sync · Drop-in presets — all in one ergonomic package.
 
+> **Note:** This state management library is not for beginners.
 [![npm version](https://img.shields.io/npm/v/stroid)](https://www.npmjs.com/package/stroid)
 [![npm downloads](https://img.shields.io/npm/dm/stroid)](https://www.npmjs.com/package/stroid)
 [![bundlephobia minzip](https://img.shields.io/bundlephobia/minzip/stroid)](https://bundlephobia.com/package/stroid)
