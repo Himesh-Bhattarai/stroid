@@ -438,17 +438,19 @@ const _persistSave = (name: string): void => {
         try {
             const serialized = cfg.serialize(_stores[name]);
             const checksum = hashState(serialized);
-            const envelope = JSON.stringify({
-                v: _meta[name]?.version ?? 1,
-                checksum,
-                data: serialized,
-            });
-            const payload = cfg.encrypt(envelope);
-            cfg.driver.setItem?.(cfg.key, payload);
-        } catch (e) {
-            warn(`Could not persist store "${name}" (${(e as { message?: string })?.message || e})`);
-        }
-    }, 0);
+        const envelope = JSON.stringify({
+            v: _meta[name]?.version ?? 1,
+            checksum,
+            data: serialized,
+        });
+        const payload = cfg.encrypt(envelope);
+        cfg.driver.setItem?.(cfg.key, payload);
+    } catch (e) {
+        const msg = `Could not persist store "${name}" (${(e as { message?: string })?.message || e})`;
+        warn(msg);
+        _meta[name]?.options?.onError?.(msg);
+    }
+}, 0);
 };
 
 const _persistLoad = (name: string, { silent } = { silent: false }): void => {
