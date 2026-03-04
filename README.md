@@ -20,17 +20,19 @@ Mutable-friendly updates · Selectors · Persistence · Async caching · Sync ·
 
 Jump to: [Installation](#installation) | [Quick Start](#quick-start) | [Core API](#core-api) | [React Hooks](#react-hooks) | [Persistence](#persistence) | [Async Helper](#async-helper) | [Testing](#testing) | [Roadmap](#roadmap)
 
+> **Docs accuracy:** The npm README can lag slightly; this GitHub README is the source of truth.
+
 ---
 
 ## Package Stats
 
 | Metric | Value |
 |---|---|
-| Version | `0.0.2` |
+| Version | `0.0.3` |
 | Maintainer | [@himesh.hcb](https://www.npmjs.com/~himesh.hcb) |
 | Dependencies | **0** |
-| Bundle size (minified) | **22.7 kB** |
-| Bundle size (minified + gzipped) | **8.6 kB** |
+| Bundle size (minified) | **26.4 kB** (current build, all ESM files) |
+| Bundle size (minified + gzipped) | **11.2 kB** (current build) |
 | Unpacked size | **43 kB** |
 | Download time — Slow 3G | **171 ms** |
 | Download time — Emerging 4G | **10 ms** |
