@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## 0.0.3 - 2026-03-04
 ### Fixed
 - Persistence now catches `localStorage.setItem` / driver `setItem` errors (e.g., `QuotaExceededError`) and routes them to `onError` instead of letting them bubble and crash. State updates still apply while persistence failures surface to the app.
+- Async fetch metadata (inflight, cache, registry) now cleans up when a store is deleted, avoiding stale entries and refetch surprises.
 - `setStore` path updates now respect existing structure: array paths no longer auto-create missing indices and array shapes are preserved instead of converting to objects.
 
 ## 0.0.2 - 2026-03-03

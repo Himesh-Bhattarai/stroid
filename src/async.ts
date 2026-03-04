@@ -1,4 +1,4 @@
-import { createStore, setStore, hasStore } from "./store.js";
+import { createStore, setStore, hasStore, _subscribe } from "./store.js";
 import { error, warn, isDev } from "./utils.js";
 
 export interface FetchOptions {
@@ -31,6 +31,7 @@ const _inflight: Partial<Record<string, Promise<unknown>>> = {};
 const _requestVersion: Record<string, number> = {};
 const _cacheMeta: Record<string, { timestamp: number; data: unknown }> = {};
 const _noSignalWarned = new Set<string>();
+const _cleanupSubs: Record<string, () => void> = {};
 
 const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
@@ -49,6 +50,27 @@ const _asyncMetrics = {
     failures: 0,
     avgMs: 0,
     lastMs: 0,
+};
+
+const _clearAsyncMeta = (name: string): void => {
+    delete _fetchRegistry[name];
+    _noSignalWarned.delete(name);
+
+    const startsWithName = (key: string) => key === name || key.startsWith(`${name}:`);
+
+    Object.keys(_inflight).forEach((k) => { if (startsWithName(k)) delete _inflight[k]; });
+    Object.keys(_requestVersion).forEach((k) => { if (startsWithName(k)) delete _requestVersion[k]; });
+    Object.keys(_cacheMeta).forEach((k) => { if (startsWithName(k)) delete _cacheMeta[k]; });
+};
+
+const _ensureCleanupSubscription = (name: string): void => {
+    if (_cleanupSubs[name]) return;
+    _cleanupSubs[name] = _subscribe(name, (state) => {
+        if (state !== null) return;
+        _cleanupSubs[name]?.();
+        delete _cleanupSubs[name];
+        _clearAsyncMeta(name);
+    });
 };
 
 export const fetchStore = async (
@@ -100,6 +122,7 @@ export const fetchStore = async (
             status: "idle",
         });
     }
+    _ensureCleanupSubscription(name);
 
     if (shouldUseCache(cacheSlot, ttl)) {
         _asyncMetrics.cacheHits += 1;
