@@ -953,6 +953,11 @@ These are important to know before using Stroid in production:
 | `fetchStore` cacheKey reuse | Reusing the same `cacheKey` with different URLs returns the cached result from the first call. |
 | Pre-v1 size promise | We’re actively keeping the ESM bundle under **8 KB gzip** while focusing on bug fixes and edge cases. |
 
+### Roadmap to v1
+- Remain **dependency-free** while delivering full current functionality.
+- Ship **v1 bundle < 8 KB gzip** without dropping features.
+- Until v1: prioritize stability, bug fixes, failure handling, edge/rare cases over new features.
+
 ---
 
 ## Common Problems & Solutions
