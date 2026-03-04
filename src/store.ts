@@ -525,12 +525,10 @@ export const createStore = <Name extends string, State>(
     }
 
     if (_stores[name] !== undefined) {
-        if (isDev()) {
-            warn(
-                `Store "${name}" already exists and will be overwritten.\n` +
-                `Use setStore("${name}", data) to update instead.`
-            );
-        }
+        const msg = `Store "${name}" already exists. Call setStore("${name}", data) to update instead.`;
+        warn(msg);
+        _meta[name]?.options?.onError?.(msg);
+        return { name } as StoreDefinition<Name, State>;
     }
 
     const {
@@ -659,13 +657,18 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     }
 
     if (!isValidData(updated)) return;
+    const sanitizedUpdate = sanitize(updated);
+
+    const schemaCheck = _validateSchema(storeName, sanitizedUpdate);
+    if (!schemaCheck.ok) return;
+
     const validator = _meta[storeName]?.options?.validator;
-    if (validator && validator(updated) === false) {
+    if (validator && validator(sanitizedUpdate) === false) {
         _meta[storeName]?.options?.onError?.(`Validator blocked update for "${storeName}"`);
         return;
     }
 
-    const next = _runMiddleware(storeName, { action: "set", prev, next: sanitize(updated), path: keyOrData });
+    const next = _runMiddleware(storeName, { action: "set", prev, next: sanitizedUpdate, path: keyOrData });
     _stores[storeName] = isDev() ? devDeepFreeze(next) : next;
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
@@ -757,6 +760,16 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
         return;
     }
     const next = { ...(current as Record<string, unknown>), ...sanitize(data) as Record<string, unknown> };
+
+    const schemaCheck = _validateSchema(name, next);
+    if (!schemaCheck.ok) return;
+
+    const validator = _meta[name]?.options?.validator;
+    if (validator && validator(next) === false) {
+        _meta[name]?.options?.onError?.(`Validator blocked update for "${name}"`);
+        return;
+    }
+
     const final = _runMiddleware(name, { action: "merge", prev: current, next, path: null });
     _stores[name] = isDev() ? devDeepFreeze(final) : final;
     _meta[name].updatedAt = new Date().toISOString();

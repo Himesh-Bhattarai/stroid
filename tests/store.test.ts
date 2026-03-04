@@ -24,6 +24,25 @@ test("createStore with number", () => {
   assert.strictEqual(getStore("count"), 0);
 });
 
+test("createStore refuses to overwrite existing store", () => {
+  clearAllStores();
+  createStore("user", { name: "Alex" });
+  createStore("user", { name: "Jordan" });
+  assert.deepStrictEqual(getStore("user"), { name: "Alex" });
+});
+
+test("setStore enforces schema on updates", () => {
+  clearAllStores();
+  let errorMsg: string | undefined;
+  const schema = (v: any) => (typeof v?.name === "string" ? v : false);
+  createStore("user", { name: "Alex" }, { schema, onError: (msg) => { errorMsg = msg; } });
+  // bad type: name as number
+  // @ts-expect-error runtime guard
+  setStore("user", { name: 123 });
+  assert.strictEqual(getStore("user", "name"), "Alex");
+  assert.ok(errorMsg?.includes("Schema validation failed"));
+});
+
 test("createStore blocks production server globals unless explicitly allowed", () => {
   const originalEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = "production";

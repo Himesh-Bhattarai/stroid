@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useSyncExternalStore } from "react";
+import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { _subscribe, subscribeWithSelector, _getSnapshot, hasStore } from "./store.js";
 import { warn, isDev } from "./utils.js";
 
@@ -14,6 +14,19 @@ const pickPath = (data: any, path?: string) => {
 };
 
 const _broadUseStoreWarnings = new Set<string>();
+
+const shallowEqual = (a: any, b: any): boolean => {
+    if (Object.is(a, b)) return true;
+    if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    for (const key of keysA) {
+        if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+        if (!Object.is(a[key], (b as Record<string, unknown>)[key])) return false;
+    }
+    return true;
+};
 
 export function useStore<T = any>(name: string, path?: string): T | null;
 export function useStore<T = any, R = any>(
@@ -74,22 +87,32 @@ export const useStoreField = <T = any>(storeName: string, field: string): T | nu
 export const useSelector = <T = any, R = any>(
     storeName: string,
     selectorFn: (state: T) => R,
-    equalityFn: (a: R, b: R) => boolean = Object.is
+    equalityFn: (a: R, b: R) => boolean = shallowEqual
 ): R | null => {
+    const lastSelection = useRef<R | null>(null);
+
+    const selectValue = useCallback((data: T | null): R | null => {
+        if (data === null || data === undefined) return null;
+        const next = selectorFn(data);
+        const prev = lastSelection.current;
+        if (prev !== null && equalityFn(next, prev as R)) return prev;
+        lastSelection.current = next;
+        return next;
+    }, [selectorFn, equalityFn]);
+
     const getSnap = useCallback(() => {
         const data = _getSnapshot(storeName) as T | null;
-        if (data === null || data === undefined) return null;
-        return selectorFn(data);
-    }, [storeName, selectorFn]);
+        return selectValue(data);
+    }, [storeName, selectValue]);
 
     const subscribe = useCallback((notify: () => void) => {
         return subscribeWithSelector(
             storeName,
-            (state) => selectorFn(state as T),
+            (state) => selectValue(state as T),
             equalityFn,
             () => notify()
         );
-    }, [storeName, selectorFn, equalityFn]);
+    }, [storeName, selectValue, equalityFn]);
 
     const selection = useSyncExternalStore(subscribe, getSnap, getSnap);
     return selection as R | null;
