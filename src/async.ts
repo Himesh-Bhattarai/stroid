@@ -32,6 +32,7 @@ const _requestVersion: Record<string, number> = {};
 const _cacheMeta: Record<string, { timestamp: number; data: unknown }> = {};
 const _noSignalWarned = new Set<string>();
 const _cleanupSubs: Record<string, () => void> = {};
+const _storeCleanupFns: Record<string, Set<() => void>> = {};
 
 const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
@@ -63,10 +64,24 @@ const _clearAsyncMeta = (name: string): void => {
     Object.keys(_cacheMeta).forEach((k) => { if (startsWithName(k)) delete _cacheMeta[k]; });
 };
 
+const _registerStoreCleanup = (name: string, fn: () => void): void => {
+    if (!_storeCleanupFns[name]) _storeCleanupFns[name] = new Set();
+    _storeCleanupFns[name].add(fn);
+    _ensureCleanupSubscription(name);
+};
+
 const _ensureCleanupSubscription = (name: string): void => {
     if (_cleanupSubs[name]) return;
     _cleanupSubs[name] = _subscribe(name, (state) => {
         if (state !== null) return;
+        // run registered cleanups (e.g., event listeners)
+        const fns = _storeCleanupFns[name];
+        if (fns) {
+            fns.forEach((fn) => {
+                try { fn(); } catch (_) { /* ignore cleanup errors */ }
+            });
+            delete _storeCleanupFns[name];
+        }
         _cleanupSubs[name]?.();
         delete _cleanupSubs[name];
         _clearAsyncMeta(name);
@@ -280,11 +295,12 @@ export const refetchStore = async (name: string): Promise<unknown> => {
 };
 
 const _revalidateKeys = new Set<string>();
+const _revalidateHandlers: Record<string, () => void> = {};
 
 export const enableRevalidateOnFocus = (name?: string): (() => void) => {
     if (typeof window === "undefined" || typeof window.addEventListener !== "function") return () => {};
     const key = name ?? "*";
-    if (_revalidateKeys.has(key)) return () => {};
+    if (_revalidateKeys.has(key)) return _revalidateHandlers[key] ?? (() => {});
     const handler = () => {
         if (key === "*") {
             Object.keys(_fetchRegistry).forEach((k) => { void refetchStore(k); });
@@ -295,11 +311,15 @@ export const enableRevalidateOnFocus = (name?: string): (() => void) => {
     window.addEventListener("focus", handler);
     window.addEventListener("online", handler);
     _revalidateKeys.add(key);
-    return () => {
+    const cleanup = () => {
         window.removeEventListener("focus", handler);
         window.removeEventListener("online", handler);
         _revalidateKeys.delete(key);
+        delete _revalidateHandlers[key];
     };
+    _revalidateHandlers[key] = cleanup;
+    if (key !== "*") _registerStoreCleanup(key, cleanup);
+    return cleanup;
 };
 
 const _buildFetchOptions = (options: FetchOptions): RequestInit => {
