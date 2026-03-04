@@ -240,8 +240,16 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
                 warn(reason);
                 return { ok: false, reason };
             }
+
+            const arr = cursor as unknown[];
+            if (idx >= arr.length) {
+                const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - index ${idx} is out of bounds (length ${arr.length}).`;
+                warn(reason);
+                return { ok: false, reason };
+            }
+
             if (isLast) {
-                const existing = (cursor as unknown[])[idx];
+                const existing = arr[idx];
                 if (existing !== undefined) {
                     const expected = getType(existing);
                     const incoming = getType(nextValue);
@@ -253,7 +261,7 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
                 }
                 return { ok: true };
             }
-            cursor = (cursor as unknown[])[idx];
+            cursor = arr[idx];
             continue;
         }
 

@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.0.3 - 2026-03-04
+### Fixed
+- `setStore` path updates now respect existing structure: array paths no longer auto-create missing indices and array shapes are preserved instead of converting to objects.
+
 ## 0.0.2 - 2026-03-03
 ### Added
 - SSR helpers: `createStoreForRequest` and `hydrateStores` for request-scoped stores and snapshot hydration.

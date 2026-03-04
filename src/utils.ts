@@ -262,21 +262,41 @@ export const getByPath = (obj: unknown, path: PathInput): unknown => {
     return current;
 };
 
-export const setByPath = <T extends Record<string, unknown>>(obj: T, path: PathInput, value: unknown): T => {
+export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T, path: PathInput, value: unknown): T => {
     const parts = parsePath(path);
-    if (parts.length === 1) {
-        return { ...obj, [parts[0]]: value } as T;
-    }
-    const [head, ...rest] = parts;
-    const current = obj[head];
-    return {
-        ...obj,
-        [head]: setByPath(
-            typeof current === "object" && current !== null ? (current as Record<string, unknown>) : {},
-            rest,
-            value
-        ),
-    } as T;
+    if (parts.length === 0) return obj;
+
+    const applyAt = (current: unknown, index: number): unknown => {
+        const key = parts[index];
+        const isLast = index === parts.length - 1;
+
+        if (Array.isArray(current)) {
+            const targetIndex = Number(key);
+            if (!Number.isInteger(targetIndex)) return current;
+            const clone = [...current];
+            if (isLast) {
+                clone[targetIndex] = value;
+                return clone;
+            }
+            clone[targetIndex] = applyAt(clone[targetIndex], index + 1);
+            return clone;
+        }
+
+        if (current && typeof current === "object") {
+            const clone: Record<string, unknown> = { ...(current as Record<string, unknown>) };
+            if (isLast) {
+                clone[key] = value;
+                return clone as unknown;
+            }
+            clone[key] = applyAt(clone[key], index + 1);
+            return clone as unknown;
+        }
+
+        // Path validation should prevent reaching primitives/null; return current to avoid creating new branches.
+        return current;
+    };
+
+    return applyAt(obj, 0) as T;
 };
 
 export const isValidStoreName = (name: string): boolean => {

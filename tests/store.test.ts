@@ -70,6 +70,20 @@ test("setStore rejects unknown paths", () => {
   assert.deepStrictEqual(getStore("user"), { name: "Alex" });
 });
 
+test("setStore updates existing array indices without changing shape", () => {
+  clearAllStores();
+  createStore("list", { items: [1, 2, 3] });
+  setStore("list", "items.1", 99);
+  assert.deepStrictEqual(getStore("list"), { items: [1, 99, 3] });
+});
+
+test("setStore refuses to create missing array indices", () => {
+  clearAllStores();
+  createStore("list", { items: [1, 2] });
+  setStore("list", "items.5", 42);
+  assert.deepStrictEqual(getStore("list"), { items: [1, 2] });
+});
+
 test("setStore blocks type mismatches", () => {
   clearAllStores();
   let errorMessage: string | undefined;
