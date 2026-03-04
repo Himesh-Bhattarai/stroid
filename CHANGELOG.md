@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Store schemas are now enforced on write (`setStore`/`mergeStore`), blocking invalid shapes at runtime instead of silently accepting them.
 - `createStore` no longer overwrites an existing store name; it warns and keeps the original state.
 - `setStore` path updates now respect existing structure: array paths no longer auto-create missing indices and array shapes are preserved instead of converting to objects.
+- Docs: README updated with the pre-v1 bundle-size promise so the published package README matches the repo.
 
 ## 0.0.2 - 2026-03-03
 ### Added
