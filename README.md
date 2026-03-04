@@ -31,8 +31,8 @@ Jump to: [Installation](#installation) | [Quick Start](#quick-start) | [Core API
 | Version | `0.0.3` |
 | Maintainer | [@himesh.hcb](https://www.npmjs.com/~himesh.hcb) |
 | Dependencies | **0** |
-| Bundle size (minified) | **26.4 kB** (current build, all ESM files) |
-| Bundle size (minified + gzipped) | **11.2 kB** (current build) |
+| Bundle size (minified) | **24 kB** (Bundlephobia v0.0.3) |
+| Bundle size (minified + gzipped) | **9 kB** (Bundlephobia v0.0.3) |
 | Unpacked size | **43 kB** |
 | Download time — Slow 3G | **171 ms** |
 | Download time — Emerging 4G | **10 ms** |
