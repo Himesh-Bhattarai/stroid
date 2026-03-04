@@ -525,12 +525,10 @@ export const createStore = <Name extends string, State>(
     }
 
     if (_stores[name] !== undefined) {
-        if (isDev()) {
-            warn(
-                `Store "${name}" already exists and will be overwritten.\n` +
-                `Use setStore("${name}", data) to update instead.`
-            );
-        }
+        const msg = `Store "${name}" already exists. Call setStore("${name}", data) to update instead.`;
+        warn(msg);
+        _meta[name]?.options?.onError?.(msg);
+        return { name } as StoreDefinition<Name, State>;
     }
 
     const {

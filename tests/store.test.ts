@@ -24,6 +24,13 @@ test("createStore with number", () => {
   assert.strictEqual(getStore("count"), 0);
 });
 
+test("createStore refuses to overwrite existing store", () => {
+  clearAllStores();
+  createStore("user", { name: "Alex" });
+  createStore("user", { name: "Jordan" });
+  assert.deepStrictEqual(getStore("user"), { name: "Alex" });
+});
+
 test("createStore blocks production server globals unless explicitly allowed", () => {
   const originalEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = "production";
