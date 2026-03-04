@@ -951,6 +951,7 @@ These are important to know before using Stroid in production:
 | History diffs are shallow | `historyLimit` captures shallow diffs only. Deep nested changes may appear collapsed in DevTools. |
 | BroadcastChannel clock skew | Default LWW sync uses `Date.now()`. Clock differences between tabs can cause unexpected conflict resolution. Use `conflictResolver` for critical stores. |
 | `fetchStore` cacheKey reuse | Reusing the same `cacheKey` with different URLs returns the cached result from the first call. |
+| Pre-v1 size promise | We’re actively keeping the ESM bundle under **8 KB gzip** while focusing on bug fixes and edge cases. |
 
 ---
 
