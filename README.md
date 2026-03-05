@@ -52,12 +52,12 @@ See `/docs` for full details and roadmap.
 
 ## Built With
 
-- TypeScript
-- React 18 (peer)
-- Node 18+
-- tsup (bundler)
-- TSX (test/runtime loader)
-- ESLint + TypeScript config
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)](#)
+[![React 18](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=1a1a1a)](#)
+[![Node](https://img.shields.io/badge/Node-18+-339933?logo=node.js&logoColor=white)](#)
+[![tsup](https://img.shields.io/badge/Bundler-tsup-000000)](#)
+[![tsx](https://img.shields.io/badge/Runtime-tsx-6c4cff)](#)
+[![ESLint](https://img.shields.io/badge/ESLint-5c6bc0?logo=eslint&logoColor=white)](#)
 
 ---
 
