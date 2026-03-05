@@ -1,19 +1,19 @@
-# Chapter 10 — subscribeWithSelector
+# Chapter 10 -- subscribeWithSelector
 
-> *"Watch only what matters. React only when it changes."*
+> "Watch only what matters. React only when it changes."
 
 ---
 
 ## Basic Usage
 
 ```js
-import { subscribeWithSelector } from "stroid/core"
+import { subscribeWithSelector } from "stroid"
 
 const unsubscribe = subscribeWithSelector(
   "user",                          // store name
-  state => state.profile.name,     // selector — what to watch
-  (name, prevName) => {            // callback — what to do
-    console.log(`Name changed: ${prevName} → ${name}`)
+  state => state.profile.name,     // selector -- what to watch
+  (name, prevName) => {            // callback -- what to do
+    console.log(`Name changed: ${prevName} -> ${name}`)
   }
 )
 
@@ -25,7 +25,7 @@ unsubscribe()
 
 ## Only Fires On Actual Changes
 
-The callback only fires when the selected value actually changes — not on every store update.
+The callback only fires when the selected value actually changes -- not on every store update.
 
 ```js
 subscribeWithSelector(
@@ -36,8 +36,8 @@ subscribeWithSelector(
   }
 )
 
-setStore("user.name", "Jo")    // callback NOT fired — theme unchanged
-setStore("user.theme", "light") // callback fired — theme changed
+setStore("user.name", "Jo")     // callback NOT fired -- theme unchanged
+setStore("user.theme", "light") // callback fired -- theme changed
 ```
 
 ---
@@ -73,4 +73,4 @@ subscribeWithSelector(
 
 ---
 
-**[← Chapter 9 — setStoreBatch](./09-setStoreBatch.md)** · **[Chapter 11 — createStoreForRequest →](./11-createStoreForRequest.md)**
+**[<- Chapter 9 -- setStoreBatch](./09-setStoreBatch.md) :: [Chapter 11 -- createStoreForRequest ->](./11-createStoreForRequest.md)**

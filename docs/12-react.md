@@ -1,6 +1,6 @@
-# Chapter 12 — React Bindings
+# Chapter 12 -- React Bindings
 
-> *"Zero wiring. Just read the state you need."*
+> "Zero wiring. Just read the state you need."
 
 ---
 
@@ -10,7 +10,7 @@
 import { useStore, useSelector } from "stroid/react"
 ```
 
-React bindings live in `stroid/react` — separate from core so non-React environments never pay the cost.
+React bindings live in `stroid/react` -- separate from core so non-React environments never pay the cost.
 
 ---
 
@@ -22,7 +22,7 @@ The primary hook. Subscribes to a value and re-renders when it changes.
 // Read entire store
 const user = useStore("user")
 
-// Read specific field — preferred
+// Read specific field -- preferred
 const name = useStore("user.name")
 
 // Read nested field
@@ -34,10 +34,10 @@ const city = useStore("user.address.city")
 
 ### Precision Matters
 ```js
-// ⚠️ Re-renders on ANY user change
+// Warning: re-renders on ANY user change
 const user = useStore("user")
 
-// ✅ Re-renders ONLY when name changes
+// Best: re-renders ONLY when name changes
 const name = useStore("user.name")
 ```
 
@@ -75,26 +75,24 @@ const expensiveItems = useSelector(
 function Dashboard() {
   const name = useStore("user.name")
   const theme = useStore("user.theme")
-  const cartCount = useStore("cart.items").length
+  const cartCount = useStore("cart.items")?.length ?? 0
   const isLoggedIn = useStore("auth.isLoggedIn")
-
-  // ...
 }
 ```
 
-Each hook subscribes independently. A change to `cart.items` only triggers the `cartCount` re-render — not the entire component.
+Each hook subscribes independently. A change to `cart.items` only triggers the `cartCount` re-render -- not the entire component.
 
 ---
 
 ## Static Values
 
-For values you read once and don't need to subscribe to:
+For values you read once and do not need to subscribe to:
 
 ```js
 import { useStoreStatic } from "stroid/react"
 
 function UserBadge() {
-  // Reads once — never re-renders due to this value
+  // Reads once -- never re-renders due to this value
   const userId = useStoreStatic("user.id")
   return <span data-id={userId}>...</span>
 }
@@ -102,18 +100,18 @@ function UserBadge() {
 
 ---
 
-## With Request Stores
+## With Async Stores
 
 ```js
 function ProductList() {
-  const { data: products, loading, error } = useStore("fetchProducts")
+  const { data: products, loading, error } = useStore("fetchProducts") ?? {}
 
   if (loading) return <LoadingGrid />
   if (error) return <ErrorMessage error={error} />
 
   return (
     <ul>
-      {products.map(product => (
+      {products?.map(product => (
         <li key={product.id}>{product.name}</li>
       ))}
     </ul>
@@ -125,10 +123,10 @@ function ProductList() {
 
 ## No Provider Required
 
-Unlike Redux, React Context, or Jotai — stroid requires no Provider wrapper. There is no setup required in your component tree.
+Unlike Redux, React Context, or Jotai -- stroid requires no Provider wrapper. There is no setup required in your component tree.
 
 ```js
-// ✅ This just works — no Provider needed
+// This just works -- no Provider needed
 function App() {
   return <UserProfile />
 }
@@ -152,4 +150,13 @@ const items = useStore("cart.items")     // CartItem[]
 
 ---
 
-**[← Chapter 11 — createStoreForRequest](./11-createStoreForRequest.md)** · **[Chapter 13 — Async →](./13-async.md)**
+## Other Hooks
+
+- `useStoreField(storeName, field)` -> convenience alias for a single field.
+- `useStoreStatic(name, path?)` -> read without subscribing.
+- `useAsyncStore(name)` -> normalizes async stores to `{ data, loading, error, status, isEmpty }`.
+- `useFormStore(name)` -> thin helper around `useStore` for form-centric patterns.
+
+---
+
+**[<- Chapter 11 -- createStoreForRequest](./11-createStoreForRequest.md) :: [Chapter 13 -- Async ->](./13-async.md)**

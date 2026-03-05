@@ -1,82 +1,61 @@
-# Chapter 22 — Performance
+# Chapter 22 -- Performance
 
-> *"Fast by default. Faster when you need it."*
+> "Fast by default. Faster when you need it."
 
 ---
 
-## The Golden Rule
+## Read Narrowly
 
 ```js
-// ⚠️ Slow — re-renders on any user change
+// Broad subscription
 const user = useStore("user")
 
-// ✅ Fast — re-renders only when name changes
+// Precise subscription
 const name = useStore("user.name")
 ```
 
-Always read the most specific path you need.
+Subscribing to precise paths keeps React renders small.
 
 ---
 
-## Batch Updates
-
-Multiple updates that happen together should be batched:
+## Batch Notifications
 
 ```js
-// ⚠️ Three re-renders
-setStore("auth.user", user)
-setStore("auth.token", token)
-setStore("auth.isLoggedIn", true)
-
-// ✅ One re-render
-setStoreBatch([
-  ["auth.user", user],
-  ["auth.token", token],
-  ["auth.isLoggedIn", true]
-])
+setStoreBatch(() => {
+  setStore("auth.user", user)
+  setStore("auth.token", token)
+  setStore("auth.isLoggedIn", true)
+})
 ```
+
+`setStoreBatch` defers subscriber flush until the callback completes, reducing render churn.
 
 ---
 
-## Use useSelector For Derived Data
+## Derived Data With useSelector
 
 ```js
-// ⚠️ Recomputes on every render
-function CartSummary() {
-  const items = useStore("cart.items")
-  const total = items.reduce((sum, item) => sum + item.price, 0)
-}
-
-// ✅ Memoized — only recomputes when items change
-function CartSummary() {
-  const total = useSelector(
-    "cart",
-    state => state.items.reduce((sum, item) => sum + item.price, 0)
-  )
-}
+const total = useSelector(
+  "cart",
+  state => state.items.reduce((sum, item) => sum + item.price, 0)
+)
 ```
 
----
-
-## Temp Stores Clean Up Automatically
-
-```js
-// ✅ Memory freed on unmount — no action needed
-createStore("heavyUIState", { ... }, { isTemp: true })
-```
+`useSelector` memoizes and only re-runs when the selected slice changes (configurable equality).
 
 ---
 
-## Bundle Size By Import
+## Avoid Oversized Trees
 
-| Import | Size (gzip) |
-|--------|------------|
-| `stroid/core` only | ~3KB |
-| `+ stroid/react` | ~4KB |
-| `+ stroid/persist` | ~5.5KB |
-| `+ stroid/sync` | ~6.5KB |
-| Everything | ~8KB |
+- Split deep objects into multiple stores when paths exceed about 5 or 6 segments.
+- Use `historyLimit` and `redactor` options to keep history and middleware work small.
 
 ---
 
-**[← Chapter 21 — Architecture](./21-architecture.md)** · **[Chapter 23 — Migration →](./23-migration.md)**
+## Async Cache Hits
+
+`fetchStore` respects `ttl` and `staleWhileRevalidate`, so cached responses skip network and avoid extra renders. Inspect `getAsyncMetrics()` to see cache hits and misses.
+
+---
+
+**[<- Chapter 21 -- Architecture](./21-architecture.md) :: [Chapter 23 -- Migration ->](./23-migration.md)**

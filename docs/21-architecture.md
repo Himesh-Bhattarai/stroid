@@ -1,6 +1,6 @@
-# Chapter 21 — Architecture Patterns
+# Chapter 21 -- Architecture Patterns
 
-> *"Stroid is flexible. These patterns are proven."*
+> "Stroid is flexible. These patterns are proven."
 
 ---
 
@@ -9,91 +9,88 @@
 ### By Feature (Recommended)
 ```
 stores/
-  auth.ts       → createStore("auth", ...)
-  user.ts       → createStore("user", ...)
-  cart.ts       → createStore("cart", ...)
-  checkout.ts   → createStore("checkout", ...)
+  auth.ts    -> createStore("auth", ...)
+  user.ts    -> createStore("user", ...)
+  cart.ts    -> createStore("cart", ...)
+  checkout.ts-> createStore("checkout", ...)
 ```
 
-Each file creates its store and exports any related utilities. Clean, discoverable, maintainable.
+Keep store creation close to the domain logic; export helpers (selectors, typed setters) from the same file.
 
 ---
 
-### Global vs Local — The Rule
+## Lifetime Discipline
 
-```
-Is this state needed by more than one component?
-  YES → isGlobal: true, create outside components
-  NO  → isTemp: true, create inside component
-```
-
----
-
-## The Logout Pattern
+Stroid v0.0.3 does not auto-scope stores. Create them once at module level, and explicitly clean up when they are no longer needed:
 
 ```js
-// stores/auth.ts
+import { deleteStore, clearAllStores } from "stroid"
+
+// Remove a store when its feature is torn down
+deleteStore("onboarding")
+
+// In tests or storybook teardown
+clearAllStores()
+```
+
+---
+
+## Logout Pattern
+
+```js
+import { setStoreBatch, setStore, resetStore } from "stroid"
+
 export function logout() {
-  setStoreBatch([
-    ["auth.user", null],
-    ["auth.token", null],
-    ["auth.isLoggedIn", false]
-  ])
+  setStoreBatch(() => {
+    setStore("auth.user", null)
+    setStore("auth.token", null)
+    setStore("auth.isLoggedIn", false)
+  })
   resetStore("cart")
   resetStore("user")
 }
 ```
 
-All related state resets in one coordinated call.
+One batch, predictable renders.
 
 ---
 
-## The Loading Pattern
+## Loading Flags
 
 ```js
-createStore("ui", {
-  loading: {
-    products: false,
-    user: false,
-    checkout: false
-  }
-})
+createStore("ui", { loading: { products: false, user: false } })
 
-// Set loading for specific feature
 setStore("ui.loading.products", true)
-// Clear after done
+// ...fetch...
 setStore("ui.loading.products", false)
 ```
 
+Granular paths keep re-renders small.
+
 ---
 
-## The Form Pattern
+## Form State
 
 ```js
-// Inside component
-function CheckoutPage() {
-  createStore("checkoutForm", {
-    fields: { email: "", card: "" },
-    errors: {},
-    isDirty: false,
-    isSubmitting: false
-  }, { isTemp: true })
+createStore("checkoutForm", {
+  fields: { email: "", card: "" },
+  errors: {},
+  isSubmitting: false
+})
 
-  async function handleSubmit() {
-    setStore("checkoutForm.isSubmitting", true)
-    try {
-      await api.checkout(getStore("checkoutForm.fields"))
-      resetStore("cart")
-      navigate("/success")
-    } catch (e) {
-      setStore("checkoutForm.errors", { submit: e.message })
-    } finally {
-      setStore("checkoutForm.isSubmitting", false)
-    }
+async function handleSubmit() {
+  setStore("checkoutForm.isSubmitting", true)
+  try {
+    await api.checkout(getStore("checkoutForm.fields"))
+    resetStore("cart")
+  } catch (e) {
+    setStore("checkoutForm.errors", { submit: e.message })
+  } finally {
+    setStore("checkoutForm.isSubmitting", false)
   }
 }
 ```
 
 ---
 
-**[← Chapter 20 — Testing](./20-testing.md)** · **[Chapter 22 — Performance →](./22-performance.md)**
+**[<- Chapter 20 -- Testing](./20-testing.md) :: [Chapter 22 -- Performance ->](./22-performance.md)**

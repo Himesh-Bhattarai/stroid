@@ -1,233 +1,62 @@
-# Chapter 5 — setStore
+# Chapter 5 -- setStore
 
-> *"Update state by saying what you want, not how to get there."*
+> "Update state by saying what you want, not how to get there."
 
 ---
 
-## Basic Usage
+## Shapes You Can Call
 
 ```js
-import { setStore } from "stroid/core"
-
-setStore(path, value)
-setStore.replace(path, value)
+setStore("user", { name: "Jo" })                     // merge object
+setStore("user.name", "Jo")                          // set by dot-path
+setStore("user", draft => { draft.score += 1 })      // draft-style updater
 ```
 
-Two shapes. One for merging. One for replacing.
+No `setStore.replace` helper exists in v0.0.3; merging is the default. To fully replace a branch, just pass the new object yourself.
 
 ---
 
-## Default — Shallow Merge
+## Merge Semantics
+
+- When you pass an object, stroid shallow-merges it into the existing store value.
+- When you pass a path + value, only that path is updated. Missing object keys are created; array indices must exist.
+- When you pass a function, stroid clones the current value, lets you mutate the clone, then commits the result.
+
+---
+
+## Path Safety
+
+Stroid validates paths to avoid silent mistakes:
+- Depth is limited (10 segments) to catch overly nested state.
+- Setting inside null/undefined or type-mismatched branches warns and aborts.
+- Array paths require valid indices.
+
+---
+
+## With Middleware, Schema, Validators
+
+Before committing, stroid runs:
+1) schema validation if configured on the store  
+2) validator function (boolean gate)  
+3) middleware pipeline (can modify or reject updates)
+
+If any step fails, the update is skipped and `onError` is called in dev.
+
+---
+
+## Examples
 
 ```js
-createStore("user", {
-  name: "Eli",
-  theme: "dark",
-  score: 100
-})
+// Add or update multiple fields at once
+setStore("auth", { user, token, isLoggedIn: true })
 
-// Only name changes. theme and score untouched.
-setStore("user", { name: "Jo" })
+// Toggle by reading current value
+setStore("ui.darkMode", current => !current)
 
-// Result: { name: "Jo", theme: "dark", score: 100 }
-```
-
-Stroid never destroys data you didn't mention. Safe by default.
-
----
-
-## Dot-Path Updates — Surgical Nested
-
-```js
-createStore("user", {
-  profile: {
-    name: "Eli",
-    avatar: "eli.png"
-  },
-  settings: {
-    theme: "dark",
-    notifications: true
-  }
-})
-
-// Only profile.name changes. Everything else untouched.
-setStore("user.profile.name", "Jo")
-
-// Result:
-// {
-//   profile: { name: "Jo", avatar: "eli.png" },
-//   settings: { theme: "dark", notifications: true }
-// }
-```
-
-The dot-path tells stroid exactly where to go. Nothing outside that path is touched.
-
----
-
-## Updating Arrays
-
-```js
-createStore("cart", {
-  items: [
-    { id: 1, name: "Shirt", qty: 1 },
-    { id: 2, name: "Hat", qty: 2 }
-  ]
-})
-
-// Update first item quantity
-setStore("cart.items.0.qty", 3)
-
-// Dynamic index
-const index = 1
-setStore(`cart.items.${index}.qty`, 5)
+// Safe array update (index must exist)
+setStore("cart.items.0.qty", qty => qty + 1)
 ```
 
 ---
 
-## Multiple Fields At Once
-
-```js
-// Update multiple fields in one call
-setStore("user", {
-  name: "Jo",
-  theme: "light"
-})
-// score still untouched
-```
-
----
-
-## `.replace` — Full Replacement
-
-When you need to completely replace a value or branch:
-
-```js
-// Replace entire store
-setStore.replace("user", {
-  name: "Jo",
-  theme: "light"
-  // score is GONE — intentional
-})
-
-// Replace a nested branch
-setStore.replace("user.profile", {
-  name: "Jo"
-  // avatar is GONE — intentional
-})
-
-// Replace a single field (same as default for primitives)
-setStore.replace("user.name", "Jo")
-```
-
-**When to use `.replace`:**
-- You want a clean slate for a branch
-- You're resetting a section of state
-- You explicitly want to remove keys
-
----
-
-## Updating Outside React
-
-`setStore` works anywhere — not just in React components:
-
-```js
-// In event handlers
-document.addEventListener("visibilitychange", () => {
-  setStore("app.isVisible", !document.hidden)
-})
-
-// In async functions
-async function login(credentials) {
-  const user = await api.login(credentials)
-  setStore("auth", {
-    user,
-    token: user.token,
-    isLoggedIn: true
-  })
-}
-
-// In setTimeout
-setTimeout(() => {
-  setStore("session.isExpired", true)
-}, SESSION_TIMEOUT)
-```
-
----
-
-## TypeScript
-
-```ts
-interface UserState {
-  name: string
-  theme: "dark" | "light"
-  score: number
-}
-
-createStore<UserState>("user", {
-  name: "Eli",
-  theme: "dark",
-  score: 0
-})
-
-// TypeScript validates the value type
-setStore("user.theme", "light")     // ✅
-setStore("user.theme", "purple")    // ❌ TypeScript error
-setStore("user.score", "hundred")   // ❌ TypeScript error
-```
-
----
-
-## Rules
-
-| Rule | Detail |
-|------|--------|
-| Path must exist | `setStore` won't create new keys — use `mergeStore` |
-| Store must exist | If store not created yet, warns and no-ops |
-| Empty path warns | `setStore("", value)` warns and no-ops |
-| Default is merge | Never destroys untouched keys |
-| `.replace` is explicit | Only way to remove existing keys |
-
----
-
-## Common Patterns
-
-### Login
-```js
-async function handleLogin(credentials) {
-  setStore("auth", { isLoading: true })
-  try {
-    const user = await api.login(credentials)
-    setStore("auth", {
-      user,
-      isLoggedIn: true,
-      isLoading: false
-    })
-  } catch (error) {
-    setStore("auth", {
-      error: error.message,
-      isLoading: false
-    })
-  }
-}
-```
-
-### Toggle
-```js
-function toggleTheme() {
-  const current = getStore("user.theme")
-  setStore("user.theme", current === "dark" ? "light" : "dark")
-}
-```
-
-### Increment
-```js
-function addToCart(item) {
-  const items = getStore("cart.items")
-  setStore("cart.items", [...items, item])
-  setStore("cart.total", getStore("cart.total") + item.price)
-}
-```
-
----
-
-**[← Chapter 4 — createStore](./04-createStore.md)** · **[Chapter 6 — mergeStore →](./06-mergeStore.md)**
+**[<- Chapter 4 -- createStore](./04-createStore.md) :: [Chapter 6 -- mergeStore ->](./06-mergeStore.md)**

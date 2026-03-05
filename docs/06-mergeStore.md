@@ -1,80 +1,34 @@
-# Chapter 6 — mergeStore
+# Chapter 6 -- mergeStore
 
-> *"Adding new keys is a different operation than updating existing ones. Stroid treats them differently."*
+> "Drop in new object fields without paths."
 
 ---
 
 ## Basic Usage
 
 ```js
-import { mergeStore } from "stroid/core"
+import { mergeStore } from "stroid"
 
-mergeStore("storeName", newData)
+mergeStore("user", { address: { city: "NYC" } })
 ```
 
-`mergeStore` is for **adding new keys** to an existing store. It will not overwrite keys that already exist unless you tell it to.
+`mergeStore` shallow-merges an object into an existing object store. It fails fast on non-object stores.
 
 ---
 
-## Adding New Keys
+## When To Use
 
-```js
-createStore("user", {
-  name: "Eli",
-  theme: "dark"
-})
+- Adding or updating several top-level keys at once.
+- Preferring object spread semantics instead of dot-path updates.
 
-// Add address — didn't exist before
-mergeStore("user", {
-  address: {
-    city: "NYC",
-    country: "USA"
-  }
-})
-
-// Result:
-// {
-//   name: "Eli",        ← untouched
-//   theme: "dark",      ← untouched
-//   address: { city: "NYC", country: "USA" }  ← added
-// }
-```
+`setStore("user", {...})` also merges, but `mergeStore` explicitly guards against non-object stores and keeps intent clear.
 
 ---
 
-## The Difference Between setStore and mergeStore
+## Validation Pipeline
 
-```js
-// setStore — updates existing keys
-setStore("user.name", "Jo")        // ✅ name exists
-setStore("user.address", {...})    // ⚠️ warns — address doesn't exist
-
-// mergeStore — adds new keys
-mergeStore("user", { address: {} }) // ✅ adds address
-mergeStore("user", { name: "Jo" })  // ✅ updates name too (merge)
-```
-
-**The rule:**
-- Key already exists → use `setStore`
-- Key doesn't exist yet → use `mergeStore`
+`mergeStore` still runs schema, validator, middleware, persistence, history, and devtools hooks just like `setStore`.
 
 ---
 
-## Deep Merge
-
-```js
-mergeStore("user", {
-  settings: {
-    notifications: {
-      email: true,
-      push: false
-    }
-  }
-})
-```
-
-Stroid walks the tree and merges at every level.
-
----
-
-**[← Chapter 5 — setStore](./05-setStore.md)** · **[Chapter 7 — getStore →](./07-getStore.md)**
+**[<- Chapter 5 -- setStore](./05-setStore.md) :: [Chapter 7 -- getStore ->](./07-getStore.md)**

@@ -1,64 +1,69 @@
-# Chapter 13 — Async
+# Chapter 13 -- Async
 
-> *"Async is not special. It's just state that arrives later."*
+> "Async is just state that arrives later."
 
 ---
 
-## Import
+## API
 
 ```js
-import { createQuery } from "stroid/async"
+import { fetchStore, refetchStore, enableRevalidateOnFocus } from "stroid/async"
 ```
 
----
-
-## The Pattern
-
-Every async operation has the same shape in stroid:
-
-```js
-{
-  data: null,      // response
-  loading: false,  // in flight
-  error: null,     // failed
-  refetch: fn      // retry
-}
-```
+`fetchStore` drives a store with `{ data, loading, error, status, cached? }`.
 
 ---
 
-## createQuery
+## Basic Usage
 
 ```js
-createQuery("products", async () => {
-  const res = await fetch("/api/products")
-  return res.json()
-}, {
-  ttl: 30000,              // cache 30 seconds
-  retries: 2,              // retry twice on failure
-  dedupe: true,            // no duplicate requests
-  revalidateOnFocus: true  // refresh when tab focused
+await fetchStore("products", "/api/products", {
+  ttl: 30000,           // cache for 30s
+  staleWhileRevalidate: true,
+  dedupe: true,         // avoid duplicate in-flight
+  retry: 2,             // retries on failure
 })
 ```
 
-## In Components
+If the store does not exist, it is created automatically with the async shape.
+
+---
+
+## React Consumption
 
 ```js
-function Products() {
-  const { data, loading, error, refetch } = useStore("products")
+import { useStore } from "stroid/react"
 
+function Products() {
+  const { data, loading, error } = useStore("products") ?? {}
   if (loading) return <Spinner />
   if (error) return <p>Error: {error}</p>
-
-  return (
-    <>
-      {data.map(p => <ProductCard key={p.id} product={p} />)}
-      <button onClick={refetch}>Reload</button>
-    </>
-  )
+  return data?.map(p => <div key={p.id}>{p.name}</div>)
 }
 ```
 
 ---
 
-**[← Chapter 12 — React Bindings](./12-react.md)** · **[Chapter 14 — Persistence →](./14-persist.md)**
+## Refetch and Focus Revalidation
+
+```js
+refetchStore("products")              // manual refetch
+enableRevalidateOnFocus()             // global window focus revalidation
+```
+
+`refetchStore` accepts the same options as `fetchStore` (including `cacheKey`).
+
+---
+
+## Metrics
+
+```js
+import { getAsyncMetrics } from "stroid/async"
+const { cacheHits, cacheMisses, requests, failures, lastMs } = getAsyncMetrics()
+```
+
+Use this to observe cache effectiveness during development.
+
+---
+
+**[<- Chapter 12 -- React Bindings](./12-react.md) :: [Chapter 14 -- Persistence ->](./14-persist.md)**

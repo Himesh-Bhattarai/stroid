@@ -1,80 +1,32 @@
-# Chapter 23 — Migration Guide
+# Chapter 23 -- Migration Guide
 
 ---
 
-## From v0.0.x to v0.1.x
+## From Earlier Docs To v0.0.3
 
-### Immer-style draft removed
-
-```js
-// ❌ Old — no longer supported
-setStore("user", draft => {
-  draft.profile.name = "Eli"
-})
-
-// ✅ New — dot-path update
-setStore("user.profile.name", "Eli")
-```
-
-### deleteStore removed
-
-```js
-// ❌ Old
-deleteStore("modal")
-
-// ✅ New — declare lifetime at creation
-createStore("modal", { open: false }, { isTemp: true })
-// auto-destroyed on unmount
-```
-
-### createStore options changed
-
-```js
-// ❌ Old
-createStore("modal", {}, { scope: "local" })
-
-// ✅ New
-createStore("modal", {}, { isTemp: true })
-```
+- `setStore.replace`: not implemented. Replace branches by passing the full value to `setStore`.
+- Array batching: `setStoreBatch` only accepts a callback; move tuple batches inside a function.
+- `isGlobal` / `isTemp` options: not present. Manage lifetime manually (`deleteStore`, `clearAllStores`).
+- External `persist/sync/middleware/schema` packages: configure these via `createStore` options instead.
+- `deleteStore`: still available; no removal required.
+- Draft mutators: still supported (`setStore(name, draft => {...})`); keep using them if you prefer.
+- Testing: use `stroid/testing` helpers instead of `stroid-test`.
+- Devtools: enable with `{ devtools: true }`; no separate `stroid-devtools` package.
 
 ---
 
-## From Redux
+## From Redux or Zustand
 
 ```js
-// Redux
-const userSlice = createSlice({
-  name: "user",
-  initialState: { name: "Eli" },
-  reducers: {
-    setName: (state, action) => { state.name = action.payload }
-  }
-})
-dispatch(setName("Jo"))
-
-// Stroid
+// Redux -> Stroid
 createStore("user", { name: "Eli" })
 setStore("user.name", "Jo")
-```
 
----
-
-## From Zustand
-
-```js
-// Zustand
-const useUserStore = create(set => ({
-  name: "Eli",
-  setName: (name) => set({ name })
-}))
-const name = useUserStore(s => s.name)
-
-// Stroid
+// Zustand -> Stroid
 createStore("user", { name: "Eli" })
 const name = useStore("user.name")
-setStore("user.name", "Jo")
 ```
 
 ---
 
-**[← Chapter 22 — Performance](./22-performance.md)** · **[Chapter 24 — Roadmap →](./24-roadmap.md)**
+**[<- Chapter 22 -- Performance](./22-performance.md) :: [Chapter 24 -- Roadmap ->](./24-roadmap.md)**

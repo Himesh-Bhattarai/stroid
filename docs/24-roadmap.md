@@ -1,96 +1,41 @@
-# Chapter 24 — Roadmap
+# Chapter 24 -- Roadmap
 
-> *"Where stroid is going."*
-
----
-
-## v0.1.0 — Stable Foundation
-*Current focus*
-
-- Fix all known bugs (15 open issues)
-- New core API — `isGlobal`, `isTemp`
-- `setStore` shallow merge default
-- `setStore.replace` for explicit replacement
-- Remove immer-style draft mutations
-- Modular subpath imports
-- `stroid-test` as separate package
-- `stroid-devtools` as separate package
-- Bundle target: < 8KB gzip
-- Full TypeScript coverage
+> "Where stroid is going (subject to change)."
 
 ---
 
-## v0.2.0 — Modular Core
+## Current (v0.0.3)
 
-- `stroid/core` — pure, zero dependency
-- `stroid/react` — React hooks isolated
-- `stroid/async` — async query helpers
-- `stroid/persist` — persistence adapters
-- `stroid/sync` — BroadcastChannel + WebSocket
-- `stroid/middleware` — extensible pipeline
-- `stroid/schema` — validation layer
-- `stroid/ssr` — SSR/RSC helpers
+- Solidify core APIs (create/set/merge/reset/get).
+- Stabilize persistence, schema, middleware, sync, history, metrics, devtools.
+- Improve docs and examples for helpers (counter/list/entity stores, chain).
 
 ---
 
-## v1.0.0 — Production Ready
+## Near-Term Candidates (not guaranteed)
 
-- API locked — no breaking changes after this
-- Full documentation (this book)
-- Real world examples
-- Performance benchmarks
-- Community feedback incorporated
+- Store lifetime flags (`isGlobal`, `isTemp`).
+- `setStore.replace` helper and tuple-style `setStoreBatch`.
+- Higher-level async helpers (`createQuery`, request-store conveniences).
+- Dedicated subpaths for `persist`, `sync`, `middleware`, `schema`, `ssr`.
+- Remote sync adapters (WebSocket) beyond BroadcastChannel.
 
----
-
-## v2.0 — Intelligence Layer
-
-- State relationships — `relate()` — stores that react to each other
-- State confidence — know if your data is fresh or stale
-- Time aware state — TTL, expiry, scheduled updates
-- Intent based updates — log WHY state changed
-- Unified async — server and client state one model
-- WebSocket sync adapter
+These items are under active discussion and may land or be deferred based on feasibility and community feedback.
 
 ---
 
-## v3.0 — Universal Platform
+## Longer-Term Ideas
 
-- Cross framework — Vue, Svelte, Angular bindings
-- Collaborative state — CRDT, multi-user real-time
-- Edge state — Cloudflare Workers, Vercel Edge
-- Queryable state — filter/sort/aggregate your state
-- State replay — record and replay user sessions
+- Cross-framework bindings (Vue/Svelte/Angular).
+- Advanced relationship APIs (derived/relational stores).
+- Offline/rollback pipelines and richer observability.
 
 ---
 
-## v4.0 — Pipeline State
+## Versioning
 
-- One store flows through entire stack
-- Frontend → Middleware → Controller → DB
-- Optimistic updates with automatic rollback
-- Offline first with intelligent sync on reconnect
-- Universal — same store, same API, client to server
+Semantic versioning applies. Until v1.0.0, breaking changes can occur on minor bumps.
 
 ---
 
-## Versioning Policy
-
-Stroid follows semantic versioning.
-
-```
-0.x.x  →  pre-stable, breaking changes allowed
-1.x.x  →  stable, breaking changes only on major
-```
-
-Until v1.0.0 — breaking changes bump the minor version (`0.x.0`). After v1.0.0 — breaking changes only happen on major version bumps.
-
----
-
-## Contributing
-
-Stroid is open source. Contributions, bug reports, and feature discussions are welcome on GitHub.
-
----
-
-**[← Chapter 23 — Migration](./23-migration.md)** · **[Back to Table of Contents →](./README.md)**
+**[<- Chapter 23 -- Migration](./23-migration.md) :: [Back to Table of Contents ->](./README.md)**

@@ -1,90 +1,45 @@
-# Chapter 14 — Persistence
+# Chapter 14 -- Persistence
 
-> *"State that survives a refresh. Zero wiring."*
+> "State that survives refresh, configured in one place."
 
 ---
 
-## Import
+## Enable Per Store
 
 ```js
-import { persist } from "stroid/persist"
+createStore("cart", { items: [] }, { persist: true })
 ```
 
----
-
-## Basic Usage
-
-```js
-persist("cart")
-// cart now survives page refresh automatically
-```
-
-Call `persist` after `createStore`. That's it.
+`persist: true` uses `localStorage` if available; when unavailable, it falls back to an in-memory driver.
 
 ---
 
-## With Options
+## Custom Configuration
 
 ```js
-persist("user", {
-  storage: "localStorage",    // default
-  storage: "sessionStorage",  // clears on tab close
-  key: "stroid-user",         // custom storage key
-  include: ["name", "theme"], // only persist these fields
-  exclude: ["token"],         // persist everything except these
-})
-```
-
----
-
-## Custom Storage Adapter
-
-```js
-persist("user", {
-  storage: {
-    getItem: (key) => myCustomStorage.get(key),
-    setItem: (key, value) => myCustomStorage.set(key, value),
-    removeItem: (key) => myCustomStorage.delete(key)
+createStore("user", initial, {
+  persist: {
+    driver: sessionStorage,      // any storage-like object
+    key: "stroid-user",
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encrypt: v => v,
+    decrypt: v => v,
   }
 })
 ```
 
-Works with IndexedDB, AsyncStorage (React Native), or any key-value store.
+- `driver` must expose `getItem/setItem/removeItem`.
+- `key` defaults to the store name.
+- `serialize/deserialize` let you control encoding.
+- `encrypt/decrypt` let you wrap storage for secrecy.
 
 ---
 
-## Migrations
+## Collisions and Warnings
 
-When your store schema changes, migrate old persisted data:
-
-```js
-persist("user", {
-  version: 2,
-  migrations: {
-    1: (state) => ({
-      ...state,
-      // v1 had "fullName", v2 splits it
-      firstName: state.fullName.split(" ")[0],
-      lastName: state.fullName.split(" ")[1],
-      fullName: undefined
-    })
-  }
-})
-```
-
-Stroid automatically runs the right migrations when loading persisted data.
+Stroid prevents two stores from sharing the same persist key and will warn if you try. Failed loads are ignored and the store resets to its initial value.
 
 ---
 
-## Hydration
-
-```js
-import { hydrateStores } from "stroid/ssr"
-
-// On app start — load all persisted stores
-await hydrateStores()
-```
-
----
-
-**[← Chapter 13 — Async](./13-async.md)** · **[Chapter 15 — Sync →](./15-sync.md)**
+**[<- Chapter 13 -- Async](./13-async.md) :: [Chapter 15 -- Sync ->](./15-sync.md)**

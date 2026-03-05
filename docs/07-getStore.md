@@ -1,13 +1,13 @@
-# Chapter 7 — getStore
+# Chapter 7 -- getStore
 
-> *"Read state anywhere. Not just in React."*
+> "Read state anywhere. Not just in React."
 
 ---
 
 ## Basic Usage
 
 ```js
-import { getStore } from "stroid/core"
+import { getStore } from "stroid"
 
 // Read entire store
 const user = getStore("user")
@@ -23,7 +23,7 @@ const city = getStore("user.address.city")
 
 ## Outside React
 
-`getStore` is the way to read state outside of React components — in utilities, services, event handlers, or async functions.
+`getStore` is the way to read state outside of React components -- in utilities, services, event handlers, or async functions.
 
 ```js
 // In an API service
@@ -55,10 +55,10 @@ window.addEventListener("beforeunload", () => {
 `getStore` returns the current state at the moment of the call. It does not subscribe to changes. For reactive reads in React, use `useStore`.
 
 ```js
-// Snapshot — value at this moment
+// Snapshot -- value at this moment
 const name = getStore("user.name")
 
-// Reactive — re-renders on change
+// Reactive -- re-renders on change
 const name = useStore("user.name")
 ```
 
@@ -75,4 +75,4 @@ const score = getStore("user.score") // inferred as number
 
 ---
 
-**[← Chapter 6 — mergeStore](./06-mergeStore.md)** · **[Chapter 8 — resetStore →](./08-resetStore.md)**
+**[<- Chapter 6 -- mergeStore](./06-mergeStore.md) :: [Chapter 8 -- resetStore ->](./08-resetStore.md)**

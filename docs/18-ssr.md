@@ -1,69 +1,46 @@
-# Chapter 18 — SSR & RSC
+# Chapter 18 -- SSR and RSC
 
-> *"Stroid works on the server too."*
-
----
-
-## Import
-
-```js
-import { hydrateStores, dehydrateStores } from "stroid/ssr"
-```
+> "Serialize once, hydrate on the client."
 
 ---
 
-## The Pattern
+## Hydrating Stores
 
 ```js
-// Server — serialize state
-const snapshot = dehydrateStores(["user", "theme"])
+import { hydrateStores } from "stroid"
 
-// Pass to client via HTML
-<script>
-  window.__STROID__ = ${JSON.stringify(snapshot)}
-</script>
-
-// Client — restore state
-hydrateStores(window.__STROID__)
-```
-
----
-
-## Next.js App Router
-
-```js
-// app/layout.tsx
-import { dehydrateStores } from "stroid/ssr"
-
-export default async function RootLayout({ children }) {
-  createStore("config", await getServerConfig())
-  const snapshot = dehydrateStores(["config"])
-
-  return (
-    <html>
-      <body>
-        <StroidHydrator snapshot={snapshot} />
-        {children}
-      </body>
-    </html>
-  )
+const snapshot = {
+  auth: { user: null, token: null },
+  settings: { theme: "dark" }
 }
+
+hydrateStores(snapshot)
 ```
+
+`hydrateStores` creates missing stores or updates existing ones using their options (persist, middleware, schema, etc.).
 
 ---
 
-## React Server Components
+## With createStoreForRequest
 
 ```js
-// Server Component — read only
-import { getStore } from "stroid/core"
+const req = createStoreForRequest(api => {
+  api.create("config", await loadConfig())
+})
 
-export default async function ServerNav() {
-  const config = getStore("config")
-  return <nav>{config.navItems.map(...)}</nav>
-}
+const snapshot = req.snapshot()
+// send snapshot to client
+req.hydrate() // reuse on server if needed
 ```
+
+Prepare request-scoped state, then hydrate on the client.
 
 ---
 
-**[← Chapter 17 — Schema](./17-schema.md)** · **[Chapter 19 — Devtools →](./19-devtools.md)**
+## SSR Safety Flags
+
+`allowSSRGlobalStore` lets you opt in to creating stores in environments that lack `window` without dev warnings.
+
+---
+
+**[<- Chapter 17 -- Schema](./17-schema.md) :: [Chapter 19 -- Devtools ->](./19-devtools.md)**

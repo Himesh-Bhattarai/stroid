@@ -1,70 +1,42 @@
-# Chapter 15 — Sync
+# Chapter 15 -- Sync
 
-> *"Same state. Every tab. Always."*
+> "Keep tabs in sync with one flag."
 
 ---
 
-## Import
+## Enable Cross-Tab Sync
 
 ```js
-import { sync } from "stroid/sync"
+createStore("cart", { items: [] }, { sync: true })
 ```
 
----
-
-## Basic — BroadcastChannel
-
-```js
-// State syncs across all tabs automatically
-sync("cart")
-sync("notifications")
-```
-
-When a user updates state in one tab, all other open tabs update instantly.
+Stroid uses `BroadcastChannel` under the hood. Updates in one tab are broadcast to others, including history and metrics updates.
 
 ---
 
-## WebSocket — Cross Device
+## Custom Channel and Conflict Resolution
 
 ```js
-sync("messages", {
-  adapter: "websocket",
-  url: "wss://your-server.com/sync"
-})
-```
-
-For real-time sync across devices and users.
-
----
-
-## Custom Adapter
-
-```js
-sync("user", {
-  adapter: {
-    send: (storeName, patch) => myTransport.emit(storeName, patch),
-    receive: (callback) => myTransport.on("patch", callback)
+createStore("document", { content: "" }, {
+  sync: {
+    channel: "docs-channel",
+    conflictResolver: ({ local, incoming, localUpdated, incomingUpdated }) => {
+      return incomingUpdated >= localUpdated ? incoming : local
+    }
   }
 })
 ```
 
----
-
-## Conflict Resolution
-
-When two tabs update the same field simultaneously:
-
-```js
-sync("document", {
-  conflictResolver: (local, remote) => {
-    // Return the version to keep
-    return local.updatedAt > remote.updatedAt ? local : remote
-  }
-})
-```
-
-Default strategy is Last Write Wins (LWW).
+If the resolver returns `undefined`, the incoming update is ignored.
 
 ---
 
-**[← Chapter 14 — Persistence](./14-persist.md)** · **[Chapter 16 — Middleware →](./16-middleware.md)**
+## Notes
+
+- Sync is opt-in per store.
+- When schema validation fails on the receiving tab, the update is dropped.
+- There is no WebSocket or remote adapter in v0.0.3.
+
+---
+
+**[<- Chapter 14 -- Persistence](./14-persist.md) :: [Chapter 16 -- Middleware ->](./16-middleware.md)**

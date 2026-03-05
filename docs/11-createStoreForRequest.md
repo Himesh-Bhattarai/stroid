@@ -1,101 +1,37 @@
-# Chapter 11 — createStoreForRequest
+# Chapter 11 -- createStoreForRequest
 
-> *"Async state is still state. It deserves the same first-class treatment."*
-
----
-
-## Basic Usage
-
-```js
-import { createStoreForRequest } from "stroid/core"
-
-createStoreForRequest("fetchUser", async () => {
-  const response = await fetch("/api/user")
-  return response.json()
-})
-```
-
-This creates a store with built-in `data`, `loading`, `error`, and `refetch` — automatically.
+> "Build state during a request, then hydrate it in one shot."
 
 ---
 
-## In React
+## What It Does
 
-```js
-import { useStore } from "stroid/react"
+`createStoreForRequest` gives you an in-memory buffer to collect store data (without touching the global store registry) and a `hydrate` helper to replay that buffer into real stores later.
 
-function UserProfile() {
-  const { data, loading, error, refetch } = useStore("fetchUser")
-
-  if (loading) return <Spinner />
-  if (error) return <Error message={error} />
-
-  return (
-    <div>
-      <h1>{data.name}</h1>
-      <button onClick={refetch}>Refresh</button>
-    </div>
-  )
-}
-```
+This is useful for SSR/RSC or any per-request work where you need to prepare state but only commit once the request finishes.
 
 ---
 
-## The State Shape
+## API
 
-Every request store has the same shape:
-
-```js
-{
-  data: null,        // the response data
-  loading: false,    // is request in flight
-  error: null,       // error message if failed
-  refetch: fn        // trigger a new request
-}
-```
-
----
-
-## With Options
-
-```js
-createStoreForRequest("fetchProducts", async () => {
-  return api.getProducts()
-}, {
-  ttl: 60000,           // cache for 60 seconds
-  retries: 3,           // retry on failure
-  dedupe: true,         // deduplicate in-flight requests
-  revalidateOnFocus: true,  // refetch when tab regains focus
-  revalidateOnReconnect: true  // refetch when back online
-})
-```
-
----
-
-## With Parameters
-
-```js
-createStoreForRequest("fetchUser", async (userId) => {
-  return api.getUser(userId)
+```ts
+const req = createStoreForRequest((api) => {
+  api.create("profile", { name: "Eli" })
+  api.set("profile", state => ({ ...state, loadedAt: Date.now() }))
 })
 
-// Trigger with params
-refetchStore("fetchUser", userId)
+const snapshot = req.snapshot() // plain object of buffered stores
+req.hydrate()                   // creates/updates real stores from the buffer
 ```
+
+- `create(name, data, options?)` adds a buffered store.
+- `set(name, updater)` mutates the buffered value (function or value).
+- `get(name)` returns a clone of buffered data.
+- `snapshot()` returns all buffered stores.
+- `hydrate(options?)` calls `hydrateStores` to create or update real stores with the buffered data.
+
+No network fetching is performed; pair this with your own fetches or with `fetchStore` from the async API.
 
 ---
 
-## Abort Signal
-
-```js
-createStoreForRequest("fetchData", async (_, signal) => {
-  const response = await fetch("/api/data", { signal })
-  return response.json()
-})
-// Request automatically aborted if store is destroyed
-// or a new request starts before this one finishes
-```
-
----
-
-**[← Chapter 10 — subscribeWithSelector](./10-subscribeWithSelector.md)** · **[Chapter 12 — React Bindings →](./12-react.md)**
+**[<- Chapter 10 -- subscribeWithSelector](./10-subscribeWithSelector.md) :: [Chapter 12 -- React Bindings ->](./12-react.md)**

@@ -1,69 +1,38 @@
-# Chapter 18 — SSR & RSC
+# Chapter 16 -- Middleware
 
-> *"Stroid works on the server too."*
-
----
-
-## Import
-
-```js
-import { hydrateStores, dehydrateStores } from "stroid/ssr"
-```
+> "Intercept, audit, or transform every update."
 
 ---
 
-## The Pattern
+## Configure Per Store
 
 ```js
-// Server — serialize state
-const snapshot = dehydrateStores(["user", "theme"])
-
-// Pass to client via HTML
-<script>
-  window.__STROID__ = ${JSON.stringify(snapshot)}
-</script>
-
-// Client — restore state
-hydrateStores(window.__STROID__)
-```
-
----
-
-## Next.js App Router
-
-```js
-// app/layout.tsx
-import { dehydrateStores } from "stroid/ssr"
-
-export default async function RootLayout({ children }) {
-  createStore("config", await getServerConfig())
-  const snapshot = dehydrateStores(["config"])
-
-  return (
-    <html>
-      <body>
-        <StroidHydrator snapshot={snapshot} />
-        {children}
-      </body>
-    </html>
-  )
+const logger = ({ action, name, prev, next, path }) => {
+  console.info(`[${name}] ${action} @ ${path ?? "(root)"}`, { prev, next })
 }
+
+createStore("settings", { theme: "dark" }, { middleware: [logger] })
 ```
+
+Each middleware receives:
+`{ action: "set" | "merge" | "reset" | "delete", name, prev, next, path }`
+
+Return a value to replace `next`; return `undefined` to keep the current `next`.
 
 ---
 
-## React Server Components
+## Use Cases
 
-```js
-// Server Component — read only
-import { getStore } from "stroid/core"
-
-export default async function ServerNav() {
-  const config = getStore("config")
-  return <nav>{config.navItems.map(...)}</nav>
-}
-```
+- Logging or analytics
+- Enforcing invariants before schema/validator
+- Injecting timestamps, user IDs, or audit data
 
 ---
 
-**[← Chapter 17 — Schema](./17-schema.md)** · **[Chapter 19 — Devtools →](./19-devtools.md)**
+## Ordering
+
+Middlewares run in array order; the output of one is passed to the next. Keep them pure and fast -- slow middleware affects all updates.
+
+---
+
+**[<- Chapter 15 -- Sync](./15-sync.md) :: [Chapter 17 -- Schema & Validation ->](./17-schema.md)**

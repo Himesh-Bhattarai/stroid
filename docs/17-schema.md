@@ -1,71 +1,53 @@
-# Chapter 19 — Devtools
+# Chapter 17 -- Schema and Validation
 
-> *"See everything. Understand everything. Debug nothing."*
-
----
-
-## Install
-
-```bash
-npm install stroid-devtools --save-dev
-```
+> "Validate state before it lands."
 
 ---
 
-## Setup
+## Schema Option
 
 ```js
-// One line in your app entry
-import "stroid-devtools"
+import { z } from "zod"
 
-// That's it. All stores appear automatically.
-```
-
----
-
-## What You Get
-
-### Store Explorer
-Browse every store in your application. See current state, metadata, and lifetime status in real time.
-
-### Action History
-Every `setStore`, `mergeStore`, and `resetStore` call is logged with timestamp, store name, path, and value change.
-
-### Diff Viewer
-See exactly what changed between updates. Before and after, side by side.
-
-### Lifetime Tracker
-See which stores are alive, which are temp, which have been destroyed.
-
-### Performance Panel
-Updates per second, average update time, largest stores, subscriber counts.
-
----
-
-## Chrome Extension
-
-The devtools panel lives in your browser's DevTools. Install from the Chrome Web Store (coming soon).
-
----
-
-## Configuration
-
-```js
-import { configureDevtools } from "stroid-devtools"
-
-configureDevtools({
-  enabled: process.env.NODE_ENV === "development",
-  logLevel: "verbose",  // "silent" | "normal" | "verbose"
-  maxHistory: 100       // how many actions to keep
+createStore("profile", { name: "", age: 0 }, {
+  schema: z.object({ name: z.string(), age: z.number().nonnegative() })
 })
 ```
 
+Supported styles:
+- Zod: safeParse or parse
+- Yup: validateSync or isValidSync
+- Generic functions: `(value) => value | true | false`
+
+If validation fails, the update is skipped and `onError` (if provided) is called in development.
+
 ---
 
-## Production
+## Validator Gate
 
-Stroid devtools is a `devDependency`. It is never included in production builds. The bridge code is stripped automatically by your bundler.
+```js
+createStore("transfer", { amount: 0 }, {
+  validator: (next) => next.amount <= 1000
+})
+```
+
+Use `validator` for simple boolean checks; it runs after schema.
 
 ---
 
-**[← Chapter 18 — SSR](./18-ssr.md)** · **[Chapter 20 — Testing →](./20-testing.md)**
+## Migrations and Versioning
+
+```js
+createStore("user", initial, {
+  version: 2,
+  migrations: {
+    1: state => ({ ...state, fullName: `${state.first} ${state.last}` })
+  }
+})
+```
+
+Migrations apply when persisted data loads.
+
+---
+
+**[<- Chapter 16 -- Middleware](./16-middleware.md) :: [Chapter 18 -- SSR](./18-ssr.md)**
