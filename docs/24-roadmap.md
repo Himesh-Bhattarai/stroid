@@ -42,6 +42,24 @@ If a feature is listed above but absent in the current code (e.g., `isGlobal`, `
 
 ---
 
+## Draft: v2.x Themes (post-1.0 exploration)
+
+- **State Intelligence**
+  - State relationships (stores that react to each other)
+  - Time-aware state (TTL, expiry, scheduled updates)
+  - State confidence/freshness indicators
+  - Predictive state hooks (preload/optimistic hints)
+- **State Collaboration**
+  - Multi-user/state CRDT or conflict-free strategies
+  - Shared editing sessions and replay
+- **Ecosystem**
+  - First-party `stroid-test` and `stroid-devtools` packages (optional installs; owned by Stroid)
+  - Optional remote sync adapters
+
+These are directional and not scheduled; they begin after v1.0.0 once stability is locked.
+
+---
+
 ## Versioning
 
 Semantic versioning applies. Pre-1.0 releases may introduce breaking changes on minor bumps; 1.0+ locks the API.
