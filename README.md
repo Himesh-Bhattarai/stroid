@@ -4,7 +4,11 @@
 
 # ⚡ Stroid
 
-State management that gets out of your way. No Provider. No dispatch. No boilerplate. Just create → set → read.
+Compact, batteries-included state management for JavaScript & React.
+
+Mutable-friendly updates · Selectors · Persistence · Async caching · Sync · Drop-in presets — all in one ergonomic package.
+
+> Note: this library is not aimed at beginners.
 
 </div>
 
@@ -14,6 +18,7 @@ State management that gets out of your way. No Provider. No dispatch. No boilerp
 
 [![npm](https://img.shields.io/npm/v/stroid?color=6366f1&label=version&style=flat-square)](https://www.npmjs.com/package/stroid)
 [![bundle](https://img.shields.io/badge/min+gzip-~9KB-6366f1?style=flat-square)](https://bundlephobia.com/package/stroid)
+[![downloads](https://img.shields.io/npm/dm/stroid?color=6366f1&style=flat-square)](https://www.npmjs.com/package/stroid)
 [![license](https://img.shields.io/badge/license-MIT-6366f1?style=flat-square)](./LICENSE)
 [![typescript](https://img.shields.io/badge/TypeScript-ready-6366f1?style=flat-square)](./docs/02-getting-started.md)
 [![tree-shakeable](https://img.shields.io/badge/tree--shakeable-yes-6366f1?style=flat-square)](./docs/22-performance.md)
@@ -24,7 +29,9 @@ State management that gets out of your way. No Provider. No dispatch. No boilerp
 
 ## 🎯 Hook
 
-Three primitives (create → set → read) with built-in guardrails (schema, validator, middleware) and batteries included (persistence, async caching, cross-tab sync). Under 10 kB gzipped when tree-shaken.
+Three primitives (create → set → read) with built-in guardrails (schema, validator, middleware) and batteries included (persistence, async caching, cross-tab sync). Under 10 kB gzipped, ESM-only, tree-shakeable, side-effect free, zero dependencies.
+
+Jump to: [Installation](#-install) | [Quick Example](#-quick-example-15-lines) | [Features](#-feature-highlights) | [Comparison](#-comparison) | [React Hooks](./docs/12-react.md) | [Async](./docs/13-async.md) | [Persistence](./docs/14-persist.md) | [Core API](./docs/04-createStore.md)
 
 ---
 
@@ -102,9 +109,26 @@ npm install stroid
 
 ---
 
+## 🧭 Versioning
+
+Stroid follows Semantic Versioning:
+- MAJOR — breaking changes
+- MINOR — new backwards-compatible features
+- PATCH — bug fixes
+
+See [`CHANGELOG.md`](./CHANGELOG.md) for the full history.
+
+---
+
 ## 👥 Top Contributors
 
 [![Contributors graph](https://contrib.rocks/image?repo=Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid/graphs/contributors)
+
+---
+
+## 📄 License
+
+MIT © Himeshchanchal Bhattarai
 
 ---
 
