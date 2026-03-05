@@ -121,6 +121,29 @@ function ProductList() {
 
 ---
 
+## useAsyncStore + fetchStore (end-to-end)
+
+```js
+// Trigger the fetch anywhere (component effect, router loader, event handler)
+fetchStore("products", "/api/products", { ttl: 30000, staleWhileRevalidate: true })
+
+import { useAsyncStore } from "stroid/react"
+
+function ProductsGrid() {
+  const { data, loading, error, status, isEmpty } = useAsyncStore("products")
+
+  if (loading) return <Spinner />
+  if (error) return <p>Error: {error}</p>
+  if (isEmpty) return <p>No products yet.</p>
+
+  return data.map(p => <ProductCard key={p.id} product={p} />)
+}
+```
+
+`useAsyncStore` normalizes the async shape to keep component logic small.
+
+---
+
 ## No Provider Required
 
 Unlike Redux, React Context, or Jotai -- stroid requires no Provider wrapper. There is no setup required in your component tree.
