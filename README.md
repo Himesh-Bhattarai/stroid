@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./stroid-website/public/resize-17727155611405914357Screenshot20260303134920.png" alt="Stroid logo" width="720" />
+<img src=".\stroid-website\public\Screenshot 2026-03-05 185907.jpg" alt="Stroid logo"/>
 
 # Stroid
 
