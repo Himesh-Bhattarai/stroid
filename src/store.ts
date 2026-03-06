@@ -356,6 +356,11 @@ const _applyRedactor = (name: string, data: StoreValue): StoreValue => {
     return data;
 };
 
+const _reportStoreError = (name: string, message: string): void => {
+    _meta[name]?.options?.onError?.(message);
+    warn(message);
+};
+
 const _diffShallow = (prev: StoreValue, next: StoreValue): { added: string[]; removed: string[]; changed: string[] } | null => {
     if (typeof prev !== "object" || typeof next !== "object" || prev === null || next === null) return null;
     const prevObj = prev as Record<string, unknown>;
@@ -431,9 +436,7 @@ const _validateSchema = (name: string, next: StoreValue): { ok: boolean } => {
     if (!schema) return { ok: true };
     const res = runSchemaValidation(schema, next);
     if (!res.ok) {
-        const msg = `Schema validation failed for "${name}": ${res.error}`;
-        _meta[name]?.options?.onError?.(msg);
-        warn(msg);
+        _reportStoreError(name, `Schema validation failed for "${name}": ${res.error}`);
     }
     return res as { ok: boolean };
 };
@@ -454,9 +457,7 @@ const _persistSave = (name: string): void => {
         const payload = cfg.encrypt(envelope);
         cfg.driver.setItem?.(cfg.key, payload);
     } catch (e) {
-        const msg = `Could not persist store "${name}" (${(e as { message?: string })?.message || e})`;
-        warn(msg);
-        _meta[name]?.options?.onError?.(msg);
+        _reportStoreError(name, `Could not persist store "${name}" (${(e as { message?: string })?.message || e})`);
     }
 }, 0);
 };
@@ -472,7 +473,7 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
         const { v = 1, checksum, data } = envelope || {};
         if (!data) return;
         if (checksum !== hashState(data)) {
-            warn(`Checksum mismatch loading store "${name}". Falling back to initial state.`);
+            _reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
             _stores[name] = deepClone(_initial[name]);
             return;
         }
@@ -489,7 +490,7 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
                     const migrated = migrations[ver](parsed);
                     if (migrated !== undefined) parsed = migrated;
                 } catch (e) {
-                    warn(`Migration to v${ver} failed for "${name}": ${(e as { message?: string })?.message || e}`);
+                    _reportStoreError(name, `Migration to v${ver} failed for "${name}": ${(e as { message?: string })?.message || e}`);
                 }
             });
         }
@@ -502,7 +503,7 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
         _stores[name] = parsed;
         if (!silent) log(`Store "${name}" loaded from persistence`);
     } catch (e) {
-        warn(`Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
+        _reportStoreError(name, `Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
     }
 };
 
