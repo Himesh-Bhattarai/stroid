@@ -591,6 +591,21 @@ export const createStore = <Name extends string, State>(
         allowSSRGlobalStore,
     };
 
+    const initialSchemaResult = schema ? runSchemaValidation(schema, clean) : { ok: true };
+    if (!initialSchemaResult.ok) {
+        const msg = `Schema validation failed for "${name}": ${initialSchemaResult.error}`;
+        onError?.(msg);
+        warn(msg);
+        return;
+    }
+
+    if (validator && validator(clean as State) === false) {
+        const msg = `Validator blocked initial state for "${name}"`;
+        onError?.(msg);
+        warn(msg);
+        return;
+    }
+
     _stores[name] = clean;
     _subscribers[name] = _subscribers[name] || [];
     _initial[name] = deepClone(clean);

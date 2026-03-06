@@ -10,6 +10,7 @@ import {
   hasStore,
   listStores,
   clearAllStores,
+  hydrateStores,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -124,6 +125,36 @@ test("resetStore resets back to initial value", () => {
   setStore("user", "name", "Jordan");
   resetStore("user");
   assert.strictEqual(getStore("user", "name"), "Alex");
+});
+
+test("hydrateStores skips invalid schema payloads and keeps reset state intact", () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const schema = (v: any) => (typeof v?.name === "string" ? v : false);
+
+  createStore("profile", { name: "Alex" }, {
+    schema,
+    onError: (msg) => { errors.push(`profile:${msg}`); },
+  });
+
+  hydrateStores(
+    {
+      profile: { name: 123 },
+      ghost: { name: 456 },
+    },
+    {
+      default: {
+        schema,
+        onError: (msg) => { errors.push(`hydrate:${msg}`); },
+      },
+    }
+  );
+
+  assert.deepStrictEqual(getStore("profile"), { name: "Alex" });
+  resetStore("profile");
+  assert.deepStrictEqual(getStore("profile"), { name: "Alex" });
+  assert.strictEqual(hasStore("ghost"), false);
+  assert.ok(errors.some((msg) => msg.includes('Schema validation failed for "ghost"')));
 });
 
 test("mergeStore adds fields without removing old ones", () => {
