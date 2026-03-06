@@ -406,13 +406,21 @@ const _runMiddleware = (name: string, payload: { action: string; prev: StoreValu
     let nextState = payload.next;
     for (const mw of middlewares) {
         if (typeof mw !== "function") continue;
-        const result = mw({
-            action: payload.action,
-            name,
-            prev: payload.prev,
-            next: nextState,
-            path: payload.path,
-        });
+        let result: StoreValue | void;
+        try {
+            result = mw({
+                action: payload.action,
+                name,
+                prev: payload.prev,
+                next: nextState,
+                path: payload.path,
+            });
+        } catch (err) {
+            const msg = `Middleware for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
+            _meta[name]?.options?.onError?.(msg);
+            warn(msg);
+            continue;
+        }
         if (result !== undefined) nextState = result;
     }
     return nextState;

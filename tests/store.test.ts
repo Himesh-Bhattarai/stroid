@@ -10,6 +10,7 @@ import {
   hasStore,
   listStores,
   clearAllStores,
+  _subscribe,
   hydrateStores,
 } from "../src/store.js";
 
@@ -155,6 +156,35 @@ test("hydrateStores skips invalid schema payloads and keeps reset state intact",
   assert.deepStrictEqual(getStore("profile"), { name: "Alex" });
   assert.strictEqual(hasStore("ghost"), false);
   assert.ok(errors.some((msg) => msg.includes('Schema validation failed for "ghost"')));
+});
+
+test("middleware errors do not block later notifications", async () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const seen: Array<Record<string, string> | null> = [];
+
+  createStore("prefs", { theme: "dark" }, {
+    middleware: [() => { throw new Error("boom"); }],
+    onError: (msg) => { errors.push(msg); },
+  });
+
+  const unsubscribe = _subscribe("prefs", (value) => {
+    seen.push(value as Record<string, string> | null);
+  });
+
+  assert.doesNotThrow(() => {
+    setStore("prefs", { theme: "light" });
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  setStore("prefs", { theme: "blue" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  unsubscribe();
+
+  assert.deepStrictEqual(getStore("prefs"), { theme: "blue" });
+  assert.deepStrictEqual(seen, [{ theme: "light" }, { theme: "blue" }]);
+  assert.ok(errors.some((msg) => msg.includes('Middleware for "prefs" failed')));
 });
 
 test("mergeStore adds fields without removing old ones", () => {
