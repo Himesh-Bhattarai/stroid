@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file.
 
 ## Unreleased
+### Changed
+- `v0.0.5` is now the active development branch. `main` stays locked on the released `0.0.4` line until the next release is cut.
+- Release artifacts remain release-managed on this branch: `dist/` may be absent here or still reflect the last released `0.0.4` build while current source/docs continue to move forward.
 
 ## 0.0.4 - 2026-03-06
 ### Added

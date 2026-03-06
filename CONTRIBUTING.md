@@ -8,6 +8,7 @@ Thanks for helping make Stroid better. Before opening a PR, please skim this pag
 - **Testing:** run `npm test --silent` and `npm run build` before pushing. Add or adjust tests for every bug fix or new behavior.
 - **Style:** keep changes minimal, dependency-free, and under the bundle-size goal. Favor clarity over cleverness; add comments only when intent is not obvious.
 - **Docs:** update `README.md` and `CHANGELOG.md` when user-visible behavior changes.
+- **Release artifacts:** `dist/` is release-managed. During `v0.0.5` development, it may be absent in the repo or still reflect the last released `0.0.4` build while source and docs move ahead.
 
 ## Pull requests
 - Describe the problem, the fix, and any trade-offs.

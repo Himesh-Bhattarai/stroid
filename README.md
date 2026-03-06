@@ -2,6 +2,8 @@
 
 Compact, batteries-included state management for JavaScript and React.
 
+> Development branch notice (`v0.0.5`): `main` stays locked on the released `0.0.4` line. This branch tracks upcoming work, and `dist/` is release-managed, so it may be absent here or still reflect the last released `0.0.4` build until the next release is prepared.
+
 Stroid keeps the API small: create a store, update it, read it. Persistence, async caching, cross-tab sync, middleware, schema validation, history, and React hooks are configured per store instead of bolted on later.
 
 This package is ESM-only, tree-shakeable, side-effect free, and ships with zero runtime dependencies.
@@ -75,6 +77,7 @@ The core path API uses `storeName` and `path` separately:
 
 - React is a peer dependency (`>=18`)
 - Node `>=18` is required
+- `v0.0.5` is the active development branch; `dist/` is release-managed and may be absent here or lag behind in-progress source changes until the next release build
 - Planned or not-yet-implemented ideas belong in the roadmap, not the API docs
 
 ## License
