@@ -98,6 +98,7 @@ export interface StoreOptions<State = StoreValue> {
     allowSSRGlobalStore?: boolean;
     sync?: boolean | {
         channel?: string;
+        maxPayloadBytes?: number;
         conflictResolver?: (args: {
             local: StoreValue;
             incoming: StoreValue;
@@ -123,7 +124,11 @@ type NormalizedOptions = {
     redactor?: (state: StoreValue) => StoreValue;
     historyLimit: number;
     allowSSRGlobalStore?: boolean;
-    sync?: boolean | { channel?: string; conflictResolver?: (args: { local: StoreValue; incoming: StoreValue; localUpdated: number; incomingUpdated: number; }) => StoreValue | void };
+    sync?: boolean | {
+        channel?: string;
+        maxPayloadBytes?: number;
+        conflictResolver?: (args: { local: StoreValue; incoming: StoreValue; localUpdated: number; incomingUpdated: number; }) => StoreValue | void;
+    };
 };
 
 interface MetaEntry {
@@ -420,6 +425,16 @@ const _applyRedactor = (name: string, data: StoreValue): StoreValue => {
         catch (_) { return data; }
     }
     return data;
+};
+
+const _byteLength = (value: string): number => {
+    if (typeof TextEncoder !== "undefined") {
+        return new TextEncoder().encode(value).length;
+    }
+    if (typeof Buffer !== "undefined") {
+        return Buffer.byteLength(value);
+    }
+    return value.length;
 };
 
 const _reportStoreError = (name: string, message: string): void => {
@@ -851,6 +866,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     _meta[storeName].options.onSet?.(prev, next);
     _pushHistory(storeName, "set", prev, next);
     _devtoolsSend(storeName, "set");
+    _broadcastSync(storeName);
     _notify(storeName);
 
     log(`Store "${storeName}" updated`);
@@ -904,6 +920,8 @@ export const deleteStore = (name: string): void => {
     if (cfg?.key && _persistKeys[cfg.key] === name) delete _persistKeys[cfg.key];
     _persistWatchState[name]?.dispose();
     delete _persistWatchState[name];
+    _syncChannels[name]?.close();
+    delete _syncChannels[name];
 
     if (devtoolsEnabled) _devtoolsSend(name, "delete", true);
     log(`Store "${name}" deleted`);
@@ -920,6 +938,7 @@ export const resetStore = (name: string): void => {
     _meta[name].options.onReset?.(prev, resetValue);
     _pushHistory(name, "reset", prev, resetValue);
     _devtoolsSend(name, "reset");
+    _broadcastSync(name);
     _notify(name);
     log(`Store "${name}" reset to initial state/value`);
 };
@@ -954,6 +973,7 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     _meta[name].options.onSet?.(current, final);
     _pushHistory(name, "merge", current, final);
     _devtoolsSend(name, "merge");
+    _broadcastSync(name);
     _notify(name);
     log(`Store "${name}" merged with data`);
 };
@@ -1033,14 +1053,31 @@ const _broadcastSync = (name: string): void => {
     const channel = _syncChannels[name];
     if (!channel) return;
     try {
-        channel.postMessage({
+        const sync = _meta[name]?.options?.sync;
+        const payload = {
             source: INSTANCE_ID,
             name,
             updatedAt: Date.parse(_meta[name]?.updatedAt || new Date().toISOString()),
             data: _applyRedactor(name, _stores[name]),
             checksum: hashState(_stores[name]),
-        });
-    } catch (_) { /* ignore */ }
+        };
+        const maxPayloadBytes = typeof sync === "object" && typeof sync.maxPayloadBytes === "number"
+            ? sync.maxPayloadBytes
+            : 64 * 1024;
+        const payloadSize = _byteLength(JSON.stringify(payload));
+
+        if (payloadSize > maxPayloadBytes) {
+            _reportStoreError(
+                name,
+                `Sync payload for "${name}" exceeds ${maxPayloadBytes} bytes (${payloadSize} bytes). Skipping BroadcastChannel sync.`
+            );
+            return;
+        }
+
+        channel.postMessage(payload);
+    } catch (err) {
+        _reportStoreError(name, `Failed to broadcast sync for "${name}": ${(err as { message?: string })?.message ?? err}`);
+    }
 };
 
 // Selectors & presets
