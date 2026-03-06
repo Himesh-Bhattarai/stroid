@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
 import { fetchStore } from "../src/async.js";
-import { getStore, clearAllStores } from "../src/store.js";
+import { getStore, clearAllStores, deleteStore } from "../src/store.js";
 
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -51,4 +51,48 @@ test("fetchStore uses last-write-wins for racing promises", async () => {
   const state = getStore("raceStore");
   assert.deepStrictEqual(state?.data, { result: "fast" });
   assert.strictEqual(state?.status, "success");
+});
+
+test("fetchStore aborts lifecycle-owned requests when the store is deleted", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  let aborted = false;
+  let seenSignal: AbortSignal | undefined;
+
+  globalThis.fetch = ((_: RequestInfo | URL, init?: RequestInit) => {
+    seenSignal = init?.signal as AbortSignal | undefined;
+    return new Promise((resolve, reject) => {
+      seenSignal?.addEventListener("abort", () => {
+        aborted = true;
+        const err = new Error("aborted") as Error & { name: string };
+        err.name = "AbortError";
+        reject(err);
+      });
+
+      setTimeout(() => {
+        resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: { get: () => "application/json" },
+          json: async () => ({ value: "late" }),
+          text: async () => JSON.stringify({ value: "late" }),
+        } as any);
+      }, 50);
+    });
+  }) as typeof fetch;
+
+  try {
+    const request = fetchStore("lifecycledStore", "https://api.example.com/slow");
+    await wait(0);
+    deleteStore("lifecycledStore");
+
+    const result = await request;
+    assert.strictEqual(result, null);
+    assert.ok(seenSignal);
+    assert.strictEqual(aborted, true);
+  } finally {
+    globalThis.fetch = realFetch;
+    clearAllStores();
+  }
 });
