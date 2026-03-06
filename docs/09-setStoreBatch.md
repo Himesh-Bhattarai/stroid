@@ -10,13 +10,13 @@
 import { setStoreBatch, setStore } from "stroid"
 
 setStoreBatch(() => {
-  setStore("user.name", "Jo")
-  setStore("user.theme", "light")
-  setStore("app.loading", false)
+  setStore("user", "name", "Jo")
+  setStore("user", "theme", "light")
+  setStore("app", "loading", false)
 })
 ```
 
-`setStoreBatch` suspends subscriber notifications until the callback finishes, then flushes once. There is no array/tuple overload in v0.0.3.
+`setStoreBatch` suspends subscriber notifications until the callback finishes, then flushes once. There is no array/tuple overload in v0.0.4.
 
 ---
 

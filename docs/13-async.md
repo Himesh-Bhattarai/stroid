@@ -48,10 +48,11 @@ function Products() {
 
 ```js
 refetchStore("products")              // manual refetch
-enableRevalidateOnFocus()             // global window focus revalidation
+enableRevalidateOnFocus()             // revalidate all registered async stores
+enableRevalidateOnFocus("products")   // or just one store
 ```
 
-`refetchStore` accepts the same options as `fetchStore` (including `cacheKey`).
+`refetchStore(name)` reuses the last URL/promise and options registered through `fetchStore(name, ...)`.
 
 ---
 

@@ -13,10 +13,10 @@ import { getStore } from "stroid"
 const user = getStore("user")
 
 // Read specific field
-const name = getStore("user.name")
+const name = getStore("user", "name")
 
 // Read nested field
-const city = getStore("user.address.city")
+const city = getStore("user", "address.city")
 ```
 
 ---
@@ -28,7 +28,7 @@ const city = getStore("user.address.city")
 ```js
 // In an API service
 async function updateProfile(data) {
-  const token = getStore("auth.token")
+  const token = getStore("auth", "token")
   return fetch("/api/profile", {
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(data)
@@ -56,22 +56,27 @@ window.addEventListener("beforeunload", () => {
 
 ```js
 // Snapshot -- value at this moment
-const name = getStore("user.name")
+const name = getStore("user", "name")
 
 // Reactive -- re-renders on change
-const name = useStore("user.name")
+const name = useStore("user", "name")
 ```
 
----
+--- 
 
 ## TypeScript
 
 ```ts
-// Full type inference
-const user = getStore("user")        // inferred as UserState
-const name = getStore("user.name")   // inferred as string
-const score = getStore("user.score") // inferred as number
+const userStore = createStore("user", { name: "Eli", score: 0 })
+if (!userStore) throw new Error("failed to create user store")
+
+// Passing the returned StoreDefinition gives typed core APIs
+const user = getStore(userStore)          // { name: string; score: number } | null
+const name = getStore(userStore, "name")  // string | null
+const score = getStore(userStore, "score") // number | null
 ```
+
+String-name reads still work at runtime. The typed overloads come from passing the `StoreDefinition` returned by `createStore`.
 
 ---
 

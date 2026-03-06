@@ -25,20 +25,28 @@ createStore("user", initial, {
     deserialize: JSON.parse,
     encrypt: v => v,
     decrypt: v => v,
+    onMigrationFail: "reset",    // or "keep" or a recovery function
+    onStorageCleared: info => {
+      console.warn(`${info.name} storage key disappeared: ${info.reason}`)
+    },
   }
 })
 ```
 
 - `driver` must expose `getItem/setItem/removeItem`.
-- `key` defaults to the store name.
+- `key` defaults to `stroid_${name}`.
 - `serialize/deserialize` let you control encoding.
 - `encrypt/decrypt` let you wrap storage for secrecy.
+- `onMigrationFail` controls how persisted version/schema recovery behaves.
+- `onStorageCleared` fires when a previously present key disappears.
 
 ---
 
 ## Collisions and Warnings
 
-Stroid prevents two stores from sharing the same persist key and will warn if you try. Failed loads are ignored and the store resets to its initial value.
+Stroid warns when two stores share the same persist key, but it does not hard-block the collision. A later store can overwrite the same storage entry.
+
+Checksum, decrypt, and load failures report through `onError`. Version/schema mismatches can recover through `onMigrationFail`; otherwise Stroid falls back to the initial state.
 
 ---
 

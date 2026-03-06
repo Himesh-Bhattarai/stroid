@@ -1,6 +1,6 @@
 {
   "name": "stroid",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Compact state management library with persistence, async caching, sync, and React hooks.",
   "type": "module",
   "main": "dist/index.js",

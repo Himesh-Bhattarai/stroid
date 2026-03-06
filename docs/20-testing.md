@@ -32,7 +32,7 @@ Clears all stores to avoid cross-test pollution.
 ```js
 const mock = createMockStore("user", { name: "Eli" })
 mock.set({ name: "Jo" })
-expect(getStore("user.name")).toBe("Jo")
+expect(getStore("user", "name")).toBe("Jo")
 ```
 
 ---
@@ -41,7 +41,7 @@ expect(getStore("user.name")).toBe("Jo")
 
 ```js
 withMockedTime(1700000000000, () => {
-  setStore("clock.now", Date.now())
+  setStore("clock", "now", Date.now())
 })
 ```
 

@@ -5,7 +5,7 @@ export default defineConfig({
         index: "src/index.ts",
         core: "src/core.ts",
         async: "src/async.ts",
-        react: "src/hooks-core.ts",
+        react: "src/hooks.ts",
         testing: "src/testing.ts",
     },
     format: ["esm"],

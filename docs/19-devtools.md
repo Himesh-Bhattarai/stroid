@@ -24,7 +24,7 @@ If Redux DevTools is available in the environment, stroid connects automatically
 
 ## Notes
 
-- Devtools wiring is built in; no extra package is required in v0.0.3.
+- Devtools wiring is built in; no extra package is required in v0.0.4.
 - Disable per store by leaving `devtools` false (default) or close the DevTools extension to avoid overhead.
 
 ---

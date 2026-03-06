@@ -26,17 +26,17 @@ Replacement is explicit: pass the full branch you want.
 ## Dot-Path Navigation
 
 ```js
-setStore("user.address.city", "NYC")
-const city = getStore("user.address.city")
+setStore("user", "address.city", "NYC")
+const city = getStore("user", "address.city")
 ```
 
-Paths are validated to avoid silent undefined access and over-deep trees.
+Paths are passed separately from the store name and validated to avoid silent undefined access and over-deep trees.
 
 ---
 
 ## Modular, Not Fragmented
 
-Persistence, sync, middleware, schema, devtools, history, and metrics are configured through `createStore` -- no extra packages or Providers required in v0.0.3.
+Persistence, sync, middleware, schema, devtools, history, and metrics are configured through `createStore` -- no extra packages or Providers required in v0.0.4.
 
 ---
 

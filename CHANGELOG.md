@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+## 0.0.4 - 2026-03-06
+### Added
+- Persistence recovery hooks: `persist.onMigrationFail` and `persist.onStorageCleared`.
+- Sync hardening options and behaviors: `sync.maxPayloadBytes` plus snapshot requests for reconnecting tabs.
+### Changed
+- Docs: converted the repo docs into the chapter-based handbook, then aligned README and API chapters with the real package surface so examples now use `setStore(name, path, value)`, `getStore(name, path)`, `useStore(name, path)`, `subscribeWithSelector(name, selector, equalityFn, listener)`, and `useFormStore(name, field)`.
+- Packaging: rebuilt `dist` from the current `src`, and fixed the `stroid/react` build entry so the published subpath exports `useAsyncStore` and `useFormStore` consistently with the root package and docs.
+### Fixed
+- `hydrateStores` now rejects invalid schema payloads without leaving broken store shells behind.
+- Middleware throws no longer poison later notifications.
+- Critical persistence failures in production now surface through `onError`.
+- Async lifecycle cleanup is hardened: inflight metadata clears on store deletion, lifecycle-owned requests abort on delete, and internal cleanup registrations are removed correctly.
+- Persisted version/schema mismatches can recover through `onMigrationFail`, and cleared storage keys can be detected through `onStorageCleared`.
+- Sync now reports unavailable `BroadcastChannel` transport, rejects oversized payloads safely, orders conflicts with monotonic clocks, and requests fresh snapshots on reconnect/focus/online.
+
 ## 0.0.3 - 2026-03-04
 ### Fixed
 - Persistence now catches `localStorage.setItem` / driver `setItem` errors (e.g., `QuotaExceededError`) and routes them to `onError` instead of letting them bubble and crash. State updates still apply while persistence failures surface to the app.

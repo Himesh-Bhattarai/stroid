@@ -11,7 +11,7 @@
 const user = useStore("user")
 
 // Precise subscription
-const name = useStore("user.name")
+const name = useStore("user", "name")
 ```
 
 Subscribing to precise paths keeps React renders small.
@@ -22,9 +22,9 @@ Subscribing to precise paths keeps React renders small.
 
 ```js
 setStoreBatch(() => {
-  setStore("auth.user", user)
-  setStore("auth.token", token)
-  setStore("auth.isLoggedIn", true)
+  setStore("auth", "user", user)
+  setStore("auth", "token", token)
+  setStore("auth", "isLoggedIn", true)
 })
 ```
 

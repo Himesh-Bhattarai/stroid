@@ -16,11 +16,11 @@ Returns `{ name: "counter" }` for type inference; the store is ready immediately
 
 ---
 
-## Options (v0.0.3)
+## Options (v0.0.4)
 
 ```js
 createStore("user", initialState, {
-  persist: true | "localStorage" | PersistConfig,
+  persist: true | "localStorage" | "sessionStorage" | PersistConfig,
   devtools: true,
   middleware: [fn],
   onSet: (prev, next) => {},
@@ -35,16 +35,21 @@ createStore("user", initialState, {
   redactor: state => state,
   historyLimit: number,
   allowSSRGlobalStore: boolean,
-  sync: true | { channel?: string; conflictResolver?: (args) => unknown },
+  sync: true | {
+    channel?: string,
+    maxPayloadBytes?: number,
+    conflictResolver?: (args) => unknown,
+  },
 })
 ```
 
 - persist: enables persistence using localStorage/sessionStorage or a custom driver.
+  The normalized config also supports `key`, `serialize`, `deserialize`, `encrypt`, `decrypt`, `onMigrationFail`, and `onStorageCleared`.
 - devtools: wires Redux DevTools automatically.
 - middleware: functions receive `{ action, name, prev, next, path }` and may return a modified `next`.
 - schema/validator: block invalid updates before commit.
 - migrations/version: run when persisted data loads.
-- sync: cross-tab BroadcastChannel sync; optional channel name and conflict resolver.
+- sync: cross-tab BroadcastChannel sync with optional channel name, payload limit, and conflict resolver.
 - historyLimit: controls action history retained for `getHistory`.
 
 ---
@@ -62,6 +67,13 @@ createStore("settings", { theme: "dark" }, {
     ({ next }) => ({ ...next, updatedAt: Date.now() }),
   ],
 })
+
+// Capture the returned definition when you want typed core calls later
+const userStore = createStore("user", { name: "Eli", score: 0 })
+if (userStore) {
+  setStore(userStore, "score", 1)
+  const score = getStore(userStore, "score")
+}
 ```
 
 ---

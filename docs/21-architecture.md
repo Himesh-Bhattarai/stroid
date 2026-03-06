@@ -21,7 +21,7 @@ Keep store creation close to the domain logic; export helpers (selectors, typed 
 
 ## Lifetime Discipline
 
-Stroid v0.0.3 does not auto-scope stores. Create them once at module level, and explicitly clean up when they are no longer needed:
+Stroid v0.0.4 does not auto-scope stores. Create them once at module level, and explicitly clean up when they are no longer needed:
 
 ```js
 import { deleteStore, clearAllStores } from "stroid"
@@ -42,9 +42,9 @@ import { setStoreBatch, setStore, resetStore } from "stroid"
 
 export function logout() {
   setStoreBatch(() => {
-    setStore("auth.user", null)
-    setStore("auth.token", null)
-    setStore("auth.isLoggedIn", false)
+    setStore("auth", "user", null)
+    setStore("auth", "token", null)
+    setStore("auth", "isLoggedIn", false)
   })
   resetStore("cart")
   resetStore("user")
@@ -60,9 +60,9 @@ One batch, predictable renders.
 ```js
 createStore("ui", { loading: { products: false, user: false } })
 
-setStore("ui.loading.products", true)
+setStore("ui", "loading.products", true)
 // ...fetch...
-setStore("ui.loading.products", false)
+setStore("ui", "loading.products", false)
 ```
 
 Granular paths keep re-renders small.
@@ -79,14 +79,14 @@ createStore("checkoutForm", {
 })
 
 async function handleSubmit() {
-  setStore("checkoutForm.isSubmitting", true)
+  setStore("checkoutForm", "isSubmitting", true)
   try {
-    await api.checkout(getStore("checkoutForm.fields"))
+    await api.checkout(getStore("checkoutForm", "fields"))
     resetStore("cart")
   } catch (e) {
-    setStore("checkoutForm.errors", { submit: e.message })
+    setStore("checkoutForm", "errors", { submit: e.message })
   } finally {
-    setStore("checkoutForm.isSubmitting", false)
+    setStore("checkoutForm", "isSubmitting", false)
   }
 }
 ```

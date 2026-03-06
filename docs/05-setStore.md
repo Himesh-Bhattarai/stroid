@@ -8,17 +8,17 @@
 
 ```js
 setStore("user", { name: "Jo" })                     // merge object
-setStore("user.name", "Jo")                          // set by dot-path
+setStore("user", "name", "Jo")                       // set by dot-path
 setStore("user", draft => { draft.score += 1 })      // draft-style updater
 ```
 
-No `setStore.replace` helper exists in v0.0.3; merging is the default. To fully replace a branch, just pass the new object yourself.
+No `setStore.replace` helper exists in v0.0.4; merging is the default. To fully replace a branch, just pass the new object yourself.
 
 ---
 
 ## Merge Semantics
 
-- When you pass an object, stroid shallow-merges it into the existing store value.
+- When you pass an object to an object-like store, stroid shallow-merges it into the existing store value.
 - When you pass a path + value, only that path is updated. Missing object keys are created; array indices must exist.
 - When you pass a function, stroid clones the current value, lets you mutate the clone, then commits the result.
 
@@ -38,9 +38,9 @@ Stroid validates paths to avoid silent mistakes:
 Before committing, stroid runs:
 1) schema validation if configured on the store  
 2) validator function (boolean gate)  
-3) middleware pipeline (can modify or reject updates)
+3) middleware pipeline (can modify the pending next value)
 
-If any step fails, the update is skipped and `onError` is called in dev.
+If schema or validator checks fail, the update is skipped. Invalid path-safety callbacks only report through `onError` in development.
 
 ---
 
@@ -50,12 +50,17 @@ If any step fails, the update is skipped and `onError` is called in dev.
 // Add or update multiple fields at once
 setStore("auth", { user, token, isLoggedIn: true })
 
-// Toggle by reading current value
-setStore("ui.darkMode", current => !current)
+// Toggle by reading current value first
+const darkMode = getStore("ui", "darkMode") ?? false
+setStore("ui", "darkMode", !darkMode)
 
-// Safe array update (index must exist)
-setStore("cart.items.0.qty", qty => qty + 1)
+// Safe nested mutation
+setStore("cart", draft => {
+  if (draft.items[0]) draft.items[0].qty += 1
+})
 ```
+
+Path updates take a concrete value, not an updater function. Compute the next value first or switch to a draft mutator when you need read-modify-write behavior.
 
 ---
 

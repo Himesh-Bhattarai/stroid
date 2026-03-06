@@ -12,6 +12,7 @@ import { subscribeWithSelector } from "stroid"
 const unsubscribe = subscribeWithSelector(
   "user",                          // store name
   state => state.profile.name,     // selector -- what to watch
+  Object.is,                       // equality check
   (name, prevName) => {            // callback -- what to do
     console.log(`Name changed: ${prevName} -> ${name}`)
   }
@@ -31,13 +32,14 @@ The callback only fires when the selected value actually changes -- not on every
 subscribeWithSelector(
   "user",
   state => state.theme,
+  Object.is,
   (theme) => {
     document.body.setAttribute("data-theme", theme)
   }
 )
 
-setStore("user.name", "Jo")     // callback NOT fired -- theme unchanged
-setStore("user.theme", "light") // callback fired -- theme changed
+setStore("user", "name", "Jo")     // callback NOT fired -- theme unchanged
+setStore("user", "theme", "light") // callback fired -- theme changed
 ```
 
 ---
@@ -49,6 +51,7 @@ setStore("user.theme", "light") // callback fired -- theme changed
 subscribeWithSelector(
   "user",
   s => s.theme,
+  Object.is,
   theme => document.documentElement.setAttribute("data-theme", theme)
 )
 
@@ -56,6 +59,7 @@ subscribeWithSelector(
 subscribeWithSelector(
   "auth",
   s => s.isLoggedIn,
+  Object.is,
   (isLoggedIn) => {
     analytics.track(isLoggedIn ? "login" : "logout")
   }
@@ -65,11 +69,14 @@ subscribeWithSelector(
 subscribeWithSelector(
   "cart",
   s => s.items,
+  Object.is,
   (items) => {
     api.saveCart(items).catch(console.error)
   }
 )
 ```
+
+The current signature is `subscribeWithSelector(name, selector, equalityFn, listener)`. Pass `Object.is` when the default identity comparison is enough.
 
 ---
 

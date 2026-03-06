@@ -10,7 +10,7 @@
 createStore("cart", { items: [] }, { sync: true })
 ```
 
-Stroid uses `BroadcastChannel` under the hood. Updates in one tab are broadcast to others, including history and metrics updates.
+Stroid uses `BroadcastChannel` under the hood. Updates in one tab broadcast store state to the others. History and metrics are local only.
 
 ---
 
@@ -20,6 +20,7 @@ Stroid uses `BroadcastChannel` under the hood. Updates in one tab are broadcast 
 createStore("document", { content: "" }, {
   sync: {
     channel: "docs-channel",
+    maxPayloadBytes: 32 * 1024,
     conflictResolver: ({ local, incoming, localUpdated, incomingUpdated }) => {
       return incomingUpdated >= localUpdated ? incoming : local
     }
@@ -35,7 +36,9 @@ If the resolver returns `undefined`, the incoming update is ignored.
 
 - Sync is opt-in per store.
 - When schema validation fails on the receiving tab, the update is dropped.
-- There is no WebSocket or remote adapter in v0.0.3.
+- New tabs request the latest snapshot on startup and again on `focus` / `online`.
+- If `BroadcastChannel` is unavailable or the payload exceeds `maxPayloadBytes`, the store reports through `onError`.
+- There is no WebSocket or remote adapter in v0.0.4.
 
 ---
 

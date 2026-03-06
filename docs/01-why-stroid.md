@@ -14,8 +14,8 @@ Redux brings ceremony. Zustand brings inconsistency. Context brings re-renders. 
 
 ```js
 createStore("user", { name: "Eli", theme: "dark" }) // define
-setStore("user.name", "Jo")                          // update
-const name = useStore("user.name")                   // read
+setStore("user", "name", "Jo")                       // update
+const name = useStore("user", "name")                // read
 ```
 
 One mental model everywhere.

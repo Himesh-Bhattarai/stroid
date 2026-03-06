@@ -34,12 +34,12 @@ createStore("user", {
 import { useStore } from "stroid/react"
 
 function Profile() {
-  const name = useStore("user.name")
+  const name = useStore("user", "name")
   return <h1>Hello, {name}</h1>
 }
 ```
 
-`useStore` takes a dot-path and re-renders only when that specific value changes.
+`useStore` takes the store name plus either a path or a selector and re-renders only when that subscribed value changes.
 
 ---
 
@@ -52,13 +52,13 @@ import { setStore } from "stroid"
 setStore("user", { name: "Jo", theme: "light" })
 
 // Target a nested field
-setStore("user.name", "Jo")
+setStore("user", "name", "Jo")
 
 // Mutate with a draft-style function
 setStore("user", draft => { draft.score = (draft.score ?? 0) + 1 })
 ```
 
-`setStore` merges objects by default, validates paths, and blocks invalid updates in development.
+`setStore` shallow-merges object updates, validates paths, and supports draft-style mutators.
 
 ---
 
@@ -71,14 +71,14 @@ import { useStore } from "stroid/react"
 createStore("counter", { count: 0 })
 
 function Counter() {
-  const count = useStore("counter.count")
+  const count = useStore("counter", "count")
   return (
     <div>
       <p>Count: {count}</p>
-      <button onClick={() => setStore("counter.count", (count ?? 0) + 1)}>
+      <button onClick={() => setStore("counter", "count", (count ?? 0) + 1)}>
         Increment
       </button>
-      <button onClick={() => setStore("counter.count", 0)}>
+      <button onClick={() => setStore("counter", "count", 0)}>
         Reset
       </button>
     </div>
@@ -104,7 +104,7 @@ import { fetchStore, refetchStore } from "stroid/async"
 import { createMockStore } from "stroid/testing"
 ```
 
-Persistence, sync, middleware, schema, devtools, and history are configured via the `createStore` options; there are no separate subpackages for them in v0.0.3.
+Persistence, sync, middleware, schema, devtools, and history are configured via the `createStore` options; there are no separate subpackages for them in v0.0.4.
 
 ---
 

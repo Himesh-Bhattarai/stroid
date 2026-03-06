@@ -70,6 +70,13 @@ const _registerStoreCleanup = (name: string, fn: () => void): void => {
     _ensureCleanupSubscription(name);
 };
 
+const _unregisterStoreCleanup = (name: string, fn: () => void): void => {
+    const fns = _storeCleanupFns[name];
+    if (!fns) return;
+    fns.delete(fn);
+    if (fns.size === 0) delete _storeCleanupFns[name];
+};
+
 const _ensureCleanupSubscription = (name: string): void => {
     if (_cleanupSubs[name]) return;
     _cleanupSubs[name] = _subscribe(name, (state) => {
@@ -332,6 +339,7 @@ export const enableRevalidateOnFocus = (name?: string): (() => void) => {
         window.removeEventListener("online", handler);
         _revalidateKeys.delete(key);
         delete _revalidateHandlers[key];
+        if (key !== "*") _unregisterStoreCleanup(key, cleanup);
     };
     _revalidateHandlers[key] = cleanup;
     if (key !== "*") _registerStoreCleanup(key, cleanup);

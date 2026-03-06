@@ -12,7 +12,7 @@ import { resetStore } from "stroid"
 resetStore("user") // restores the store to its initial value
 ```
 
-`resetStore` operates on the whole store. Branch resets are not supported in v0.0.3.
+`resetStore` operates on the whole store. Branch resets are not supported in v0.0.4.
 
 ---
 
@@ -22,7 +22,7 @@ The value you pass to `createStore` is stored as the initial snapshot. `resetSto
 
 ```js
 createStore("counter", { count: 0, step: 1 })
-setStore("counter.count", 42)
+setStore("counter", "count", 42)
 resetStore("counter") // { count: 0, step: 1 }
 ```
 

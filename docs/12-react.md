@@ -23,14 +23,17 @@ The primary hook. Subscribes to a value and re-renders when it changes.
 const user = useStore("user")
 
 // Read specific field -- preferred
-const name = useStore("user.name")
+const name = useStore("user", "name")
 
 // Read nested field
-const city = useStore("user.address.city")
+const city = useStore("user", "address.city")
+
+// Or subscribe with a selector
+const fullName = useStore("user", state => `${state.firstName} ${state.lastName}`)
 ```
 
 ### Automatic Subscription
-`useStore` automatically subscribes to the value at the given path. When that value changes, the component re-renders. When the component unmounts, the subscription is cleaned up automatically.
+`useStore` automatically subscribes to the value at the given path or selector. When that subscribed value changes, the component re-renders. When the component unmounts, the subscription is cleaned up automatically.
 
 ### Precision Matters
 ```js
@@ -38,7 +41,7 @@ const city = useStore("user.address.city")
 const user = useStore("user")
 
 // Best: re-renders ONLY when name changes
-const name = useStore("user.name")
+const name = useStore("user", "name")
 ```
 
 Always read the most specific path you need. Stroid warns in development when you subscribe to an entire store object.
@@ -73,10 +76,10 @@ const expensiveItems = useSelector(
 
 ```js
 function Dashboard() {
-  const name = useStore("user.name")
-  const theme = useStore("user.theme")
-  const cartCount = useStore("cart.items")?.length ?? 0
-  const isLoggedIn = useStore("auth.isLoggedIn")
+  const name = useStore("user", "name")
+  const theme = useStore("user", "theme")
+  const cartCount = useStore("cart", "items")?.length ?? 0
+  const isLoggedIn = useStore("auth", "isLoggedIn")
 }
 ```
 
@@ -93,7 +96,7 @@ import { useStoreStatic } from "stroid/react"
 
 function UserBadge() {
   // Reads once -- never re-renders due to this value
-  const userId = useStoreStatic("user.id")
+  const userId = useStoreStatic("user", "id")
   return <span data-id={userId}>...</span>
 }
 ```
@@ -104,7 +107,7 @@ function UserBadge() {
 
 ```js
 function ProductList() {
-  const { data: products, loading, error } = useStore("fetchProducts") ?? {}
+  const { data: products, loading, error } = useStore("products") ?? {}
 
   if (loading) return <LoadingGrid />
   if (error) return <ErrorMessage error={error} />
@@ -155,7 +158,7 @@ function App() {
 }
 
 function UserProfile() {
-  const name = useStore("user.name")
+  const name = useStore("user", "name")
   return <h1>{name}</h1>
 }
 ```
@@ -164,11 +167,15 @@ function UserProfile() {
 
 ## TypeScript
 
+Hooks read stores by string name, so they do not infer types from `createStore` automatically today. Pass generics when you want stronger typing:
+
 ```ts
-// Fully typed based on your createStore definition
-const name = useStore("user.name")       // string
-const score = useStore("user.score")     // number
-const items = useStore("cart.items")     // CartItem[]
+const name = useStore<string>("user", "name")
+const score = useStore<number>("user", "score")
+const total = useSelector<{ items: Array<{ price: number }> }, number>(
+  "cart",
+  state => state.items.reduce((sum, item) => sum + item.price, 0)
+)
 ```
 
 ---
@@ -178,7 +185,7 @@ const items = useStore("cart.items")     // CartItem[]
 - `useStoreField(storeName, field)` -> convenience alias for a single field.
 - `useStoreStatic(name, path?)` -> read without subscribing.
 - `useAsyncStore(name)` -> normalizes async stores to `{ data, loading, error, status, isEmpty }`.
-- `useFormStore(name)` -> thin helper around `useStore` for form-centric patterns.
+- `useFormStore(name, field)` -> returns `{ value, onChange }` for form-centric patterns.
 
 ---
 
