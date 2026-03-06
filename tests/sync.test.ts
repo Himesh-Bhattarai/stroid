@@ -90,7 +90,9 @@ test("sync broadcasts updates and rejects oversized payloads", async () => {
     await wait();
 
     assert.strictEqual(
-      MockBroadcastChannel.sent.filter((entry) => entry.data?.name === "shared").length,
+      MockBroadcastChannel.sent.filter(
+        (entry) => entry.data?.name === "shared" && entry.data?.type === "sync-state"
+      ).length,
       1
     );
 
@@ -105,7 +107,9 @@ test("sync broadcasts updates and rejects oversized payloads", async () => {
     await wait();
 
     assert.strictEqual(
-      MockBroadcastChannel.sent.filter((entry) => entry.data?.name === "large").length,
+      MockBroadcastChannel.sent.filter(
+        (entry) => entry.data?.name === "large" && entry.data?.type === "sync-state"
+      ).length,
       0
     );
     assert.ok(errors.some((msg) => msg.includes('Sync payload for "large" exceeds')));
@@ -133,6 +137,7 @@ test("sync ordering prefers monotonic clocks over wall-clock skew", async () => 
   try {
     a.createStore("shared", { value: "seed" }, { sync: true });
     b.createStore("shared", { value: "seed" }, { sync: true });
+    await wait();
 
     await withMockedNow(200_000, async () => {
       a.setStore("shared", { value: "future-a" });
@@ -146,8 +151,42 @@ test("sync ordering prefers monotonic clocks over wall-clock skew", async () => 
       await wait();
     });
 
+    await wait();
+
     assert.deepStrictEqual(a.getStore("shared"), { value: "newer-b" });
     assert.deepStrictEqual(b.getStore("shared"), { value: "newer-b" });
+  } finally {
+    a.clearAllStores();
+    b.clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});
+
+test("sync requests the latest snapshot when a tab reconnects", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const a = await import(`../src/store.js?sync-reopen-a-${Date.now()}`);
+  const b = await import(`../src/store.js?sync-reopen-b-${Date.now()}`);
+
+  try {
+    a.createStore("shared", { value: "seed" }, { sync: true });
+    a.setStore("shared", { value: "latest" });
+    await wait();
+
+    b.createStore("shared", { value: "stale" }, { sync: true });
+    await wait();
+    await wait();
+
+    assert.deepStrictEqual(b.getStore("shared"), { value: "latest" });
   } finally {
     a.clearAllStores();
     b.clearAllStores();

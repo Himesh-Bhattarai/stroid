@@ -157,6 +157,7 @@ const _meta: Record<string, MetaEntry> = Object.create(null);
 const _history: Record<string, HistoryEntry[]> = Object.create(null);
 const _syncChannels: Record<string, BroadcastChannel> = Object.create(null);
 const _syncClocks: Record<string, number> = Object.create(null);
+const _syncWindowCleanup: Record<string, () => void> = Object.create(null);
 
 const _pendingNotifications = new Set<string>();
 let _notifyScheduled = false;
@@ -924,6 +925,8 @@ export const deleteStore = (name: string): void => {
     delete _persistWatchState[name];
     _syncChannels[name]?.close();
     delete _syncChannels[name];
+    _syncWindowCleanup[name]?.();
+    delete _syncWindowCleanup[name];
     delete _syncClocks[name];
 
     if (devtoolsEnabled) _devtoolsSend(name, "delete", true);
@@ -1030,6 +1033,21 @@ const _compareSyncOrder = (
     return incomingSource.localeCompare(localSource);
 };
 
+const _requestSyncSnapshot = (name: string): void => {
+    const channel = _syncChannels[name];
+    if (!channel) return;
+    try {
+        channel.postMessage({
+            type: "sync-request",
+            source: INSTANCE_ID,
+            name,
+            requestedAt: Date.now(),
+        });
+    } catch (err) {
+        _reportStoreError(name, `Failed to request sync snapshot for "${name}": ${(err as { message?: string })?.message ?? err}`);
+    }
+};
+
 const _setupSync = (name: string): void => {
     const sync = _meta[name]?.options?.sync;
     if (!sync) return;
@@ -1047,6 +1065,10 @@ const _setupSync = (name: string): void => {
             const msg = event.data as any;
             if (!msg || msg.source === INSTANCE_ID) return;
             if (msg.name !== name) return;
+            if (msg.type === "sync-request") {
+                _broadcastSync(name);
+                return;
+            }
             const resolver = typeof sync === "object" ? sync.conflictResolver : null;
             const order = _compareSyncOrder(name, {
                 clock: msg.clock,
@@ -1083,6 +1105,24 @@ const _setupSync = (name: string): void => {
             _absorbSyncClock(name, typeof msg.clock === "number" ? msg.clock : 0);
             _notify(name);
         };
+
+        if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+            _syncWindowCleanup[name]?.();
+            const hostWindow = window;
+            const requestLatest = () => {
+                _requestSyncSnapshot(name);
+            };
+            hostWindow.addEventListener("focus", requestLatest);
+            hostWindow.addEventListener("online", requestLatest);
+            _syncWindowCleanup[name] = () => {
+                hostWindow.removeEventListener("focus", requestLatest);
+                hostWindow.removeEventListener("online", requestLatest);
+            };
+        }
+
+        queueMicrotask(() => {
+            _requestSyncSnapshot(name);
+        });
     } catch (e) {
         warn(`Failed to setup sync for "${name}": ${(e as { message?: string })?.message || e}`);
     }
@@ -1094,6 +1134,7 @@ const _broadcastSync = (name: string): void => {
     try {
         const sync = _meta[name]?.options?.sync;
         const payload = {
+            type: "sync-state",
             source: INSTANCE_ID,
             name,
             clock: _syncClocks[name] ?? 0,
