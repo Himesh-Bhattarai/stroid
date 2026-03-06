@@ -68,6 +68,7 @@ export interface PersistConfig {
     deserialize: (v: string) => unknown;
     encrypt: (v: string) => string;
     decrypt: (v: string) => string;
+    onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
 }
 
 export interface MiddlewareCtx {
@@ -329,6 +330,7 @@ const _normalizePersist = (persist: StoreOptions<StoreValue>["persist"], name: s
         deserialize: persist.deserialize || base.deserialize,
         encrypt: persist.encrypt || base.encrypt,
         decrypt: persist.decrypt || base.decrypt,
+        onMigrationFail: persist.onMigrationFail || "reset",
     };
 };
 
@@ -359,6 +361,33 @@ const _applyRedactor = (name: string, data: StoreValue): StoreValue => {
 const _reportStoreError = (name: string, message: string): void => {
     _meta[name]?.options?.onError?.(message);
     warn(message);
+};
+
+const _resolveMigrationFailure = (
+    name: string,
+    persisted: StoreValue,
+    reason: string
+): { state: StoreValue; requiresValidation: boolean } => {
+    _reportStoreError(name, reason);
+
+    const strategy = _meta[name]?.options?.persist?.onMigrationFail ?? "reset";
+    if (strategy === "keep") {
+        return { state: persisted, requiresValidation: false };
+    }
+
+    if (typeof strategy === "function") {
+        try {
+            const next = strategy(deepClone(persisted));
+            if (next !== undefined) {
+                return { state: sanitize(next) as StoreValue, requiresValidation: true };
+            }
+            _reportStoreError(name, `onMigrationFail for "${name}" returned undefined. Falling back to initial state.`);
+        } catch (err) {
+            _reportStoreError(name, `onMigrationFail for "${name}" failed: ${(err as { message?: string })?.message ?? err}`);
+        }
+    }
+
+    return { state: deepClone(_initial[name]), requiresValidation: false };
 };
 
 const _diffShallow = (prev: StoreValue, next: StoreValue): { added: string[]; removed: string[]; changed: string[] } | null => {
@@ -485,18 +514,73 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
                 .map((k) => Number(k))
                 .filter((ver) => ver > v && ver <= targetVersion)
                 .sort((a, b) => a - b);
+
+            if (steps.length === 0) {
+                const fallback = _resolveMigrationFailure(
+                    name,
+                    parsed,
+                    `No migration path from v${v} to v${targetVersion} for "${name}". Applying onMigrationFail strategy.`
+                );
+                parsed = fallback.state;
+                if (!fallback.requiresValidation) {
+                    _stores[name] = parsed;
+                    return;
+                }
+            }
+
+            let migrationFailed = false;
+            let migrationFailureRequiresValidation = true;
             steps.forEach((ver) => {
+                if (migrationFailed) return;
                 try {
                     const migrated = migrations[ver](parsed);
                     if (migrated !== undefined) parsed = migrated;
                 } catch (e) {
-                    _reportStoreError(name, `Migration to v${ver} failed for "${name}": ${(e as { message?: string })?.message || e}`);
+                    const fallback = _resolveMigrationFailure(
+                        name,
+                        parsed,
+                        `Migration to v${ver} failed for "${name}": ${(e as { message?: string })?.message || e}`
+                    );
+                    parsed = fallback.state;
+                    migrationFailureRequiresValidation = fallback.requiresValidation;
+                    migrationFailed = true;
                 }
             });
+
+            if (migrationFailed) {
+                if (!migrationFailureRequiresValidation) {
+                    _stores[name] = parsed;
+                    return;
+                }
+                const recoveredSchema = _validateSchema(name, parsed);
+                if (!recoveredSchema.ok) {
+                    _stores[name] = deepClone(_initial[name]);
+                    return;
+                }
+                _stores[name] = parsed;
+                return;
+            }
         }
         const schemaResult = _validateSchema(name, parsed);
         if (!schemaResult.ok) {
-            warn(`Persisted state for "${name}" failed schema; resetting to initial.`);
+            if (v !== targetVersion) {
+                const fallback = _resolveMigrationFailure(
+                    name,
+                    parsed,
+                    `Persisted state for "${name}" failed schema after version change. Applying onMigrationFail strategy.`
+                );
+                if (!fallback.requiresValidation) {
+                    _stores[name] = fallback.state;
+                    return;
+                }
+
+                const recoveredSchema = _validateSchema(name, fallback.state);
+                if (recoveredSchema.ok) {
+                    _stores[name] = fallback.state;
+                    return;
+                }
+            }
+            _reportStoreError(name, `Persisted state for "${name}" failed schema; resetting to initial.`);
             _stores[name] = deepClone(_initial[name]);
             return;
         }

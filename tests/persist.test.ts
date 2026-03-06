@@ -4,6 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createStore, setStore, getStore, clearAllStores } from "../src/store.js";
+import { hashState } from "../src/utils.js";
 
 test("persist setItem errors surface via onError without throwing", async () => {
   clearAllStores();
@@ -107,4 +108,43 @@ test("persist critical failures still surface via onError in production", () => 
   });
 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("persist onMigrationFail can recover data after a schema version change", () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const serialized = JSON.stringify({ name: "Alex" });
+  const driver = {
+    getItem: () => JSON.stringify({
+      v: 1,
+      checksum: hashState(serialized),
+      data: serialized,
+    }),
+    setItem: () => {},
+    removeItem: () => {},
+  };
+
+  createStore(
+    "profile",
+    { fullName: "Initial" },
+    {
+      version: 2,
+      schema: (value: any) => (typeof value?.fullName === "string" ? value : false),
+      persist: {
+        driver,
+        key: "profile-migration",
+        serialize: JSON.stringify,
+        deserialize: JSON.parse,
+        encrypt: (v: string) => v,
+        decrypt: (v: string) => v,
+        onMigrationFail: (oldState: any) => ({ fullName: oldState.name }),
+      },
+      onError: (msg) => errors.push(msg),
+    }
+  );
+
+  assert.deepStrictEqual(getStore("profile"), { fullName: "Alex" });
+  assert.ok(errors.some((msg) => msg.includes('No migration path from v1 to v2 for "profile"')));
+
+  clearAllStores();
 });
