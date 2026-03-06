@@ -982,7 +982,7 @@ const _setupSync = (name: string): void => {
     const sync = _meta[name]?.options?.sync;
     if (!sync) return;
     if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
-        warn(`Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
+        _reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
         return;
     }
     const channelName = typeof sync === "object" && sync.channel

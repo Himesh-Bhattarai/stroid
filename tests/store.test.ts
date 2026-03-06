@@ -187,6 +187,18 @@ test("middleware errors do not block later notifications", async () => {
   assert.ok(errors.some((msg) => msg.includes('Middleware for "prefs" failed')));
 });
 
+test("sync setup without BroadcastChannel surfaces via onError", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  createStore("shared", { count: 1 }, {
+    sync: true,
+    onError: (msg) => { errors.push(msg); },
+  });
+
+  assert.ok(errors.some((msg) => msg.includes('BroadcastChannel not available')));
+});
+
 test("mergeStore adds fields without removing old ones", () => {
   clearAllStores();
   createStore("user", { name: "Alex" });
