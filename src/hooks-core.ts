@@ -108,7 +108,7 @@ export const useSelector = <T = any, R = any>(
     const subscribe = useCallback((notify: () => void) => {
         return subscribeWithSelector(
             storeName,
-            (state) => selectValue(state as T),
+            (state) => selectValue(state as T) as R,
             equalityFn,
             () => notify()
         );

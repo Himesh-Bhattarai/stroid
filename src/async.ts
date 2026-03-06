@@ -70,13 +70,6 @@ const _registerStoreCleanup = (name: string, fn: () => void): void => {
     _ensureCleanupSubscription(name);
 };
 
-const _unregisterStoreCleanup = (name: string, fn: () => void): void => {
-    _storeCleanupFns[name]?.delete(fn);
-    if (_storeCleanupFns[name]?.size === 0) {
-        delete _storeCleanupFns[name];
-    }
-};
-
 const _ensureCleanupSubscription = (name: string): void => {
     if (_cleanupSubs[name]) return;
     _cleanupSubs[name] = _subscribe(name, (state) => {
