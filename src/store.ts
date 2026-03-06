@@ -69,6 +69,7 @@ export interface PersistConfig {
     encrypt: (v: string) => string;
     decrypt: (v: string) => string;
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
+    onStorageCleared?: (info: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
 }
 
 export interface MiddlewareCtx {
@@ -157,6 +158,7 @@ let _batchDepth = 0;
 const INSTANCE_ID = `stroid_${Math.random().toString(16).slice(2)}`;
 const _persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 const _persistKeys: Record<string, string> = Object.create(null);
+const _persistWatchState: Record<string, { lastPresent: boolean; dispose: () => void }> = Object.create(null);
 let _ssrWarningIssued = false;
 const _nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
     typeof name === "string" ? name : name.name;
@@ -300,6 +302,12 @@ const _safeStorage = (type: string) => {
     }
 };
 
+const _setPersistPresence = (name: string, present: boolean): void => {
+    if (_persistWatchState[name]) {
+        _persistWatchState[name].lastPresent = present;
+    }
+};
+
 const _normalizePersist = (persist: StoreOptions<StoreValue>["persist"], name: string): PersistConfig | null => {
     if (!persist) return null;
 
@@ -309,6 +317,7 @@ const _normalizePersist = (persist: StoreOptions<StoreValue>["persist"], name: s
         deserialize: JSON.parse,
         encrypt: (v: string) => v,
         decrypt: (v: string) => v,
+        onMigrationFail: "reset" as const,
     };
 
     if (persist === true) {
@@ -331,6 +340,61 @@ const _normalizePersist = (persist: StoreOptions<StoreValue>["persist"], name: s
         encrypt: persist.encrypt || base.encrypt,
         decrypt: persist.decrypt || base.decrypt,
         onMigrationFail: persist.onMigrationFail || "reset",
+        onStorageCleared: persist.onStorageCleared,
+    };
+};
+
+const _setupPersistWatch = (name: string): void => {
+    const cfg = _meta[name]?.options?.persist;
+    const callback = cfg?.onStorageCleared;
+    if (!cfg || typeof callback !== "function" || typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+
+    _persistWatchState[name]?.dispose();
+    const hostWindow = window;
+
+    const readPresent = (): boolean => {
+        try {
+            return cfg.driver.getItem?.(cfg.key) != null;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    const notifyIfCleared = (reason: "clear" | "remove" | "missing"): void => {
+        const state = _persistWatchState[name];
+        const present = readPresent();
+        if (!state) return;
+        if (!state.lastPresent || present) {
+            state.lastPresent = present;
+            return;
+        }
+        state.lastPresent = false;
+        callback({ name, key: cfg.key, reason });
+    };
+
+    const onStorage = (event: StorageEvent): void => {
+        if (event.key === null) {
+            notifyIfCleared("clear");
+            return;
+        }
+        if (event.key === cfg.key && event.newValue === null) {
+            notifyIfCleared("remove");
+        }
+    };
+
+    const onFocus = (): void => {
+        notifyIfCleared("missing");
+    };
+
+    hostWindow.addEventListener("storage", onStorage);
+    hostWindow.addEventListener("focus", onFocus);
+
+    _persistWatchState[name] = {
+        lastPresent: readPresent(),
+        dispose: () => {
+            hostWindow.removeEventListener("storage", onStorage);
+            hostWindow.removeEventListener("focus", onFocus);
+        },
     };
 };
 
@@ -485,6 +549,7 @@ const _persistSave = (name: string): void => {
         });
         const payload = cfg.encrypt(envelope);
         cfg.driver.setItem?.(cfg.key, payload);
+        _setPersistPresence(name, true);
     } catch (e) {
         _reportStoreError(name, `Could not persist store "${name}" (${(e as { message?: string })?.message || e})`);
     }
@@ -714,6 +779,7 @@ export const createStore = <Name extends string, State>(
     if (persistConfig) {
         _persistSave(name);
         _persistLoad(name, { silent: true });
+        _setupPersistWatch(name);
     }
 
     _meta[name].options.onCreate?.(clean);
@@ -836,6 +902,8 @@ export const deleteStore = (name: string): void => {
     } catch (_) {}
 
     if (cfg?.key && _persistKeys[cfg.key] === name) delete _persistKeys[cfg.key];
+    _persistWatchState[name]?.dispose();
+    delete _persistWatchState[name];
 
     if (devtoolsEnabled) _devtoolsSend(name, "delete", true);
     log(`Store "${name}" deleted`);

@@ -148,3 +148,64 @@ test("persist onMigrationFail can recover data after a schema version change", (
 
   clearAllStores();
 });
+
+test("persist onStorageCleared fires when a saved key disappears mid-session", async () => {
+  clearAllStores();
+  const events: Array<{ name: string; key: string; reason: string }> = [];
+  const listeners: Record<string, Set<(event?: any) => void>> = {
+    storage: new Set(),
+    focus: new Set(),
+  };
+  const store = new Map<string, string>();
+  const win: any = {
+    addEventListener: (type: string, handler: (event?: any) => void) => {
+      listeners[type] ??= new Set();
+      listeners[type].add(handler);
+    },
+    removeEventListener: (type: string, handler: (event?: any) => void) => {
+      listeners[type]?.delete(handler);
+    },
+  };
+  const driver = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+  };
+
+  // @ts-ignore
+  const originalWindow = globalThis.window;
+  // @ts-ignore
+  globalThis.window = win;
+
+  try {
+    createStore("prefs", { theme: "dark" }, {
+      persist: {
+        driver,
+        key: "prefs-storage",
+        serialize: JSON.stringify,
+        deserialize: JSON.parse,
+        encrypt: (v: string) => v,
+        decrypt: (v: string) => v,
+        onStorageCleared: (info) => events.push(info),
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    store.delete("prefs-storage");
+    listeners.focus.forEach((handler) => handler());
+
+    assert.deepStrictEqual(events, [{
+      name: "prefs",
+      key: "prefs-storage",
+      reason: "missing",
+    }]);
+  } finally {
+    clearAllStores();
+    // @ts-ignore
+    globalThis.window = originalWindow;
+  }
+});
