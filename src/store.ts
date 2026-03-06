@@ -68,6 +68,8 @@ export interface PersistConfig {
     deserialize: (v: string) => unknown;
     encrypt: (v: string) => string;
     decrypt: (v: string) => string;
+    onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
+    onStorageCleared?: (info: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
 }
 
 export interface MiddlewareCtx {
@@ -96,6 +98,7 @@ export interface StoreOptions<State = StoreValue> {
     allowSSRGlobalStore?: boolean;
     sync?: boolean | {
         channel?: string;
+        maxPayloadBytes?: number;
         conflictResolver?: (args: {
             local: StoreValue;
             incoming: StoreValue;
@@ -121,7 +124,11 @@ type NormalizedOptions = {
     redactor?: (state: StoreValue) => StoreValue;
     historyLimit: number;
     allowSSRGlobalStore?: boolean;
-    sync?: boolean | { channel?: string; conflictResolver?: (args: { local: StoreValue; incoming: StoreValue; localUpdated: number; incomingUpdated: number; }) => StoreValue | void };
+    sync?: boolean | {
+        channel?: string;
+        maxPayloadBytes?: number;
+        conflictResolver?: (args: { local: StoreValue; incoming: StoreValue; localUpdated: number; incomingUpdated: number; }) => StoreValue | void;
+    };
 };
 
 interface MetaEntry {
@@ -149,6 +156,8 @@ const _initial: Record<string, StoreValue> = Object.create(null);
 const _meta: Record<string, MetaEntry> = Object.create(null);
 const _history: Record<string, HistoryEntry[]> = Object.create(null);
 const _syncChannels: Record<string, BroadcastChannel> = Object.create(null);
+const _syncClocks: Record<string, number> = Object.create(null);
+const _syncWindowCleanup: Record<string, () => void> = Object.create(null);
 
 const _pendingNotifications = new Set<string>();
 let _notifyScheduled = false;
@@ -156,6 +165,7 @@ let _batchDepth = 0;
 const INSTANCE_ID = `stroid_${Math.random().toString(16).slice(2)}`;
 const _persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 const _persistKeys: Record<string, string> = Object.create(null);
+const _persistWatchState: Record<string, { lastPresent: boolean; dispose: () => void }> = Object.create(null);
 let _ssrWarningIssued = false;
 const _nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
     typeof name === "string" ? name : name.name;
@@ -299,6 +309,12 @@ const _safeStorage = (type: string) => {
     }
 };
 
+const _setPersistPresence = (name: string, present: boolean): void => {
+    if (_persistWatchState[name]) {
+        _persistWatchState[name].lastPresent = present;
+    }
+};
+
 const _normalizePersist = (persist: StoreOptions<StoreValue>["persist"], name: string): PersistConfig | null => {
     if (!persist) return null;
 
@@ -308,6 +324,7 @@ const _normalizePersist = (persist: StoreOptions<StoreValue>["persist"], name: s
         deserialize: JSON.parse,
         encrypt: (v: string) => v,
         decrypt: (v: string) => v,
+        onMigrationFail: "reset" as const,
     };
 
     if (persist === true) {
@@ -329,6 +346,62 @@ const _normalizePersist = (persist: StoreOptions<StoreValue>["persist"], name: s
         deserialize: persist.deserialize || base.deserialize,
         encrypt: persist.encrypt || base.encrypt,
         decrypt: persist.decrypt || base.decrypt,
+        onMigrationFail: persist.onMigrationFail || "reset",
+        onStorageCleared: persist.onStorageCleared,
+    };
+};
+
+const _setupPersistWatch = (name: string): void => {
+    const cfg = _meta[name]?.options?.persist;
+    const callback = cfg?.onStorageCleared;
+    if (!cfg || typeof callback !== "function" || typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+
+    _persistWatchState[name]?.dispose();
+    const hostWindow = window;
+
+    const readPresent = (): boolean => {
+        try {
+            return cfg.driver.getItem?.(cfg.key) != null;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    const notifyIfCleared = (reason: "clear" | "remove" | "missing"): void => {
+        const state = _persistWatchState[name];
+        const present = readPresent();
+        if (!state) return;
+        if (!state.lastPresent || present) {
+            state.lastPresent = present;
+            return;
+        }
+        state.lastPresent = false;
+        callback({ name, key: cfg.key, reason });
+    };
+
+    const onStorage = (event: StorageEvent): void => {
+        if (event.key === null) {
+            notifyIfCleared("clear");
+            return;
+        }
+        if (event.key === cfg.key && event.newValue === null) {
+            notifyIfCleared("remove");
+        }
+    };
+
+    const onFocus = (): void => {
+        notifyIfCleared("missing");
+    };
+
+    hostWindow.addEventListener("storage", onStorage);
+    hostWindow.addEventListener("focus", onFocus);
+
+    _persistWatchState[name] = {
+        lastPresent: readPresent(),
+        dispose: () => {
+            hostWindow.removeEventListener("storage", onStorage);
+            hostWindow.removeEventListener("focus", onFocus);
+        },
     };
 };
 
@@ -354,6 +427,48 @@ const _applyRedactor = (name: string, data: StoreValue): StoreValue => {
         catch (_) { return data; }
     }
     return data;
+};
+
+const _byteLength = (value: string): number => {
+    if (typeof TextEncoder !== "undefined") {
+        return new TextEncoder().encode(value).length;
+    }
+    if (typeof Buffer !== "undefined") {
+        return Buffer.byteLength(value);
+    }
+    return value.length;
+};
+
+const _reportStoreError = (name: string, message: string): void => {
+    _meta[name]?.options?.onError?.(message);
+    warn(message);
+};
+
+const _resolveMigrationFailure = (
+    name: string,
+    persisted: StoreValue,
+    reason: string
+): { state: StoreValue; requiresValidation: boolean } => {
+    _reportStoreError(name, reason);
+
+    const strategy = _meta[name]?.options?.persist?.onMigrationFail ?? "reset";
+    if (strategy === "keep") {
+        return { state: persisted, requiresValidation: false };
+    }
+
+    if (typeof strategy === "function") {
+        try {
+            const next = strategy(deepClone(persisted));
+            if (next !== undefined) {
+                return { state: sanitize(next) as StoreValue, requiresValidation: true };
+            }
+            _reportStoreError(name, `onMigrationFail for "${name}" returned undefined. Falling back to initial state.`);
+        } catch (err) {
+            _reportStoreError(name, `onMigrationFail for "${name}" failed: ${(err as { message?: string })?.message ?? err}`);
+        }
+    }
+
+    return { state: deepClone(_initial[name]), requiresValidation: false };
 };
 
 const _diffShallow = (prev: StoreValue, next: StoreValue): { added: string[]; removed: string[]; changed: string[] } | null => {
@@ -406,13 +521,21 @@ const _runMiddleware = (name: string, payload: { action: string; prev: StoreValu
     let nextState = payload.next;
     for (const mw of middlewares) {
         if (typeof mw !== "function") continue;
-        const result = mw({
-            action: payload.action,
-            name,
-            prev: payload.prev,
-            next: nextState,
-            path: payload.path,
-        });
+        let result: StoreValue | void;
+        try {
+            result = mw({
+                action: payload.action,
+                name,
+                prev: payload.prev,
+                next: nextState,
+                path: payload.path,
+            });
+        } catch (err) {
+            const msg = `Middleware for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
+            _meta[name]?.options?.onError?.(msg);
+            warn(msg);
+            continue;
+        }
         if (result !== undefined) nextState = result;
     }
     return nextState;
@@ -423,9 +546,7 @@ const _validateSchema = (name: string, next: StoreValue): { ok: boolean } => {
     if (!schema) return { ok: true };
     const res = runSchemaValidation(schema, next);
     if (!res.ok) {
-        const msg = `Schema validation failed for "${name}": ${res.error}`;
-        _meta[name]?.options?.onError?.(msg);
-        warn(msg);
+        _reportStoreError(name, `Schema validation failed for "${name}": ${res.error}`);
     }
     return res as { ok: boolean };
 };
@@ -445,10 +566,9 @@ const _persistSave = (name: string): void => {
         });
         const payload = cfg.encrypt(envelope);
         cfg.driver.setItem?.(cfg.key, payload);
+        _setPersistPresence(name, true);
     } catch (e) {
-        const msg = `Could not persist store "${name}" (${(e as { message?: string })?.message || e})`;
-        warn(msg);
-        _meta[name]?.options?.onError?.(msg);
+        _reportStoreError(name, `Could not persist store "${name}" (${(e as { message?: string })?.message || e})`);
     }
 }, 0);
 };
@@ -464,7 +584,7 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
         const { v = 1, checksum, data } = envelope || {};
         if (!data) return;
         if (checksum !== hashState(data)) {
-            warn(`Checksum mismatch loading store "${name}". Falling back to initial state.`);
+            _reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
             _stores[name] = deepClone(_initial[name]);
             return;
         }
@@ -476,25 +596,80 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
                 .map((k) => Number(k))
                 .filter((ver) => ver > v && ver <= targetVersion)
                 .sort((a, b) => a - b);
+
+            if (steps.length === 0) {
+                const fallback = _resolveMigrationFailure(
+                    name,
+                    parsed,
+                    `No migration path from v${v} to v${targetVersion} for "${name}". Applying onMigrationFail strategy.`
+                );
+                parsed = fallback.state;
+                if (!fallback.requiresValidation) {
+                    _stores[name] = parsed;
+                    return;
+                }
+            }
+
+            let migrationFailed = false;
+            let migrationFailureRequiresValidation = true;
             steps.forEach((ver) => {
+                if (migrationFailed) return;
                 try {
                     const migrated = migrations[ver](parsed);
                     if (migrated !== undefined) parsed = migrated;
                 } catch (e) {
-                    warn(`Migration to v${ver} failed for "${name}": ${(e as { message?: string })?.message || e}`);
+                    const fallback = _resolveMigrationFailure(
+                        name,
+                        parsed,
+                        `Migration to v${ver} failed for "${name}": ${(e as { message?: string })?.message || e}`
+                    );
+                    parsed = fallback.state;
+                    migrationFailureRequiresValidation = fallback.requiresValidation;
+                    migrationFailed = true;
                 }
             });
+
+            if (migrationFailed) {
+                if (!migrationFailureRequiresValidation) {
+                    _stores[name] = parsed;
+                    return;
+                }
+                const recoveredSchema = _validateSchema(name, parsed);
+                if (!recoveredSchema.ok) {
+                    _stores[name] = deepClone(_initial[name]);
+                    return;
+                }
+                _stores[name] = parsed;
+                return;
+            }
         }
         const schemaResult = _validateSchema(name, parsed);
         if (!schemaResult.ok) {
-            warn(`Persisted state for "${name}" failed schema; resetting to initial.`);
+            if (v !== targetVersion) {
+                const fallback = _resolveMigrationFailure(
+                    name,
+                    parsed,
+                    `Persisted state for "${name}" failed schema after version change. Applying onMigrationFail strategy.`
+                );
+                if (!fallback.requiresValidation) {
+                    _stores[name] = fallback.state;
+                    return;
+                }
+
+                const recoveredSchema = _validateSchema(name, fallback.state);
+                if (recoveredSchema.ok) {
+                    _stores[name] = fallback.state;
+                    return;
+                }
+            }
+            _reportStoreError(name, `Persisted state for "${name}" failed schema; resetting to initial.`);
             _stores[name] = deepClone(_initial[name]);
             return;
         }
         _stores[name] = parsed;
         if (!silent) log(`Store "${name}" loaded from persistence`);
     } catch (e) {
-        warn(`Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
+        _reportStoreError(name, `Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
     }
 };
 
@@ -591,6 +766,21 @@ export const createStore = <Name extends string, State>(
         allowSSRGlobalStore,
     };
 
+    const initialSchemaResult = schema ? runSchemaValidation(schema, clean) : { ok: true };
+    if (!initialSchemaResult.ok) {
+        const msg = `Schema validation failed for "${name}": ${initialSchemaResult.error}`;
+        onError?.(msg);
+        warn(msg);
+        return;
+    }
+
+    if (validator && validator(clean as State) === false) {
+        const msg = `Validator blocked initial state for "${name}"`;
+        onError?.(msg);
+        warn(msg);
+        return;
+    }
+
     _stores[name] = clean;
     _subscribers[name] = _subscribers[name] || [];
     _initial[name] = deepClone(clean);
@@ -606,6 +796,7 @@ export const createStore = <Name extends string, State>(
     if (persistConfig) {
         _persistSave(name);
         _persistLoad(name, { silent: true });
+        _setupPersistWatch(name);
     }
 
     _meta[name].options.onCreate?.(clean);
@@ -672,11 +863,13 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     _stores[storeName] = isDev() ? devDeepFreeze(next) : next;
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
+    _bumpSyncClock(storeName);
 
     if (_meta[storeName].options?.persist) _persistSave(storeName);
     _meta[storeName].options.onSet?.(prev, next);
     _pushHistory(storeName, "set", prev, next);
     _devtoolsSend(storeName, "set");
+    _broadcastSync(storeName);
     _notify(storeName);
 
     log(`Store "${storeName}" updated`);
@@ -728,6 +921,13 @@ export const deleteStore = (name: string): void => {
     } catch (_) {}
 
     if (cfg?.key && _persistKeys[cfg.key] === name) delete _persistKeys[cfg.key];
+    _persistWatchState[name]?.dispose();
+    delete _persistWatchState[name];
+    _syncChannels[name]?.close();
+    delete _syncChannels[name];
+    _syncWindowCleanup[name]?.();
+    delete _syncWindowCleanup[name];
+    delete _syncClocks[name];
 
     if (devtoolsEnabled) _devtoolsSend(name, "delete", true);
     log(`Store "${name}" deleted`);
@@ -740,10 +940,12 @@ export const resetStore = (name: string): void => {
     const resetValue = deepClone(_initial[name]);
     _stores[name] = isDev() ? devDeepFreeze(resetValue) : resetValue;
     _meta[name].updatedAt = new Date().toISOString();
+    _bumpSyncClock(name);
 
     _meta[name].options.onReset?.(prev, resetValue);
     _pushHistory(name, "reset", prev, resetValue);
     _devtoolsSend(name, "reset");
+    _broadcastSync(name);
     _notify(name);
     log(`Store "${name}" reset to initial state/value`);
 };
@@ -774,10 +976,12 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     _stores[name] = isDev() ? devDeepFreeze(final) : final;
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
+    _bumpSyncClock(name);
     if (_meta[name].options?.persist) _persistSave(name);
     _meta[name].options.onSet?.(current, final);
     _pushHistory(name, "merge", current, final);
     _devtoolsSend(name, "merge");
+    _broadcastSync(name);
     _notify(name);
     log(`Store "${name}" merged with data`);
 };
@@ -802,11 +1006,53 @@ export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
 
 export const _getSnapshot = (name: string): StoreValue | null => _stores[name] ?? null;
 
+const _bumpSyncClock = (name: string): number => {
+    _syncClocks[name] = (_syncClocks[name] ?? 0) + 1;
+    return _syncClocks[name];
+};
+
+const _absorbSyncClock = (name: string, incomingClock: number): number => {
+    _syncClocks[name] = Math.max(_syncClocks[name] ?? 0, incomingClock) + 1;
+    return _syncClocks[name];
+};
+
+const _compareSyncOrder = (
+    name: string,
+    incoming: { clock?: number; updatedAt?: number; source?: string }
+): number => {
+    const localClock = _syncClocks[name] ?? 0;
+    const incomingClock = typeof incoming.clock === "number" ? incoming.clock : 0;
+    if (incomingClock !== localClock) return incomingClock - localClock;
+
+    const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
+    const incomingUpdated = typeof incoming.updatedAt === "number" ? incoming.updatedAt : 0;
+    if (incomingUpdated !== localUpdated) return incomingUpdated - localUpdated;
+
+    const localSource = INSTANCE_ID;
+    const incomingSource = incoming.source ?? "";
+    return incomingSource.localeCompare(localSource);
+};
+
+const _requestSyncSnapshot = (name: string): void => {
+    const channel = _syncChannels[name];
+    if (!channel) return;
+    try {
+        channel.postMessage({
+            type: "sync-request",
+            source: INSTANCE_ID,
+            name,
+            requestedAt: Date.now(),
+        });
+    } catch (err) {
+        _reportStoreError(name, `Failed to request sync snapshot for "${name}": ${(err as { message?: string })?.message ?? err}`);
+    }
+};
+
 const _setupSync = (name: string): void => {
     const sync = _meta[name]?.options?.sync;
     if (!sync) return;
     if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
-        warn(`Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
+        _reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
         return;
     }
     const channelName = typeof sync === "object" && sync.channel
@@ -819,10 +1065,19 @@ const _setupSync = (name: string): void => {
             const msg = event.data as any;
             if (!msg || msg.source === INSTANCE_ID) return;
             if (msg.name !== name) return;
-            const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
-            const incomingUpdated = msg.updatedAt;
+            if (msg.type === "sync-request") {
+                _broadcastSync(name);
+                return;
+            }
             const resolver = typeof sync === "object" ? sync.conflictResolver : null;
-            if (incomingUpdated <= localUpdated) {
+            const order = _compareSyncOrder(name, {
+                clock: msg.clock,
+                updatedAt: msg.updatedAt,
+                source: msg.source,
+            });
+            if (order <= 0) {
+                const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
+                const incomingUpdated = msg.updatedAt;
                 if (resolver) {
                     const resolved = resolver({
                         local: _stores[name],
@@ -836,6 +1091,7 @@ const _setupSync = (name: string): void => {
                         _stores[name] = resolved;
                         _meta[name].updatedAt = new Date(Math.max(localUpdated, incomingUpdated)).toISOString();
                         _meta[name].updateCount++;
+                        _absorbSyncClock(name, typeof msg.clock === "number" ? msg.clock : 0);
                         _notify(name);
                     }
                 }
@@ -844,10 +1100,29 @@ const _setupSync = (name: string): void => {
             const schemaRes = _validateSchema(name, msg.data);
             if (!schemaRes.ok) return;
             _stores[name] = msg.data;
-            _meta[name].updatedAt = new Date(incomingUpdated).toISOString();
+            _meta[name].updatedAt = new Date(msg.updatedAt).toISOString();
             _meta[name].updateCount++;
+            _absorbSyncClock(name, typeof msg.clock === "number" ? msg.clock : 0);
             _notify(name);
         };
+
+        if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+            _syncWindowCleanup[name]?.();
+            const hostWindow = window;
+            const requestLatest = () => {
+                _requestSyncSnapshot(name);
+            };
+            hostWindow.addEventListener("focus", requestLatest);
+            hostWindow.addEventListener("online", requestLatest);
+            _syncWindowCleanup[name] = () => {
+                hostWindow.removeEventListener("focus", requestLatest);
+                hostWindow.removeEventListener("online", requestLatest);
+            };
+        }
+
+        queueMicrotask(() => {
+            _requestSyncSnapshot(name);
+        });
     } catch (e) {
         warn(`Failed to setup sync for "${name}": ${(e as { message?: string })?.message || e}`);
     }
@@ -857,14 +1132,33 @@ const _broadcastSync = (name: string): void => {
     const channel = _syncChannels[name];
     if (!channel) return;
     try {
-        channel.postMessage({
+        const sync = _meta[name]?.options?.sync;
+        const payload = {
+            type: "sync-state",
             source: INSTANCE_ID,
             name,
+            clock: _syncClocks[name] ?? 0,
             updatedAt: Date.parse(_meta[name]?.updatedAt || new Date().toISOString()),
             data: _applyRedactor(name, _stores[name]),
             checksum: hashState(_stores[name]),
-        });
-    } catch (_) { /* ignore */ }
+        };
+        const maxPayloadBytes = typeof sync === "object" && typeof sync.maxPayloadBytes === "number"
+            ? sync.maxPayloadBytes
+            : 64 * 1024;
+        const payloadSize = _byteLength(JSON.stringify(payload));
+
+        if (payloadSize > maxPayloadBytes) {
+            _reportStoreError(
+                name,
+                `Sync payload for "${name}" exceeds ${maxPayloadBytes} bytes (${payloadSize} bytes). Skipping BroadcastChannel sync.`
+            );
+            return;
+        }
+
+        channel.postMessage(payload);
+    } catch (err) {
+        _reportStoreError(name, `Failed to broadcast sync for "${name}": ${(err as { message?: string })?.message ?? err}`);
+    }
 };
 
 // Selectors & presets

@@ -175,6 +175,15 @@ export const fetchStore = async (
         ? new AbortController()
         : null;
     const mergedSignal = signal || controller?.signal;
+    const abortOnCleanup = controller
+        ? () => {
+            if (!controller.signal.aborted) controller.abort();
+        }
+        : null;
+
+    if (abortOnCleanup) {
+        _registerStoreCleanup(name, abortOnCleanup);
+    }
 
     const runFetch = async (): Promise<unknown> => {
         let attempts = 0;
@@ -221,12 +230,14 @@ export const fetchStore = async (
 
                 _cacheMeta[cacheSlot] = { timestamp: Date.now(), data: transformed };
 
-                setStore(name, {
-                    data: transformed,
-                    loading: false,
-                    error: null,
-                    status: "success",
-                });
+                if (hasStore(name)) {
+                    setStore(name, {
+                        data: transformed,
+                        loading: false,
+                        error: null,
+                        status: "success",
+                    });
+                }
 
                 onSuccess?.(transformed);
                 const elapsed = Date.now() - startedAt;
@@ -238,11 +249,13 @@ export const fetchStore = async (
                 const isAbort = (err as any)?.name === "AbortError";
                 if (isAbort) {
                     warn(`fetchStore("${name}") aborted`);
-                    setStore(name, {
-                        loading: false,
-                        error: "aborted",
-                        status: "aborted",
-                    });
+                    if (hasStore(name)) {
+                        setStore(name, {
+                            loading: false,
+                            error: "aborted",
+                            status: "aborted",
+                        });
+                    }
                     return null;
                 }
 
@@ -255,12 +268,14 @@ export const fetchStore = async (
                 if (_requestVersion[cacheSlot] !== currentVersion) return null;
 
                 const errorMessage = (err as any)?.message || "Something went wrong";
-                setStore(name, {
-                    data: null,
-                    loading: false,
-                    error: errorMessage,
-                    status: "error",
-                });
+                if (hasStore(name)) {
+                    setStore(name, {
+                        data: null,
+                        loading: false,
+                        error: errorMessage,
+                        status: "error",
+                    });
+                }
 
                 onError?.(errorMessage);
                 _asyncMetrics.failures += 1;
@@ -272,6 +287,7 @@ export const fetchStore = async (
 
     const promise = runFetch().finally(() => {
         delete _inflight[cacheSlot];
+        if (abortOnCleanup) _unregisterStoreCleanup(name, abortOnCleanup);
     });
 
     _inflight[cacheSlot] = promise;
