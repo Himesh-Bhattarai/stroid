@@ -3,6 +3,31 @@ import test from "node:test";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const withMockedNow = async (timestamp: number, fn: () => Promise<void> | void) => {
+  const RealDate = Date;
+  class MockDate extends Date {
+    constructor(value?: string | number | Date) {
+      super(value ?? timestamp);
+    }
+
+    static now() {
+      return timestamp;
+    }
+
+    static parse = RealDate.parse;
+    static UTC = RealDate.UTC;
+  }
+
+  // @ts-ignore
+  globalThis.Date = MockDate;
+  try {
+    await fn();
+  } finally {
+    // @ts-ignore
+    globalThis.Date = RealDate;
+  }
+};
+
 class MockBroadcastChannel {
   static channels = new Map<string, Set<MockBroadcastChannel>>();
   static sent: Array<{ channel: string; data: any }> = [];
@@ -86,6 +111,46 @@ test("sync broadcasts updates and rejects oversized payloads", async () => {
     assert.ok(errors.some((msg) => msg.includes('Sync payload for "large" exceeds')));
   } finally {
     clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});
+
+test("sync ordering prefers monotonic clocks over wall-clock skew", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const a = await import(`../src/store.js?sync-a-${Date.now()}`);
+  const b = await import(`../src/store.js?sync-b-${Date.now()}`);
+
+  try {
+    a.createStore("shared", { value: "seed" }, { sync: true });
+    b.createStore("shared", { value: "seed" }, { sync: true });
+
+    await withMockedNow(200_000, async () => {
+      a.setStore("shared", { value: "future-a" });
+      await wait();
+    });
+
+    assert.deepStrictEqual(b.getStore("shared"), { value: "future-a" });
+
+    await withMockedNow(1_000, async () => {
+      b.setStore("shared", { value: "newer-b" });
+      await wait();
+    });
+
+    assert.deepStrictEqual(a.getStore("shared"), { value: "newer-b" });
+    assert.deepStrictEqual(b.getStore("shared"), { value: "newer-b" });
+  } finally {
+    a.clearAllStores();
+    b.clearAllStores();
     MockBroadcastChannel.reset();
     (globalThis as any).window = originalWindow;
     (globalThis as any).BroadcastChannel = originalBroadcastChannel;

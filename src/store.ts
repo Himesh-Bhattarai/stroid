@@ -156,6 +156,7 @@ const _initial: Record<string, StoreValue> = Object.create(null);
 const _meta: Record<string, MetaEntry> = Object.create(null);
 const _history: Record<string, HistoryEntry[]> = Object.create(null);
 const _syncChannels: Record<string, BroadcastChannel> = Object.create(null);
+const _syncClocks: Record<string, number> = Object.create(null);
 
 const _pendingNotifications = new Set<string>();
 let _notifyScheduled = false;
@@ -861,6 +862,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     _stores[storeName] = isDev() ? devDeepFreeze(next) : next;
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
+    _bumpSyncClock(storeName);
 
     if (_meta[storeName].options?.persist) _persistSave(storeName);
     _meta[storeName].options.onSet?.(prev, next);
@@ -922,6 +924,7 @@ export const deleteStore = (name: string): void => {
     delete _persistWatchState[name];
     _syncChannels[name]?.close();
     delete _syncChannels[name];
+    delete _syncClocks[name];
 
     if (devtoolsEnabled) _devtoolsSend(name, "delete", true);
     log(`Store "${name}" deleted`);
@@ -934,6 +937,7 @@ export const resetStore = (name: string): void => {
     const resetValue = deepClone(_initial[name]);
     _stores[name] = isDev() ? devDeepFreeze(resetValue) : resetValue;
     _meta[name].updatedAt = new Date().toISOString();
+    _bumpSyncClock(name);
 
     _meta[name].options.onReset?.(prev, resetValue);
     _pushHistory(name, "reset", prev, resetValue);
@@ -969,6 +973,7 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     _stores[name] = isDev() ? devDeepFreeze(final) : final;
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
+    _bumpSyncClock(name);
     if (_meta[name].options?.persist) _persistSave(name);
     _meta[name].options.onSet?.(current, final);
     _pushHistory(name, "merge", current, final);
@@ -998,6 +1003,33 @@ export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
 
 export const _getSnapshot = (name: string): StoreValue | null => _stores[name] ?? null;
 
+const _bumpSyncClock = (name: string): number => {
+    _syncClocks[name] = (_syncClocks[name] ?? 0) + 1;
+    return _syncClocks[name];
+};
+
+const _absorbSyncClock = (name: string, incomingClock: number): number => {
+    _syncClocks[name] = Math.max(_syncClocks[name] ?? 0, incomingClock) + 1;
+    return _syncClocks[name];
+};
+
+const _compareSyncOrder = (
+    name: string,
+    incoming: { clock?: number; updatedAt?: number; source?: string }
+): number => {
+    const localClock = _syncClocks[name] ?? 0;
+    const incomingClock = typeof incoming.clock === "number" ? incoming.clock : 0;
+    if (incomingClock !== localClock) return incomingClock - localClock;
+
+    const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
+    const incomingUpdated = typeof incoming.updatedAt === "number" ? incoming.updatedAt : 0;
+    if (incomingUpdated !== localUpdated) return incomingUpdated - localUpdated;
+
+    const localSource = INSTANCE_ID;
+    const incomingSource = incoming.source ?? "";
+    return incomingSource.localeCompare(localSource);
+};
+
 const _setupSync = (name: string): void => {
     const sync = _meta[name]?.options?.sync;
     if (!sync) return;
@@ -1015,10 +1047,15 @@ const _setupSync = (name: string): void => {
             const msg = event.data as any;
             if (!msg || msg.source === INSTANCE_ID) return;
             if (msg.name !== name) return;
-            const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
-            const incomingUpdated = msg.updatedAt;
             const resolver = typeof sync === "object" ? sync.conflictResolver : null;
-            if (incomingUpdated <= localUpdated) {
+            const order = _compareSyncOrder(name, {
+                clock: msg.clock,
+                updatedAt: msg.updatedAt,
+                source: msg.source,
+            });
+            if (order <= 0) {
+                const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
+                const incomingUpdated = msg.updatedAt;
                 if (resolver) {
                     const resolved = resolver({
                         local: _stores[name],
@@ -1032,6 +1069,7 @@ const _setupSync = (name: string): void => {
                         _stores[name] = resolved;
                         _meta[name].updatedAt = new Date(Math.max(localUpdated, incomingUpdated)).toISOString();
                         _meta[name].updateCount++;
+                        _absorbSyncClock(name, typeof msg.clock === "number" ? msg.clock : 0);
                         _notify(name);
                     }
                 }
@@ -1040,8 +1078,9 @@ const _setupSync = (name: string): void => {
             const schemaRes = _validateSchema(name, msg.data);
             if (!schemaRes.ok) return;
             _stores[name] = msg.data;
-            _meta[name].updatedAt = new Date(incomingUpdated).toISOString();
+            _meta[name].updatedAt = new Date(msg.updatedAt).toISOString();
             _meta[name].updateCount++;
+            _absorbSyncClock(name, typeof msg.clock === "number" ? msg.clock : 0);
             _notify(name);
         };
     } catch (e) {
@@ -1057,6 +1096,7 @@ const _broadcastSync = (name: string): void => {
         const payload = {
             source: INSTANCE_ID,
             name,
+            clock: _syncClocks[name] ?? 0,
             updatedAt: Date.parse(_meta[name]?.updatedAt || new Date().toISOString()),
             data: _applyRedactor(name, _stores[name]),
             checksum: hashState(_stores[name]),
