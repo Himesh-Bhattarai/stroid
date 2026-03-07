@@ -17,6 +17,7 @@ import {
   _getSnapshot,
   hydrateStores,
   getHistory,
+  createStoreForRequest,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -334,6 +335,23 @@ test("hydrateStores replaces existing primitive and array stores", () => {
 
   assert.strictEqual(getStore("count"), 2);
   assert.deepStrictEqual(getStore("list"), [3, 4, 5]);
+});
+
+test("createStoreForRequest updates falsy buffered values", () => {
+  const scoped = createStoreForRequest(({ create, set }) => {
+    create("count", 0);
+    create("flag", false);
+    create("empty", "");
+    set("count", 1);
+    set("flag", true);
+    set("empty", "filled");
+  });
+
+  assert.deepStrictEqual(scoped.snapshot(), {
+    count: 1,
+    flag: true,
+    empty: "filled",
+  });
 });
 
 test("middleware errors do not block later notifications", async () => {

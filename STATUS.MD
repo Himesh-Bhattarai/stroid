@@ -85,3 +85,8 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `non-json-safe-values-corrupt-or-throw`
   Description: values like `NaN`, `Infinity`, `BigInt`, `Symbol`, and non-string `Map` keys could silently corrupt through JSON-based clone/persist/sync paths or throw deep inside runtime helpers.
   Resolution: sanitize now rejects non-JSON-safe values up front, and store APIs report those failures before invalid data can enter persistence, sync, or cloning flows.
+
+## Patch1 P1 Fix Log
+- `status(601)` `request-store-falsy-set-ignored`
+  Description: request-scoped store helpers treated falsy buffered values like missing stores, so `0`, `false`, `""`, and `null` could not be updated.
+  Resolution: request-scope updates now use key presence instead of truthiness, and tests cover falsy buffered values.
