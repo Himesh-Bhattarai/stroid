@@ -1188,6 +1188,7 @@ const _setupSync = (name: string): void => {
             const msg = event.data as any;
             if (!msg || msg.source === INSTANCE_ID) return;
             if (msg.name !== name) return;
+            if (_syncChannels[name] !== channel || !_hasStoreEntry(name) || !_meta[name]) return;
             if (msg.type === "sync-request") {
                 _broadcastSync(name);
                 return;

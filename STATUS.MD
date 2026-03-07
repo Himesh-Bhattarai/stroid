@@ -79,3 +79,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `hydrate-existing-primitive-array-stores-fails`
   Description: hydration updated existing stores through merge/path semantics, which broke primitive stores and treated arrays like path inputs instead of replacement state.
   Resolution: existing stores now hydrate through a dedicated replace pipeline that preserves validation, persistence, hooks, history, and notifications.
+- `status(601)` `sync-late-message-after-delete-crash`
+  Description: deleted synced stores could still receive one last queued channel message, and the stale handler assumed metadata/state still existed.
+  Resolution: sync handlers now ignore stale channels and deleted stores before touching sync metadata or state, preventing post-delete crashes.
