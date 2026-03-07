@@ -521,7 +521,12 @@ const _devtoolsSend = (name: string, action: string, force = false): void => {
     } catch (_) { /* ignore */ }
 };
 
-const _runMiddleware = (name: string, payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; }): StoreValue => {
+const MIDDLEWARE_ABORT = Symbol("stroid.middleware.abort");
+
+const _runMiddleware = (
+    name: string,
+    payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; }
+): StoreValue | typeof MIDDLEWARE_ABORT => {
     const middlewares = _meta[name]?.options?.middleware || [];
     if (!Array.isArray(middlewares)) return payload.next;
     let nextState = payload.next;
@@ -540,7 +545,7 @@ const _runMiddleware = (name: string, payload: { action: string; prev: StoreValu
             const msg = `Middleware for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
             _meta[name]?.options?.onError?.(msg);
             warn(msg);
-            continue;
+            return MIDDLEWARE_ABORT;
         }
         if (result !== undefined) nextState = result;
     }
@@ -947,6 +952,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     }
 
     const next = _runMiddleware(storeName, { action: "set", prev, next: sanitizedUpdate, path: keyOrData });
+    if (next === MIDDLEWARE_ABORT) return;
     _stores[storeName] = isDev() ? devDeepFreeze(next) : next;
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
@@ -1084,6 +1090,7 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     }
 
     const final = _runMiddleware(name, { action: "merge", prev: current, next, path: null });
+    if (final === MIDDLEWARE_ABORT) return;
     _stores[name] = isDev() ? devDeepFreeze(final) : final;
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
@@ -1113,6 +1120,7 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
     }
 
     const final = _runMiddleware(name, { action, prev, next: nextValue, path: null });
+    if (final === MIDDLEWARE_ABORT) return;
     _stores[name] = isDev() ? devDeepFreeze(final) : final;
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;

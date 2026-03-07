@@ -172,3 +172,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `setstorebatch-thenable-type-contract`
   Description: the batch callback was still typed as `() => void` even though the runtime inspects its return value for thenables, which broke DTS generation and made the promise-return guard an invalid type contract.
   Resolution: `setStoreBatch()` now accepts `() => unknown` at the type boundary so the runtime guard and declaration build agree.
+- `status(601)` `middleware-throw-vetoes-update`
+  Description: throwing middleware previously reported an error but still let the write pipeline commit, so middleware could not reliably block unsafe updates.
+  Resolution: middleware failures now abort the in-flight write before state/history/notify side effects run, and regression coverage proves blocked writes do not commit while later valid writes still work.

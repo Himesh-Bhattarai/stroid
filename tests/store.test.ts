@@ -550,13 +550,17 @@ test("getStoreMeta returns deep-cloned metadata snapshots", () => {
   assert.notStrictEqual(nextMeta.metrics.notifyCount, 999);
 });
 
-test("middleware errors do not block later notifications", async () => {
+test("middleware throws veto the blocked update but allow later valid writes", async () => {
   clearAllStores();
   const errors: string[] = [];
   const seen: Array<Record<string, string> | null> = [];
 
   createStore("prefs", { theme: "dark" }, {
-    middleware: [() => { throw new Error("boom"); }],
+    middleware: [({ next }) => {
+      if ((next as Record<string, string>).theme === "light") {
+        throw new Error("boom");
+      }
+    }],
     onError: (msg) => { errors.push(msg); },
   });
 
@@ -575,7 +579,7 @@ test("middleware errors do not block later notifications", async () => {
   unsubscribe();
 
   assert.deepStrictEqual(getStore("prefs"), { theme: "blue" });
-  assert.deepStrictEqual(seen, [{ theme: "light" }, { theme: "blue" }]);
+  assert.deepStrictEqual(seen, [{ theme: "blue" }]);
   assert.ok(errors.some((msg) => msg.includes('Middleware for "prefs" failed')));
 });
 
