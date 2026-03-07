@@ -1072,6 +1072,35 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     log(`Store "${name}" merged with data`);
 };
 
+const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): void => {
+    if (!_exists(name)) return;
+    const prev = _stores[name];
+    const nextResult = _sanitizeValue(name, data);
+    if (!nextResult.ok) return;
+    const nextValue = nextResult.value;
+
+    const schemaCheck = _validateSchema(name, nextValue);
+    if (!schemaCheck.ok) return;
+
+    const validator = _meta[name]?.options?.validator;
+    if (!_runValidator(name, nextValue, validator)) {
+        return;
+    }
+
+    const final = _runMiddleware(name, { action, prev, next: nextValue, path: null });
+    _stores[name] = isDev() ? devDeepFreeze(final) : final;
+    _meta[name].updatedAt = new Date().toISOString();
+    _meta[name].updateCount++;
+    _bumpSyncClock(name);
+    if (_meta[name].options?.persist) _persistSave(name);
+    _runStoreHook(name, "onSet", _meta[name].options.onSet, [prev, final]);
+    _pushHistory(name, action, prev, final);
+    _devtoolsSend(name, action);
+    _broadcastSync(name);
+    _notify(name);
+    log(`Store "${name}" hydrated`);
+};
+
 export const clearAllStores = (): void => {
     const names = Object.keys(_stores);
     names.forEach(deleteStore);
@@ -1387,7 +1416,7 @@ export const hydrateStores = (snapshot: Record<string, any>, options: Record<str
     if (!snapshot || typeof snapshot !== "object") return;
     Object.entries(snapshot).forEach(([name, data]) => {
         if (hasStore(name)) {
-            setStore(name, data as Record<string, unknown>);
+            _replaceStoreState(name, data, "hydrate");
         } else {
             createStore(name, data, options[name] || options.default || {});
         }

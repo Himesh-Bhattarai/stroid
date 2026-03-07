@@ -76,3 +76,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `fetchstore-server-production-silent-noop`
   Description: in server production, `fetchStore()` could continue after store creation was blocked, returning data while no store was ever created.
   Resolution: `fetchStore()` now fails fast when its backing store cannot be initialized, avoiding silent SSR no-ops and unnecessary network work.
+- `status(601)` `hydrate-existing-primitive-array-stores-fails`
+  Description: hydration updated existing stores through merge/path semantics, which broke primitive stores and treated arrays like path inputs instead of replacement state.
+  Resolution: existing stores now hydrate through a dedicated replace pipeline that preserves validation, persistence, hooks, history, and notifications.

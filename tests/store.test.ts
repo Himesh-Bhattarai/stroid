@@ -289,6 +289,20 @@ test("hydrateStores skips invalid schema payloads and keeps reset state intact",
   assert.ok(errors.some((msg) => msg.includes('Schema validation failed for "ghost"')));
 });
 
+test("hydrateStores replaces existing primitive and array stores", () => {
+  clearAllStores();
+  createStore("count", 1);
+  createStore("list", [1, 2]);
+
+  hydrateStores({
+    count: 2,
+    list: [3, 4, 5],
+  });
+
+  assert.strictEqual(getStore("count"), 2);
+  assert.deepStrictEqual(getStore("list"), [3, 4, 5]);
+});
+
 test("middleware errors do not block later notifications", async () => {
   clearAllStores();
   const errors: string[] = [];
