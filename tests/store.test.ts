@@ -901,6 +901,24 @@ test("deleteStore clears orphaned history entries", () => {
   assert.deepStrictEqual(getHistory("user"), []);
 });
 
+test("clearAllStores removes stores created during delete hooks", () => {
+  clearAllStores();
+
+  createStore("first", { value: 1 }, {
+    onDelete: () => {
+      if (!hasStore("late")) {
+        createStore("late", { value: 2 }, { allowSSRGlobalStore: true });
+      }
+    },
+  });
+
+  clearAllStores();
+
+  assert.strictEqual(hasStore("first"), false);
+  assert.strictEqual(hasStore("late"), false);
+  assert.deepStrictEqual(listStores(), []);
+});
+
 test("history snapshots stay immutable in production", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const storePath = path.join(repoRoot, "src", "store.ts");

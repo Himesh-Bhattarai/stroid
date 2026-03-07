@@ -1149,9 +1149,26 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
 };
 
 export const clearAllStores = (): void => {
-    const names = Object.keys(_stores);
-    names.forEach(deleteStore);
-    warn(`All stores cleared (${names.length} stores removed)`);
+    let removed = 0;
+    let passes = 0;
+
+    while (Object.keys(_stores).length > 0 && passes < 1000) {
+        const names = Object.keys(_stores);
+        names.forEach((name) => {
+            if (_hasStoreEntry(name)) {
+                deleteStore(name);
+                removed += 1;
+            }
+        });
+        passes += 1;
+    }
+
+    if (Object.keys(_stores).length > 0) {
+        warn(`clearAllStores() stopped after ${passes} passes with ${Object.keys(_stores).length} stores still registered.`);
+        return;
+    }
+
+    warn(`All stores cleared (${removed} stores removed)`);
 };
 
 export const hasStore = (name: string): boolean => _hasStoreEntry(name);

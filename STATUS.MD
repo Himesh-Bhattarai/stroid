@@ -193,3 +193,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `validator-onerror-deduping`
   Description: validator failures could call the same `onError` handler twice when the runtime path passed both the stored handler and the same function as an explicit callback.
   Resolution: validator reporting now deduplicates handler invocations while keeping update blocking behavior intact, with regression coverage for update and initialization paths.
+- `status(601)` `clearallstores-reentrant-deletes`
+  Description: `clearAllStores()` only snapshotted store names once, so any store created during delete hooks or subscriber cleanup could survive the clear-all pass.
+  Resolution: the clear-all path now drains stores until registries are empty, with regression coverage for stores created during delete hooks.
