@@ -136,6 +136,14 @@ test("setStore blocks type mismatches", () => {
   assert.ok(errorMessage?.includes("Type mismatch"));
 });
 
+test("setStore does not reshape primitive stores with object merges", () => {
+  clearAllStores();
+  createStore("count", 1);
+
+  setStore("count", { bad: true } as any);
+  assert.strictEqual(getStore("count"), 1);
+});
+
 test("validator exceptions are reported without throwing", () => {
   clearAllStores();
   const errors: string[] = [];

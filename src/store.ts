@@ -896,6 +896,13 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         updated = produceClone(prev, keyOrData as (draft: any) => void);
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) return;
+        if (typeof prev !== "object" || prev === null || Array.isArray(prev)) {
+            error(
+                `setStore("${storeName}", data) only merges into object stores.\n` +
+                `Use setStore("${storeName}", "path", value) or recreate the store with an object shape.`
+            );
+            return;
+        }
         const partialResult = _sanitizeValue(storeName, keyOrData);
         if (!partialResult.ok) return;
         updated = { ...(prev as Record<string, unknown>), ...partialResult.value as Record<string, unknown> };

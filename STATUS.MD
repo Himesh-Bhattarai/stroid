@@ -99,3 +99,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `getstoremeta-live-reference-leak`
   Description: `getStoreMeta()` returned only a shallow copy, so callers could mutate live nested `options` and `metrics`.
   Resolution: metadata reads now return deep-cloned snapshots, preventing inspector-style code from changing runtime behavior.
+- `status(601)` `primitive-store-object-merge-shape-change`
+  Description: `setStore(name, object)` could silently turn primitive stores into objects by running the merge path against non-object state.
+  Resolution: object-merge updates are now rejected for non-object stores, preserving the store shape established at creation.
