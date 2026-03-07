@@ -674,6 +674,29 @@ test("setStoreBatch rejects async callbacks before they can interleave state", (
   assert.deepStrictEqual(getStore("batchGuard"), { value: 0 });
 });
 
+test("setStoreBatch flushes queued notifications before rejecting promise-returning callbacks", async () => {
+  clearAllStores();
+  createStore("batchPromiseGuard", { value: 0 });
+  const seen: number[] = [];
+
+  _subscribe("batchPromiseGuard", (value) => {
+    if (!value) return;
+    seen.push((value as { value: number }).value);
+  });
+
+  assert.throws(() => {
+    setStoreBatch(() => {
+      setStore("batchPromiseGuard", { value: 1 });
+      return Promise.resolve();
+    });
+  }, /promise-returning callbacks/);
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(getStore("batchPromiseGuard"), { value: 1 });
+  assert.deepStrictEqual(seen, [1]);
+});
+
 test("lifecycle hook errors do not leave partial commits", () => {
   clearAllStores();
   const errors: string[] = [];

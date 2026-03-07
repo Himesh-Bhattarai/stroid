@@ -160,3 +160,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `deepclone-fallback-plain-enumerable-data`
   Description: the recursive clone fallback preserved prototype chains and copied hidden descriptors, which reintroduced prototype-shaped state and non-enumerable leakage through snapshot/history paths when `structuredClone` was unavailable.
   Resolution: object fallback clones are now rebuilt as plain enumerable data objects only, skipping forbidden prototype keys, accessors, and non-enumerable properties, with regression coverage forcing the fallback path.
+- `status(601)` `setstorebatch-promise-return-flush`
+  Description: promise-returning batch callbacks could enqueue synchronous updates and then fail the batch contract, leaving flush timing dependent on `finally` ordering instead of an explicit notify path.
+  Resolution: `setStoreBatch()` now schedules queued notifications before rejecting promise-returning callbacks, and regression coverage locks the synchronous-update flush behavior.

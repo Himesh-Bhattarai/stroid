@@ -973,6 +973,9 @@ export const setStoreBatch = (fn: () => void): void => {
     try {
         const result = fn();
         if (result && typeof (result as Promise<unknown>).then === "function") {
+            if (_pendingNotifications.size > 0) {
+                _scheduleFlush();
+            }
             throw new Error("setStoreBatch does not support promise-returning callbacks.");
         }
     } finally {
