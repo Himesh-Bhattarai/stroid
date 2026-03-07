@@ -190,3 +190,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `fetchstore-ssr-observability`
   Description: `fetchStore(...)` still returned `null` silently when asked to create a backing store on the server in production, so callers had no async-specific signal that the environment was unsupported.
   Resolution: `fetchStore()` now fails fast with its own `onError`/production console reporting before any network work starts, with regression coverage for the blocked SSR path.
+- `status(601)` `validator-onerror-deduping`
+  Description: validator failures could call the same `onError` handler twice when the runtime path passed both the stored handler and the same function as an explicit callback.
+  Resolution: validator reporting now deduplicates handler invocations while keeping update blocking behavior intact, with regression coverage for update and initialization paths.

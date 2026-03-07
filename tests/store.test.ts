@@ -282,6 +282,32 @@ test("validator exceptions are reported without throwing", () => {
   assert.ok(errors.some((msg) => msg.includes('Validator for "mergeUser" failed')));
 });
 
+test("validator failures do not call the same onError handler twice", () => {
+  clearAllStores();
+  const messages: string[] = [];
+  const onError = (msg: string) => {
+    messages.push(msg);
+  };
+
+  createStore("validatorOnce", { value: 1 }, {
+    onError,
+    validator: (next: any) => next.value < 2,
+  });
+
+  setStore("validatorOnce", { value: 2 });
+  assert.deepStrictEqual(messages, ['Validator blocked update for "validatorOnce"']);
+
+  messages.length = 0;
+
+  const blocked = createStore("validatorInitOnce", { value: 2 }, {
+    onError,
+    validator: (next: any) => next.value < 2,
+  });
+
+  assert.strictEqual(blocked, undefined);
+  assert.deepStrictEqual(messages, ['Validator blocked update for "validatorInitOnce"']);
+});
+
 test("sanitize errors are reported without throwing on circular input", () => {
   clearAllStores();
   const errors: string[] = [];

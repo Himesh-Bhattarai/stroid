@@ -579,17 +579,21 @@ const _runValidator = (
     validator?: (next: StoreValue) => boolean,
     onError?: (message: string) => void
 ): boolean => {
-    const report = (message: string): void => {
-        _meta[name]?.options?.onError?.(message);
-        onError?.(message);
-        warn(message);
+    const report = (message: string, shouldWarn = true): void => {
+        const handlers = new Set<((message: string) => void)>();
+        const metaHandler = _meta[name]?.options?.onError;
+        if (typeof metaHandler === "function") handlers.add(metaHandler);
+        if (typeof onError === "function") handlers.add(onError);
+        handlers.forEach((handler) => handler(message));
+        if (shouldWarn) {
+            warn(message);
+        }
     };
     if (typeof validator !== "function") return true;
     try {
         if (validator(value) === false) {
             const message = `Validator blocked update for "${name}"`;
-            _meta[name]?.options?.onError?.(message);
-            onError?.(message);
+            report(message, false);
             return false;
         }
         return true;
