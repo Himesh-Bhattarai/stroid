@@ -163,3 +163,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `setstorebatch-promise-return-flush`
   Description: promise-returning batch callbacks could enqueue synchronous updates and then fail the batch contract, leaving flush timing dependent on `finally` ordering instead of an explicit notify path.
   Resolution: `setStoreBatch()` now schedules queued notifications before rejecting promise-returning callbacks, and regression coverage locks the synchronous-update flush behavior.
+- `status(601)` `react-inline-selector-stability`
+  Description: inline selector functions passed to `useStore()` and `useSelector()` forced subscription churn and unstable snapshot recomputation, which could spiral into render loops or needless rerenders when selector identities changed every render.
+  Resolution: React selector hooks now read selector/equality functions through refs and cache selected snapshots by store snapshot identity, while a build check locks the hook implementation against type/package regressions.
