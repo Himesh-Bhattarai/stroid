@@ -39,7 +39,25 @@ const MAX_RETRY_DELAY_MS = 30_000;
 const MAX_RETRY_BACKOFF = 8;
 const MAX_CACHE_SLOTS_PER_STORE = 100;
 
-const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
+const delay = (ms: number, signal?: AbortSignal): Promise<void> => new Promise((resolve) => {
+    if (signal?.aborted) {
+        resolve();
+        return;
+    }
+
+    const timer = setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+    }, ms);
+
+    const onAbort = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+    };
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+});
 
 const _runAsyncHook = (
     name: string,
@@ -391,7 +409,7 @@ export const fetchStore = async (
 
                 if (attempts <= effectiveRetryPolicy.retry) {
                     if (mergedSignal?.aborted) return _settleAbort(name);
-                    await delay(delayMs);
+                    await delay(delayMs, mergedSignal);
                     if (mergedSignal?.aborted) return _settleAbort(name);
                     delayMs = Math.min(MAX_RETRY_DELAY_MS, delayMs * effectiveRetryPolicy.retryBackoff);
                     continue;
@@ -419,7 +437,9 @@ export const fetchStore = async (
 
     const promise = runFetch().finally(() => {
         delete _inflight[cacheSlot];
-        delete _requestVersion[cacheSlot];
+        if (_requestVersion[cacheSlot] === currentVersion) {
+            delete _requestVersion[cacheSlot];
+        }
         if (abortOnCleanup) _unregisterStoreCleanup(name, abortOnCleanup);
     });
 

@@ -7,6 +7,15 @@ import { fetchStore } from "../src/async.js";
 import { getStore, clearAllStores, deleteStore } from "../src/store.js";
 
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
 
 test("fetchStore dedupes inflight requests", async () => {
   clearAllStores();
@@ -53,6 +62,28 @@ test("fetchStore uses last-write-wins for racing promises", async () => {
 
   const state = getStore("raceStore");
   assert.deepStrictEqual(state?.data, { result: "fast" });
+  assert.strictEqual(state?.status, "success");
+});
+
+test("fetchStore keeps the latest concurrent result when earlier requests settle first", async () => {
+  clearAllStores();
+  const first = deferred<{ result: string }>();
+  const second = deferred<{ result: string }>();
+
+  const firstRequest = fetchStore("raceStoreOrdered", first.promise, { dedupe: false });
+  await wait(0);
+  const secondRequest = fetchStore("raceStoreOrdered", second.promise, { dedupe: false });
+
+  first.resolve({ result: "first" });
+  await wait(0);
+  second.resolve({ result: "second" });
+
+  const [r1, r2] = await Promise.all([firstRequest, secondRequest]);
+
+  assert.strictEqual(r1, null);
+  assert.deepStrictEqual(r2, { result: "second" });
+  const state = getStore("raceStoreOrdered");
+  assert.deepStrictEqual(state?.data, { result: "second" });
   assert.strictEqual(state?.status, "success");
 });
 
@@ -179,6 +210,7 @@ test("fetchStore stops retrying after abort during backoff", async () => {
   const realFetch = globalThis.fetch;
   const controller = new AbortController();
   let calls = 0;
+  const started = Date.now();
 
   globalThis.fetch = (async () => {
     calls += 1;
@@ -195,9 +227,11 @@ test("fetchStore stops retrying after abort during backoff", async () => {
     await wait(10);
     controller.abort();
     const result = await request;
+    const elapsed = Date.now() - started;
 
     assert.strictEqual(result, null);
     assert.strictEqual(calls, 1);
+    assert.ok(elapsed < 45, `expected abort-aware delay to settle promptly, got ${elapsed}ms`);
     const state = getStore("retryAbortStore");
     assert.strictEqual(state?.status, "aborted");
   } finally {

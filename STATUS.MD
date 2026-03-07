@@ -166,3 +166,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `react-inline-selector-stability`
   Description: inline selector functions passed to `useStore()` and `useSelector()` forced subscription churn and unstable snapshot recomputation, which could spiral into render loops or needless rerenders when selector identities changed every render.
   Resolution: React selector hooks now read selector/equality functions through refs and cache selected snapshots by store snapshot identity, while a build check locks the hook implementation against type/package regressions.
+- `status(601)` `fetchstore-stale-version-and-abort-delay`
+  Description: concurrent fetches could delete each other’s request-version marker on settle, and retry backoff waited out the full timeout even after abort, producing stale drops and slow abort recovery under real overlap.
+  Resolution: async request cleanup now only clears the active version slot, retry delay becomes abort-aware, and regressions cover ordered overlap plus prompt abort settlement during backoff.
