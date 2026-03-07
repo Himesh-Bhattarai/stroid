@@ -205,3 +205,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `store-name-suggestion-length-guard`
   Description: typo suggestions ran full Levenshtein distance across arbitrary user input, so very long missing store names could trigger quadratic CPU and memory work just to format an error.
   Resolution: store-name suggestions now gate edit-distance checks by bounded input size and use a rolling-row algorithm for the remaining short cases, with regression coverage for hostile long names and normal short suggestions.
+- `status(601)` `stalewhilerevalidate-background-signal`
+  Description: cached async reads using `staleWhileRevalidate` exposed no explicit background-refresh signal, and failed revalidation dropped the last good data even though stale content was already available.
+  Resolution: async store state now exposes `revalidating` during background refresh and preserves stale cached data when the refresh fails, with regression coverage for both success and failure paths.

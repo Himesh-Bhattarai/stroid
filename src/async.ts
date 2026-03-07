@@ -24,6 +24,7 @@ type AsyncState = {
     error: string | null;
     status: "idle" | "loading" | "success" | "error" | "aborted";
     cached?: boolean;
+    revalidating?: boolean;
 };
 
 const _fetchRegistry: Record<string, { url: string | Promise<unknown>; options: FetchOptions }> = {};
@@ -96,6 +97,7 @@ const _settleAbort = (name: string): null => {
             loading: false,
             error: "aborted",
             status: "aborted",
+            revalidating: false,
         });
     }
     return null;
@@ -316,17 +318,22 @@ export const fetchStore = async (
     }
     _ensureCleanupSubscription(name);
 
+    let cachedData: unknown = null;
+    let backgroundRevalidate = false;
+
     if (shouldUseCache(cacheSlot, ttl)) {
         _asyncMetrics.cacheHits += 1;
-        const cached = _cacheMeta[cacheSlot].data;
+        cachedData = _cacheMeta[cacheSlot].data;
         setStore(name, {
-            data: cached,
-            loading: false,
+            data: cachedData,
+            loading: staleWhileRevalidate,
             error: null,
             status: "success",
             cached: true,
+            revalidating: staleWhileRevalidate,
         });
-        if (!staleWhileRevalidate) return cached;
+        if (!staleWhileRevalidate) return cachedData;
+        backgroundRevalidate = true;
     } else {
         _asyncMetrics.cacheMisses += 1;
     }
@@ -339,11 +346,15 @@ export const fetchStore = async (
     const currentVersion = (_requestVersion[cacheSlot] ?? 0) + 1;
     _requestVersion[cacheSlot] = currentVersion;
 
-    setStore(name, {
-        loading: true,
-        error: null,
-        status: "loading",
-    });
+    if (!backgroundRevalidate) {
+        setStore(name, {
+            loading: true,
+            error: null,
+            status: "loading",
+            cached: false,
+            revalidating: false,
+        });
+    }
 
     _asyncMetrics.requests += 1;
     const startedAt = Date.now();
@@ -421,6 +432,8 @@ export const fetchStore = async (
                         loading: false,
                         error: null,
                         status: "success",
+                        cached: false,
+                        revalidating: false,
                     });
                 }
 
@@ -449,10 +462,12 @@ export const fetchStore = async (
                 const errorMessage = (err as any)?.message || "Something went wrong";
                 if (hasStore(name)) {
                     setStore(name, {
-                        data: null,
+                        data: backgroundRevalidate ? cachedData : null,
                         loading: false,
                         error: errorMessage,
                         status: "error",
+                        cached: backgroundRevalidate,
+                        revalidating: false,
                     });
                 }
 

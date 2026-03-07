@@ -334,3 +334,100 @@ test("fetchStore ignores retry delays for direct Promise inputs", async () => {
   assert.strictEqual(state?.status, "error");
   assert.strictEqual(state?.error, "promise boom");
 });
+
+test("fetchStore exposes background revalidation while serving cached data", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  const refresh = deferred<{ value: string }>();
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    if (calls === 1) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: { get: () => "application/json" },
+        json: async () => ({ value: "cached" }),
+        text: async () => JSON.stringify({ value: "cached" }),
+      } as any;
+    }
+    const result = await refresh.promise;
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "application/json" },
+      json: async () => result,
+      text: async () => JSON.stringify(result),
+    } as any;
+  }) as typeof fetch;
+
+  try {
+    await fetchStore("swrStore", "https://api.example.com/swr", { ttl: 5_000 });
+
+    const request = fetchStore("swrStore", "https://api.example.com/swr", {
+      ttl: 5_000,
+      staleWhileRevalidate: true,
+    });
+
+    const during = getStore("swrStore") as any;
+    assert.deepStrictEqual(during.data, { value: "cached" });
+    assert.strictEqual(during.status, "success");
+    assert.strictEqual(during.loading, true);
+    assert.strictEqual(during.cached, true);
+    assert.strictEqual(during.revalidating, true);
+
+    refresh.resolve({ value: "fresh" });
+    await request;
+
+    const after = getStore("swrStore") as any;
+    assert.deepStrictEqual(after.data, { value: "fresh" });
+    assert.strictEqual(after.loading, false);
+    assert.strictEqual(after.cached, false);
+    assert.strictEqual(after.revalidating, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("fetchStore preserves stale data when background revalidation fails", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    if (calls === 1) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: { get: () => "application/json" },
+        json: async () => ({ value: "cached" }),
+        text: async () => JSON.stringify({ value: "cached" }),
+      } as any;
+    }
+    throw new Error("refresh failed");
+  }) as typeof fetch;
+
+  try {
+    await fetchStore("swrFailStore", "https://api.example.com/swr-fail", { ttl: 5_000 });
+    const result = await fetchStore("swrFailStore", "https://api.example.com/swr-fail", {
+      ttl: 5_000,
+      staleWhileRevalidate: true,
+      dedupe: false,
+    });
+
+    assert.strictEqual(result, null);
+    const state = getStore("swrFailStore") as any;
+    assert.deepStrictEqual(state.data, { value: "cached" });
+    assert.strictEqual(state.error, "refresh failed");
+    assert.strictEqual(state.status, "error");
+    assert.strictEqual(state.cached, true);
+    assert.strictEqual(state.revalidating, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
