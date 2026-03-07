@@ -3,6 +3,7 @@ import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { devDeepFreeze } from "../src/devfreeze.js";
 import {
   createStore,
   setStore,
@@ -36,6 +37,23 @@ test("createStore with number", () => {
   clearAllStores();
   createStore("count", 0);
   assert.strictEqual(getStore("count"), 0);
+});
+
+test("devDeepFreeze handles deeply nested and circular objects without overflowing", () => {
+  const root: Record<string, unknown> = {};
+  let cursor = root;
+  for (let i = 0; i < 20_000; i++) {
+    const next: Record<string, unknown> = {};
+    cursor.next = next;
+    cursor = next;
+  }
+  cursor.loop = root;
+
+  assert.doesNotThrow(() => {
+    devDeepFreeze(root);
+  });
+  assert.strictEqual(Object.isFrozen(root), true);
+  assert.strictEqual(Object.isFrozen(root.next as object), true);
 });
 
 test("undefined stores are tracked and can be deleted cleanly", () => {

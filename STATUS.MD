@@ -178,3 +178,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `selector-serialization-fallback-without-hash-collision`
   Description: selector subscriptions relied on a CRC32 hash shortcut to suppress object-churn false positives, which left a collision-based path for silently missed updates.
   Resolution: object-selector fallback matching now compares full serialized JSON-safe content instead of CRC32 hashes, preserving the no-noise behavior for rebuilt objects without hash-collision risk.
+- `status(601)` `iterative-devdeepfreeze`
+  Description: recursive `devDeepFreeze()` could overflow the call stack on deeply nested payloads and had no cycle handling, making development-only safety checks crash on pathological state shapes.
+  Resolution: deep-freeze now uses an iterative, cycle-safe traversal, with regression coverage for very deep and circular objects.
