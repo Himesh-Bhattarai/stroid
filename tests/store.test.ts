@@ -356,6 +356,19 @@ test("deleteStore removes store", () => {
   assert.strictEqual(hasStore("user"), false);
 });
 
+test("deleteStore still cleans up when a subscriber throws", () => {
+  clearAllStores();
+  createStore("user", { name: "Alex" });
+  _subscribe("user", (value) => {
+    if (value === null) throw new Error("delete subscriber boom");
+  });
+
+  assert.doesNotThrow(() => {
+    deleteStore("user");
+  });
+  assert.strictEqual(hasStore("user"), false);
+});
+
 test("history snapshots stay immutable in production", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const storePath = path.join(repoRoot, "src", "store.ts");

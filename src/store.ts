@@ -950,7 +950,13 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
 export const deleteStore = (name: string): void => {
     if (!_exists(name)) return;
     const subs = _subscribers[name];
-    subs?.forEach((fn) => fn(null));
+    subs?.forEach((fn) => {
+        try {
+            fn(null);
+        } catch (err) {
+            warn(`Subscriber for "${name}" threw during delete: ${(err as { message?: string })?.message ?? err}`);
+        }
+    });
     _runStoreHook(name, "onDelete", _meta[name].options.onDelete, [_stores[name]]);
     const cfg = _meta[name].options.persist;
     const devtoolsEnabled = _meta[name].options.devtools;

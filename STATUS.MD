@@ -55,3 +55,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `lifecycle-hooks-throw-partial-commit`
   Description: lifecycle hooks could throw after state mutation started, leaving state, history, cleanup, and notifications partially applied.
   Resolution: `onCreate`, `onSet`, `onReset`, and `onDelete` now run through guarded hook execution so hook failures are reported without corrupting the store pipeline.
+- `status(601)` `delete-store-subscriber-throw-aborts-cleanup`
+  Description: `deleteStore()` notified subscribers without guarding exceptions, so one bad subscriber could abort teardown and leave the store half-deleted.
+  Resolution: delete-time subscriber notifications now isolate throws and always continue cleanup, with regression coverage locking full teardown.
