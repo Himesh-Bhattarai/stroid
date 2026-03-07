@@ -108,3 +108,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `fetchstore-retry-abort`
   Description: aborting during retry backoff still allowed one more retry cycle because the signal was not checked between attempts.
   Resolution: `fetchStore()` now settles aborted state before and after retry delays so aborting backoff prevents any further network attempts.
+- `status(601)` `reentrant-notify-drops-follow-up-updates`
+  Description: subscriber-triggered `setStore()` calls could enqueue a second notification and then lose it when the current flush cleared the pending set.
+  Resolution: the notify queue now drains one batch at a time and reschedules when re-entrant updates arrive, so follow-up notifications are delivered instead of dropped.

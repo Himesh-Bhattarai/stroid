@@ -189,7 +189,9 @@ const _scheduleFlush = (): void => {
     _notifyScheduled = true;
     const run = () => {
         _notifyScheduled = false;
-        _pendingNotifications.forEach((name) => {
+        const names = Array.from(_pendingNotifications);
+        _pendingNotifications.clear();
+        names.forEach((name) => {
             const subs = _subscribers[name];
             if (!subs || subs.length === 0) return;
             const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
@@ -206,7 +208,7 @@ const _scheduleFlush = (): void => {
             metrics.lastNotifyMs = delta;
             if (_meta[name]) _meta[name].metrics = metrics;
         });
-        _pendingNotifications.clear();
+        if (_pendingNotifications.size > 0) _scheduleFlush();
     };
     if (typeof queueMicrotask === "function") queueMicrotask(run);
     else Promise.resolve().then(run);

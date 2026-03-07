@@ -445,6 +445,27 @@ test("middleware errors do not block later notifications", async () => {
   assert.ok(errors.some((msg) => msg.includes('Middleware for "prefs" failed')));
 });
 
+test("subscriber-triggered updates schedule a follow-up notification", async () => {
+  clearAllStores();
+  const seen: number[] = [];
+
+  createStore("loop", { value: 0 });
+  _subscribe("loop", (value) => {
+    if (!value) return;
+    seen.push((value as { value: number }).value);
+    if ((value as { value: number }).value === 1) {
+      setStore("loop", { value: 2 });
+    }
+  });
+
+  setStore("loop", { value: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(seen, [1, 2]);
+  assert.deepStrictEqual(getStore("loop"), { value: 2 });
+});
+
 test("lifecycle hook errors do not leave partial commits", () => {
   clearAllStores();
   const errors: string[] = [];
