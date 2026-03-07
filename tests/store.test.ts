@@ -23,6 +23,7 @@ import {
   subscribeWithSelector,
   createEntityStore,
   createSelector,
+  setStoreBatch,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -598,6 +599,21 @@ test("createSelector skips recomputation when tracked paths are unchanged", () =
   setStore("selectorMemo", "profile.name", "Jordan");
   assert.strictEqual(selectName(), "Jordan");
   assert.strictEqual(runs, 2);
+});
+
+test("setStoreBatch rejects async callbacks before they can interleave state", () => {
+  clearAllStores();
+  createStore("batchGuard", { value: 0 });
+
+  assert.throws(() => {
+    setStoreBatch(async () => {
+      setStore("batchGuard", { value: 1 });
+      await Promise.resolve();
+      setStore("batchGuard", { value: 2 });
+    });
+  }, /does not support async functions/);
+
+  assert.deepStrictEqual(getStore("batchGuard"), { value: 0 });
 });
 
 test("lifecycle hook errors do not leave partial commits", () => {

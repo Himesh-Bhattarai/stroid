@@ -143,3 +143,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `deepclone-no-shallow-fallback`
   Description: `deepClone()` silently fell back to shallow copies after clone failures, which could leak nested references into snapshots, history, and initial state handling.
   Resolution: clone failures now use a real recursive fallback with circular-reference support instead of degrading to shallow copies, with regression coverage forcing the fallback path.
+- `status(601)` `setstorebatch-async-guard`
+  Description: `setStoreBatch()` accepted async callbacks, which could let batch depth span await boundaries and flush notifications out of order across ticks.
+  Resolution: batch callbacks are now validated as synchronous-only, with regression coverage proving async callbacks are rejected before they mutate store state.

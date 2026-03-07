@@ -962,9 +962,18 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
 }
 
 export const setStoreBatch = (fn: () => void): void => {
+    if (typeof fn !== "function") {
+        throw new Error("setStoreBatch requires a synchronous function callback.");
+    }
+    if ((fn as Function).constructor?.name === "AsyncFunction") {
+        throw new Error("setStoreBatch does not support async functions.");
+    }
     _batchDepth++;
     try {
-        fn();
+        const result = fn();
+        if (result && typeof (result as Promise<unknown>).then === "function") {
+            throw new Error("setStoreBatch does not support promise-returning callbacks.");
+        }
     } finally {
         _batchDepth = Math.max(0, _batchDepth - 1);
         if (_batchDepth === 0 && _pendingNotifications.size > 0) {
