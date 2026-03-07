@@ -96,3 +96,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `delete-store-leaves-history-behind`
   Description: deleting a store removed live state but retained its history entries, leaving orphaned memory and stale tooling output.
   Resolution: `deleteStore()` now clears history for the removed store, with regression coverage verifying deleted stores no longer report past history.
+- `status(601)` `getstoremeta-live-reference-leak`
+  Description: `getStoreMeta()` returned only a shallow copy, so callers could mutate live nested `options` and `metrics`.
+  Resolution: metadata reads now return deep-cloned snapshots, preventing inspector-style code from changing runtime behavior.

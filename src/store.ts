@@ -1110,7 +1110,7 @@ export const clearAllStores = (): void => {
 
 export const hasStore = (name: string): boolean => _hasStoreEntry(name);
 export const listStores = (): string[] => Object.keys(_stores);
-export const getStoreMeta = (name: string): MetaEntry | null => (_exists(name) ? { ..._meta[name] } : null);
+export const getStoreMeta = (name: string): MetaEntry | null => (_exists(name) ? deepClone(_meta[name]) : null);
 
 export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
     if (!_subscribers[name]) _subscribers[name] = [];

@@ -19,6 +19,7 @@ import {
   getHistory,
   createStoreForRequest,
   getInitialState,
+  getStoreMeta,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -363,6 +364,19 @@ test("getInitialState returns original initial values", () => {
   assert.deepStrictEqual(getInitialState(), {
     user: { value: 1 },
   });
+});
+
+test("getStoreMeta returns deep-cloned metadata snapshots", () => {
+  clearAllStores();
+  createStore("user", { value: 1 }, { historyLimit: 50 });
+
+  const meta = getStoreMeta("user")!;
+  meta.options.historyLimit = 0;
+  meta.metrics.notifyCount = 999;
+
+  const nextMeta = getStoreMeta("user")!;
+  assert.strictEqual(nextMeta.options.historyLimit, 50);
+  assert.notStrictEqual(nextMeta.metrics.notifyCount, 999);
 });
 
 test("middleware errors do not block later notifications", async () => {
