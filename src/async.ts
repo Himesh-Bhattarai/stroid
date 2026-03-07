@@ -39,6 +39,7 @@ const MIN_RETRY_DELAY_MS = 10;
 const MAX_RETRY_DELAY_MS = 30_000;
 const MAX_RETRY_BACKOFF = 8;
 const MAX_CACHE_SLOTS_PER_STORE = 100;
+const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
 
 const delay = (ms: number, signal?: AbortSignal): Promise<void> => new Promise((resolve) => {
     if (signal?.aborted) {
@@ -206,6 +207,15 @@ const _pruneAsyncCache = (name: string): void => {
     });
 };
 
+const _countInflightSlots = (name: string): number => {
+    const prefix = `${name}:`;
+    let count = 0;
+    Object.keys(_inflight).forEach((key) => {
+        if (key === name || key.startsWith(prefix)) count += 1;
+    });
+    return count;
+};
+
 const _registerStoreCleanup = (name: string, fn: () => void): void => {
     if (!_storeCleanupFns[name]) _storeCleanupFns[name] = new Set();
     _storeCleanupFns[name].add(fn);
@@ -341,6 +351,14 @@ export const fetchStore = async (
     if (dedupe && _inflight[cacheSlot]) {
         _asyncMetrics.dedupes += 1;
         return _inflight[cacheSlot]!;
+    }
+
+    if (!_inflight[cacheSlot] && _countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
+        return _reportAsyncUsageError(
+            name,
+            `fetchStore("${name}") exceeded ${MAX_INFLIGHT_SLOTS_PER_STORE} concurrent request slots. Reuse cacheKey values, wait for pending requests, or delete the store to clear async state.`,
+            onError
+        );
     }
 
     const currentVersion = (_requestVersion[cacheSlot] ?? 0) + 1;

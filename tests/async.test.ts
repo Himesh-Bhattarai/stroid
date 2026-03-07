@@ -431,3 +431,53 @@ test("fetchStore preserves stale data when background revalidation fails", async
     globalThis.fetch = realFetch;
   }
 });
+
+test("fetchStore caps per-store inflight request slots under unique cache keys", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  const pending: Array<ReturnType<typeof deferred<{ slot: number }>>> = [];
+  const errors: string[] = [];
+  let calls = 0;
+
+  globalThis.fetch = (() => {
+    calls += 1;
+    const next = deferred<{ slot: number }>();
+    pending.push(next);
+    return next.promise.then((value) => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "application/json" },
+      json: async () => value,
+      text: async () => JSON.stringify(value),
+    })) as any;
+  }) as typeof fetch;
+
+  try {
+    const requests = Array.from({ length: 100 }, (_, i) =>
+      fetchStore("burstStore", "https://api.example.com/burst", {
+        dedupe: false,
+        cacheKey: `slot-${i}`,
+      })
+    );
+
+    await wait(0);
+
+    const overflow = await fetchStore("burstStore", "https://api.example.com/burst", {
+      dedupe: false,
+      cacheKey: "slot-overflow",
+      onError: (msg) => { errors.push(msg); },
+    });
+
+    assert.strictEqual(overflow, null);
+    assert.strictEqual(calls, 100);
+    assert.ok(errors.some((msg) => msg.includes('fetchStore("burstStore") exceeded 100 concurrent request slots')));
+
+    pending.forEach((entry, index) => {
+      entry.resolve({ slot: index });
+    });
+    await Promise.all(requests);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

@@ -208,3 +208,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `stalewhilerevalidate-background-signal`
   Description: cached async reads using `staleWhileRevalidate` exposed no explicit background-refresh signal, and failed revalidation dropped the last good data even though stale content was already available.
   Resolution: async store state now exposes `revalidating` during background refresh and preserves stale cached data when the refresh fails, with regression coverage for both success and failure paths.
+- `status(601)` `fetchstore-inflight-slot-cap`
+  Description: async bookkeeping bounded cached slots but not active in-flight requests, so hostile high-cardinality `cacheKey` traffic could still grow per-store request state without limit while requests remained open.
+  Resolution: `fetchStore()` now enforces a per-store concurrent request-slot cap and surfaces an explicit error when callers exceed it, with regression coverage for unique-key burst traffic.
