@@ -199,3 +199,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `resetallstoresfortest-hard-reset`
   Description: `resetAllStoresForTest()` reused the normal delete pipeline, so test cleanup fired real `onDelete` hooks and other side effects that should not run during isolated test resets.
   Resolution: test resets now use a dedicated hard-reset path that clears registries, timers, sync resources, and snapshot state without invoking user hooks, with regression coverage proving delete hooks stay silent.
+- `status(601)` `chain-missing-store-observability`
+  Description: `chain()` warned in development but collapsed into silent read/write no-ops in production when the target store did not exist yet.
+  Resolution: chain reads and writes now surface explicit missing-store errors in production too, with regression coverage for missing root and target-path access.

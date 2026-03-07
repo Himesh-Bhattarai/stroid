@@ -1,5 +1,20 @@
 import { getStore, setStore, hasStore } from "./store.js";
-import { warn, error } from "./utils.js";
+import { warn, error, isDev } from "./utils.js";
+
+const _reportMissingStore = (storeName: string, action: "read" | "write"): void => {
+    const message =
+        action === "write"
+            ? `chain("${storeName}") cannot write because the store does not exist yet. Call createStore("${storeName}", data) first.`
+            : `chain("${storeName}") cannot read because the store does not exist yet. Call createStore("${storeName}", data) first.`;
+
+    if (isDev()) {
+        error(message);
+        return;
+    }
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+        console.error(`[stroid] ${message}`);
+    }
+};
 
 class StroidChain {
     private _storeName: string;
@@ -27,6 +42,10 @@ class StroidChain {
     }
 
     get value(): unknown {
+        if (!hasStore(this._storeName)) {
+            _reportMissingStore(this._storeName, "read");
+            return null;
+        }
         if (this._path.length === 0) {
             return getStore(this._storeName);
         }
@@ -34,6 +53,10 @@ class StroidChain {
     }
 
     set(newValue: unknown): void {
+        if (!hasStore(this._storeName)) {
+            _reportMissingStore(this._storeName, "write");
+            return;
+        }
         if (this._path.length === 0) {
             setStore(this._storeName, newValue as any);
         } else {
@@ -62,6 +85,10 @@ class TargetNode {
             warn("target() was called without a key - returning null");
             return null;
         }
+        if (!hasStore(this._storeName)) {
+            _reportMissingStore(this._storeName, "read");
+            return null;
+        }
         return getStore(this._storeName, this._fullPath);
     }
 
@@ -70,13 +97,17 @@ class TargetNode {
             warn("target() was called without a key - cannot set value");
             return;
         }
+        if (!hasStore(this._storeName)) {
+            _reportMissingStore(this._storeName, "write");
+            return;
+        }
         setStore(this._storeName, this._fullPath, newValue);
     }
 }
 
 export const chain = (storeName: string): StroidChain => {
     if (!hasStore(storeName)) {
-        warn(`chain("${storeName}") called before store exists; operations will no-op until created.`);
+        _reportMissingStore(storeName, "read");
     }
     return new StroidChain(storeName);
 };
