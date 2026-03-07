@@ -231,3 +231,41 @@ test("fetchStore clamps unbounded retry storms to a finite policy", async () => 
     globalThis.fetch = realFetch;
   }
 });
+
+test("fetchStore evicts old cache slots under high-cardinality cacheKey usage", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "application/json" },
+      json: async () => ({ call: calls }),
+      text: async () => JSON.stringify({ call: calls }),
+    } as any;
+  }) as typeof fetch;
+
+  try {
+    for (let i = 0; i <= 100; i++) {
+      await fetchStore("searchCacheStore", "https://api.example.com/search", {
+        cacheKey: `k${i}`,
+        ttl: 60_000,
+        dedupe: false,
+      });
+    }
+
+    await fetchStore("searchCacheStore", "https://api.example.com/search", {
+      cacheKey: "k0",
+      ttl: 60_000,
+      dedupe: false,
+    });
+
+    assert.strictEqual(calls, 102);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

@@ -129,3 +129,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `create-selector-invalidates-on-unrelated-updates`
   Description: `createSelector()` memoized only on the root store reference, so unrelated writes recomputed derived selectors even when the accessed slice did not change.
   Resolution: selectors now track the state paths they read and reuse the previous result when those dependencies stay unchanged across store updates.
+- `status(601)` `async-cache-unbounded-growth`
+  Description: async cache registries kept every unique `cacheKey` entry alive until store deletion, so high-cardinality cache usage could cause unbounded process memory growth.
+  Resolution: async cache entries now expire, request-version slots are cleared after requests settle, and per-store cache slots are bounded with oldest-entry eviction.

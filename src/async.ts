@@ -29,7 +29,7 @@ type AsyncState = {
 const _fetchRegistry: Record<string, { url: string | Promise<unknown>; options: FetchOptions }> = {};
 const _inflight: Partial<Record<string, Promise<unknown>>> = {};
 const _requestVersion: Record<string, number> = {};
-const _cacheMeta: Record<string, { timestamp: number; data: unknown }> = {};
+const _cacheMeta: Record<string, { timestamp: number; expiresAt: number | null; data: unknown }> = {};
 const _noSignalWarned = new Set<string>();
 const _cleanupSubs: Record<string, () => void> = {};
 const _storeCleanupFns: Record<string, Set<() => void>> = {};
@@ -37,6 +37,7 @@ const MAX_RETRY_ATTEMPTS = 10;
 const MIN_RETRY_DELAY_MS = 10;
 const MAX_RETRY_DELAY_MS = 30_000;
 const MAX_RETRY_BACKOFF = 8;
+const MAX_CACHE_SLOTS_PER_STORE = 100;
 
 const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
@@ -120,6 +121,10 @@ const shouldUseCache = (name: string, ttl?: number): boolean => {
     if (!ttl) return false;
     const meta = _cacheMeta[name];
     if (!meta) return false;
+    if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
+        delete _cacheMeta[name];
+        return false;
+    }
     return Date.now() - meta.timestamp < ttl;
 };
 
@@ -142,6 +147,27 @@ const _clearAsyncMeta = (name: string): void => {
     Object.keys(_inflight).forEach((k) => { if (startsWithName(k)) delete _inflight[k]; });
     Object.keys(_requestVersion).forEach((k) => { if (startsWithName(k)) delete _requestVersion[k]; });
     Object.keys(_cacheMeta).forEach((k) => { if (startsWithName(k)) delete _cacheMeta[k]; });
+};
+
+const _pruneAsyncCache = (name: string): void => {
+    const prefix = `${name}:`;
+    const slots = Object.entries(_cacheMeta)
+        .filter(([key, meta]) => {
+            if (key !== name && !key.startsWith(prefix)) return false;
+            if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
+                delete _cacheMeta[key];
+                return false;
+            }
+            return true;
+        })
+        .sort((a, b) => a[1].timestamp - b[1].timestamp);
+
+    if (slots.length <= MAX_CACHE_SLOTS_PER_STORE) return;
+    const overflow = slots.length - MAX_CACHE_SLOTS_PER_STORE;
+    slots.slice(0, overflow).forEach(([key]) => {
+        delete _cacheMeta[key];
+        delete _requestVersion[key];
+    });
 };
 
 const _registerStoreCleanup = (name: string, fn: () => void): void => {
@@ -327,7 +353,12 @@ export const fetchStore = async (
                     return null; // stale, ignore
                 }
 
-                _cacheMeta[cacheSlot] = { timestamp: Date.now(), data: transformed };
+                _cacheMeta[cacheSlot] = {
+                    timestamp: Date.now(),
+                    expiresAt: ttl ? Date.now() + ttl : null,
+                    data: transformed,
+                };
+                _pruneAsyncCache(name);
 
                 if (hasStore(name)) {
                     setStore(name, {
@@ -380,6 +411,7 @@ export const fetchStore = async (
 
     const promise = runFetch().finally(() => {
         delete _inflight[cacheSlot];
+        delete _requestVersion[cacheSlot];
         if (abortOnCleanup) _unregisterStoreCleanup(name, abortOnCleanup);
     });
 
