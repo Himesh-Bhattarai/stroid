@@ -9,7 +9,7 @@ const _devFlag = typeof globalThis !== "undefined" && typeof (globalThis as any)
     : undefined;
 
 // Default to production when the environment is unknown to avoid leaking dev logs in bundled builds.
-const _fallbackEnv = typeof process !== "undefined" ? "development" : "production";
+const _fallbackEnv = "production";
 const _resolvedEnv = _envFromProcess ?? _envFromImportMeta ?? _fallbackEnv;
 
 export const __DEV__ = typeof _devFlag === "boolean"

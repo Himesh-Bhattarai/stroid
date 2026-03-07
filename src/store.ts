@@ -915,7 +915,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         const sanitizedValue = valueResult.value;
         const safePath = _validatePathSafety(storeName, prev, keyOrData as PathInput, sanitizedValue);
         if (!safePath.ok) {
-            if (isDev()) _meta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
+            _meta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
             return;
         }
         updated = setByPath(prev as Record<string, unknown>, keyOrData as PathInput, sanitizedValue);

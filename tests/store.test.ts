@@ -84,6 +84,29 @@ test("createStore blocks production server globals unless explicitly allowed", (
   clearAllStores();
 });
 
+test("unknown Node env falls back to production mode", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const utilsPath = path.join(repoRoot, "src", "utils.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const utils = await import(pathToFileURL(${JSON.stringify(utilsPath)}).href);
+    assert.strictEqual(utils.__DEV__, false);
+    assert.strictEqual(utils.isDev(), false);
+  `;
+
+  const env = { ...process.env } as Record<string, string>;
+  delete env.NODE_ENV;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env,
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("setStore updates a single field", () => {
   clearAllStores();
   createStore("user", { name: "Alex", age: 25 });
