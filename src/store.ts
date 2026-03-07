@@ -1273,7 +1273,7 @@ const _broadcastSync = (name: string): void => {
             name,
             clock: _syncClocks[name] ?? 0,
             updatedAt: Date.parse(_meta[name]?.updatedAt || new Date().toISOString()),
-            data: _applyRedactor(name, _stores[name]),
+            data: _stores[name],
             checksum: hashState(_stores[name]),
         };
         const maxPayloadBytes = typeof sync === "object" && typeof sync.maxPayloadBytes === "number"

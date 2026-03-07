@@ -123,3 +123,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `env-fallback-defaults-to-development-in-node`
   Description: the environment comment promised unknown runtimes would default to production, but Node without `NODE_ENV` still resolved to development mode.
   Resolution: the environment fallback is now production in every unknown runtime, with a regression test covering bare Node imports without `NODE_ENV`.
+- `status(601)` `redactor-affects-sync-payload`
+  Description: sync broadcasting reused the redactor output, so privacy tooling could strip canonical state before cross-tab replication and conflict handling.
+  Resolution: BroadcastChannel sync now sends the canonical store state, while redaction remains limited to debug/history-style surfaces.
