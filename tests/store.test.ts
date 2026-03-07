@@ -16,6 +16,7 @@ import {
   _subscribe,
   _getSnapshot,
   hydrateStores,
+  getHistory,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -268,6 +269,54 @@ test("middleware errors do not block later notifications", async () => {
   assert.deepStrictEqual(getStore("prefs"), { theme: "blue" });
   assert.deepStrictEqual(seen, [{ theme: "light" }, { theme: "blue" }]);
   assert.ok(errors.some((msg) => msg.includes('Middleware for "prefs" failed')));
+});
+
+test("lifecycle hook errors do not leave partial commits", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  assert.doesNotThrow(() => {
+    createStore("createUser", { value: 1 }, {
+      onError: (msg) => { errors.push(msg); },
+      onCreate: () => { throw new Error("create boom"); },
+    });
+  });
+  assert.deepStrictEqual(getStore("createUser"), { value: 1 });
+
+  createStore("setUser", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+    onSet: () => { throw new Error("set boom"); },
+  });
+  assert.doesNotThrow(() => {
+    setStore("setUser", { value: 2 });
+  });
+  assert.deepStrictEqual(getStore("setUser"), { value: 2 });
+  assert.strictEqual(getHistory("setUser").at(-1)?.action, "set");
+
+  createStore("resetUser", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+    onReset: () => { throw new Error("reset boom"); },
+  });
+  setStore("resetUser", { value: 2 });
+  assert.doesNotThrow(() => {
+    resetStore("resetUser");
+  });
+  assert.deepStrictEqual(getStore("resetUser"), { value: 1 });
+  assert.strictEqual(getHistory("resetUser").at(-1)?.action, "reset");
+
+  createStore("deleteUser", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+    onDelete: () => { throw new Error("delete boom"); },
+  });
+  assert.doesNotThrow(() => {
+    deleteStore("deleteUser");
+  });
+  assert.strictEqual(hasStore("deleteUser"), false);
+
+  assert.ok(errors.some((msg) => msg.includes('onCreate for "createUser" failed')));
+  assert.ok(errors.some((msg) => msg.includes('onSet for "setUser" failed')));
+  assert.ok(errors.some((msg) => msg.includes('onReset for "resetUser" failed')));
+  assert.ok(errors.some((msg) => msg.includes('onDelete for "deleteUser" failed')));
 });
 
 test("sync setup without BroadcastChannel surfaces via onError", () => {

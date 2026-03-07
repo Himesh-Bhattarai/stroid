@@ -579,6 +579,22 @@ const _runValidator = (
     }
 };
 
+const _runStoreHook = (
+    name: string,
+    label: "onCreate" | "onSet" | "onReset" | "onDelete",
+    fn: ((...args: any[]) => void) | undefined,
+    args: any[]
+): void => {
+    if (typeof fn !== "function") return;
+    try {
+        fn(...args);
+    } catch (err) {
+        const message = `${label} for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
+        _meta[name]?.options?.onError?.(message);
+        warn(message);
+    }
+};
+
 const _persistSave = (name: string): void => {
     const cfg = _meta[name]?.options?.persist;
     if (!cfg) return;
@@ -830,7 +846,7 @@ export const createStore = <Name extends string, State>(
         _setupPersistWatch(name);
     }
 
-    _meta[name].options.onCreate?.(clean);
+    _runStoreHook(name, "onCreate", _meta[name].options.onCreate, [clean]);
     _devtoolsInit(name);
     _setupSync(name);
     _pushHistory(name, "create", null, clean);
@@ -896,7 +912,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     _bumpSyncClock(storeName);
 
     if (_meta[storeName].options?.persist) _persistSave(storeName);
-    _meta[storeName].options.onSet?.(prev, next);
+    _runStoreHook(storeName, "onSet", _meta[storeName].options.onSet, [prev, next]);
     _pushHistory(storeName, "set", prev, next);
     _devtoolsSend(storeName, "set");
     _broadcastSync(storeName);
@@ -935,7 +951,7 @@ export const deleteStore = (name: string): void => {
     if (!_exists(name)) return;
     const subs = _subscribers[name];
     subs?.forEach((fn) => fn(null));
-    _meta[name].options.onDelete?.(_stores[name]);
+    _runStoreHook(name, "onDelete", _meta[name].options.onDelete, [_stores[name]]);
     const cfg = _meta[name].options.persist;
     const devtoolsEnabled = _meta[name].options.devtools;
 
@@ -970,7 +986,7 @@ export const resetStore = (name: string): void => {
     _meta[name].updatedAt = new Date().toISOString();
     _bumpSyncClock(name);
 
-    _meta[name].options.onReset?.(prev, resetValue);
+    _runStoreHook(name, "onReset", _meta[name].options.onReset, [prev, resetValue]);
     _pushHistory(name, "reset", prev, resetValue);
     _devtoolsSend(name, "reset");
     _broadcastSync(name);
@@ -1005,7 +1021,7 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     _meta[name].updateCount++;
     _bumpSyncClock(name);
     if (_meta[name].options?.persist) _persistSave(name);
-    _meta[name].options.onSet?.(current, final);
+    _runStoreHook(name, "onSet", _meta[name].options.onSet, [current, final]);
     _pushHistory(name, "merge", current, final);
     _devtoolsSend(name, "merge");
     _broadcastSync(name);

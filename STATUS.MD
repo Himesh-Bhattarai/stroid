@@ -38,3 +38,20 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 ## Description Guideline
 - Pair the code with a message that states the quality/intent (e.g., for fixes use `status(601)` with a summary like “fix async cleanup to avoid leak”).
 - Bug fixes can use `status(601)` (preferred) or `status(201)`; the message must still reflect the quality outcome (stability, safety, perf, etc.).
+
+## Patch0 P0 Fix Log
+- `status(601)` `getstore-live-reference-leak`
+  Description: `getStore()` returned shallow or live references, so nested mutations could bypass validation, history, persistence, and subscriber notifications.
+  Resolution: whole-store and path reads now return deep-cloned snapshots, with tests locking that behavior.
+- `status(601)` `react-hooks-live-snapshot-leak`
+  Description: React-facing snapshots reused live store objects, which broke external-store safety and allowed mutation through hook snapshots.
+  Resolution: `_getSnapshot()` now serves stable deep-cloned snapshots from an internal cache so React consumers only receive immutable external views.
+- `status(601)` `history-production-reference-mutation`
+  Description: production history entries and returned history arrays leaked mutable references to stored state.
+  Resolution: history snapshots are deep-cloned on write and deep-cloned again on read, preventing mutation of state or audit history through history APIs.
+- `status(601)` `validator-throw-crashes-core-ops`
+  Description: validator exceptions escaped `createStore`, `setStore`, and `mergeStore`, crashing callers instead of flowing through store error handling.
+  Resolution: validator execution now runs through guarded handling that reports failures via `onError` and warnings without aborting core store APIs.
+- `status(601)` `lifecycle-hooks-throw-partial-commit`
+  Description: lifecycle hooks could throw after state mutation started, leaving state, history, cleanup, and notifications partially applied.
+  Resolution: `onCreate`, `onSet`, `onReset`, and `onDelete` now run through guarded hook execution so hook failures are reported without corrupting the store pipeline.
