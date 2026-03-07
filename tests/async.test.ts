@@ -204,3 +204,30 @@ test("fetchStore stops retrying after abort during backoff", async () => {
     globalThis.fetch = realFetch;
   }
 });
+
+test("fetchStore clamps unbounded retry storms to a finite policy", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    throw new Error("storm");
+  }) as typeof fetch;
+
+  try {
+    const result = await fetchStore("retryStormStore", "https://api.example.com/storm", {
+      retry: Number.POSITIVE_INFINITY,
+      retryDelay: 0,
+      retryBackoff: 1,
+    });
+
+    assert.strictEqual(result, null);
+    assert.strictEqual(calls, 11);
+    const state = getStore("retryStormStore");
+    assert.strictEqual(state?.status, "error");
+    assert.strictEqual(state?.error, "storm");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

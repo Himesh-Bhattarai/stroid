@@ -117,3 +117,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `path-keys-with-dots-unaddressable`
   Description: string path parsing always split on `.`, so literal dotted keys and entity IDs like `a.b` could not be addressed correctly through the public helpers.
   Resolution: path parsing now supports escaped dots, and `createEntityStore().get()` uses exact path segments so dotted IDs resolve safely.
+- `status(601)` `fetchstore-unbounded-retry-storm`
+  Description: `fetchStore()` accepted non-finite or degenerate retry settings like `retry: Infinity` and `retryDelay: 0`, which could create sustained retry storms against failing services.
+  Resolution: retry attempts, delay, and backoff are now normalized to bounded safe values before the request loop starts, with regression coverage locking a finite retry policy.

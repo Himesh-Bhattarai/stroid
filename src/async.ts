@@ -33,6 +33,10 @@ const _cacheMeta: Record<string, { timestamp: number; data: unknown }> = {};
 const _noSignalWarned = new Set<string>();
 const _cleanupSubs: Record<string, () => void> = {};
 const _storeCleanupFns: Record<string, Set<() => void>> = {};
+const MAX_RETRY_ATTEMPTS = 10;
+const MIN_RETRY_DELAY_MS = 10;
+const MAX_RETRY_DELAY_MS = 30_000;
+const MAX_RETRY_BACKOFF = 8;
 
 const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
@@ -60,6 +64,56 @@ const _settleAbort = (name: string): null => {
         });
     }
     return null;
+};
+
+const _normalizeRetryNumber = (name: string, label: "retry" | "retryDelay" | "retryBackoff", value: number, fallback: number): number => {
+    if (!Number.isFinite(value)) {
+        warn(`fetchStore("${name}") received non-finite ${label}; using ${fallback}.`);
+        return fallback;
+    }
+    return value;
+};
+
+const _normalizeRetryOptions = (
+    name: string,
+    retry: number,
+    retryDelay: number,
+    retryBackoff: number
+): { retry: number; retryDelay: number; retryBackoff: number } => {
+    const rawRetry = Number.isFinite(retry)
+        ? retry
+        : (retry > 0 ? MAX_RETRY_ATTEMPTS : 0);
+    const safeRetry = Math.min(
+        MAX_RETRY_ATTEMPTS,
+        Math.max(0, Math.trunc(rawRetry))
+    );
+    if (!Number.isFinite(retry)) {
+        warn(`fetchStore("${name}") received non-finite retry; using ${safeRetry}.`);
+    }
+    const safeRetryDelay = Math.min(
+        MAX_RETRY_DELAY_MS,
+        Math.max(MIN_RETRY_DELAY_MS, _normalizeRetryNumber(name, "retryDelay", retryDelay, 400))
+    );
+    const safeRetryBackoff = Math.min(
+        MAX_RETRY_BACKOFF,
+        Math.max(1, _normalizeRetryNumber(name, "retryBackoff", retryBackoff, 1.7))
+    );
+
+    if (safeRetry !== retry) {
+        warn(`fetchStore("${name}") clamped retry attempts to ${safeRetry}.`);
+    }
+    if (safeRetryDelay !== retryDelay) {
+        warn(`fetchStore("${name}") clamped retryDelay to ${safeRetryDelay}ms.`);
+    }
+    if (safeRetryBackoff !== retryBackoff) {
+        warn(`fetchStore("${name}") clamped retryBackoff to ${safeRetryBackoff}.`);
+    }
+
+    return {
+        retry: safeRetry,
+        retryDelay: safeRetryDelay,
+        retryBackoff: safeRetryBackoff,
+    };
 };
 
 const shouldUseCache = (name: string, ttl?: number): boolean => {
@@ -161,6 +215,7 @@ export const fetchStore = async (
     }
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
+    const retryPolicy = _normalizeRetryOptions(name, retry, retryDelay, retryBackoff);
 
     if (!hasStore(name)) {
         createStore(name, {
@@ -228,7 +283,7 @@ export const fetchStore = async (
 
     const runFetch = async (): Promise<unknown> => {
         let attempts = 0;
-        let delayMs = retryDelay ?? 400;
+        let delayMs = retryPolicy.retryDelay;
         while (true) {
             if (mergedSignal?.aborted) {
                 return _settleAbort(name);
@@ -295,11 +350,11 @@ export const fetchStore = async (
                     return _settleAbort(name);
                 }
 
-                if (attempts <= (retry ?? 0)) {
+                if (attempts <= retryPolicy.retry) {
                     if (mergedSignal?.aborted) return _settleAbort(name);
                     await delay(delayMs);
                     if (mergedSignal?.aborted) return _settleAbort(name);
-                    delayMs *= retryBackoff ?? 1.7;
+                    delayMs = Math.min(MAX_RETRY_DELAY_MS, delayMs * retryPolicy.retryBackoff);
                     continue;
                 }
 
