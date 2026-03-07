@@ -256,6 +256,35 @@ test("sanitize rejects non-JSON-safe values before they corrupt state", () => {
   assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "safeMap"')));
 });
 
+test("sanitize ignores inherited props and rejects accessor properties", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  const proto = { inherited: 123 };
+  const payload = Object.create(proto) as Record<string, unknown>;
+  payload.own = 1;
+  createStore("plain", payload, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  assert.deepStrictEqual(getStore("plain"), { own: 1 });
+
+  const accessorPayload: Record<string, unknown> = {};
+  Object.defineProperty(accessorPayload, "danger", {
+    enumerable: true,
+    get() {
+      throw new Error("getter should not run");
+    },
+  });
+
+  assert.doesNotThrow(() => {
+    createStore("accessor", accessorPayload as any, {
+      onError: (msg) => { errors.push(msg); },
+    });
+  });
+  assert.strictEqual(hasStore("accessor"), false);
+  assert.ok(errors.some((msg) => msg.includes('Accessor properties are not supported during sanitize ("danger")')));
+});
+
 test("getStore returns null for missing store", () => {
   clearAllStores();
   assert.strictEqual(getStore("ghost"), null);

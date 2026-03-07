@@ -102,3 +102,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `primitive-store-object-merge-shape-change`
   Description: `setStore(name, object)` could silently turn primitive stores into objects by running the merge path against non-object state.
   Resolution: object-merge updates are now rejected for non-object stores, preserving the store shape established at creation.
+- `status(601)` `sanitize-inherited-properties-and-getters`
+  Description: `sanitize()` walked inherited enumerable properties and could execute accessor getters while normalizing input objects.
+  Resolution: sanitization now only reads own enumerable data properties and rejects accessor properties before they can execute during store writes.

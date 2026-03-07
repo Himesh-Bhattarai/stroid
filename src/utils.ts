@@ -233,8 +233,13 @@ const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
         }
         seen.add(value as object);
         const clean: Record<string, unknown> = {};
-        for (const key in value as Record<string, unknown>) {
-            clean[key] = _sanitize((value as Record<string, unknown>)[key], seen);
+        const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+        for (const [key, descriptor] of Object.entries(descriptors)) {
+            if (!descriptor.enumerable) continue;
+            if ("get" in descriptor || "set" in descriptor) {
+                throw new Error(`Accessor properties are not supported during sanitize ("${key}")`);
+            }
+            clean[key] = _sanitize(descriptor.value, seen);
         }
         return clean;
     }
