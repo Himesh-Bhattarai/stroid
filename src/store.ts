@@ -962,7 +962,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     log(`Store "${storeName}" updated`);
 }
 
-export const setStoreBatch = (fn: () => void): void => {
+export const setStoreBatch = (fn: () => unknown): void => {
     if (typeof fn !== "function") {
         throw new Error("setStoreBatch requires a synchronous function callback.");
     }

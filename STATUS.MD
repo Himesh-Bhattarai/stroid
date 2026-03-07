@@ -169,3 +169,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `fetchstore-stale-version-and-abort-delay`
   Description: concurrent fetches could delete each other’s request-version marker on settle, and retry backoff waited out the full timeout even after abort, producing stale drops and slow abort recovery under real overlap.
   Resolution: async request cleanup now only clears the active version slot, retry delay becomes abort-aware, and regressions cover ordered overlap plus prompt abort settlement during backoff.
+- `status(601)` `setstorebatch-thenable-type-contract`
+  Description: the batch callback was still typed as `() => void` even though the runtime inspects its return value for thenables, which broke DTS generation and made the promise-return guard an invalid type contract.
+  Resolution: `setStoreBatch()` now accepts `() => unknown` at the type boundary so the runtime guard and declaration build agree.
