@@ -11,6 +11,7 @@ import {
   listStores,
   clearAllStores,
   _subscribe,
+  _getSnapshot,
   hydrateStores,
 } from "../src/store.js";
 
@@ -135,6 +136,23 @@ test("getStore returns deep-cloned snapshots", () => {
     profile: { color: "blue" },
     items: [{ id: 1 }],
   });
+});
+
+test("_getSnapshot returns stable cloned snapshots", () => {
+  clearAllStores();
+  createStore("user", { profile: { color: "blue" } });
+
+  const first = _getSnapshot("user") as any;
+  const second = _getSnapshot("user") as any;
+  assert.strictEqual(first, second);
+
+  first.profile.color = "red";
+  assert.deepStrictEqual(getStore("user"), { profile: { color: "blue" } });
+
+  setStore("user", { profile: { color: "green" } });
+  const third = _getSnapshot("user") as any;
+  assert.notStrictEqual(third, first);
+  assert.deepStrictEqual(third, { profile: { color: "green" } });
 });
 
 test("resetStore resets back to initial value", () => {

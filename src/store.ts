@@ -158,6 +158,7 @@ const _history: Record<string, HistoryEntry[]> = Object.create(null);
 const _syncChannels: Record<string, BroadcastChannel> = Object.create(null);
 const _syncClocks: Record<string, number> = Object.create(null);
 const _syncWindowCleanup: Record<string, () => void> = Object.create(null);
+const _snapshotCache: Record<string, { source: StoreValue; snapshot: StoreValue | null }> = Object.create(null);
 
 const _pendingNotifications = new Set<string>();
 let _notifyScheduled = false;
@@ -1002,7 +1003,15 @@ export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
     };
 };
 
-export const _getSnapshot = (name: string): StoreValue | null => _stores[name] ?? null;
+export const _getSnapshot = (name: string): StoreValue | null => {
+    const source = _stores[name];
+    if (source === undefined) return null;
+    const cached = _snapshotCache[name];
+    if (cached && cached.source === source) return cached.snapshot;
+    const snapshot = deepClone(source);
+    _snapshotCache[name] = { source, snapshot };
+    return snapshot;
+};
 
 const _bumpSyncClock = (name: string): number => {
     _syncClocks[name] = (_syncClocks[name] ?? 0) + 1;
