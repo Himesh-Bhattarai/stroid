@@ -50,6 +50,18 @@ const _runAsyncHook = (
     }
 };
 
+const _settleAbort = (name: string): null => {
+    warn(`fetchStore("${name}") aborted`);
+    if (hasStore(name)) {
+        setStore(name, {
+            loading: false,
+            error: "aborted",
+            status: "aborted",
+        });
+    }
+    return null;
+};
+
 const shouldUseCache = (name: string, ttl?: number): boolean => {
     if (!ttl) return false;
     const meta = _cacheMeta[name];
@@ -218,6 +230,9 @@ export const fetchStore = async (
         let attempts = 0;
         let delayMs = retryDelay ?? 400;
         while (true) {
+            if (mergedSignal?.aborted) {
+                return _settleAbort(name);
+            }
             try {
                 let result: unknown;
 
@@ -277,19 +292,13 @@ export const fetchStore = async (
                 attempts += 1;
                 const isAbort = (err as any)?.name === "AbortError";
                 if (isAbort) {
-                    warn(`fetchStore("${name}") aborted`);
-                    if (hasStore(name)) {
-                        setStore(name, {
-                            loading: false,
-                            error: "aborted",
-                            status: "aborted",
-                        });
-                    }
-                    return null;
+                    return _settleAbort(name);
                 }
 
                 if (attempts <= (retry ?? 0)) {
+                    if (mergedSignal?.aborted) return _settleAbort(name);
                     await delay(delayMs);
+                    if (mergedSignal?.aborted) return _settleAbort(name);
                     delayMs *= retryBackoff ?? 1.7;
                     continue;
                 }

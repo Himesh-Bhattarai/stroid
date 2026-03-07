@@ -105,3 +105,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `sanitize-inherited-properties-and-getters`
   Description: `sanitize()` walked inherited enumerable properties and could execute accessor getters while normalizing input objects.
   Resolution: sanitization now only reads own enumerable data properties and rejects accessor properties before they can execute during store writes.
+- `status(601)` `fetchstore-retry-abort`
+  Description: aborting during retry backoff still allowed one more retry cycle because the signal was not checked between attempts.
+  Resolution: `fetchStore()` now settles aborted state before and after retry delays so aborting backoff prevents any further network attempts.

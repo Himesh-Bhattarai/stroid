@@ -173,3 +173,34 @@ test("fetchStore bails out cleanly when production SSR store creation is blocked
 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
+
+test("fetchStore stops retrying after abort during backoff", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  const controller = new AbortController();
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    throw new Error("retry me");
+  }) as typeof fetch;
+
+  try {
+    const request = fetchStore("retryAbortStore", "https://api.example.com/retry", {
+      retry: 2,
+      retryDelay: 50,
+      signal: controller.signal,
+    });
+
+    await wait(10);
+    controller.abort();
+    const result = await request;
+
+    assert.strictEqual(result, null);
+    assert.strictEqual(calls, 1);
+    const state = getStore("retryAbortStore");
+    assert.strictEqual(state?.status, "aborted");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
