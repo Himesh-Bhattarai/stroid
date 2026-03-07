@@ -82,3 +82,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `sync-late-message-after-delete-crash`
   Description: deleted synced stores could still receive one last queued channel message, and the stale handler assumed metadata/state still existed.
   Resolution: sync handlers now ignore stale channels and deleted stores before touching sync metadata or state, preventing post-delete crashes.
+- `status(601)` `non-json-safe-values-corrupt-or-throw`
+  Description: values like `NaN`, `Infinity`, `BigInt`, `Symbol`, and non-string `Map` keys could silently corrupt through JSON-based clone/persist/sync paths or throw deep inside runtime helpers.
+  Resolution: sanitize now rejects non-JSON-safe values up front, and store APIs report those failures before invalid data can enter persistence, sync, or cloning flows.

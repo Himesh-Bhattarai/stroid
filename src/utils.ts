@@ -188,6 +188,18 @@ export const isValidData = (value: unknown): boolean => {
 
 const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
     const type = getType(value);
+    if (type === "number") {
+        if (!Number.isFinite(value as number)) {
+            throw new Error("Non-finite numbers are not supported");
+        }
+        return value;
+    }
+    if (type === "bigint") {
+        throw new Error("BigInt values are not supported");
+    }
+    if (type === "symbol") {
+        throw new Error("Symbol values are not supported");
+    }
     if (type === "date") {
         if (isDev()) warn("Date detected; stored as ISO string. Use new Date(value) when reading.");
         return (value as Date).toISOString();
@@ -200,6 +212,9 @@ const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
         if (isDev()) warn("Map detected; converting to plain object.");
         const clean: Record<string, unknown> = {};
         for (const [key, entryValue] of value as Map<unknown, unknown>) {
+            if (typeof key !== "string") {
+                throw new Error("Map keys must be strings to remain JSON-safe");
+            }
             clean[String(key)] = _sanitize(entryValue, seen);
         }
         return clean;

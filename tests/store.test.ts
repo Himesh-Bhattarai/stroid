@@ -212,6 +212,39 @@ test("sanitize errors are reported without throwing on circular input", () => {
   assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "circularMerge"')));
 });
 
+test("sanitize rejects non-JSON-safe values before they corrupt state", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  assert.doesNotThrow(() => {
+    createStore("badBigInt", { id: 1n } as any, {
+      onError: (msg) => { errors.push(msg); },
+    });
+  });
+  assert.strictEqual(hasStore("badBigInt"), false);
+
+  createStore("safeNumbers", { total: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  assert.doesNotThrow(() => {
+    setStore("safeNumbers", { total: Number.NaN } as any);
+  });
+  assert.deepStrictEqual(getStore("safeNumbers"), { total: 1 });
+
+  createStore("safeMap", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  const badMap = new Map<any, any>([[{ id: 1 }, "bad"]]);
+  assert.doesNotThrow(() => {
+    mergeStore("safeMap", { data: badMap } as any);
+  });
+  assert.deepStrictEqual(getStore("safeMap"), { value: 1 });
+
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "badBigInt"')));
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "safeNumbers"')));
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "safeMap"')));
+});
+
 test("getStore returns null for missing store", () => {
   clearAllStores();
   assert.strictEqual(getStore("ghost"), null);
