@@ -196,3 +196,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `clearallstores-reentrant-deletes`
   Description: `clearAllStores()` only snapshotted store names once, so any store created during delete hooks or subscriber cleanup could survive the clear-all pass.
   Resolution: the clear-all path now drains stores until registries are empty, with regression coverage for stores created during delete hooks.
+- `status(601)` `resetallstoresfortest-hard-reset`
+  Description: `resetAllStoresForTest()` reused the normal delete pipeline, so test cleanup fired real `onDelete` hooks and other side effects that should not run during isolated test resets.
+  Resolution: test resets now use a dedicated hard-reset path that clears registries, timers, sync resources, and snapshot state without invoking user hooks, with regression coverage proving delete hooks stay silent.

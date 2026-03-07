@@ -1171,6 +1171,47 @@ export const clearAllStores = (): void => {
     warn(`All stores cleared (${removed} stores removed)`);
 };
 
+export const _hardResetAllStoresForTest = (): void => {
+    Object.values(_persistTimers).forEach((timer) => clearTimeout(timer));
+    Object.values(_persistWatchState).forEach((state) => {
+        try { state.dispose(); } catch (_) { /* ignore cleanup errors */ }
+    });
+    Object.values(_syncWindowCleanup).forEach((dispose) => {
+        try { dispose(); } catch (_) { /* ignore cleanup errors */ }
+    });
+    Object.values(_syncChannels).forEach((channel) => {
+        try { channel.close(); } catch (_) { /* ignore cleanup errors */ }
+    });
+
+    const registries: Array<Record<string, any>> = [
+        _stores,
+        _subscribers,
+        _initial,
+        _meta,
+        _history,
+        _syncChannels,
+        _syncClocks,
+        _syncWindowCleanup,
+        _snapshotCache,
+        _persistTimers as Record<string, ReturnType<typeof setTimeout>>,
+        _persistKeys,
+        _persistWatchState,
+    ];
+
+    registries.forEach((registry) => {
+        Object.keys(registry).forEach((key) => {
+            delete registry[key];
+        });
+    });
+
+    _pendingNotifications.clear();
+    _notifyScheduled = false;
+    _batchDepth = 0;
+    _devtools = undefined;
+    _ssrWarningIssued = false;
+    _entityIdCounter = 0;
+};
+
 export const hasStore = (name: string): boolean => _hasStoreEntry(name);
 export const listStores = (): string[] => Object.keys(_stores);
 export const getStoreMeta = (name: string): MetaEntry | null => (_exists(name) ? deepClone(_meta[name]) : null);

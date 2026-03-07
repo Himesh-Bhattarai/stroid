@@ -1,4 +1,4 @@
-import { createStore, setStore, resetStore, clearAllStores } from "./store.js";
+import { createStore, setStore, resetStore, _hardResetAllStoresForTest } from "./store.js";
 
 export const createMockStore = (name = "mock", initial: Record<string, unknown> = {}) => {
     createStore(name, initial);
@@ -21,7 +21,7 @@ export const withMockedTime = <T>(nowMs: number, fn: () => T): T => {
     }
 };
 
-export const resetAllStoresForTest = (): void => clearAllStores();
+export const resetAllStoresForTest = (): void => _hardResetAllStoresForTest();
 
 export const benchmarkStoreSet = (
     name: string,
