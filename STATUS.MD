@@ -58,3 +58,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `delete-store-subscriber-throw-aborts-cleanup`
   Description: `deleteStore()` notified subscribers without guarding exceptions, so one bad subscriber could abort teardown and leave the store half-deleted.
   Resolution: delete-time subscriber notifications now isolate throws and always continue cleanup, with regression coverage locking full teardown.
+- `status(601)` `delete-store-persist-timer-resurrection`
+  Description: queued persist timers survived store deletion, so a `setTimeout(0)` write could run after `deleteStore()` and recreate stale storage.
+  Resolution: delete now cancels pending persist timers, and persist callbacks verify the store and config are still current before writing.

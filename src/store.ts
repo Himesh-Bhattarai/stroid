@@ -600,6 +600,9 @@ const _persistSave = (name: string): void => {
     if (!cfg) return;
     if (_persistTimers[name]) clearTimeout(_persistTimers[name]);
     _persistTimers[name] = setTimeout(() => {
+        delete _persistTimers[name];
+        const meta = _meta[name];
+        if (!meta?.options?.persist || meta.options.persist !== cfg || !_exists(name)) return;
         try {
             const serialized = cfg.serialize(_stores[name]);
             const checksum = hashState(serialized);
@@ -960,6 +963,11 @@ export const deleteStore = (name: string): void => {
     _runStoreHook(name, "onDelete", _meta[name].options.onDelete, [_stores[name]]);
     const cfg = _meta[name].options.persist;
     const devtoolsEnabled = _meta[name].options.devtools;
+
+    if (_persistTimers[name]) {
+        clearTimeout(_persistTimers[name]);
+        delete _persistTimers[name];
+    }
 
     delete _stores[name];
     delete _subscribers[name];
