@@ -18,6 +18,7 @@ import {
   hydrateStores,
   getHistory,
   createStoreForRequest,
+  getInitialState,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -351,6 +352,16 @@ test("createStoreForRequest updates falsy buffered values", () => {
     count: 1,
     flag: true,
     empty: "filled",
+  });
+});
+
+test("getInitialState returns original initial values", () => {
+  clearAllStores();
+  createStore("user", { value: 1 });
+  setStore("user", { value: 2 });
+
+  assert.deepStrictEqual(getInitialState(), {
+    user: { value: 1 },
   });
 });
 

@@ -1369,7 +1369,7 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
     };
 };
 
-export const getInitialState = (): Record<string, StoreValue> => deepClone(_stores) as Record<string, StoreValue>;
+export const getInitialState = (): Record<string, StoreValue> => deepClone(_initial) as Record<string, StoreValue>;
 
 export const getHistory = (name: string, limit?: number): HistoryEntry[] => {
     if (!_history[name]) return [];

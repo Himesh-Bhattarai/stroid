@@ -90,3 +90,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `request-store-falsy-set-ignored`
   Description: request-scoped store helpers treated falsy buffered values like missing stores, so `0`, `false`, `""`, and `null` could not be updated.
   Resolution: request-scope updates now use key presence instead of truthiness, and tests cover falsy buffered values.
+- `status(601)` `getinitialstate-returns-current-state`
+  Description: `getInitialState()` exposed current store state instead of the original initial snapshot, violating the API contract.
+  Resolution: `getInitialState()` now returns `_initial`, with regression coverage proving updates do not rewrite the initial snapshot.
