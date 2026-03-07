@@ -640,20 +640,20 @@ const _persistSave = (name: string): void => {
 }, 0);
 };
 
-const _persistLoad = (name: string, { silent } = { silent: false }): void => {
+const _persistLoad = (name: string, { silent } = { silent: false }): boolean => {
     const cfg = _meta[name]?.options?.persist;
-    if (!cfg) return;
+    if (!cfg) return false;
     try {
         const raw = cfg.driver.getItem?.(cfg.key) ?? null;
-        if (!raw) return;
+        if (!raw) return false;
         const decrypted = cfg.decrypt(raw);
         const envelope = JSON.parse(decrypted);
         const { v = 1, checksum, data } = envelope || {};
-        if (!data) return;
+        if (!data) return true;
         if (checksum !== hashState(data)) {
             _reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
             _stores[name] = deepClone(_initial[name]);
-            return;
+            return true;
         }
         let parsed = cfg.deserialize(data);
         const targetVersion = _meta[name]?.version ?? 1;
@@ -673,7 +673,7 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
                 parsed = fallback.state;
                 if (!fallback.requiresValidation) {
                     _stores[name] = parsed;
-                    return;
+                    return true;
                 }
             }
 
@@ -699,15 +699,15 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
             if (migrationFailed) {
                 if (!migrationFailureRequiresValidation) {
                     _stores[name] = parsed;
-                    return;
+                    return true;
                 }
                 const recoveredSchema = _validateSchema(name, parsed);
                 if (!recoveredSchema.ok) {
                     _stores[name] = deepClone(_initial[name]);
-                    return;
+                    return true;
                 }
                 _stores[name] = parsed;
-                return;
+                return true;
             }
         }
         const schemaResult = _validateSchema(name, parsed);
@@ -720,23 +720,25 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
                 );
                 if (!fallback.requiresValidation) {
                     _stores[name] = fallback.state;
-                    return;
+                    return true;
                 }
 
                 const recoveredSchema = _validateSchema(name, fallback.state);
                 if (recoveredSchema.ok) {
                     _stores[name] = fallback.state;
-                    return;
+                    return true;
                 }
             }
             _reportStoreError(name, `Persisted state for "${name}" failed schema; resetting to initial.`);
             _stores[name] = deepClone(_initial[name]);
-            return;
+            return true;
         }
         _stores[name] = parsed;
         if (!silent) log(`Store "${name}" loaded from persistence`);
+        return true;
     } catch (e) {
         _reportStoreError(name, `Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
+        return true;
     }
 };
 
@@ -866,8 +868,8 @@ export const createStore = <Name extends string, State>(
     };
 
     if (persistConfig) {
-        _persistSave(name);
-        _persistLoad(name, { silent: true });
+        const hadPersistedState = _persistLoad(name, { silent: true });
+        if (!hadPersistedState) _persistSave(name);
         _setupPersistWatch(name);
     }
 

@@ -132,3 +132,8 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `async-cache-unbounded-growth`
   Description: async cache registries kept every unique `cacheKey` entry alive until store deletion, so high-cardinality cache usage could cause unbounded process memory growth.
   Resolution: async cache entries now expire, request-version slots are cleared after requests settle, and per-store cache slots are bounded with oldest-entry eviction.
+
+## Remain Fix Log
+- `status(601)` `create-store-persist-load-order`
+  Description: persisted stores scheduled a save of the initial value before reading existing storage, so a stale first-tick write could overwrite real persisted state during initialization.
+  Resolution: persisted stores now load existing storage first and only schedule an initial save when no persisted payload exists, with regression coverage locking that order.
