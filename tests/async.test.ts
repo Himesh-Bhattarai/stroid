@@ -269,3 +269,20 @@ test("fetchStore evicts old cache slots under high-cardinality cacheKey usage", 
     globalThis.fetch = realFetch;
   }
 });
+
+test("fetchStore ignores retry delays for direct Promise inputs", async () => {
+  clearAllStores();
+  const started = Date.now();
+
+  const result = await fetchStore("promiseRetryStore", Promise.reject(new Error("promise boom")), {
+    retry: 3,
+    retryDelay: 50,
+  });
+
+  const elapsed = Date.now() - started;
+  assert.strictEqual(result, null);
+  assert.ok(elapsed < 80, `expected Promise input to fail without retry delay, got ${elapsed}ms`);
+  const state = getStore("promiseRetryStore");
+  assert.strictEqual(state?.status, "error");
+  assert.strictEqual(state?.error, "promise boom");
+});

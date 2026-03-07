@@ -149,3 +149,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `request-store-missing-set-throws`
   Description: `createStoreForRequest().set()` silently ignored unknown store names, so SSR typos could drop request-local state with no visible failure.
   Resolution: request-scope updates now throw when `set()` targets a store that was never created in the request buffer, with regression coverage locking the failure mode.
+- `status(601)` `fetchstore-promise-retry-disabled`
+  Description: `fetchStore()` accepted retry settings for direct Promise inputs even though retries only re-awaited the same settled promise and never retried real work.
+  Resolution: direct Promise inputs now disable retry attempts explicitly and emit a warning in development, with regression coverage proving retry delays are skipped.
