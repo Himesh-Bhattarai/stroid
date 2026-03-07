@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ## Unreleased
+### Testing
+- `patch0/test` completed the `P0` stabilization pass for core state safety and production failure handling.
+- Core testing now covers immutable reads/snapshots/history, guarded validator and lifecycle failures, delete/persist races, reset persistence, sanitize rejection for hostile payloads, SSR async fail-fast behavior, hydration replacement semantics, and stale sync messages after delete.
+
 ### Changed
 - `v0.0.5` is now the active development branch. `main` stays locked on the released `0.0.4` line until the next release is cut.
 - Release artifacts remain release-managed on this branch: `dist/` may be absent here or still reflect the last released `0.0.4` build while current source/docs continue to move forward.
