@@ -111,3 +111,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `reentrant-notify-drops-follow-up-updates`
   Description: subscriber-triggered `setStore()` calls could enqueue a second notification and then lose it when the current flush cleared the pending set.
   Resolution: the notify queue now drains one batch at a time and reschedules when re-entrant updates arrive, so follow-up notifications are delivered instead of dropped.
+- `status(601)` `subscribe-with-selector-false-positives`
+  Description: selector subscriptions compared against deep-cloned notify snapshots, so object and array selectors fired on unrelated updates under the default `Object.is` equality.
+  Resolution: selector subscriptions now evaluate against the canonical store state and only clone values at the listener boundary, preserving correct slice equality while still isolating listener mutations.

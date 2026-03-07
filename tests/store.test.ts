@@ -20,6 +20,7 @@ import {
   createStoreForRequest,
   getInitialState,
   getStoreMeta,
+  subscribeWithSelector,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -464,6 +465,40 @@ test("subscriber-triggered updates schedule a follow-up notification", async () 
 
   assert.deepStrictEqual(seen, [1, 2]);
   assert.deepStrictEqual(getStore("loop"), { value: 2 });
+});
+
+test("subscribeWithSelector ignores unrelated object updates", async () => {
+  clearAllStores();
+  const seen: Array<{ next: Record<string, number>; prev: Record<string, number> }> = [];
+
+  createStore("selectorUser", {
+    profile: { count: 1 },
+    other: 0,
+  });
+
+  const unsubscribe = subscribeWithSelector(
+    "selectorUser",
+    (state) => state.profile,
+    Object.is,
+    (next, prev) => {
+      seen.push({ next, prev });
+    }
+  );
+
+  setStore("selectorUser", "other", 1);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  setStore("selectorUser", "profile.count", 2);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  unsubscribe();
+
+  assert.deepStrictEqual(seen, [
+    {
+      next: { count: 2 },
+      prev: { count: 1 },
+    },
+  ]);
 });
 
 test("lifecycle hook errors do not leave partial commits", () => {

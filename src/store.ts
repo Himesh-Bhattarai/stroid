@@ -1320,12 +1320,22 @@ export const subscribeWithSelector = <R>(
         return () => {};
     }
     let prevSel: R = selector(_stores[name]);
-    const wrapped = (state: StoreValue | null) => {
-        const nextSel = selector(state);
-        if (!equality(nextSel, prevSel)) {
+    const wrapped = (_state: StoreValue | null) => {
+        if (!_hasStoreEntry(name)) return;
+        const nextSel = selector(_stores[name]);
+        const matches = equality(nextSel, prevSel)
+            || (
+                equality === Object.is
+                && nextSel !== null
+                && prevSel !== null
+                && typeof nextSel === "object"
+                && typeof prevSel === "object"
+                && hashState(nextSel) === hashState(prevSel)
+            );
+        if (!matches) {
             const last = prevSel;
             prevSel = nextSel;
-            listener(nextSel, last);
+            listener(deepClone(nextSel), deepClone(last));
         }
     };
     return _subscribe(name, wrapped);
