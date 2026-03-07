@@ -165,6 +165,40 @@ test("validator exceptions are reported without throwing", () => {
   assert.ok(errors.some((msg) => msg.includes('Validator for "mergeUser" failed')));
 });
 
+test("sanitize errors are reported without throwing on circular input", () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const circular: any = { value: 1 };
+  circular.self = circular;
+
+  assert.doesNotThrow(() => {
+    createStore("circularCreate", circular, {
+      onError: (msg) => { errors.push(msg); },
+    });
+  });
+  assert.strictEqual(hasStore("circularCreate"), false);
+
+  createStore("circularSet", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  assert.doesNotThrow(() => {
+    setStore("circularSet", { loop: circular } as any);
+  });
+  assert.deepStrictEqual(getStore("circularSet"), { value: 1 });
+
+  createStore("circularMerge", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  assert.doesNotThrow(() => {
+    mergeStore("circularMerge", { loop: circular } as any);
+  });
+  assert.deepStrictEqual(getStore("circularMerge"), { value: 1 });
+
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "circularCreate"')));
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "circularSet"')));
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "circularMerge"')));
+});
+
 test("getStore returns null for missing store", () => {
   clearAllStores();
   assert.strictEqual(getStore("ghost"), null);

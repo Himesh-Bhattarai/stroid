@@ -595,6 +595,22 @@ const _runStoreHook = (
     }
 };
 
+const _sanitizeValue = (
+    name: string,
+    value: unknown,
+    onError?: (message: string) => void
+): { ok: true; value: StoreValue } | { ok: false } => {
+    try {
+        return { ok: true, value: sanitize(value) as StoreValue };
+    } catch (err) {
+        const message = `Sanitize failed for "${name}": ${(err as { message?: string })?.message ?? err}`;
+        _meta[name]?.options?.onError?.(message);
+        onError?.(message);
+        warn(message);
+        return { ok: false };
+    }
+};
+
 const _persistSave = (name: string): void => {
     const cfg = _meta[name]?.options?.persist;
     if (!cfg) return;
@@ -793,7 +809,9 @@ export const createStore = <Name extends string, State>(
             _persistKeys[persistConfig.key] = name;
         }
     }
-    const clean = sanitize(initialData);
+    const cleanResult = _sanitizeValue(name, initialData, onError);
+    if (!cleanResult.ok) return;
+    const clean = cleanResult.value;
     const normalizedOptions: NormalizedOptions = {
         persist: persistConfig,
         devtools: !!devtools,
@@ -876,10 +894,14 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         updated = produceClone(prev, keyOrData as (draft: any) => void);
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) return;
-        updated = { ...(prev as Record<string, unknown>), ...sanitize(keyOrData) as Record<string, unknown> };
+        const partialResult = _sanitizeValue(storeName, keyOrData);
+        if (!partialResult.ok) return;
+        updated = { ...(prev as Record<string, unknown>), ...partialResult.value as Record<string, unknown> };
     } else if (typeof keyOrData === "string" || Array.isArray(keyOrData)) {
         if (!validateDepth(keyOrData as PathInput)) return;
-        const sanitizedValue = sanitize(value);
+        const valueResult = _sanitizeValue(storeName, value);
+        if (!valueResult.ok) return;
+        const sanitizedValue = valueResult.value;
         const safePath = _validatePathSafety(storeName, prev, keyOrData as PathInput, sanitizedValue);
         if (!safePath.ok) {
             if (isDev()) _meta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
@@ -898,7 +920,9 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     }
 
     if (!isValidData(updated)) return;
-    const sanitizedUpdate = sanitize(updated);
+    const updateResult = _sanitizeValue(storeName, updated);
+    if (!updateResult.ok) return;
+    const sanitizedUpdate = updateResult.value;
 
     const schemaCheck = _validateSchema(storeName, sanitizedUpdate);
     if (!schemaCheck.ok) return;
@@ -1020,7 +1044,9 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
         );
         return;
     }
-    const next = { ...(current as Record<string, unknown>), ...sanitize(data) as Record<string, unknown> };
+    const mergeResult = _sanitizeValue(name, data);
+    if (!mergeResult.ok) return;
+    const next = { ...(current as Record<string, unknown>), ...mergeResult.value as Record<string, unknown> };
 
     const schemaCheck = _validateSchema(name, next);
     if (!schemaCheck.ok) return;
