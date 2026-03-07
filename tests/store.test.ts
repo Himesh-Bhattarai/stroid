@@ -344,6 +344,26 @@ test("getStore returns deep-cloned snapshots", () => {
   });
 });
 
+test("deepClone fallback stays deep when structuredClone is unavailable", async () => {
+  const originalStructuredClone = (globalThis as any).structuredClone;
+  try {
+    delete (globalThis as any).structuredClone;
+    const utils = await import(`../src/utils.js?deep-clone-fallback-${Date.now()}`);
+    const circular: any = { nested: { value: 1 } };
+    circular.self = circular;
+
+    const clone = utils.deepClone(circular);
+    clone.nested.value = 2;
+
+    assert.notStrictEqual(clone, circular);
+    assert.notStrictEqual(clone.nested, circular.nested);
+    assert.strictEqual(circular.nested.value, 1);
+    assert.strictEqual(clone.self, clone);
+  } finally {
+    (globalThis as any).structuredClone = originalStructuredClone;
+  }
+});
+
 test("escaped dot paths and entity helpers support literal dotted keys", () => {
   clearAllStores();
   createStore("files", { "a.b": 1, nested: { "c.d": 2 } });

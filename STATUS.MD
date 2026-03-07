@@ -140,3 +140,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `sanitize-forbidden-prototype-keys`
   Description: sanitization preserved dangerous keys like `__proto__`, `constructor`, and `prototype`, leaving merge-style updates vulnerable to pollution-style inputs.
   Resolution: sanitization now strips forbidden prototype-shaping keys before values can enter store state, with regression coverage proving merge updates keep Object.prototype untouched.
+- `status(601)` `deepclone-no-shallow-fallback`
+  Description: `deepClone()` silently fell back to shallow copies after clone failures, which could leak nested references into snapshots, history, and initial state handling.
+  Resolution: clone failures now use a real recursive fallback with circular-reference support instead of degrading to shallow copies, with regression coverage forcing the fallback path.
