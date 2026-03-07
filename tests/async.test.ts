@@ -96,3 +96,35 @@ test("fetchStore aborts lifecycle-owned requests when the store is deleted", asy
     clearAllStores();
   }
 });
+
+test("fetchStore keeps success state when onSuccess throws", async () => {
+  clearAllStores();
+
+  const result = await fetchStore("callbackSuccessStore", Promise.resolve({ value: "ok" }), {
+    dedupe: false,
+    onSuccess: () => {
+      throw new Error("success hook boom");
+    },
+  });
+
+  assert.deepStrictEqual(result, { value: "ok" });
+  const state = getStore("callbackSuccessStore");
+  assert.deepStrictEqual(state?.data, { value: "ok" });
+  assert.strictEqual(state?.status, "success");
+});
+
+test("fetchStore swallows onError callback throws and returns null", async () => {
+  clearAllStores();
+
+  const result = await fetchStore("callbackErrorStore", Promise.reject(new Error("network boom")), {
+    dedupe: false,
+    onError: () => {
+      throw new Error("error hook boom");
+    },
+  });
+
+  assert.strictEqual(result, null);
+  const state = getStore("callbackErrorStore");
+  assert.strictEqual(state?.status, "error");
+  assert.strictEqual(state?.error, "network boom");
+});

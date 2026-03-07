@@ -70,3 +70,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(603)` `undefined-store-zombie-entry`
   Description: stores with `undefined` values existed in internal registries but public existence checks treated them as missing, leaving undeletable zombie entries.
   Resolution: store presence now uses key ownership instead of `!== undefined`, so `undefined` stores can be read, snapshotted, and deleted consistently.
+- `status(601)` `fetchstore-callback-errors-corrupt-state`
+  Description: user `onSuccess` and `onError` callbacks ran inside fetch control flow, so callback exceptions could flip successful requests into errors or reject callers unexpectedly.
+  Resolution: async callbacks now run through isolated hook handling that logs failures without changing request outcome or store state.
