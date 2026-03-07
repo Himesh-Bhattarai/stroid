@@ -181,3 +181,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `iterative-devdeepfreeze`
   Description: recursive `devDeepFreeze()` could overflow the call stack on deeply nested payloads and had no cycle handling, making development-only safety checks crash on pathological state shapes.
   Resolution: deep-freeze now uses an iterative, cycle-safe traversal, with regression coverage for very deep and circular objects.
+- `status(202)` `react-inline-selector-runtime-coverage`
+  Description: the React inline-selector fix had build verification but no runtime renderer coverage, leaving the most user-facing hook path unproven under actual render/update cycles.
+  Resolution: added React hook smoke tests that mount `useStore()` with inline primitive and object selectors, verify unrelated writes do not rerender selected output, and confirm the selector path does not enter a render loop.
