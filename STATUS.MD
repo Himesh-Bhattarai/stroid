@@ -126,3 +126,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `redactor-affects-sync-payload`
   Description: sync broadcasting reused the redactor output, so privacy tooling could strip canonical state before cross-tab replication and conflict handling.
   Resolution: BroadcastChannel sync now sends the canonical store state, while redaction remains limited to debug/history-style surfaces.
+- `status(601)` `create-selector-invalidates-on-unrelated-updates`
+  Description: `createSelector()` memoized only on the root store reference, so unrelated writes recomputed derived selectors even when the accessed slice did not change.
+  Resolution: selectors now track the state paths they read and reuse the previous result when those dependencies stay unchanged across store updates.

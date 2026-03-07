@@ -22,6 +22,7 @@ import {
   getStoreMeta,
   subscribeWithSelector,
   createEntityStore,
+  createSelector,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -541,6 +542,31 @@ test("subscribeWithSelector ignores unrelated object updates", async () => {
       prev: { count: 1 },
     },
   ]);
+});
+
+test("createSelector skips recomputation when tracked paths are unchanged", () => {
+  clearAllStores();
+  createStore("selectorMemo", {
+    profile: { name: "Alex" },
+    other: 0,
+  });
+
+  let runs = 0;
+  const selectName = createSelector("selectorMemo", (state: any) => {
+    runs += 1;
+    return state.profile.name;
+  });
+
+  assert.strictEqual(selectName(), "Alex");
+  assert.strictEqual(runs, 1);
+
+  setStore("selectorMemo", "other", 1);
+  assert.strictEqual(selectName(), "Alex");
+  assert.strictEqual(runs, 1);
+
+  setStore("selectorMemo", "profile.name", "Jordan");
+  assert.strictEqual(selectName(), "Jordan");
+  assert.strictEqual(runs, 2);
 });
 
 test("lifecycle hook errors do not leave partial commits", () => {
