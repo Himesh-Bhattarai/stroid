@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { fetchStore } from "../src/async.js";
 import { getStore, clearAllStores, deleteStore } from "../src/store.js";
 
@@ -95,4 +98,78 @@ test("fetchStore aborts lifecycle-owned requests when the store is deleted", asy
     globalThis.fetch = realFetch;
     clearAllStores();
   }
+});
+
+test("fetchStore keeps success state when onSuccess throws", async () => {
+  clearAllStores();
+
+  const result = await fetchStore("callbackSuccessStore", Promise.resolve({ value: "ok" }), {
+    dedupe: false,
+    onSuccess: () => {
+      throw new Error("success hook boom");
+    },
+  });
+
+  assert.deepStrictEqual(result, { value: "ok" });
+  const state = getStore("callbackSuccessStore");
+  assert.deepStrictEqual(state?.data, { value: "ok" });
+  assert.strictEqual(state?.status, "success");
+});
+
+test("fetchStore swallows onError callback throws and returns null", async () => {
+  clearAllStores();
+
+  const result = await fetchStore("callbackErrorStore", Promise.reject(new Error("network boom")), {
+    dedupe: false,
+    onError: () => {
+      throw new Error("error hook boom");
+    },
+  });
+
+  assert.strictEqual(result, null);
+  const state = getStore("callbackErrorStore");
+  assert.strictEqual(state?.status, "error");
+  assert.strictEqual(state?.error, "network boom");
+});
+
+test("fetchStore bails out cleanly when production SSR store creation is blocked", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const asyncPath = path.join(repoRoot, "src", "async.ts");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const { fetchStore } = await import(pathToFileURL(${JSON.stringify(asyncPath)}).href);
+    const { getStore, hasStore } = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: { get: () => "application/json" },
+        json: async () => ({ value: "late" }),
+        text: async () => JSON.stringify({ value: "late" }),
+      };
+    };
+
+    const result = await fetchStore("ssrAsync", "https://api.example.com/value");
+    assert.strictEqual(result, null);
+    assert.strictEqual(hasStore("ssrAsync"), false);
+    assert.strictEqual(getStore("ssrAsync"), null);
+    assert.strictEqual(fetchCalls, 0);
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });

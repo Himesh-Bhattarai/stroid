@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   createStore,
   setStore,
@@ -11,7 +14,9 @@ import {
   listStores,
   clearAllStores,
   _subscribe,
+  _getSnapshot,
   hydrateStores,
+  getHistory,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -24,6 +29,19 @@ test("createStore with number", () => {
   clearAllStores();
   createStore("count", 0);
   assert.strictEqual(getStore("count"), 0);
+});
+
+test("undefined stores are tracked and can be deleted cleanly", () => {
+  clearAllStores();
+  createStore("maybe", undefined);
+
+  assert.strictEqual(hasStore("maybe"), true);
+  assert.ok(listStores().includes("maybe"));
+  assert.strictEqual(getStore("maybe"), undefined);
+  assert.strictEqual(_getSnapshot("maybe"), undefined);
+
+  deleteStore("maybe");
+  assert.strictEqual(hasStore("maybe"), false);
 });
 
 test("createStore refuses to overwrite existing store", () => {
@@ -115,9 +133,155 @@ test("setStore blocks type mismatches", () => {
   assert.ok(errorMessage?.includes("Type mismatch"));
 });
 
+test("validator exceptions are reported without throwing", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  assert.doesNotThrow(() => {
+    createStore("user", { score: 0 }, {
+      onError: (msg) => { errors.push(msg); },
+      validator: () => {
+        throw new Error("boom");
+      },
+    });
+  });
+
+  assert.strictEqual(hasStore("user"), false);
+
+  createStore("safeUser", { score: 0 }, {
+    onError: (msg) => { errors.push(msg); },
+    validator: (next: any) => next.score <= 10,
+  });
+
+  assert.doesNotThrow(() => {
+    setStore("safeUser", { score: 2 });
+  });
+  assert.deepStrictEqual(getStore("safeUser"), { score: 2 });
+
+  let mergeChecks = 0;
+  createStore("mergeUser", { score: 0 }, {
+    onError: (msg) => { errors.push(msg); },
+    validator: () => {
+      mergeChecks += 1;
+      if (mergeChecks > 1) {
+        throw new Error("merge boom");
+      }
+      return true;
+    },
+  });
+
+  assert.doesNotThrow(() => {
+    mergeStore("mergeUser", { score: 1 });
+  });
+  assert.deepStrictEqual(getStore("mergeUser"), { score: 0 });
+  assert.ok(errors.some((msg) => msg.includes('Validator for "user" failed')));
+  assert.ok(errors.some((msg) => msg.includes('Validator for "mergeUser" failed')));
+});
+
+test("sanitize errors are reported without throwing on circular input", () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const circular: any = { value: 1 };
+  circular.self = circular;
+
+  assert.doesNotThrow(() => {
+    createStore("circularCreate", circular, {
+      onError: (msg) => { errors.push(msg); },
+    });
+  });
+  assert.strictEqual(hasStore("circularCreate"), false);
+
+  createStore("circularSet", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  assert.doesNotThrow(() => {
+    setStore("circularSet", { loop: circular } as any);
+  });
+  assert.deepStrictEqual(getStore("circularSet"), { value: 1 });
+
+  createStore("circularMerge", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  assert.doesNotThrow(() => {
+    mergeStore("circularMerge", { loop: circular } as any);
+  });
+  assert.deepStrictEqual(getStore("circularMerge"), { value: 1 });
+
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "circularCreate"')));
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "circularSet"')));
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "circularMerge"')));
+});
+
+test("sanitize rejects non-JSON-safe values before they corrupt state", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  assert.doesNotThrow(() => {
+    createStore("badBigInt", { id: 1n } as any, {
+      onError: (msg) => { errors.push(msg); },
+    });
+  });
+  assert.strictEqual(hasStore("badBigInt"), false);
+
+  createStore("safeNumbers", { total: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  assert.doesNotThrow(() => {
+    setStore("safeNumbers", { total: Number.NaN } as any);
+  });
+  assert.deepStrictEqual(getStore("safeNumbers"), { total: 1 });
+
+  createStore("safeMap", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  const badMap = new Map<any, any>([[{ id: 1 }, "bad"]]);
+  assert.doesNotThrow(() => {
+    mergeStore("safeMap", { data: badMap } as any);
+  });
+  assert.deepStrictEqual(getStore("safeMap"), { value: 1 });
+
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "badBigInt"')));
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "safeNumbers"')));
+  assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "safeMap"')));
+});
+
 test("getStore returns null for missing store", () => {
   clearAllStores();
   assert.strictEqual(getStore("ghost"), null);
+});
+
+test("getStore returns deep-cloned snapshots", () => {
+  clearAllStores();
+  createStore("user", { profile: { color: "blue" }, items: [{ id: 1 }] });
+
+  const snapshot = getStore("user") as any;
+  snapshot.profile.color = "red";
+  snapshot.items[0].id = 2;
+
+  const pathSnapshot = getStore("user", "profile") as any;
+  pathSnapshot.color = "green";
+
+  assert.deepStrictEqual(getStore("user"), {
+    profile: { color: "blue" },
+    items: [{ id: 1 }],
+  });
+});
+
+test("_getSnapshot returns stable cloned snapshots", () => {
+  clearAllStores();
+  createStore("user", { profile: { color: "blue" } });
+
+  const first = _getSnapshot("user") as any;
+  const second = _getSnapshot("user") as any;
+  assert.strictEqual(first, second);
+
+  first.profile.color = "red";
+  assert.deepStrictEqual(getStore("user"), { profile: { color: "blue" } });
+
+  setStore("user", { profile: { color: "green" } });
+  const third = _getSnapshot("user") as any;
+  assert.notStrictEqual(third, first);
+  assert.deepStrictEqual(third, { profile: { color: "green" } });
 });
 
 test("resetStore resets back to initial value", () => {
@@ -158,6 +322,20 @@ test("hydrateStores skips invalid schema payloads and keeps reset state intact",
   assert.ok(errors.some((msg) => msg.includes('Schema validation failed for "ghost"')));
 });
 
+test("hydrateStores replaces existing primitive and array stores", () => {
+  clearAllStores();
+  createStore("count", 1);
+  createStore("list", [1, 2]);
+
+  hydrateStores({
+    count: 2,
+    list: [3, 4, 5],
+  });
+
+  assert.strictEqual(getStore("count"), 2);
+  assert.deepStrictEqual(getStore("list"), [3, 4, 5]);
+});
+
 test("middleware errors do not block later notifications", async () => {
   clearAllStores();
   const errors: string[] = [];
@@ -185,6 +363,54 @@ test("middleware errors do not block later notifications", async () => {
   assert.deepStrictEqual(getStore("prefs"), { theme: "blue" });
   assert.deepStrictEqual(seen, [{ theme: "light" }, { theme: "blue" }]);
   assert.ok(errors.some((msg) => msg.includes('Middleware for "prefs" failed')));
+});
+
+test("lifecycle hook errors do not leave partial commits", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  assert.doesNotThrow(() => {
+    createStore("createUser", { value: 1 }, {
+      onError: (msg) => { errors.push(msg); },
+      onCreate: () => { throw new Error("create boom"); },
+    });
+  });
+  assert.deepStrictEqual(getStore("createUser"), { value: 1 });
+
+  createStore("setUser", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+    onSet: () => { throw new Error("set boom"); },
+  });
+  assert.doesNotThrow(() => {
+    setStore("setUser", { value: 2 });
+  });
+  assert.deepStrictEqual(getStore("setUser"), { value: 2 });
+  assert.strictEqual(getHistory("setUser").at(-1)?.action, "set");
+
+  createStore("resetUser", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+    onReset: () => { throw new Error("reset boom"); },
+  });
+  setStore("resetUser", { value: 2 });
+  assert.doesNotThrow(() => {
+    resetStore("resetUser");
+  });
+  assert.deepStrictEqual(getStore("resetUser"), { value: 1 });
+  assert.strictEqual(getHistory("resetUser").at(-1)?.action, "reset");
+
+  createStore("deleteUser", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+    onDelete: () => { throw new Error("delete boom"); },
+  });
+  assert.doesNotThrow(() => {
+    deleteStore("deleteUser");
+  });
+  assert.strictEqual(hasStore("deleteUser"), false);
+
+  assert.ok(errors.some((msg) => msg.includes('onCreate for "createUser" failed')));
+  assert.ok(errors.some((msg) => msg.includes('onSet for "setUser" failed')));
+  assert.ok(errors.some((msg) => msg.includes('onReset for "resetUser" failed')));
+  assert.ok(errors.some((msg) => msg.includes('onDelete for "deleteUser" failed')));
 });
 
 test("sync setup without BroadcastChannel surfaces via onError", () => {
@@ -222,4 +448,52 @@ test("deleteStore removes store", () => {
   createStore("user", { name: "Alex" });
   deleteStore("user");
   assert.strictEqual(hasStore("user"), false);
+});
+
+test("deleteStore still cleans up when a subscriber throws", () => {
+  clearAllStores();
+  createStore("user", { name: "Alex" });
+  _subscribe("user", (value) => {
+    if (value === null) throw new Error("delete subscriber boom");
+  });
+
+  assert.doesNotThrow(() => {
+    deleteStore("user");
+  });
+  assert.strictEqual(hasStore("user"), false);
+});
+
+test("history snapshots stay immutable in production", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    store.createStore("user", { profile: { color: "blue" } }, { allowSSRGlobalStore: true });
+    store.setStore("user", { profile: { color: "green" } });
+
+    const history = store.getHistory("user");
+    history[1].next.profile.color = "red";
+
+    assert.deepStrictEqual(store.getHistory("user")[1].next, { profile: { color: "green" } });
+
+    const live = store.getStore("user");
+    live.profile.color = "purple";
+
+    assert.deepStrictEqual(store.getHistory("user")[1].next, { profile: { color: "green" } });
+    assert.deepStrictEqual(store.getStore("user"), { profile: { color: "green" } });
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });

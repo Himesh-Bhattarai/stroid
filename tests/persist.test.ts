@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createStore, setStore, getStore, clearAllStores } from "../src/store.js";
+import { createStore, setStore, getStore, clearAllStores, deleteStore, resetStore } from "../src/store.js";
 import { hashState } from "../src/utils.js";
 
 test("persist setItem errors surface via onError without throwing", async () => {
@@ -208,4 +208,71 @@ test("persist onStorageCleared fires when a saved key disappears mid-session", a
     // @ts-ignore
     globalThis.window = originalWindow;
   }
+});
+
+test("deleteStore clears queued persist timers before they can rewrite storage", async () => {
+  clearAllStores();
+  const writes: string[] = [];
+  const removals: string[] = [];
+  const driver = {
+    getItem: () => null,
+    setItem: (_key: string, value: string) => {
+      writes.push(value);
+    },
+    removeItem: (key: string) => {
+      removals.push(key);
+    },
+  };
+
+  createStore("cart", { items: [1] }, {
+    persist: {
+      driver,
+      key: "cart-delete-race",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+    },
+  });
+
+  setStore("cart", { items: [1, 2] });
+  deleteStore("cart");
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.deepStrictEqual(removals, ["cart-delete-race"]);
+  assert.strictEqual(writes.length, 0);
+});
+
+test("resetStore persists the reset state", async () => {
+  clearAllStores();
+  const writes: string[] = [];
+  const driver = {
+    getItem: () => null,
+    setItem: (_key: string, value: string) => {
+      writes.push(value);
+    },
+    removeItem: () => {},
+  };
+
+  createStore("prefs", { theme: "dark" }, {
+    persist: {
+      driver,
+      key: "prefs-reset",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+    },
+  });
+
+  setStore("prefs", { theme: "light" });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  writes.length = 0;
+
+  resetStore("prefs");
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.strictEqual(writes.length, 1);
+  const envelope = JSON.parse(writes[0]);
+  assert.strictEqual(envelope.data, JSON.stringify({ theme: "dark" }));
 });

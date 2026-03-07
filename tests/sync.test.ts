@@ -195,3 +195,43 @@ test("sync requests the latest snapshot when a tab reconnects", async () => {
     (globalThis as any).BroadcastChannel = originalBroadcastChannel;
   }
 });
+
+test("late sync messages after delete are ignored safely", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const store = await import(`../src/store.js?sync-late-delete-${Date.now()}`);
+
+  try {
+    store.createStore("shared", { value: "seed" }, { sync: true });
+    const channel = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? [])[0];
+    assert.ok(channel);
+
+    store.deleteStore("shared");
+
+    assert.doesNotThrow(() => {
+      channel.onmessage?.({
+        data: {
+          type: "sync-state",
+          source: "remote-tab",
+          name: "shared",
+          clock: 99,
+          updatedAt: Date.now(),
+          data: { value: "late" },
+        },
+      } as MessageEvent);
+    });
+    assert.strictEqual(store.hasStore("shared"), false);
+  } finally {
+    store.clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});

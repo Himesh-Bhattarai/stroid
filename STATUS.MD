@@ -38,3 +38,50 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 ## Description Guideline
 - Pair the code with a message that states the quality/intent (e.g., for fixes use `status(601)` with a summary like “fix async cleanup to avoid leak”).
 - Bug fixes can use `status(601)` (preferred) or `status(201)`; the message must still reflect the quality outcome (stability, safety, perf, etc.).
+
+## Patch0 P0 Fix Log
+- `status(601)` `getstore-live-reference-leak`
+  Description: `getStore()` returned shallow or live references, so nested mutations could bypass validation, history, persistence, and subscriber notifications.
+  Resolution: whole-store and path reads now return deep-cloned snapshots, with tests locking that behavior.
+- `status(601)` `react-hooks-live-snapshot-leak`
+  Description: React-facing snapshots reused live store objects, which broke external-store safety and allowed mutation through hook snapshots.
+  Resolution: `_getSnapshot()` now serves stable deep-cloned snapshots from an internal cache so React consumers only receive immutable external views.
+- `status(601)` `history-production-reference-mutation`
+  Description: production history entries and returned history arrays leaked mutable references to stored state.
+  Resolution: history snapshots are deep-cloned on write and deep-cloned again on read, preventing mutation of state or audit history through history APIs.
+- `status(601)` `validator-throw-crashes-core-ops`
+  Description: validator exceptions escaped `createStore`, `setStore`, and `mergeStore`, crashing callers instead of flowing through store error handling.
+  Resolution: validator execution now runs through guarded handling that reports failures via `onError` and warnings without aborting core store APIs.
+- `status(601)` `lifecycle-hooks-throw-partial-commit`
+  Description: lifecycle hooks could throw after state mutation started, leaving state, history, cleanup, and notifications partially applied.
+  Resolution: `onCreate`, `onSet`, `onReset`, and `onDelete` now run through guarded hook execution so hook failures are reported without corrupting the store pipeline.
+- `status(601)` `delete-store-subscriber-throw-aborts-cleanup`
+  Description: `deleteStore()` notified subscribers without guarding exceptions, so one bad subscriber could abort teardown and leave the store half-deleted.
+  Resolution: delete-time subscriber notifications now isolate throws and always continue cleanup, with regression coverage locking full teardown.
+- `status(601)` `delete-store-persist-timer-resurrection`
+  Description: queued persist timers survived store deletion, so a `setTimeout(0)` write could run after `deleteStore()` and recreate stale storage.
+  Resolution: delete now cancels pending persist timers, and persist callbacks verify the store and config are still current before writing.
+- `status(601)` `reset-store-does-not-persist`
+  Description: `resetStore()` restored in-memory state but never rewrote persisted storage, so reloads could bring back stale pre-reset data.
+  Resolution: reset now schedules persistence for persisted stores, and coverage verifies the saved envelope contains the reset state.
+- `status(601)` `sanitize-circular-reference-stack-overflow`
+  Description: circular payloads recursed forever in `sanitize()`, causing stack overflows or hard crashes during create/update flows.
+  Resolution: sanitize now detects circular references, and store entry points catch sanitize failures so bad payloads are reported and rejected instead of crashing.
+- `status(603)` `undefined-store-zombie-entry`
+  Description: stores with `undefined` values existed in internal registries but public existence checks treated them as missing, leaving undeletable zombie entries.
+  Resolution: store presence now uses key ownership instead of `!== undefined`, so `undefined` stores can be read, snapshotted, and deleted consistently.
+- `status(601)` `fetchstore-callback-errors-corrupt-state`
+  Description: user `onSuccess` and `onError` callbacks ran inside fetch control flow, so callback exceptions could flip successful requests into errors or reject callers unexpectedly.
+  Resolution: async callbacks now run through isolated hook handling that logs failures without changing request outcome or store state.
+- `status(601)` `fetchstore-server-production-silent-noop`
+  Description: in server production, `fetchStore()` could continue after store creation was blocked, returning data while no store was ever created.
+  Resolution: `fetchStore()` now fails fast when its backing store cannot be initialized, avoiding silent SSR no-ops and unnecessary network work.
+- `status(601)` `hydrate-existing-primitive-array-stores-fails`
+  Description: hydration updated existing stores through merge/path semantics, which broke primitive stores and treated arrays like path inputs instead of replacement state.
+  Resolution: existing stores now hydrate through a dedicated replace pipeline that preserves validation, persistence, hooks, history, and notifications.
+- `status(601)` `sync-late-message-after-delete-crash`
+  Description: deleted synced stores could still receive one last queued channel message, and the stale handler assumed metadata/state still existed.
+  Resolution: sync handlers now ignore stale channels and deleted stores before touching sync metadata or state, preventing post-delete crashes.
+- `status(601)` `non-json-safe-values-corrupt-or-throw`
+  Description: values like `NaN`, `Infinity`, `BigInt`, `Symbol`, and non-string `Map` keys could silently corrupt through JSON-based clone/persist/sync paths or throw deep inside runtime helpers.
+  Resolution: sanitize now rejects non-JSON-safe values up front, and store APIs report those failures before invalid data can enter persistence, sync, or cloning flows.

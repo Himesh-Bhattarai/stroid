@@ -36,6 +36,20 @@ const _storeCleanupFns: Record<string, Set<() => void>> = {};
 
 const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
+const _runAsyncHook = (
+    name: string,
+    label: "onSuccess" | "onError",
+    fn: ((value: any) => void) | undefined,
+    value: unknown
+): void => {
+    if (typeof fn !== "function") return;
+    try {
+        fn(value);
+    } catch (err) {
+        warn(`fetchStore("${name}") ${label} callback failed: ${(err as { message?: string })?.message ?? err}`);
+    }
+};
+
 const shouldUseCache = (name: string, ttl?: number): boolean => {
     if (!ttl) return false;
     const meta = _cacheMeta[name];
@@ -143,6 +157,14 @@ export const fetchStore = async (
             error: null,
             status: "idle",
         });
+        if (!hasStore(name)) {
+            error(
+                `fetchStore("${name}") could not initialize its backing store.\n` +
+                `On the server in production, use createStoreForRequest(...) inside the request scope ` +
+                `or create the store with { allowSSRGlobalStore: true } before calling fetchStore.`
+            );
+            return null;
+        }
     }
     _ensureCleanupSubscription(name);
 
@@ -246,7 +268,7 @@ export const fetchStore = async (
                     });
                 }
 
-                onSuccess?.(transformed);
+                _runAsyncHook(name, "onSuccess", onSuccess, transformed);
                 const elapsed = Date.now() - startedAt;
                 _asyncMetrics.lastMs = elapsed;
                 _asyncMetrics.avgMs = ((_asyncMetrics.avgMs * (_asyncMetrics.requests - 1)) + elapsed) / _asyncMetrics.requests;
@@ -284,7 +306,7 @@ export const fetchStore = async (
                     });
                 }
 
-                onError?.(errorMessage);
+                _runAsyncHook(name, "onError", onError, errorMessage);
                 _asyncMetrics.failures += 1;
                 warn(`fetchStore("${name}") failed: ${errorMessage}`);
                 return null;

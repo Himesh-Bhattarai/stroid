@@ -186,32 +186,69 @@ export const isValidData = (value: unknown): boolean => {
     return true;
 };
 
-export const sanitize = (value: unknown): unknown => {
+const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
     const type = getType(value);
+    if (type === "number") {
+        if (!Number.isFinite(value as number)) {
+            throw new Error("Non-finite numbers are not supported");
+        }
+        return value;
+    }
+    if (type === "bigint") {
+        throw new Error("BigInt values are not supported");
+    }
+    if (type === "symbol") {
+        throw new Error("Symbol values are not supported");
+    }
     if (type === "date") {
         if (isDev()) warn("Date detected; stored as ISO string. Use new Date(value) when reading.");
         return (value as Date).toISOString();
     }
     if (type === "map") {
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
         if (isDev()) warn("Map detected; converting to plain object.");
-        return Object.fromEntries(value as Map<unknown, unknown>);
+        const clean: Record<string, unknown> = {};
+        for (const [key, entryValue] of value as Map<unknown, unknown>) {
+            if (typeof key !== "string") {
+                throw new Error("Map keys must be strings to remain JSON-safe");
+            }
+            clean[String(key)] = _sanitize(entryValue, seen);
+        }
+        return clean;
     }
     if (type === "set") {
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
         if (isDev()) warn("Set detected; converting to array.");
-        return Array.from(value as Set<unknown>);
+        return Array.from(value as Set<unknown>, (entry) => _sanitize(entry, seen));
     }
     if (type === "object") {
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
         const clean: Record<string, unknown> = {};
         for (const key in value as Record<string, unknown>) {
-            clean[key] = sanitize((value as Record<string, unknown>)[key]);
+            clean[key] = _sanitize((value as Record<string, unknown>)[key], seen);
         }
         return clean;
     }
     if (type === "array") {
-        return (value as unknown[]).map(sanitize);
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
+        return (value as unknown[]).map((entry) => _sanitize(entry, seen));
     }
     return value;
 };
+
+export const sanitize = (value: unknown): unknown => _sanitize(value, new WeakSet<object>());
 
 const MAX_DEPTH = 10;
 const WARN_DEPTH = 5;

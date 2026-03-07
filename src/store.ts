@@ -158,6 +158,7 @@ const _history: Record<string, HistoryEntry[]> = Object.create(null);
 const _syncChannels: Record<string, BroadcastChannel> = Object.create(null);
 const _syncClocks: Record<string, number> = Object.create(null);
 const _syncWindowCleanup: Record<string, () => void> = Object.create(null);
+const _snapshotCache: Record<string, { source: StoreValue; snapshot: StoreValue | null }> = Object.create(null);
 
 const _pendingNotifications = new Set<string>();
 let _notifyScheduled = false;
@@ -216,8 +217,10 @@ const _notify = (name: string): void => {
     if (_batchDepth === 0) _scheduleFlush();
 };
 
+const _hasStoreEntry = (name: string): boolean => Object.prototype.hasOwnProperty.call(_stores, name);
+
 const _exists = (name: string): boolean => {
-    if (_stores[name] !== undefined) return true;
+    if (_hasStoreEntry(name)) return true;
     suggestStoreName(name, Object.keys(_stores));
     return false;
 };
@@ -497,8 +500,8 @@ const _pushHistory = (name: string, action: string, prev: StoreValue, next: Stor
     const entry: HistoryEntry = {
         ts: Date.now(),
         action,
-        prev: _applyRedactor(name, prev),
-        next: _applyRedactor(name, next),
+        prev: deepClone(_applyRedactor(name, prev)),
+        next: deepClone(_applyRedactor(name, next)),
         diff: _diffShallow(prev, next),
     };
     _history[name].push(entry);
@@ -551,11 +554,73 @@ const _validateSchema = (name: string, next: StoreValue): { ok: boolean } => {
     return res as { ok: boolean };
 };
 
+const _runValidator = (
+    name: string,
+    value: StoreValue,
+    validator?: (next: StoreValue) => boolean,
+    onError?: (message: string) => void
+): boolean => {
+    const report = (message: string): void => {
+        _meta[name]?.options?.onError?.(message);
+        onError?.(message);
+        warn(message);
+    };
+    if (typeof validator !== "function") return true;
+    try {
+        if (validator(value) === false) {
+            const message = `Validator blocked update for "${name}"`;
+            _meta[name]?.options?.onError?.(message);
+            onError?.(message);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        const message = `Validator for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
+        report(message);
+        return false;
+    }
+};
+
+const _runStoreHook = (
+    name: string,
+    label: "onCreate" | "onSet" | "onReset" | "onDelete",
+    fn: ((...args: any[]) => void) | undefined,
+    args: any[]
+): void => {
+    if (typeof fn !== "function") return;
+    try {
+        fn(...args);
+    } catch (err) {
+        const message = `${label} for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
+        _meta[name]?.options?.onError?.(message);
+        warn(message);
+    }
+};
+
+const _sanitizeValue = (
+    name: string,
+    value: unknown,
+    onError?: (message: string) => void
+): { ok: true; value: StoreValue } | { ok: false } => {
+    try {
+        return { ok: true, value: sanitize(value) as StoreValue };
+    } catch (err) {
+        const message = `Sanitize failed for "${name}": ${(err as { message?: string })?.message ?? err}`;
+        _meta[name]?.options?.onError?.(message);
+        onError?.(message);
+        warn(message);
+        return { ok: false };
+    }
+};
+
 const _persistSave = (name: string): void => {
     const cfg = _meta[name]?.options?.persist;
     if (!cfg) return;
     if (_persistTimers[name]) clearTimeout(_persistTimers[name]);
     _persistTimers[name] = setTimeout(() => {
+        delete _persistTimers[name];
+        const meta = _meta[name];
+        if (!meta?.options?.persist || meta.options.persist !== cfg || !_exists(name)) return;
         try {
             const serialized = cfg.serialize(_stores[name]);
             const checksum = hashState(serialized);
@@ -699,7 +764,7 @@ export const createStore = <Name extends string, State>(
         return;
     }
 
-    if (_stores[name] !== undefined) {
+    if (_hasStoreEntry(name)) {
         const msg = `Store "${name}" already exists. Call setStore("${name}", data) to update instead.`;
         warn(msg);
         _meta[name]?.options?.onError?.(msg);
@@ -746,7 +811,9 @@ export const createStore = <Name extends string, State>(
             _persistKeys[persistConfig.key] = name;
         }
     }
-    const clean = sanitize(initialData);
+    const cleanResult = _sanitizeValue(name, initialData, onError);
+    if (!cleanResult.ok) return;
+    const clean = cleanResult.value;
     const normalizedOptions: NormalizedOptions = {
         persist: persistConfig,
         devtools: !!devtools,
@@ -774,10 +841,13 @@ export const createStore = <Name extends string, State>(
         return;
     }
 
-    if (validator && validator(clean as State) === false) {
+    if (!_runValidator(
+        name,
+        clean as StoreValue,
+        validator as unknown as ((next: StoreValue) => boolean) | undefined,
+        onError
+    )) {
         const msg = `Validator blocked initial state for "${name}"`;
-        onError?.(msg);
-        warn(msg);
         return;
     }
 
@@ -799,7 +869,7 @@ export const createStore = <Name extends string, State>(
         _setupPersistWatch(name);
     }
 
-    _meta[name].options.onCreate?.(clean);
+    _runStoreHook(name, "onCreate", _meta[name].options.onCreate, [clean]);
     _devtoolsInit(name);
     _setupSync(name);
     _pushHistory(name, "create", null, clean);
@@ -826,10 +896,14 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         updated = produceClone(prev, keyOrData as (draft: any) => void);
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) return;
-        updated = { ...(prev as Record<string, unknown>), ...sanitize(keyOrData) as Record<string, unknown> };
+        const partialResult = _sanitizeValue(storeName, keyOrData);
+        if (!partialResult.ok) return;
+        updated = { ...(prev as Record<string, unknown>), ...partialResult.value as Record<string, unknown> };
     } else if (typeof keyOrData === "string" || Array.isArray(keyOrData)) {
         if (!validateDepth(keyOrData as PathInput)) return;
-        const sanitizedValue = sanitize(value);
+        const valueResult = _sanitizeValue(storeName, value);
+        if (!valueResult.ok) return;
+        const sanitizedValue = valueResult.value;
         const safePath = _validatePathSafety(storeName, prev, keyOrData as PathInput, sanitizedValue);
         if (!safePath.ok) {
             if (isDev()) _meta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
@@ -848,14 +922,15 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     }
 
     if (!isValidData(updated)) return;
-    const sanitizedUpdate = sanitize(updated);
+    const updateResult = _sanitizeValue(storeName, updated);
+    if (!updateResult.ok) return;
+    const sanitizedUpdate = updateResult.value;
 
     const schemaCheck = _validateSchema(storeName, sanitizedUpdate);
     if (!schemaCheck.ok) return;
 
     const validator = _meta[storeName]?.options?.validator;
-    if (validator && validator(sanitizedUpdate) === false) {
-        _meta[storeName]?.options?.onError?.(`Validator blocked update for "${storeName}"`);
+    if (!_runValidator(storeName, sanitizedUpdate, validator)) {
         return;
     }
 
@@ -866,7 +941,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     _bumpSyncClock(storeName);
 
     if (_meta[storeName].options?.persist) _persistSave(storeName);
-    _meta[storeName].options.onSet?.(prev, next);
+    _runStoreHook(storeName, "onSet", _meta[storeName].options.onSet, [prev, next]);
     _pushHistory(storeName, "set", prev, next);
     _devtoolsSend(storeName, "set");
     _broadcastSync(storeName);
@@ -895,21 +970,30 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
     if (!_exists(storeName)) return null;
     const data = _stores[storeName];
     if (path === undefined) {
-        if (Array.isArray(data)) return [...data];
-        if (data && typeof data === "object") return { ...(data as Record<string, unknown>) };
-        return data;
+        return deepClone(data);
     }
     if (!validateDepth(path)) return null;
-    return getByPath(data, path);
+    return deepClone(getByPath(data, path));
 }
 
 export const deleteStore = (name: string): void => {
     if (!_exists(name)) return;
     const subs = _subscribers[name];
-    subs?.forEach((fn) => fn(null));
-    _meta[name].options.onDelete?.(_stores[name]);
+    subs?.forEach((fn) => {
+        try {
+            fn(null);
+        } catch (err) {
+            warn(`Subscriber for "${name}" threw during delete: ${(err as { message?: string })?.message ?? err}`);
+        }
+    });
+    _runStoreHook(name, "onDelete", _meta[name].options.onDelete, [_stores[name]]);
     const cfg = _meta[name].options.persist;
     const devtoolsEnabled = _meta[name].options.devtools;
+
+    if (_persistTimers[name]) {
+        clearTimeout(_persistTimers[name]);
+        delete _persistTimers[name];
+    }
 
     delete _stores[name];
     delete _subscribers[name];
@@ -941,8 +1025,9 @@ export const resetStore = (name: string): void => {
     _stores[name] = isDev() ? devDeepFreeze(resetValue) : resetValue;
     _meta[name].updatedAt = new Date().toISOString();
     _bumpSyncClock(name);
+    if (_meta[name].options?.persist) _persistSave(name);
 
-    _meta[name].options.onReset?.(prev, resetValue);
+    _runStoreHook(name, "onReset", _meta[name].options.onReset, [prev, resetValue]);
     _pushHistory(name, "reset", prev, resetValue);
     _devtoolsSend(name, "reset");
     _broadcastSync(name);
@@ -961,14 +1046,15 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
         );
         return;
     }
-    const next = { ...(current as Record<string, unknown>), ...sanitize(data) as Record<string, unknown> };
+    const mergeResult = _sanitizeValue(name, data);
+    if (!mergeResult.ok) return;
+    const next = { ...(current as Record<string, unknown>), ...mergeResult.value as Record<string, unknown> };
 
     const schemaCheck = _validateSchema(name, next);
     if (!schemaCheck.ok) return;
 
     const validator = _meta[name]?.options?.validator;
-    if (validator && validator(next) === false) {
-        _meta[name]?.options?.onError?.(`Validator blocked update for "${name}"`);
+    if (!_runValidator(name, next, validator)) {
         return;
     }
 
@@ -978,12 +1064,41 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     _meta[name].updateCount++;
     _bumpSyncClock(name);
     if (_meta[name].options?.persist) _persistSave(name);
-    _meta[name].options.onSet?.(current, final);
+    _runStoreHook(name, "onSet", _meta[name].options.onSet, [current, final]);
     _pushHistory(name, "merge", current, final);
     _devtoolsSend(name, "merge");
     _broadcastSync(name);
     _notify(name);
     log(`Store "${name}" merged with data`);
+};
+
+const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): void => {
+    if (!_exists(name)) return;
+    const prev = _stores[name];
+    const nextResult = _sanitizeValue(name, data);
+    if (!nextResult.ok) return;
+    const nextValue = nextResult.value;
+
+    const schemaCheck = _validateSchema(name, nextValue);
+    if (!schemaCheck.ok) return;
+
+    const validator = _meta[name]?.options?.validator;
+    if (!_runValidator(name, nextValue, validator)) {
+        return;
+    }
+
+    const final = _runMiddleware(name, { action, prev, next: nextValue, path: null });
+    _stores[name] = isDev() ? devDeepFreeze(final) : final;
+    _meta[name].updatedAt = new Date().toISOString();
+    _meta[name].updateCount++;
+    _bumpSyncClock(name);
+    if (_meta[name].options?.persist) _persistSave(name);
+    _runStoreHook(name, "onSet", _meta[name].options.onSet, [prev, final]);
+    _pushHistory(name, action, prev, final);
+    _devtoolsSend(name, action);
+    _broadcastSync(name);
+    _notify(name);
+    log(`Store "${name}" hydrated`);
 };
 
 export const clearAllStores = (): void => {
@@ -992,7 +1107,7 @@ export const clearAllStores = (): void => {
     warn(`All stores cleared (${names.length} stores removed)`);
 };
 
-export const hasStore = (name: string): boolean => _stores[name] !== undefined;
+export const hasStore = (name: string): boolean => _hasStoreEntry(name);
 export const listStores = (): string[] => Object.keys(_stores);
 export const getStoreMeta = (name: string): MetaEntry | null => (_exists(name) ? { ..._meta[name] } : null);
 
@@ -1004,7 +1119,15 @@ export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
     };
 };
 
-export const _getSnapshot = (name: string): StoreValue | null => _stores[name] ?? null;
+export const _getSnapshot = (name: string): StoreValue | null => {
+    if (!_hasStoreEntry(name)) return null;
+    const source = _stores[name];
+    const cached = _snapshotCache[name];
+    if (cached && cached.source === source) return cached.snapshot;
+    const snapshot = deepClone(source);
+    _snapshotCache[name] = { source, snapshot };
+    return snapshot;
+};
 
 const _bumpSyncClock = (name: string): number => {
     _syncClocks[name] = (_syncClocks[name] ?? 0) + 1;
@@ -1065,6 +1188,7 @@ const _setupSync = (name: string): void => {
             const msg = event.data as any;
             if (!msg || msg.source === INSTANCE_ID) return;
             if (msg.name !== name) return;
+            if (_syncChannels[name] !== channel || !_hasStoreEntry(name) || !_meta[name]) return;
             if (msg.type === "sync-request") {
                 _broadcastSync(name);
                 return;
@@ -1250,8 +1374,8 @@ export const getInitialState = (): Record<string, StoreValue> => deepClone(_stor
 export const getHistory = (name: string, limit?: number): HistoryEntry[] => {
     if (!_history[name]) return [];
     const entries = _history[name];
-    if (limit && limit > 0) return entries.slice(-limit);
-    return [...entries];
+    if (limit && limit > 0) return deepClone(entries.slice(-limit));
+    return deepClone(entries);
 };
 
 export const clearHistory = (name?: string): void => {
@@ -1293,7 +1417,7 @@ export const hydrateStores = (snapshot: Record<string, any>, options: Record<str
     if (!snapshot || typeof snapshot !== "object") return;
     Object.entries(snapshot).forEach(([name, data]) => {
         if (hasStore(name)) {
-            setStore(name, data as Record<string, unknown>);
+            _replaceStoreState(name, data, "hydrate");
         } else {
             createStore(name, data, options[name] || options.default || {});
         }
