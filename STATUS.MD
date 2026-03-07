@@ -61,3 +61,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `delete-store-persist-timer-resurrection`
   Description: queued persist timers survived store deletion, so a `setTimeout(0)` write could run after `deleteStore()` and recreate stale storage.
   Resolution: delete now cancels pending persist timers, and persist callbacks verify the store and config are still current before writing.
+- `status(601)` `reset-store-does-not-persist`
+  Description: `resetStore()` restored in-memory state but never rewrote persisted storage, so reloads could bring back stale pre-reset data.
+  Resolution: reset now schedules persistence for persisted stores, and coverage verifies the saved envelope contains the reset state.

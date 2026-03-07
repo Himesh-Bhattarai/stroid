@@ -999,6 +999,7 @@ export const resetStore = (name: string): void => {
     _stores[name] = isDev() ? devDeepFreeze(resetValue) : resetValue;
     _meta[name].updatedAt = new Date().toISOString();
     _bumpSyncClock(name);
+    if (_meta[name].options?.persist) _persistSave(name);
 
     _runStoreHook(name, "onReset", _meta[name].options.onReset, [prev, resetValue]);
     _pushHistory(name, "reset", prev, resetValue);
