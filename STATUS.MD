@@ -152,3 +152,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `fetchstore-promise-retry-disabled`
   Description: `fetchStore()` accepted retry settings for direct Promise inputs even though retries only re-awaited the same settled promise and never retried real work.
   Resolution: direct Promise inputs now disable retry attempts explicitly and emit a warning in development, with regression coverage proving retry delays are skipped.
+- `status(601)` `entity-fallback-id-collision`
+  Description: entity helper fallback IDs depended on timestamp and randomness only, so rapid inserts under mocked clocks could collide and overwrite earlier entities.
+  Resolution: fallback entity IDs now use a monotonic counter plus timestamp, with regression coverage proving repeated inserts stay unique even when the clock is fixed.

@@ -383,6 +383,33 @@ test("escaped dot paths and entity helpers support literal dotted keys", () => {
   assert.deepStrictEqual(entities.get("a.b"), { id: "a.b", name: "dotted" });
 });
 
+test("createEntityStore fallback ids stay unique under repeated timestamps", () => {
+  clearAllStores();
+  const realDateNow = Date.now;
+  const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+
+  Date.now = () => 1234;
+  Object.defineProperty(globalThis, "crypto", {
+    configurable: true,
+    value: {},
+  });
+
+  try {
+    const entities = createEntityStore<{ name: string }>("entityFallbackIds");
+    entities.upsert({ name: "first" });
+    entities.upsert({ name: "second" });
+
+    assert.strictEqual(entities.all().length, 2);
+  } finally {
+    Date.now = realDateNow;
+    if (cryptoDescriptor) {
+      Object.defineProperty(globalThis, "crypto", cryptoDescriptor);
+    } else {
+      delete (globalThis as any).crypto;
+    }
+  }
+});
+
 test("_getSnapshot returns stable cloned snapshots", () => {
   clearAllStores();
   createStore("user", { profile: { color: "blue" } });

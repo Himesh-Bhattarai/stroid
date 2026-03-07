@@ -168,6 +168,7 @@ const _persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 const _persistKeys: Record<string, string> = Object.create(null);
 const _persistWatchState: Record<string, { lastPresent: boolean; dispose: () => void }> = Object.create(null);
 let _ssrWarningIssued = false;
+let _entityIdCounter = 0;
 const _nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
     typeof name === "string" ? name : name.name;
 
@@ -1432,7 +1433,7 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
                 ?? entity._id
                 ?? ((typeof crypto !== "undefined" && (crypto as any).randomUUID)
                     ? (crypto as any).randomUUID()
-                    : `${Date.now()}_${Math.random().toString(16).slice(2)}`);
+                    : `e_${++_entityIdCounter}_${Date.now()}`);
             if (!draft.ids.includes(id)) draft.ids.push(id);
             draft.entities[id] = entity;
         }),
