@@ -73,3 +73,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `fetchstore-callback-errors-corrupt-state`
   Description: user `onSuccess` and `onError` callbacks ran inside fetch control flow, so callback exceptions could flip successful requests into errors or reject callers unexpectedly.
   Resolution: async callbacks now run through isolated hook handling that logs failures without changing request outcome or store state.
+- `status(601)` `fetchstore-server-production-silent-noop`
+  Description: in server production, `fetchStore()` could continue after store creation was blocked, returning data while no store was ever created.
+  Resolution: `fetchStore()` now fails fast when its backing store cannot be initialized, avoiding silent SSR no-ops and unnecessary network work.

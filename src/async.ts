@@ -157,6 +157,14 @@ export const fetchStore = async (
             error: null,
             status: "idle",
         });
+        if (!hasStore(name)) {
+            error(
+                `fetchStore("${name}") could not initialize its backing store.\n` +
+                `On the server in production, use createStoreForRequest(...) inside the request scope ` +
+                `or create the store with { allowSSRGlobalStore: true } before calling fetchStore.`
+            );
+            return null;
+        }
     }
     _ensureCleanupSubscription(name);
 
