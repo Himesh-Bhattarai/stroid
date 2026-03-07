@@ -175,3 +175,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `middleware-throw-vetoes-update`
   Description: throwing middleware previously reported an error but still let the write pipeline commit, so middleware could not reliably block unsafe updates.
   Resolution: middleware failures now abort the in-flight write before state/history/notify side effects run, and regression coverage proves blocked writes do not commit while later valid writes still work.
+- `status(601)` `selector-serialization-fallback-without-hash-collision`
+  Description: selector subscriptions relied on a CRC32 hash shortcut to suppress object-churn false positives, which left a collision-based path for silently missed updates.
+  Resolution: object-selector fallback matching now compares full serialized JSON-safe content instead of CRC32 hashes, preserving the no-noise behavior for rebuilt objects without hash-collision risk.

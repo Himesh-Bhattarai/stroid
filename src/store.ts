@@ -1361,6 +1361,14 @@ const _trackSelectorDependencies = <TState, TResult>(
 const _selectorDepsChanged = <TState>(prev: TState, next: TState, deps: SelectorDependency[]): boolean =>
     deps.some((path) => !Object.is(getByPath(prev, path), getByPath(next, path)));
 
+const _serializedSelectorEqual = (next: unknown, prev: unknown): boolean => {
+    try {
+        return JSON.stringify(next) === JSON.stringify(prev);
+    } catch (_) {
+        return false;
+    }
+};
+
 // Selectors & presets
 export const createSelector = <TState, TResult>(storeName: string, selectorFn: (state: TState) => TResult) => {
     let lastRef: TState | undefined;
@@ -1403,7 +1411,7 @@ export const subscribeWithSelector = <R>(
                 && prevSel !== null
                 && typeof nextSel === "object"
                 && typeof prevSel === "object"
-                && hashState(nextSel) === hashState(prevSel)
+                && _serializedSelectorEqual(nextSel, prevSel)
             );
         if (!matches) {
             const last = prevSel;
