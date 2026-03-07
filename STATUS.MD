@@ -114,3 +114,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `subscribe-with-selector-false-positives`
   Description: selector subscriptions compared against deep-cloned notify snapshots, so object and array selectors fired on unrelated updates under the default `Object.is` equality.
   Resolution: selector subscriptions now evaluate against the canonical store state and only clone values at the listener boundary, preserving correct slice equality while still isolating listener mutations.
+- `status(601)` `path-keys-with-dots-unaddressable`
+  Description: string path parsing always split on `.`, so literal dotted keys and entity IDs like `a.b` could not be addressed correctly through the public helpers.
+  Resolution: path parsing now supports escaped dots, and `createEntityStore().get()` uses exact path segments so dotted IDs resolve safely.

@@ -1384,7 +1384,7 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
             if (!store) return [];
             return store.ids.map((id: string) => store.entities[id]) as T[];
         },
-        get: (id: string) => getStore(name, `entities.${id}`) as T | null,
+        get: (id: string) => getStore(name, ["entities", id]) as T | null,
         clear: () => resetStore(name),
     };
 };

@@ -21,6 +21,7 @@ import {
   getInitialState,
   getStoreMeta,
   subscribeWithSelector,
+  createEntityStore,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -306,6 +307,24 @@ test("getStore returns deep-cloned snapshots", () => {
     profile: { color: "blue" },
     items: [{ id: 1 }],
   });
+});
+
+test("escaped dot paths and entity helpers support literal dotted keys", () => {
+  clearAllStores();
+  createStore("files", { "a.b": 1, nested: { "c.d": 2 } });
+
+  assert.strictEqual(getStore("files", "a\\.b"), 1);
+  assert.strictEqual(getStore("files", "nested.c\\.d"), 2);
+
+  setStore("files", "a\\.b", 3);
+  setStore("files", ["nested", "c.d"], 4);
+
+  assert.deepStrictEqual(getStore("files"), { "a.b": 3, nested: { "c.d": 4 } });
+
+  const entities = createEntityStore<{ id: string; name: string }>("entityDotIds");
+  entities.upsert({ id: "a.b", name: "dotted" });
+
+  assert.deepStrictEqual(entities.get("a.b"), { id: "a.b", name: "dotted" });
 });
 
 test("_getSnapshot returns stable cloned snapshots", () => {

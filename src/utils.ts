@@ -259,10 +259,38 @@ const MAX_DEPTH = 10;
 const WARN_DEPTH = 5;
 export type PathInput = string | readonly string[] | string[];
 
+const _splitPath = (path: string): string[] => {
+    const parts: string[] = [];
+    let current = "";
+    let escaping = false;
+
+    for (const ch of path) {
+        if (escaping) {
+            current += ch;
+            escaping = false;
+            continue;
+        }
+        if (ch === "\\") {
+            escaping = true;
+            continue;
+        }
+        if (ch === ".") {
+            parts.push(current);
+            current = "";
+            continue;
+        }
+        current += ch;
+    }
+
+    if (escaping) current += "\\";
+    parts.push(current);
+    return parts;
+};
+
 export const parsePath = (path: PathInput): string[] => {
     if (Array.isArray(path)) return [...path] as string[];
     if (typeof path === "string" && !path.includes(".")) return [path];
-    if (typeof path === "string") return path.split(".");
+    if (typeof path === "string") return _splitPath(path);
     return [String(path)];
 };
 
