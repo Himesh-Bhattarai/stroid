@@ -90,18 +90,66 @@ test("setStore enforces schema on updates", () => {
 
 test("createStore blocks production server globals unless explicitly allowed", () => {
   const originalEnv = process.env.NODE_ENV;
+  const originalConsoleError = console.error;
+  const reported: string[] = [];
   process.env.NODE_ENV = "production";
   clearAllStores();
+  const errors: string[] = [];
 
-  const blocked = createStore("ssr", { value: 1 });
-  assert.strictEqual(blocked, undefined);
-  assert.strictEqual(hasStore("ssr"), false);
+  console.error = ((message?: unknown) => {
+    reported.push(String(message ?? ""));
+  }) as typeof console.error;
 
-  createStore("ssrAllowed", { value: 2 }, { allowSSRGlobalStore: true });
-  assert.strictEqual(hasStore("ssrAllowed"), true);
+  try {
+    const blocked = createStore("ssr", { value: 1 }, {
+      onError: (msg) => { errors.push(msg); },
+    });
+    assert.strictEqual(blocked, undefined);
+    assert.strictEqual(hasStore("ssr"), false);
+    assert.ok(errors.some((msg) => msg.includes('createStore("ssr") is blocked on the server in production')));
+    assert.ok(reported.some((msg) => msg.includes('createStore("ssr") is blocked on the server in production')));
 
-  process.env.NODE_ENV = originalEnv;
-  clearAllStores();
+    createStore("ssrAllowed", { value: 2 }, { allowSSRGlobalStore: true });
+    assert.strictEqual(hasStore("ssrAllowed"), true);
+  } finally {
+    console.error = originalConsoleError;
+    process.env.NODE_ENV = originalEnv;
+    clearAllStores();
+  }
+});
+
+test("hydrateStores surfaces blocked production SSR store creation", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    const errors = [];
+    store.hydrateStores(
+      { ssrHydrate: { value: 1 } },
+      {
+        default: {
+          onError: (msg) => { errors.push(msg); },
+        },
+      }
+    );
+
+    assert.strictEqual(store.hasStore("ssrHydrate"), false);
+    assert.ok(errors.some((msg) => msg.includes('createStore("ssrHydrate") is blocked on the server in production')));
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
 test("unknown Node env falls back to production mode", () => {

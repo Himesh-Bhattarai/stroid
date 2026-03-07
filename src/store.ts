@@ -450,6 +450,17 @@ const _reportStoreError = (name: string, message: string): void => {
     warn(message);
 };
 
+const _reportStoreCreationError = (message: string, onError?: (message: string) => void): void => {
+    onError?.(message);
+    if (isDev()) {
+        error(message);
+        return;
+    }
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+        console.error(`[stroid] ${message}`);
+    }
+};
+
 const _resolveMigrationFailure = (
     name: string,
     persisted: StoreValue,
@@ -765,12 +776,11 @@ export const createStore = <Name extends string, State>(
     const allowGlobalSSR = option.allowSSRGlobalStore ?? false;
 
     if (isProdServer && !allowGlobalSSR) {
-        if (isDev()) {
-            error(
-                `createStore("${name}") is blocked on the server in production to prevent cross-request memory leaks.\n` +
-                `Call createStoreForRequest(...) inside each request scope or pass { allowSSRGlobalStore: true } to opt in.`
-            );
-        }
+        _reportStoreCreationError(
+            `createStore("${name}") is blocked on the server in production to prevent cross-request memory leaks.\n` +
+            `Call createStoreForRequest(...) inside each request scope or pass { allowSSRGlobalStore: true } to opt in.`,
+            option.onError as ((message: string) => void) | undefined
+        );
         return;
     }
 

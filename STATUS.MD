@@ -184,3 +184,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(202)` `react-inline-selector-runtime-coverage`
   Description: the React inline-selector fix had build verification but no runtime renderer coverage, leaving the most user-facing hook path unproven under actual render/update cycles.
   Resolution: added React hook smoke tests that mount `useStore()` with inline primitive and object selectors, verify unrelated writes do not rerender selected output, and confirm the selector path does not enter a render loop.
+- `status(601)` `ssr-store-creation-observability`
+  Description: blocked production-SSR store creation still failed too quietly, so direct `createStore(...)` calls and `hydrateStores(...)` creation paths could drop state with no structured error signal.
+  Resolution: blocked production server creation now reports through `onError` and production console output, with regression coverage for both direct create and hydration paths.
