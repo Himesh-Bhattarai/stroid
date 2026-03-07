@@ -999,6 +999,7 @@ export const deleteStore = (name: string): void => {
     delete _subscribers[name];
     delete _initial[name];
     delete _meta[name];
+    delete _history[name];
 
     try {
     if (cfg?.driver?.removeItem) cfg.driver.removeItem(cfg.key);

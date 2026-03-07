@@ -93,3 +93,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `getinitialstate-returns-current-state`
   Description: `getInitialState()` exposed current store state instead of the original initial snapshot, violating the API contract.
   Resolution: `getInitialState()` now returns `_initial`, with regression coverage proving updates do not rewrite the initial snapshot.
+- `status(601)` `delete-store-leaves-history-behind`
+  Description: deleting a store removed live state but retained its history entries, leaving orphaned memory and stale tooling output.
+  Resolution: `deleteStore()` now clears history for the removed store, with regression coverage verifying deleted stores no longer report past history.

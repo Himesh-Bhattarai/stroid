@@ -492,6 +492,16 @@ test("deleteStore still cleans up when a subscriber throws", () => {
   assert.strictEqual(hasStore("user"), false);
 });
 
+test("deleteStore clears orphaned history entries", () => {
+  clearAllStores();
+  createStore("user", { name: "Alex" });
+  setStore("user", { name: "Jordan" });
+
+  assert.ok(getHistory("user").length > 0);
+  deleteStore("user");
+  assert.deepStrictEqual(getHistory("user"), []);
+});
+
 test("history snapshots stay immutable in production", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const storePath = path.join(repoRoot, "src", "store.ts");
