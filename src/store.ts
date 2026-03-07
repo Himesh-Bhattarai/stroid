@@ -895,12 +895,10 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
     if (!_exists(storeName)) return null;
     const data = _stores[storeName];
     if (path === undefined) {
-        if (Array.isArray(data)) return [...data];
-        if (data && typeof data === "object") return { ...(data as Record<string, unknown>) };
-        return data;
+        return deepClone(data);
     }
     if (!validateDepth(path)) return null;
-    return getByPath(data, path);
+    return deepClone(getByPath(data, path));
 }
 
 export const deleteStore = (name: string): void => {
