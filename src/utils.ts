@@ -186,6 +186,8 @@ export const isValidData = (value: unknown): boolean => {
     return true;
 };
 
+const FORBIDDEN_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
     const type = getType(value);
     if (type === "number") {
@@ -236,6 +238,7 @@ const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
         const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
         for (const [key, descriptor] of Object.entries(descriptors)) {
             if (!descriptor.enumerable) continue;
+            if (FORBIDDEN_OBJECT_KEYS.has(key)) continue;
             if ("get" in descriptor || "set" in descriptor) {
                 throw new Error(`Accessor properties are not supported during sanitize ("${key}")`);
             }

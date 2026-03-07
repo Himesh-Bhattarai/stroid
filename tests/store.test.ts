@@ -311,6 +311,17 @@ test("sanitize ignores inherited props and rejects accessor properties", () => {
   assert.ok(errors.some((msg) => msg.includes('Accessor properties are not supported during sanitize ("danger")')));
 });
 
+test("sanitize strips prototype pollution keys before merging into state", () => {
+  clearAllStores();
+  createStore("safeConfig", { enabled: true });
+
+  const payload = JSON.parse('{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"prototype":{"x":1},"safe":"ok"}');
+  mergeStore("safeConfig", payload);
+
+  assert.deepStrictEqual(getStore("safeConfig"), { enabled: true, safe: "ok" });
+  assert.strictEqual(({} as any).polluted, undefined);
+});
+
 test("getStore returns null for missing store", () => {
   clearAllStores();
   assert.strictEqual(getStore("ghost"), null);

@@ -137,3 +137,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `create-store-persist-load-order`
   Description: persisted stores scheduled a save of the initial value before reading existing storage, so a stale first-tick write could overwrite real persisted state during initialization.
   Resolution: persisted stores now load existing storage first and only schedule an initial save when no persisted payload exists, with regression coverage locking that order.
+- `status(601)` `sanitize-forbidden-prototype-keys`
+  Description: sanitization preserved dangerous keys like `__proto__`, `constructor`, and `prototype`, leaving merge-style updates vulnerable to pollution-style inputs.
+  Resolution: sanitization now strips forbidden prototype-shaping keys before values can enter store state, with regression coverage proving merge updates keep Object.prototype untouched.
