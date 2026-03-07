@@ -187,3 +187,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `ssr-store-creation-observability`
   Description: blocked production-SSR store creation still failed too quietly, so direct `createStore(...)` calls and `hydrateStores(...)` creation paths could drop state with no structured error signal.
   Resolution: blocked production server creation now reports through `onError` and production console output, with regression coverage for both direct create and hydration paths.
+- `status(601)` `fetchstore-ssr-observability`
+  Description: `fetchStore(...)` still returned `null` silently when asked to create a backing store on the server in production, so callers had no async-specific signal that the environment was unsupported.
+  Resolution: `fetchStore()` now fails fast with its own `onError`/production console reporting before any network work starts, with regression coverage for the blocked SSR path.

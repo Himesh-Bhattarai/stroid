@@ -73,6 +73,22 @@ const _runAsyncHook = (
     }
 };
 
+const _reportAsyncUsageError = (
+    name: string,
+    message: string,
+    onError?: (message: string) => void
+): null => {
+    _runAsyncHook(name, "onError", onError, message);
+    if (isDev()) {
+        error(message);
+        return null;
+    }
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+        console.error(`[stroid] ${message}`);
+    }
+    return null;
+};
+
 const _settleAbort = (name: string): null => {
     warn(`fetchStore("${name}") aborted`);
     if (hasStore(name)) {
@@ -269,6 +285,18 @@ export const fetchStore = async (
         warn(`fetchStore("${name}") ignores retry settings for direct Promise inputs; pass a URL string to use retries.`);
     }
 
+    const isProdServer = typeof window === "undefined"
+        && (typeof process !== "undefined" ? process.env?.NODE_ENV : undefined) === "production";
+
+    if (!hasStore(name) && isProdServer) {
+        return _reportAsyncUsageError(
+            name,
+            `fetchStore("${name}") cannot create a backing store on the server in production.\n` +
+            `Use createStoreForRequest(...) inside the request scope or create the store ahead of time with { allowSSRGlobalStore: true }.`,
+            onError
+        );
+    }
+
     if (!hasStore(name)) {
         createStore(name, {
             data: null,
@@ -277,12 +305,13 @@ export const fetchStore = async (
             status: "idle",
         });
         if (!hasStore(name)) {
-            error(
+            return _reportAsyncUsageError(
+                name,
                 `fetchStore("${name}") could not initialize its backing store.\n` +
                 `On the server in production, use createStoreForRequest(...) inside the request scope ` +
-                `or create the store with { allowSSRGlobalStore: true } before calling fetchStore.`
+                `or create the store with { allowSSRGlobalStore: true } before calling fetchStore.`,
+                onError
             );
-            return null;
         }
     }
     _ensureCleanupSubscription(name);

@@ -174,6 +174,12 @@ test("fetchStore bails out cleanly when production SSR store creation is blocked
     const { getStore, hasStore } = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
 
     let fetchCalls = 0;
+    const errors = [];
+    const reported = [];
+    const originalConsoleError = console.error;
+    console.error = (message) => {
+      reported.push(String(message ?? ""));
+    };
     globalThis.fetch = async () => {
       fetchCalls += 1;
       return {
@@ -186,11 +192,19 @@ test("fetchStore bails out cleanly when production SSR store creation is blocked
       };
     };
 
-    const result = await fetchStore("ssrAsync", "https://api.example.com/value");
-    assert.strictEqual(result, null);
-    assert.strictEqual(hasStore("ssrAsync"), false);
-    assert.strictEqual(getStore("ssrAsync"), null);
-    assert.strictEqual(fetchCalls, 0);
+    try {
+      const result = await fetchStore("ssrAsync", "https://api.example.com/value", {
+        onError: (msg) => { errors.push(msg); },
+      });
+      assert.strictEqual(result, null);
+      assert.strictEqual(hasStore("ssrAsync"), false);
+      assert.strictEqual(getStore("ssrAsync"), null);
+      assert.strictEqual(fetchCalls, 0);
+      assert.ok(errors.some((msg) => msg.includes('fetchStore("ssrAsync") cannot create a backing store on the server in production')));
+      assert.ok(reported.some((msg) => msg.includes('fetchStore("ssrAsync") cannot create a backing store on the server in production')));
+    } finally {
+      console.error = originalConsoleError;
+    }
   `;
 
   const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
