@@ -498,8 +498,8 @@ const _pushHistory = (name: string, action: string, prev: StoreValue, next: Stor
     const entry: HistoryEntry = {
         ts: Date.now(),
         action,
-        prev: _applyRedactor(name, prev),
-        next: _applyRedactor(name, next),
+        prev: deepClone(_applyRedactor(name, prev)),
+        next: deepClone(_applyRedactor(name, next)),
         diff: _diffShallow(prev, next),
     };
     _history[name].push(entry);
@@ -1257,8 +1257,8 @@ export const getInitialState = (): Record<string, StoreValue> => deepClone(_stor
 export const getHistory = (name: string, limit?: number): HistoryEntry[] => {
     if (!_history[name]) return [];
     const entries = _history[name];
-    if (limit && limit > 0) return entries.slice(-limit);
-    return [...entries];
+    if (limit && limit > 0) return deepClone(entries.slice(-limit));
+    return deepClone(entries);
 };
 
 export const clearHistory = (name?: string): void => {

@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   createStore,
   setStore,
@@ -257,4 +260,39 @@ test("deleteStore removes store", () => {
   createStore("user", { name: "Alex" });
   deleteStore("user");
   assert.strictEqual(hasStore("user"), false);
+});
+
+test("history snapshots stay immutable in production", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    store.createStore("user", { profile: { color: "blue" } }, { allowSSRGlobalStore: true });
+    store.setStore("user", { profile: { color: "green" } });
+
+    const history = store.getHistory("user");
+    history[1].next.profile.color = "red";
+
+    assert.deepStrictEqual(store.getHistory("user")[1].next, { profile: { color: "green" } });
+
+    const live = store.getStore("user");
+    live.profile.color = "purple";
+
+    assert.deepStrictEqual(store.getHistory("user")[1].next, { profile: { color: "green" } });
+    assert.deepStrictEqual(store.getStore("user"), { profile: { color: "green" } });
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
