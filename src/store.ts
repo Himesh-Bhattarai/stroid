@@ -217,8 +217,10 @@ const _notify = (name: string): void => {
     if (_batchDepth === 0) _scheduleFlush();
 };
 
+const _hasStoreEntry = (name: string): boolean => Object.prototype.hasOwnProperty.call(_stores, name);
+
 const _exists = (name: string): boolean => {
-    if (_stores[name] !== undefined) return true;
+    if (_hasStoreEntry(name)) return true;
     suggestStoreName(name, Object.keys(_stores));
     return false;
 };
@@ -762,7 +764,7 @@ export const createStore = <Name extends string, State>(
         return;
     }
 
-    if (_stores[name] !== undefined) {
+    if (_hasStoreEntry(name)) {
         const msg = `Store "${name}" already exists. Call setStore("${name}", data) to update instead.`;
         warn(msg);
         _meta[name]?.options?.onError?.(msg);
@@ -1076,7 +1078,7 @@ export const clearAllStores = (): void => {
     warn(`All stores cleared (${names.length} stores removed)`);
 };
 
-export const hasStore = (name: string): boolean => _stores[name] !== undefined;
+export const hasStore = (name: string): boolean => _hasStoreEntry(name);
 export const listStores = (): string[] => Object.keys(_stores);
 export const getStoreMeta = (name: string): MetaEntry | null => (_exists(name) ? { ..._meta[name] } : null);
 
@@ -1089,8 +1091,8 @@ export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
 };
 
 export const _getSnapshot = (name: string): StoreValue | null => {
+    if (!_hasStoreEntry(name)) return null;
     const source = _stores[name];
-    if (source === undefined) return null;
     const cached = _snapshotCache[name];
     if (cached && cached.source === source) return cached.snapshot;
     const snapshot = deepClone(source);

@@ -31,6 +31,19 @@ test("createStore with number", () => {
   assert.strictEqual(getStore("count"), 0);
 });
 
+test("undefined stores are tracked and can be deleted cleanly", () => {
+  clearAllStores();
+  createStore("maybe", undefined);
+
+  assert.strictEqual(hasStore("maybe"), true);
+  assert.ok(listStores().includes("maybe"));
+  assert.strictEqual(getStore("maybe"), undefined);
+  assert.strictEqual(_getSnapshot("maybe"), undefined);
+
+  deleteStore("maybe");
+  assert.strictEqual(hasStore("maybe"), false);
+});
+
 test("createStore refuses to overwrite existing store", () => {
   clearAllStores();
   createStore("user", { name: "Alex" });

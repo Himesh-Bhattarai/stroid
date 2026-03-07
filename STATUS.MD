@@ -67,3 +67,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `sanitize-circular-reference-stack-overflow`
   Description: circular payloads recursed forever in `sanitize()`, causing stack overflows or hard crashes during create/update flows.
   Resolution: sanitize now detects circular references, and store entry points catch sanitize failures so bad payloads are reported and rejected instead of crashing.
+- `status(603)` `undefined-store-zombie-entry`
+  Description: stores with `undefined` values existed in internal registries but public existence checks treated them as missing, leaving undeletable zombie entries.
+  Resolution: store presence now uses key ownership instead of `!== undefined`, so `undefined` stores can be read, snapshotted, and deleted consistently.
