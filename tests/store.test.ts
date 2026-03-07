@@ -119,6 +119,51 @@ test("setStore blocks type mismatches", () => {
   assert.ok(errorMessage?.includes("Type mismatch"));
 });
 
+test("validator exceptions are reported without throwing", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  assert.doesNotThrow(() => {
+    createStore("user", { score: 0 }, {
+      onError: (msg) => { errors.push(msg); },
+      validator: () => {
+        throw new Error("boom");
+      },
+    });
+  });
+
+  assert.strictEqual(hasStore("user"), false);
+
+  createStore("safeUser", { score: 0 }, {
+    onError: (msg) => { errors.push(msg); },
+    validator: (next: any) => next.score <= 10,
+  });
+
+  assert.doesNotThrow(() => {
+    setStore("safeUser", { score: 2 });
+  });
+  assert.deepStrictEqual(getStore("safeUser"), { score: 2 });
+
+  let mergeChecks = 0;
+  createStore("mergeUser", { score: 0 }, {
+    onError: (msg) => { errors.push(msg); },
+    validator: () => {
+      mergeChecks += 1;
+      if (mergeChecks > 1) {
+        throw new Error("merge boom");
+      }
+      return true;
+    },
+  });
+
+  assert.doesNotThrow(() => {
+    mergeStore("mergeUser", { score: 1 });
+  });
+  assert.deepStrictEqual(getStore("mergeUser"), { score: 0 });
+  assert.ok(errors.some((msg) => msg.includes('Validator for "user" failed')));
+  assert.ok(errors.some((msg) => msg.includes('Validator for "mergeUser" failed')));
+});
+
 test("getStore returns null for missing store", () => {
   clearAllStores();
   assert.strictEqual(getStore("ghost"), null);

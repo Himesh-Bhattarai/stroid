@@ -552,6 +552,33 @@ const _validateSchema = (name: string, next: StoreValue): { ok: boolean } => {
     return res as { ok: boolean };
 };
 
+const _runValidator = (
+    name: string,
+    value: StoreValue,
+    validator?: (next: StoreValue) => boolean,
+    onError?: (message: string) => void
+): boolean => {
+    const report = (message: string): void => {
+        _meta[name]?.options?.onError?.(message);
+        onError?.(message);
+        warn(message);
+    };
+    if (typeof validator !== "function") return true;
+    try {
+        if (validator(value) === false) {
+            const message = `Validator blocked update for "${name}"`;
+            _meta[name]?.options?.onError?.(message);
+            onError?.(message);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        const message = `Validator for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
+        report(message);
+        return false;
+    }
+};
+
 const _persistSave = (name: string): void => {
     const cfg = _meta[name]?.options?.persist;
     if (!cfg) return;
@@ -775,10 +802,13 @@ export const createStore = <Name extends string, State>(
         return;
     }
 
-    if (validator && validator(clean as State) === false) {
+    if (!_runValidator(
+        name,
+        clean as StoreValue,
+        validator as unknown as ((next: StoreValue) => boolean) | undefined,
+        onError
+    )) {
         const msg = `Validator blocked initial state for "${name}"`;
-        onError?.(msg);
-        warn(msg);
         return;
     }
 
@@ -855,8 +885,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     if (!schemaCheck.ok) return;
 
     const validator = _meta[storeName]?.options?.validator;
-    if (validator && validator(sanitizedUpdate) === false) {
-        _meta[storeName]?.options?.onError?.(`Validator blocked update for "${storeName}"`);
+    if (!_runValidator(storeName, sanitizedUpdate, validator)) {
         return;
     }
 
@@ -966,8 +995,7 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     if (!schemaCheck.ok) return;
 
     const validator = _meta[name]?.options?.validator;
-    if (validator && validator(next) === false) {
-        _meta[name]?.options?.onError?.(`Validator blocked update for "${name}"`);
+    if (!_runValidator(name, next, validator)) {
         return;
     }
 
