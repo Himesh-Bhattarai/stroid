@@ -155,3 +155,8 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `entity-fallback-id-collision`
   Description: entity helper fallback IDs depended on timestamp and randomness only, so rapid inserts under mocked clocks could collide and overwrite earlier entities.
   Resolution: fallback entity IDs now use a monotonic counter plus timestamp, with regression coverage proving repeated inserts stay unique even when the clock is fixed.
+
+## Debugging Bug Fix Log
+- `status(601)` `deepclone-fallback-plain-enumerable-data`
+  Description: the recursive clone fallback preserved prototype chains and copied hidden descriptors, which reintroduced prototype-shaped state and non-enumerable leakage through snapshot/history paths when `structuredClone` was unavailable.
+  Resolution: object fallback clones are now rebuilt as plain enumerable data objects only, skipping forbidden prototype keys, accessors, and non-enumerable properties, with regression coverage forcing the fallback path.

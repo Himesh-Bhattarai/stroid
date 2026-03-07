@@ -365,6 +365,29 @@ test("deepClone fallback stays deep when structuredClone is unavailable", async 
   }
 });
 
+test("deepClone fallback drops inherited and non-enumerable object state", async () => {
+  const originalStructuredClone = (globalThis as any).structuredClone;
+  try {
+    delete (globalThis as any).structuredClone;
+    const utils = await import(`../src/utils.js?deep-clone-fallback-shape-${Date.now()}`);
+
+    const source = Object.create({ admin: true }) as Record<string, unknown>;
+    source.name = "Alex";
+    Object.defineProperty(source, "_secret", {
+      value: "hidden",
+      enumerable: false,
+    });
+
+    const clone = utils.deepClone(source) as Record<string, unknown>;
+
+    assert.deepStrictEqual(clone, { name: "Alex" });
+    assert.strictEqual("admin" in clone, false);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(clone, "_secret"), false);
+  } finally {
+    (globalThis as any).structuredClone = originalStructuredClone;
+  }
+});
+
 test("escaped dot paths and entity helpers support literal dotted keys", () => {
   clearAllStores();
   createStore("files", { "a.b": 1, nested: { "c.d": 2 } });

@@ -67,6 +67,7 @@ export const hashState = (value: unknown): number => {
 
 // --- cloning / equality helpers ------------------------------------------------
 const hasStructuredClone = typeof globalThis !== "undefined" && typeof (globalThis as any).structuredClone === "function";
+const FORBIDDEN_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()): T => {
     if (value === null || typeof value !== "object") return value;
@@ -98,14 +99,13 @@ const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()):
         return clone as T;
     }
 
-    const clone = Object.create(Object.getPrototypeOf(value));
+    const clone: Record<string, unknown> = {};
     seen.set(value as object, clone);
     const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
     Object.entries(descriptors).forEach(([key, descriptor]) => {
-        if ("value" in descriptor) {
-            descriptor.value = _deepCloneFallback(descriptor.value, seen);
-        }
-        Object.defineProperty(clone, key, descriptor);
+        if (!descriptor.enumerable || FORBIDDEN_OBJECT_KEYS.has(key)) return;
+        if ("get" in descriptor || "set" in descriptor) return;
+        clone[key] = _deepCloneFallback(descriptor.value, seen);
     });
     return clone as T;
 };
@@ -225,8 +225,6 @@ export const isValidData = (value: unknown): boolean => {
     }
     return true;
 };
-
-const FORBIDDEN_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
     const type = getType(value);
