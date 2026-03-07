@@ -202,3 +202,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `chain-missing-store-observability`
   Description: `chain()` warned in development but collapsed into silent read/write no-ops in production when the target store did not exist yet.
   Resolution: chain reads and writes now surface explicit missing-store errors in production too, with regression coverage for missing root and target-path access.
+- `status(601)` `store-name-suggestion-length-guard`
+  Description: typo suggestions ran full Levenshtein distance across arbitrary user input, so very long missing store names could trigger quadratic CPU and memory work just to format an error.
+  Resolution: store-name suggestions now gate edit-distance checks by bounded input size and use a rolling-row algorithm for the remaining short cases, with regression coverage for hostile long names and normal short suggestions.

@@ -432,7 +432,7 @@ export const suggestStoreName = (name: string, existingNames: string[]): void =>
         return (
             a.includes(b) ||
             b.includes(a) ||
-            levenshtein(a, b) <= 2
+            _shouldCheckLevenshtein(a, b) && levenshtein(a, b) <= 2
         );
     });
     if (similar) {
@@ -446,17 +446,30 @@ export const suggestStoreName = (name: string, existingNames: string[]): void =>
     }
 };
 
+const MAX_LEVENSHTEIN_INPUT_LENGTH = 128;
+
+const _shouldCheckLevenshtein = (a: string, b: string): boolean => {
+    if (Math.abs(a.length - b.length) > 2) return false;
+    return Math.max(a.length, b.length) <= MAX_LEVENSHTEIN_INPUT_LENGTH;
+};
+
 const levenshtein = (a: string, b: string): number => {
-    const matrix = Array.from({ length: b.length + 1 }, (_, i) =>
-        Array.from({ length: a.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
-    );
+    if (a === b) return 0;
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+
+    let prev = Array.from({ length: a.length + 1 }, (_, i) => i);
+    let next = new Array<number>(a.length + 1);
+
     for (let i = 1; i <= b.length; i++) {
+        next[0] = i;
         for (let j = 1; j <= a.length; j++) {
-            matrix[i][j] =
+            next[j] =
                 b[i - 1] === a[j - 1]
-                    ? matrix[i - 1][j - 1]
-                    : Math.min(matrix[i - 1][j - 1], matrix[i][j - 1], matrix[i - 1][j]) + 1;
+                    ? prev[j - 1]
+                    : Math.min(prev[j - 1], next[j - 1], prev[j]) + 1;
         }
+        [prev, next] = [next, prev];
     }
-    return matrix[b.length][a.length];
+    return prev[a.length];
 };
