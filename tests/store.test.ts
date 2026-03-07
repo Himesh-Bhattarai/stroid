@@ -469,6 +469,14 @@ test("createStoreForRequest updates falsy buffered values", () => {
   });
 });
 
+test("createStoreForRequest rejects updates for unknown stores", () => {
+  assert.throws(() => {
+    createStoreForRequest(({ set }) => {
+      set("missing", 1);
+    });
+  }, /requires create\("missing"/);
+});
+
 test("getInitialState returns original initial values", () => {
   clearAllStores();
   createStore("user", { value: 1 });

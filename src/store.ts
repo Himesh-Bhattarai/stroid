@@ -1482,7 +1482,9 @@ export const createStoreForRequest = (initializer?: (api: { create: (name: strin
             return buffer[name];
         },
         set: (name: string, updater: any) => {
-            if (!hasBuffered(name)) return;
+            if (!hasBuffered(name)) {
+                throw new Error(`createStoreForRequest.set("${name}") requires create("${name}", initialState) first.`);
+            }
             buffer[name] = typeof updater === "function" ? produceClone(buffer[name], updater) : updater;
             return buffer[name];
         },

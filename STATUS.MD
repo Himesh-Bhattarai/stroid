@@ -146,3 +146,6 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `setstorebatch-async-guard`
   Description: `setStoreBatch()` accepted async callbacks, which could let batch depth span await boundaries and flush notifications out of order across ticks.
   Resolution: batch callbacks are now validated as synchronous-only, with regression coverage proving async callbacks are rejected before they mutate store state.
+- `status(601)` `request-store-missing-set-throws`
+  Description: `createStoreForRequest().set()` silently ignored unknown store names, so SSR typos could drop request-local state with no visible failure.
+  Resolution: request-scope updates now throw when `set()` targets a store that was never created in the request buffer, with regression coverage locking the failure mode.
