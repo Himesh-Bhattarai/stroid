@@ -44,6 +44,17 @@ import {
     sendDevtools,
     type HistoryEntry,
 } from "./features/devtools.js";
+import {
+    absorbSyncClock,
+    broadcastSync,
+    bumpSyncClock,
+    cleanupAllSyncResources,
+    closeSyncResources,
+    setupSync,
+    type SyncChannels,
+    type SyncClocks,
+    type SyncWindowCleanup,
+} from "./features/sync.js";
 
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -98,9 +109,9 @@ const _subscribers: Record<string, Subscriber[]> = Object.create(null);
 const _initial: Record<string, StoreValue> = Object.create(null);
 const _meta: Record<string, MetaEntry> = Object.create(null);
 const _history: Record<string, HistoryEntry[]> = Object.create(null);
-const _syncChannels: Record<string, BroadcastChannel> = Object.create(null);
-const _syncClocks: Record<string, number> = Object.create(null);
-const _syncWindowCleanup: Record<string, () => void> = Object.create(null);
+const _syncChannels: SyncChannels = Object.create(null);
+const _syncClocks: SyncClocks = Object.create(null);
+const _syncWindowCleanup: SyncWindowCleanup = Object.create(null);
 const _snapshotCache: Record<string, { source: StoreValue; snapshot: StoreValue | null }> = Object.create(null);
 
 const _pendingNotifications = new Set<string>();
@@ -254,16 +265,6 @@ const _applyRedactor = (name: string, data: StoreValue): StoreValue =>
         redactor: _meta[name]?.options?.redactor,
         deepClone,
     });
-
-const _byteLength = (value: string): number => {
-    if (typeof TextEncoder !== "undefined") {
-        return new TextEncoder().encode(value).length;
-    }
-    if (typeof Buffer !== "undefined") {
-        return Buffer.byteLength(value);
-    }
-    return value.length;
-};
 
 const _reportStoreError = (name: string, message: string): void => {
     _meta[name]?.options?.onError?.(message);
@@ -680,11 +681,12 @@ export const deleteStore = (name: string): void => {
     if (cfg?.key && _persistKeys[cfg.key] === name) delete _persistKeys[cfg.key];
     _persistWatchState[name]?.dispose();
     delete _persistWatchState[name];
-    _syncChannels[name]?.close();
-    delete _syncChannels[name];
-    _syncWindowCleanup[name]?.();
-    delete _syncWindowCleanup[name];
-    delete _syncClocks[name];
+    closeSyncResources({
+        name,
+        syncChannels: _syncChannels,
+        syncWindowCleanup: _syncWindowCleanup,
+        syncClocks: _syncClocks,
+    });
 
     if (devtoolsEnabled) _devtoolsSend(name, "delete", true);
     log(`Store "${name}" deleted`);
@@ -804,11 +806,9 @@ export const _hardResetAllStoresForTest = (): void => {
     Object.values(_persistWatchState).forEach((state) => {
         try { state.dispose(); } catch (_) { /* ignore cleanup errors */ }
     });
-    Object.values(_syncWindowCleanup).forEach((dispose) => {
-        try { dispose(); } catch (_) { /* ignore cleanup errors */ }
-    });
-    Object.values(_syncChannels).forEach((channel) => {
-        try { channel.close(); } catch (_) { /* ignore cleanup errors */ }
+    cleanupAllSyncResources({
+        syncChannels: _syncChannels,
+        syncWindowCleanup: _syncWindowCleanup,
     });
 
     const registries: Array<Record<string, any>> = [
@@ -862,161 +862,51 @@ export const _getSnapshot = (name: string): StoreValue | null => {
     return snapshot;
 };
 
-const _bumpSyncClock = (name: string): number => {
-    _syncClocks[name] = (_syncClocks[name] ?? 0) + 1;
-    return _syncClocks[name];
-};
+const _bumpSyncClock = (name: string): number =>
+    bumpSyncClock(name, _syncClocks);
 
-const _absorbSyncClock = (name: string, incomingClock: number): number => {
-    _syncClocks[name] = Math.max(_syncClocks[name] ?? 0, incomingClock) + 1;
-    return _syncClocks[name];
-};
-
-const _compareSyncOrder = (
-    name: string,
-    incoming: { clock?: number; updatedAt?: number; source?: string }
-): number => {
-    const localClock = _syncClocks[name] ?? 0;
-    const incomingClock = typeof incoming.clock === "number" ? incoming.clock : 0;
-    if (incomingClock !== localClock) return incomingClock - localClock;
-
-    const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
-    const incomingUpdated = typeof incoming.updatedAt === "number" ? incoming.updatedAt : 0;
-    if (incomingUpdated !== localUpdated) return incomingUpdated - localUpdated;
-
-    const localSource = INSTANCE_ID;
-    const incomingSource = incoming.source ?? "";
-    return incomingSource.localeCompare(localSource);
-};
-
-const _requestSyncSnapshot = (name: string): void => {
-    const channel = _syncChannels[name];
-    if (!channel) return;
-    try {
-        channel.postMessage({
-            type: "sync-request",
-            source: INSTANCE_ID,
-            name,
-            requestedAt: Date.now(),
-        });
-    } catch (err) {
-        _reportStoreError(name, `Failed to request sync snapshot for "${name}": ${(err as { message?: string })?.message ?? err}`);
-    }
-};
+const _absorbSyncClock = (name: string, incomingClock: number): number =>
+    absorbSyncClock(name, incomingClock, _syncClocks);
 
 const _setupSync = (name: string): void => {
-    const sync = _meta[name]?.options?.sync;
-    if (!sync) return;
-    if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
-        _reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
-        return;
-    }
-    const channelName = typeof sync === "object" && sync.channel
-        ? sync.channel
-        : `stroid_sync_${name}`;
-    try {
-        const channel = new BroadcastChannel(channelName);
-        _syncChannels[name] = channel;
-        channel.onmessage = (event: MessageEvent) => {
-            const msg = event.data as any;
-            if (!msg || msg.source === INSTANCE_ID) return;
-            if (msg.name !== name) return;
-            if (_syncChannels[name] !== channel || !_hasStoreEntry(name) || !_meta[name]) return;
-            if (msg.type === "sync-request") {
-                _broadcastSync(name);
-                return;
-            }
-            const resolver = typeof sync === "object" ? sync.conflictResolver : null;
-            const order = _compareSyncOrder(name, {
-                clock: msg.clock,
-                updatedAt: msg.updatedAt,
-                source: msg.source,
-            });
-            if (order <= 0) {
-                const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
-                const incomingUpdated = msg.updatedAt;
-                if (resolver) {
-                    const resolved = resolver({
-                        local: _stores[name],
-                        incoming: msg.data,
-                        localUpdated,
-                        incomingUpdated,
-                    });
-                    if (resolved !== undefined) {
-                        const schemaRes = _validateSchema(name, resolved);
-                        if (!schemaRes.ok) return;
-                        _stores[name] = resolved;
-                        _meta[name].updatedAt = new Date(Math.max(localUpdated, incomingUpdated)).toISOString();
-                        _meta[name].updateCount++;
-                        _absorbSyncClock(name, typeof msg.clock === "number" ? msg.clock : 0);
-                        _notify(name);
-                    }
-                }
-                return;
-            }
-            const schemaRes = _validateSchema(name, msg.data);
-            if (!schemaRes.ok) return;
-            _stores[name] = msg.data;
-            _meta[name].updatedAt = new Date(msg.updatedAt).toISOString();
-            _meta[name].updateCount++;
-            _absorbSyncClock(name, typeof msg.clock === "number" ? msg.clock : 0);
-            _notify(name);
-        };
-
-        if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
-            _syncWindowCleanup[name]?.();
-            const hostWindow = window;
-            const requestLatest = () => {
-                _requestSyncSnapshot(name);
-            };
-            hostWindow.addEventListener("focus", requestLatest);
-            hostWindow.addEventListener("online", requestLatest);
-            _syncWindowCleanup[name] = () => {
-                hostWindow.removeEventListener("focus", requestLatest);
-                hostWindow.removeEventListener("online", requestLatest);
-            };
-        }
-
-        queueMicrotask(() => {
-            _requestSyncSnapshot(name);
-        });
-    } catch (e) {
-        warn(`Failed to setup sync for "${name}": ${(e as { message?: string })?.message || e}`);
-    }
+    setupSync({
+        name,
+        syncOption: _meta[name]?.options?.sync,
+        syncChannels: _syncChannels,
+        syncClocks: _syncClocks,
+        syncWindowCleanup: _syncWindowCleanup,
+        instanceId: INSTANCE_ID,
+        getMeta: (storeName) => _meta[storeName],
+        getStoreValue: (storeName) => _stores[storeName],
+        hasStoreEntry: _hasStoreEntry,
+        notify: _notify,
+        validateSchema: _validateSchema,
+        reportStoreError: _reportStoreError,
+        warn,
+        setStoreValue: (storeName, value) => {
+            _stores[storeName] = value;
+        },
+        updateMetaAfterSync: (storeName, updatedAtMs, incomingClock) => {
+            _meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
+            _meta[storeName].updateCount++;
+            _absorbSyncClock(storeName, incomingClock);
+        },
+        broadcastSync: _broadcastSync,
+    });
 };
 
-const _broadcastSync = (name: string): void => {
-    const channel = _syncChannels[name];
-    if (!channel) return;
-    try {
-        const sync = _meta[name]?.options?.sync;
-        const payload = {
-            type: "sync-state",
-            source: INSTANCE_ID,
-            name,
-            clock: _syncClocks[name] ?? 0,
-            updatedAt: Date.parse(_meta[name]?.updatedAt || new Date().toISOString()),
-            data: _stores[name],
-            checksum: hashState(_stores[name]),
-        };
-        const maxPayloadBytes = typeof sync === "object" && typeof sync.maxPayloadBytes === "number"
-            ? sync.maxPayloadBytes
-            : 64 * 1024;
-        const payloadSize = _byteLength(JSON.stringify(payload));
-
-        if (payloadSize > maxPayloadBytes) {
-            _reportStoreError(
-                name,
-                `Sync payload for "${name}" exceeds ${maxPayloadBytes} bytes (${payloadSize} bytes). Skipping BroadcastChannel sync.`
-            );
-            return;
-        }
-
-        channel.postMessage(payload);
-    } catch (err) {
-        _reportStoreError(name, `Failed to broadcast sync for "${name}": ${(err as { message?: string })?.message ?? err}`);
-    }
-};
+const _broadcastSync = (name: string): void =>
+    broadcastSync({
+        name,
+        syncOption: _meta[name]?.options?.sync,
+        syncChannels: _syncChannels,
+        syncClocks: _syncClocks,
+        instanceId: INSTANCE_ID,
+        updatedAt: _meta[name]?.updatedAt || new Date().toISOString(),
+        data: _stores[name],
+        hashState,
+        reportStoreError: _reportStoreError,
+    });
 
 type SelectorDependency = string[];
 
