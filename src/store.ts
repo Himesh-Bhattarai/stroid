@@ -37,6 +37,13 @@ import {
     runMiddleware,
     runStoreHook,
 } from "./features/lifecycle.js";
+import {
+    applyRedactor,
+    initDevtools,
+    pushHistory,
+    sendDevtools,
+    type HistoryEntry,
+} from "./features/devtools.js";
 
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -82,14 +89,6 @@ interface MetaEntry {
     version: number;
     metrics: { notifyCount: number; totalNotifyMs: number; lastNotifyMs: number };
     options: NormalizedOptions;
-}
-
-interface HistoryEntry {
-    ts: number;
-    action: string;
-    prev: StoreValue;
-    next: StoreValue;
-    diff: { added: string[]; removed: string[]; changed: string[] } | null;
 }
 
 type Subscriber = (value: StoreValue | null) => void;
@@ -240,28 +239,21 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
 };
 
 const _devtoolsInit = (name: string): void => {
-    const useDevtools = _meta[name]?.options?.devtools;
-    if (!useDevtools) return;
-    if (typeof window === "undefined") return;
-    const ext = (window as any).__REDUX_DEVTOOLS_EXTENSION__ || (window as any).__REDUX_DEVTOOLS_EXTENSION__;
-    if (!ext || typeof ext.connect !== "function") {
-        warn(`DevTools requested for "${name}" but Redux DevTools extension not found.`);
-        return;
-    }
-    if (!_devtools) {
-        _devtools = ext.connect({ name: "stroid" });
-        _devtools.init(_stores);
-    }
+    _devtools = initDevtools({
+        name,
+        useDevtools: !!_meta[name]?.options?.devtools,
+        existingDevtools: _devtools,
+        stores: _stores,
+        warn,
+    });
 };
 
-const _applyRedactor = (name: string, data: StoreValue): StoreValue => {
-    const redactor = _meta[name]?.options?.redactor;
-    if (typeof redactor === "function") {
-        try { return redactor(deepClone(data)); }
-        catch (_) { return data; }
-    }
-    return data;
-};
+const _applyRedactor = (name: string, data: StoreValue): StoreValue =>
+    applyRedactor({
+        data,
+        redactor: _meta[name]?.options?.redactor,
+        deepClone,
+    });
 
 const _byteLength = (value: string): number => {
     if (typeof TextEncoder !== "undefined") {
@@ -289,49 +281,28 @@ const _reportStoreCreationError = (message: string, onError?: (message: string) 
     }
 };
 
-const _diffShallow = (prev: StoreValue, next: StoreValue): { added: string[]; removed: string[]; changed: string[] } | null => {
-    if (typeof prev !== "object" || typeof next !== "object" || prev === null || next === null) return null;
-    const prevObj = prev as Record<string, unknown>;
-    const nextObj = next as Record<string, unknown>;
-    const added: string[] = [];
-    const removed: string[] = [];
-    const changed: string[] = [];
-    const prevKeys = new Set(Object.keys(prevObj));
-    const nextKeys = new Set(Object.keys(nextObj));
-    nextKeys.forEach((k) => {
-        if (!prevKeys.has(k)) added.push(k);
-        else if (!Object.is(prevObj[k], nextObj[k])) changed.push(k);
-    });
-    prevKeys.forEach((k) => {
-        if (!nextKeys.has(k)) removed.push(k);
-    });
-    return { added, removed, changed };
-};
-
-const _pushHistory = (name: string, action: string, prev: StoreValue, next: StoreValue): void => {
-    const limit = _meta[name]?.options?.historyLimit ?? 50;
-    if (limit === 0) return;
-    if (!_history[name]) _history[name] = [];
-    const entry: HistoryEntry = {
-        ts: Date.now(),
+const _pushHistory = (name: string, action: string, prev: StoreValue, next: StoreValue): void =>
+    pushHistory({
+        name,
         action,
-        prev: deepClone(_applyRedactor(name, prev)),
-        next: deepClone(_applyRedactor(name, next)),
-        diff: _diffShallow(prev, next),
-    };
-    _history[name].push(entry);
-    if (_history[name].length > limit) {
-        _history[name].splice(0, _history[name].length - limit);
-    }
-};
+        prev,
+        next,
+        history: _history,
+        historyLimit: _meta[name]?.options?.historyLimit ?? 50,
+        applyRedactor: (value) => _applyRedactor(name, value),
+        deepClone,
+    });
 
-const _devtoolsSend = (name: string, action: string, force = false): void => {
-    if (!_devtools || (!force && !_meta[name]?.options?.devtools)) return;
-    try {
-        const state = { ..._stores, [name]: _applyRedactor(name, _stores[name]) };
-        _devtools.send({ type: `${name}/${action}` }, state);
-    } catch (_) { /* ignore */ }
-};
+const _devtoolsSend = (name: string, action: string, force = false): void =>
+    sendDevtools({
+        name,
+        action,
+        force,
+        devtools: _devtools,
+        enabled: !!_meta[name]?.options?.devtools,
+        stores: _stores,
+        applyRedactor: (value) => _applyRedactor(name, value),
+    });
 
 const _runMiddleware = (
     name: string,
