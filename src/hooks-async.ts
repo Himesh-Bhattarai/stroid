@@ -5,6 +5,7 @@ export const useAsyncStore = (name: string) => {
     return {
         data: store?.data ?? null,
         loading: store?.loading ?? false,
+        revalidating: store?.revalidating ?? false,
         error: store?.error ?? null,
         status: store?.status ?? "idle",
         isEmpty: !store?.data && !store?.loading && !store?.error,

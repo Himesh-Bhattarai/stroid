@@ -155,3 +155,59 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `entity-fallback-id-collision`
   Description: entity helper fallback IDs depended on timestamp and randomness only, so rapid inserts under mocked clocks could collide and overwrite earlier entities.
   Resolution: fallback entity IDs now use a monotonic counter plus timestamp, with regression coverage proving repeated inserts stay unique even when the clock is fixed.
+
+## Debugging Bug Fix Log
+- `status(601)` `deepclone-fallback-plain-enumerable-data`
+  Description: the recursive clone fallback preserved prototype chains and copied hidden descriptors, which reintroduced prototype-shaped state and non-enumerable leakage through snapshot/history paths when `structuredClone` was unavailable.
+  Resolution: object fallback clones are now rebuilt as plain enumerable data objects only, skipping forbidden prototype keys, accessors, and non-enumerable properties, with regression coverage forcing the fallback path.
+- `status(601)` `setstorebatch-promise-return-flush`
+  Description: promise-returning batch callbacks could enqueue synchronous updates and then fail the batch contract, leaving flush timing dependent on `finally` ordering instead of an explicit notify path.
+  Resolution: `setStoreBatch()` now schedules queued notifications before rejecting promise-returning callbacks, and regression coverage locks the synchronous-update flush behavior.
+- `status(601)` `react-inline-selector-stability`
+  Description: inline selector functions passed to `useStore()` and `useSelector()` forced subscription churn and unstable snapshot recomputation, which could spiral into render loops or needless rerenders when selector identities changed every render.
+  Resolution: React selector hooks now read selector/equality functions through refs and cache selected snapshots by store snapshot identity, while a build check locks the hook implementation against type/package regressions.
+- `status(601)` `fetchstore-stale-version-and-abort-delay`
+  Description: concurrent fetches could delete each other’s request-version marker on settle, and retry backoff waited out the full timeout even after abort, producing stale drops and slow abort recovery under real overlap.
+  Resolution: async request cleanup now only clears the active version slot, retry delay becomes abort-aware, and regressions cover ordered overlap plus prompt abort settlement during backoff.
+- `status(601)` `setstorebatch-thenable-type-contract`
+  Description: the batch callback was still typed as `() => void` even though the runtime inspects its return value for thenables, which broke DTS generation and made the promise-return guard an invalid type contract.
+  Resolution: `setStoreBatch()` now accepts `() => unknown` at the type boundary so the runtime guard and declaration build agree.
+- `status(601)` `middleware-throw-vetoes-update`
+  Description: throwing middleware previously reported an error but still let the write pipeline commit, so middleware could not reliably block unsafe updates.
+  Resolution: middleware failures now abort the in-flight write before state/history/notify side effects run, and regression coverage proves blocked writes do not commit while later valid writes still work.
+- `status(601)` `selector-serialization-fallback-without-hash-collision`
+  Description: selector subscriptions relied on a CRC32 hash shortcut to suppress object-churn false positives, which left a collision-based path for silently missed updates.
+  Resolution: object-selector fallback matching now compares full serialized JSON-safe content instead of CRC32 hashes, preserving the no-noise behavior for rebuilt objects without hash-collision risk.
+- `status(601)` `iterative-devdeepfreeze`
+  Description: recursive `devDeepFreeze()` could overflow the call stack on deeply nested payloads and had no cycle handling, making development-only safety checks crash on pathological state shapes.
+  Resolution: deep-freeze now uses an iterative, cycle-safe traversal, with regression coverage for very deep and circular objects.
+- `status(202)` `react-inline-selector-runtime-coverage`
+  Description: the React inline-selector fix had build verification but no runtime renderer coverage, leaving the most user-facing hook path unproven under actual render/update cycles.
+  Resolution: added React hook smoke tests that mount `useStore()` with inline primitive and object selectors, verify unrelated writes do not rerender selected output, and confirm the selector path does not enter a render loop.
+- `status(601)` `ssr-store-creation-observability`
+  Description: blocked production-SSR store creation still failed too quietly, so direct `createStore(...)` calls and `hydrateStores(...)` creation paths could drop state with no structured error signal.
+  Resolution: blocked production server creation now reports through `onError` and production console output, with regression coverage for both direct create and hydration paths.
+- `status(601)` `fetchstore-ssr-observability`
+  Description: `fetchStore(...)` still returned `null` silently when asked to create a backing store on the server in production, so callers had no async-specific signal that the environment was unsupported.
+  Resolution: `fetchStore()` now fails fast with its own `onError`/production console reporting before any network work starts, with regression coverage for the blocked SSR path.
+- `status(601)` `validator-onerror-deduping`
+  Description: validator failures could call the same `onError` handler twice when the runtime path passed both the stored handler and the same function as an explicit callback.
+  Resolution: validator reporting now deduplicates handler invocations while keeping update blocking behavior intact, with regression coverage for update and initialization paths.
+- `status(601)` `clearallstores-reentrant-deletes`
+  Description: `clearAllStores()` only snapshotted store names once, so any store created during delete hooks or subscriber cleanup could survive the clear-all pass.
+  Resolution: the clear-all path now drains stores until registries are empty, with regression coverage for stores created during delete hooks.
+- `status(601)` `resetallstoresfortest-hard-reset`
+  Description: `resetAllStoresForTest()` reused the normal delete pipeline, so test cleanup fired real `onDelete` hooks and other side effects that should not run during isolated test resets.
+  Resolution: test resets now use a dedicated hard-reset path that clears registries, timers, sync resources, and snapshot state without invoking user hooks, with regression coverage proving delete hooks stay silent.
+- `status(601)` `chain-missing-store-observability`
+  Description: `chain()` warned in development but collapsed into silent read/write no-ops in production when the target store did not exist yet.
+  Resolution: chain reads and writes now surface explicit missing-store errors in production too, with regression coverage for missing root and target-path access.
+- `status(601)` `store-name-suggestion-length-guard`
+  Description: typo suggestions ran full Levenshtein distance across arbitrary user input, so very long missing store names could trigger quadratic CPU and memory work just to format an error.
+  Resolution: store-name suggestions now gate edit-distance checks by bounded input size and use a rolling-row algorithm for the remaining short cases, with regression coverage for hostile long names and normal short suggestions.
+- `status(601)` `stalewhilerevalidate-background-signal`
+  Description: cached async reads using `staleWhileRevalidate` exposed no explicit background-refresh signal, and failed revalidation dropped the last good data even though stale content was already available.
+  Resolution: async store state now exposes `revalidating` during background refresh and preserves stale cached data when the refresh fails, with regression coverage for both success and failure paths.
+- `status(601)` `fetchstore-inflight-slot-cap`
+  Description: async bookkeeping bounded cached slots but not active in-flight requests, so hostile high-cardinality `cacheKey` traffic could still grow per-store request state without limit while requests remained open.
+  Resolution: `fetchStore()` now enforces a per-store concurrent request-slot cap and surfaces an explicit error when callers exceed it, with regression coverage for unique-key burst traffic.

@@ -3,6 +3,7 @@ import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { devDeepFreeze } from "../src/devfreeze.js";
 import {
   createStore,
   setStore,
@@ -36,6 +37,23 @@ test("createStore with number", () => {
   clearAllStores();
   createStore("count", 0);
   assert.strictEqual(getStore("count"), 0);
+});
+
+test("devDeepFreeze handles deeply nested and circular objects without overflowing", () => {
+  const root: Record<string, unknown> = {};
+  let cursor = root;
+  for (let i = 0; i < 20_000; i++) {
+    const next: Record<string, unknown> = {};
+    cursor.next = next;
+    cursor = next;
+  }
+  cursor.loop = root;
+
+  assert.doesNotThrow(() => {
+    devDeepFreeze(root);
+  });
+  assert.strictEqual(Object.isFrozen(root), true);
+  assert.strictEqual(Object.isFrozen(root.next as object), true);
 });
 
 test("undefined stores are tracked and can be deleted cleanly", () => {
@@ -72,18 +90,89 @@ test("setStore enforces schema on updates", () => {
 
 test("createStore blocks production server globals unless explicitly allowed", () => {
   const originalEnv = process.env.NODE_ENV;
+  const originalConsoleError = console.error;
+  const reported: string[] = [];
   process.env.NODE_ENV = "production";
   clearAllStores();
+  const errors: string[] = [];
 
-  const blocked = createStore("ssr", { value: 1 });
-  assert.strictEqual(blocked, undefined);
-  assert.strictEqual(hasStore("ssr"), false);
+  console.error = ((message?: unknown) => {
+    reported.push(String(message ?? ""));
+  }) as typeof console.error;
 
-  createStore("ssrAllowed", { value: 2 }, { allowSSRGlobalStore: true });
-  assert.strictEqual(hasStore("ssrAllowed"), true);
+  try {
+    const blocked = createStore("ssr", { value: 1 }, {
+      onError: (msg) => { errors.push(msg); },
+    });
+    assert.strictEqual(blocked, undefined);
+    assert.strictEqual(hasStore("ssr"), false);
+    assert.ok(errors.some((msg) => msg.includes('createStore("ssr") is blocked on the server in production')));
+    assert.ok(reported.some((msg) => msg.includes('createStore("ssr") is blocked on the server in production')));
 
-  process.env.NODE_ENV = originalEnv;
-  clearAllStores();
+    createStore("ssrAllowed", { value: 2 }, { allowSSRGlobalStore: true });
+    assert.strictEqual(hasStore("ssrAllowed"), true);
+  } finally {
+    console.error = originalConsoleError;
+    process.env.NODE_ENV = originalEnv;
+    clearAllStores();
+  }
+});
+
+test("hydrateStores surfaces blocked production SSR store creation", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    const errors = [];
+    store.hydrateStores(
+      { ssrHydrate: { value: 1 } },
+      {
+        default: {
+          onError: (msg) => { errors.push(msg); },
+        },
+      }
+    );
+
+    assert.strictEqual(store.hasStore("ssrHydrate"), false);
+    assert.ok(errors.some((msg) => msg.includes('createStore("ssrHydrate") is blocked on the server in production')));
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("unknown Node env falls back to production mode", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const utilsPath = path.join(repoRoot, "src", "utils.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const utils = await import(pathToFileURL(${JSON.stringify(utilsPath)}).href);
+    assert.strictEqual(utils.__DEV__, false);
+    assert.strictEqual(utils.isDev(), false);
+  `;
+
+  const env = { ...process.env } as Record<string, string>;
+  delete env.NODE_ENV;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env,
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
 test("unknown Node env falls back to production mode", () => {
@@ -214,6 +303,32 @@ test("validator exceptions are reported without throwing", () => {
   assert.deepStrictEqual(getStore("mergeUser"), { score: 0 });
   assert.ok(errors.some((msg) => msg.includes('Validator for "user" failed')));
   assert.ok(errors.some((msg) => msg.includes('Validator for "mergeUser" failed')));
+});
+
+test("validator failures do not call the same onError handler twice", () => {
+  clearAllStores();
+  const messages: string[] = [];
+  const onError = (msg: string) => {
+    messages.push(msg);
+  };
+
+  createStore("validatorOnce", { value: 1 }, {
+    onError,
+    validator: (next: any) => next.value < 2,
+  });
+
+  setStore("validatorOnce", { value: 2 });
+  assert.deepStrictEqual(messages, ['Validator blocked update for "validatorOnce"']);
+
+  messages.length = 0;
+
+  const blocked = createStore("validatorInitOnce", { value: 2 }, {
+    onError,
+    validator: (next: any) => next.value < 2,
+  });
+
+  assert.strictEqual(blocked, undefined);
+  assert.deepStrictEqual(messages, ['Validator blocked update for "validatorInitOnce"']);
 });
 
 test("sanitize errors are reported without throwing on circular input", () => {
@@ -360,6 +475,29 @@ test("deepClone fallback stays deep when structuredClone is unavailable", async 
     assert.notStrictEqual(clone.nested, circular.nested);
     assert.strictEqual(circular.nested.value, 1);
     assert.strictEqual(clone.self, clone);
+  } finally {
+    (globalThis as any).structuredClone = originalStructuredClone;
+  }
+});
+
+test("deepClone fallback drops inherited and non-enumerable object state", async () => {
+  const originalStructuredClone = (globalThis as any).structuredClone;
+  try {
+    delete (globalThis as any).structuredClone;
+    const utils = await import(`../src/utils.js?deep-clone-fallback-shape-${Date.now()}`);
+
+    const source = Object.create({ admin: true }) as Record<string, unknown>;
+    source.name = "Alex";
+    Object.defineProperty(source, "_secret", {
+      value: "hidden",
+      enumerable: false,
+    });
+
+    const clone = utils.deepClone(source) as Record<string, unknown>;
+
+    assert.deepStrictEqual(clone, { name: "Alex" });
+    assert.strictEqual("admin" in clone, false);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(clone, "_secret"), false);
   } finally {
     (globalThis as any).structuredClone = originalStructuredClone;
   }
@@ -527,13 +665,17 @@ test("getStoreMeta returns deep-cloned metadata snapshots", () => {
   assert.notStrictEqual(nextMeta.metrics.notifyCount, 999);
 });
 
-test("middleware errors do not block later notifications", async () => {
+test("middleware throws veto the blocked update but allow later valid writes", async () => {
   clearAllStores();
   const errors: string[] = [];
   const seen: Array<Record<string, string> | null> = [];
 
   createStore("prefs", { theme: "dark" }, {
-    middleware: [() => { throw new Error("boom"); }],
+    middleware: [({ next }) => {
+      if ((next as Record<string, string>).theme === "light") {
+        throw new Error("boom");
+      }
+    }],
     onError: (msg) => { errors.push(msg); },
   });
 
@@ -552,7 +694,7 @@ test("middleware errors do not block later notifications", async () => {
   unsubscribe();
 
   assert.deepStrictEqual(getStore("prefs"), { theme: "blue" });
-  assert.deepStrictEqual(seen, [{ theme: "light" }, { theme: "blue" }]);
+  assert.deepStrictEqual(seen, [{ theme: "blue" }]);
   assert.ok(errors.some((msg) => msg.includes('Middleware for "prefs" failed')));
 });
 
@@ -649,6 +791,29 @@ test("setStoreBatch rejects async callbacks before they can interleave state", (
   }, /does not support async functions/);
 
   assert.deepStrictEqual(getStore("batchGuard"), { value: 0 });
+});
+
+test("setStoreBatch flushes queued notifications before rejecting promise-returning callbacks", async () => {
+  clearAllStores();
+  createStore("batchPromiseGuard", { value: 0 });
+  const seen: number[] = [];
+
+  _subscribe("batchPromiseGuard", (value) => {
+    if (!value) return;
+    seen.push((value as { value: number }).value);
+  });
+
+  assert.throws(() => {
+    setStoreBatch(() => {
+      setStore("batchPromiseGuard", { value: 1 });
+      return Promise.resolve();
+    });
+  }, /promise-returning callbacks/);
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(getStore("batchPromiseGuard"), { value: 1 });
+  assert.deepStrictEqual(seen, [1]);
 });
 
 test("lifecycle hook errors do not leave partial commits", () => {
@@ -757,6 +922,24 @@ test("deleteStore clears orphaned history entries", () => {
   assert.ok(getHistory("user").length > 0);
   deleteStore("user");
   assert.deepStrictEqual(getHistory("user"), []);
+});
+
+test("clearAllStores removes stores created during delete hooks", () => {
+  clearAllStores();
+
+  createStore("first", { value: 1 }, {
+    onDelete: () => {
+      if (!hasStore("late")) {
+        createStore("late", { value: 2 }, { allowSSRGlobalStore: true });
+      }
+    },
+  });
+
+  clearAllStores();
+
+  assert.strictEqual(hasStore("first"), false);
+  assert.strictEqual(hasStore("late"), false);
+  assert.deepStrictEqual(listStores(), []);
 });
 
 test("history snapshots stay immutable in production", () => {

@@ -7,6 +7,15 @@ import { fetchStore } from "../src/async.js";
 import { getStore, clearAllStores, deleteStore } from "../src/store.js";
 
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
 
 test("fetchStore dedupes inflight requests", async () => {
   clearAllStores();
@@ -53,6 +62,28 @@ test("fetchStore uses last-write-wins for racing promises", async () => {
 
   const state = getStore("raceStore");
   assert.deepStrictEqual(state?.data, { result: "fast" });
+  assert.strictEqual(state?.status, "success");
+});
+
+test("fetchStore keeps the latest concurrent result when earlier requests settle first", async () => {
+  clearAllStores();
+  const first = deferred<{ result: string }>();
+  const second = deferred<{ result: string }>();
+
+  const firstRequest = fetchStore("raceStoreOrdered", first.promise, { dedupe: false });
+  await wait(0);
+  const secondRequest = fetchStore("raceStoreOrdered", second.promise, { dedupe: false });
+
+  first.resolve({ result: "first" });
+  await wait(0);
+  second.resolve({ result: "second" });
+
+  const [r1, r2] = await Promise.all([firstRequest, secondRequest]);
+
+  assert.strictEqual(r1, null);
+  assert.deepStrictEqual(r2, { result: "second" });
+  const state = getStore("raceStoreOrdered");
+  assert.deepStrictEqual(state?.data, { result: "second" });
   assert.strictEqual(state?.status, "success");
 });
 
@@ -143,6 +174,12 @@ test("fetchStore bails out cleanly when production SSR store creation is blocked
     const { getStore, hasStore } = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
 
     let fetchCalls = 0;
+    const errors = [];
+    const reported = [];
+    const originalConsoleError = console.error;
+    console.error = (message) => {
+      reported.push(String(message ?? ""));
+    };
     globalThis.fetch = async () => {
       fetchCalls += 1;
       return {
@@ -155,11 +192,19 @@ test("fetchStore bails out cleanly when production SSR store creation is blocked
       };
     };
 
-    const result = await fetchStore("ssrAsync", "https://api.example.com/value");
-    assert.strictEqual(result, null);
-    assert.strictEqual(hasStore("ssrAsync"), false);
-    assert.strictEqual(getStore("ssrAsync"), null);
-    assert.strictEqual(fetchCalls, 0);
+    try {
+      const result = await fetchStore("ssrAsync", "https://api.example.com/value", {
+        onError: (msg) => { errors.push(msg); },
+      });
+      assert.strictEqual(result, null);
+      assert.strictEqual(hasStore("ssrAsync"), false);
+      assert.strictEqual(getStore("ssrAsync"), null);
+      assert.strictEqual(fetchCalls, 0);
+      assert.ok(errors.some((msg) => msg.includes('fetchStore("ssrAsync") cannot create a backing store on the server in production')));
+      assert.ok(reported.some((msg) => msg.includes('fetchStore("ssrAsync") cannot create a backing store on the server in production')));
+    } finally {
+      console.error = originalConsoleError;
+    }
   `;
 
   const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
@@ -179,6 +224,7 @@ test("fetchStore stops retrying after abort during backoff", async () => {
   const realFetch = globalThis.fetch;
   const controller = new AbortController();
   let calls = 0;
+  const started = Date.now();
 
   globalThis.fetch = (async () => {
     calls += 1;
@@ -195,9 +241,11 @@ test("fetchStore stops retrying after abort during backoff", async () => {
     await wait(10);
     controller.abort();
     const result = await request;
+    const elapsed = Date.now() - started;
 
     assert.strictEqual(result, null);
     assert.strictEqual(calls, 1);
+    assert.ok(elapsed < 45, `expected abort-aware delay to settle promptly, got ${elapsed}ms`);
     const state = getStore("retryAbortStore");
     assert.strictEqual(state?.status, "aborted");
   } finally {
@@ -285,4 +333,151 @@ test("fetchStore ignores retry delays for direct Promise inputs", async () => {
   const state = getStore("promiseRetryStore");
   assert.strictEqual(state?.status, "error");
   assert.strictEqual(state?.error, "promise boom");
+});
+
+test("fetchStore exposes background revalidation while serving cached data", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  const refresh = deferred<{ value: string }>();
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    if (calls === 1) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: { get: () => "application/json" },
+        json: async () => ({ value: "cached" }),
+        text: async () => JSON.stringify({ value: "cached" }),
+      } as any;
+    }
+    const result = await refresh.promise;
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "application/json" },
+      json: async () => result,
+      text: async () => JSON.stringify(result),
+    } as any;
+  }) as typeof fetch;
+
+  try {
+    await fetchStore("swrStore", "https://api.example.com/swr", { ttl: 5_000 });
+
+    const request = fetchStore("swrStore", "https://api.example.com/swr", {
+      ttl: 5_000,
+      staleWhileRevalidate: true,
+    });
+
+    const during = getStore("swrStore") as any;
+    assert.deepStrictEqual(during.data, { value: "cached" });
+    assert.strictEqual(during.status, "success");
+    assert.strictEqual(during.loading, true);
+    assert.strictEqual(during.cached, true);
+    assert.strictEqual(during.revalidating, true);
+
+    refresh.resolve({ value: "fresh" });
+    await request;
+
+    const after = getStore("swrStore") as any;
+    assert.deepStrictEqual(after.data, { value: "fresh" });
+    assert.strictEqual(after.loading, false);
+    assert.strictEqual(after.cached, false);
+    assert.strictEqual(after.revalidating, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("fetchStore preserves stale data when background revalidation fails", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    if (calls === 1) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: { get: () => "application/json" },
+        json: async () => ({ value: "cached" }),
+        text: async () => JSON.stringify({ value: "cached" }),
+      } as any;
+    }
+    throw new Error("refresh failed");
+  }) as typeof fetch;
+
+  try {
+    await fetchStore("swrFailStore", "https://api.example.com/swr-fail", { ttl: 5_000 });
+    const result = await fetchStore("swrFailStore", "https://api.example.com/swr-fail", {
+      ttl: 5_000,
+      staleWhileRevalidate: true,
+      dedupe: false,
+    });
+
+    assert.strictEqual(result, null);
+    const state = getStore("swrFailStore") as any;
+    assert.deepStrictEqual(state.data, { value: "cached" });
+    assert.strictEqual(state.error, "refresh failed");
+    assert.strictEqual(state.status, "error");
+    assert.strictEqual(state.cached, true);
+    assert.strictEqual(state.revalidating, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("fetchStore caps per-store inflight request slots under unique cache keys", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  const pending: Array<ReturnType<typeof deferred<{ slot: number }>>> = [];
+  const errors: string[] = [];
+  let calls = 0;
+
+  globalThis.fetch = (() => {
+    calls += 1;
+    const next = deferred<{ slot: number }>();
+    pending.push(next);
+    return next.promise.then((value) => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "application/json" },
+      json: async () => value,
+      text: async () => JSON.stringify(value),
+    })) as any;
+  }) as typeof fetch;
+
+  try {
+    const requests = Array.from({ length: 100 }, (_, i) =>
+      fetchStore("burstStore", "https://api.example.com/burst", {
+        dedupe: false,
+        cacheKey: `slot-${i}`,
+      })
+    );
+
+    await wait(0);
+
+    const overflow = await fetchStore("burstStore", "https://api.example.com/burst", {
+      dedupe: false,
+      cacheKey: "slot-overflow",
+      onError: (msg) => { errors.push(msg); },
+    });
+
+    assert.strictEqual(overflow, null);
+    assert.strictEqual(calls, 100);
+    assert.ok(errors.some((msg) => msg.includes('fetchStore("burstStore") exceeded 100 concurrent request slots')));
+
+    pending.forEach((entry, index) => {
+      entry.resolve({ slot: index });
+    });
+    await Promise.all(requests);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

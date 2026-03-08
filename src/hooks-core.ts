@@ -28,6 +28,22 @@ const shallowEqual = (a: any, b: any): boolean => {
     return true;
 };
 
+type SelectorCache<R> = {
+    hasValue: boolean;
+    storeName: string;
+    snapshot: unknown;
+    selector: unknown;
+    value: R | null;
+};
+
+const createSelectorCache = <R,>(): SelectorCache<R> => ({
+    hasValue: false,
+    storeName: "",
+    snapshot: undefined,
+    selector: undefined,
+    value: null,
+});
+
 export function useStore<T = any>(name: string, path?: string): T | null;
 export function useStore<T = any, R = any>(
     name: string,
@@ -42,23 +58,75 @@ export function useStore<T = any, R = any>(
     const hasSelector = typeof pathOrSelector === "function";
     const path = typeof pathOrSelector === "string" ? pathOrSelector : undefined;
     const selector = hasSelector ? (pathOrSelector as (state: T) => R) : undefined;
+    const selectorRef = useRef<typeof selector>(selector);
+    const equalityRef = useRef(equalityFn);
+    const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
+
+    selectorRef.current = selector;
+    equalityRef.current = equalityFn;
+
+    const readSelectedSnapshot = useCallback((snapshot: T | null): R | null => {
+        if (snapshot === null || snapshot === undefined || !selectorRef.current) {
+            selectorCache.current = {
+                hasValue: true,
+                storeName: name,
+                snapshot,
+                selector: selectorRef.current,
+                value: null,
+            };
+            return null;
+        }
+
+        const currentSelector = selectorRef.current;
+        const cache = selectorCache.current;
+        if (
+            cache.hasValue
+            && cache.storeName === name
+            && cache.snapshot === snapshot
+            && cache.selector === currentSelector
+        ) {
+            return cache.value;
+        }
+
+        const next = currentSelector(snapshot);
+        if (
+            cache.hasValue
+            && cache.storeName === name
+            && equalityRef.current(next, cache.value as R)
+        ) {
+            cache.snapshot = snapshot;
+            cache.selector = currentSelector;
+            return cache.value;
+        }
+
+        cache.hasValue = true;
+        cache.storeName = name;
+        cache.snapshot = snapshot;
+        cache.selector = currentSelector;
+        cache.value = next;
+        return next;
+    }, [name]);
 
     const subscribe = useCallback(
         (fn: () => void) =>
             hasSelector
-                ? subscribeWithSelector(name, (state) => selector!(state as T), equalityFn, fn)
+                ? subscribeWithSelector(
+                    name,
+                    (state) => selectorRef.current!(state as T),
+                    (a, b) => equalityRef.current(a, b),
+                    fn
+                )
                 : _subscribe(name, () => fn()),
-        [name, hasSelector, selector, equalityFn]
+        [name, hasSelector]
     );
 
     const getSnapshot = useCallback(() => {
         const snap = _getSnapshot(name);
         if (hasSelector) {
-            if (snap === null || snap === undefined) return null;
-            return selector!(snap as T);
+            return readSelectedSnapshot(snap as T | null);
         }
         return pickPath(snap, path);
-    }, [name, hasSelector, selector, path]);
+    }, [name, hasSelector, path, readSelectedSnapshot]);
 
     const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
@@ -89,16 +157,54 @@ export const useSelector = <T = any, R = any>(
     selectorFn: (state: T) => R,
     equalityFn: (a: R, b: R) => boolean = shallowEqual
 ): R | null => {
-    const lastSelection = useRef<R | null>(null);
+    const selectorRef = useRef(selectorFn);
+    const equalityRef = useRef(equalityFn);
+    const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
+
+    selectorRef.current = selectorFn;
+    equalityRef.current = equalityFn;
 
     const selectValue = useCallback((data: T | null): R | null => {
-        if (data === null || data === undefined) return null;
-        const next = selectorFn(data);
-        const prev = lastSelection.current;
-        if (prev !== null && equalityFn(next, prev as R)) return prev;
-        lastSelection.current = next;
+        if (data === null || data === undefined) {
+            selectorCache.current = {
+                hasValue: true,
+                storeName,
+                snapshot: data,
+                selector: selectorRef.current,
+                value: null,
+            };
+            return null;
+        }
+
+        const currentSelector = selectorRef.current;
+        const cache = selectorCache.current;
+        if (
+            cache.hasValue
+            && cache.storeName === storeName
+            && cache.snapshot === data
+            && cache.selector === currentSelector
+        ) {
+            return cache.value;
+        }
+
+        const next = currentSelector(data);
+        if (
+            cache.hasValue
+            && cache.storeName === storeName
+            && equalityRef.current(next, cache.value as R)
+        ) {
+            cache.snapshot = data;
+            cache.selector = currentSelector;
+            return cache.value;
+        }
+
+        cache.hasValue = true;
+        cache.storeName = storeName;
+        cache.snapshot = data;
+        cache.selector = currentSelector;
+        cache.value = next;
         return next;
-    }, [selectorFn, equalityFn]);
+    }, [storeName]);
 
     const getSnap = useCallback(() => {
         const data = _getSnapshot(storeName) as T | null;
@@ -108,11 +214,11 @@ export const useSelector = <T = any, R = any>(
     const subscribe = useCallback((notify: () => void) => {
         return subscribeWithSelector(
             storeName,
-            (state) => selectValue(state as T) as R,
-            equalityFn,
+            (state) => selectorRef.current(state as T),
+            (a, b) => equalityRef.current(a, b),
             () => notify()
         );
-    }, [storeName, selectValue, equalityFn]);
+    }, [storeName]);
 
     const selection = useSyncExternalStore(subscribe, getSnap, getSnap);
     return selection as R | null;

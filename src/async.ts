@@ -24,6 +24,7 @@ type AsyncState = {
     error: string | null;
     status: "idle" | "loading" | "success" | "error" | "aborted";
     cached?: boolean;
+    revalidating?: boolean;
 };
 
 const _fetchRegistry: Record<string, { url: string | Promise<unknown>; options: FetchOptions }> = {};
@@ -38,8 +39,120 @@ const MIN_RETRY_DELAY_MS = 10;
 const MAX_RETRY_DELAY_MS = 30_000;
 const MAX_RETRY_BACKOFF = 8;
 const MAX_CACHE_SLOTS_PER_STORE = 100;
+const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
 
-const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
+const delay = (ms: number, signal?: AbortSignal): Promise<void> => new Promise((resolve) => {
+    if (signal?.aborted) {
+        resolve();
+        return;
+    }
+
+    const timer = setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+    }, ms);
+
+    const onAbort = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+    };
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+});
+
+const _runAsyncHook = (
+    name: string,
+    label: "onSuccess" | "onError",
+    fn: ((value: any) => void) | undefined,
+    value: unknown
+): void => {
+    if (typeof fn !== "function") return;
+    try {
+        fn(value);
+    } catch (err) {
+        warn(`fetchStore("${name}") ${label} callback failed: ${(err as { message?: string })?.message ?? err}`);
+    }
+};
+
+const _reportAsyncUsageError = (
+    name: string,
+    message: string,
+    onError?: (message: string) => void
+): null => {
+    _runAsyncHook(name, "onError", onError, message);
+    if (isDev()) {
+        error(message);
+        return null;
+    }
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+        console.error(`[stroid] ${message}`);
+    }
+    return null;
+};
+
+const _settleAbort = (name: string): null => {
+    warn(`fetchStore("${name}") aborted`);
+    if (hasStore(name)) {
+        setStore(name, {
+            loading: false,
+            error: "aborted",
+            status: "aborted",
+            revalidating: false,
+        });
+    }
+    return null;
+};
+
+const _normalizeRetryNumber = (name: string, label: "retry" | "retryDelay" | "retryBackoff", value: number, fallback: number): number => {
+    if (!Number.isFinite(value)) {
+        warn(`fetchStore("${name}") received non-finite ${label}; using ${fallback}.`);
+        return fallback;
+    }
+    return value;
+};
+
+const _normalizeRetryOptions = (
+    name: string,
+    retry: number,
+    retryDelay: number,
+    retryBackoff: number
+): { retry: number; retryDelay: number; retryBackoff: number } => {
+    const rawRetry = Number.isFinite(retry)
+        ? retry
+        : (retry > 0 ? MAX_RETRY_ATTEMPTS : 0);
+    const safeRetry = Math.min(
+        MAX_RETRY_ATTEMPTS,
+        Math.max(0, Math.trunc(rawRetry))
+    );
+    if (!Number.isFinite(retry)) {
+        warn(`fetchStore("${name}") received non-finite retry; using ${safeRetry}.`);
+    }
+    const safeRetryDelay = Math.min(
+        MAX_RETRY_DELAY_MS,
+        Math.max(MIN_RETRY_DELAY_MS, _normalizeRetryNumber(name, "retryDelay", retryDelay, 400))
+    );
+    const safeRetryBackoff = Math.min(
+        MAX_RETRY_BACKOFF,
+        Math.max(1, _normalizeRetryNumber(name, "retryBackoff", retryBackoff, 1.7))
+    );
+
+    if (safeRetry !== retry) {
+        warn(`fetchStore("${name}") clamped retry attempts to ${safeRetry}.`);
+    }
+    if (safeRetryDelay !== retryDelay) {
+        warn(`fetchStore("${name}") clamped retryDelay to ${safeRetryDelay}ms.`);
+    }
+    if (safeRetryBackoff !== retryBackoff) {
+        warn(`fetchStore("${name}") clamped retryBackoff to ${safeRetryBackoff}.`);
+    }
+
+    return {
+        retry: safeRetry,
+        retryDelay: safeRetryDelay,
+        retryBackoff: safeRetryBackoff,
+    };
+};
 
 const _runAsyncHook = (
     name: string,
@@ -170,6 +283,15 @@ const _pruneAsyncCache = (name: string): void => {
     });
 };
 
+const _countInflightSlots = (name: string): number => {
+    const prefix = `${name}:`;
+    let count = 0;
+    Object.keys(_inflight).forEach((key) => {
+        if (key === name || key.startsWith(prefix)) count += 1;
+    });
+    return count;
+};
+
 const _registerStoreCleanup = (name: string, fn: () => void): void => {
     if (!_storeCleanupFns[name]) _storeCleanupFns[name] = new Set();
     _storeCleanupFns[name].add(fn);
@@ -251,6 +373,18 @@ export const fetchStore = async (
         warn(`fetchStore("${name}") ignores retry settings for direct Promise inputs; pass a URL string to use retries.`);
     }
 
+    const isProdServer = typeof window === "undefined"
+        && (typeof process !== "undefined" ? process.env?.NODE_ENV : undefined) === "production";
+
+    if (!hasStore(name) && isProdServer) {
+        return _reportAsyncUsageError(
+            name,
+            `fetchStore("${name}") cannot create a backing store on the server in production.\n` +
+            `Use createStoreForRequest(...) inside the request scope or create the store ahead of time with { allowSSRGlobalStore: true }.`,
+            onError
+        );
+    }
+
     if (!hasStore(name)) {
         createStore(name, {
             data: null,
@@ -259,27 +393,33 @@ export const fetchStore = async (
             status: "idle",
         });
         if (!hasStore(name)) {
-            error(
+            return _reportAsyncUsageError(
+                name,
                 `fetchStore("${name}") could not initialize its backing store.\n` +
                 `On the server in production, use createStoreForRequest(...) inside the request scope ` +
-                `or create the store with { allowSSRGlobalStore: true } before calling fetchStore.`
+                `or create the store with { allowSSRGlobalStore: true } before calling fetchStore.`,
+                onError
             );
-            return null;
         }
     }
     _ensureCleanupSubscription(name);
 
+    let cachedData: unknown = null;
+    let backgroundRevalidate = false;
+
     if (shouldUseCache(cacheSlot, ttl)) {
         _asyncMetrics.cacheHits += 1;
-        const cached = _cacheMeta[cacheSlot].data;
+        cachedData = _cacheMeta[cacheSlot].data;
         setStore(name, {
-            data: cached,
-            loading: false,
+            data: cachedData,
+            loading: staleWhileRevalidate,
             error: null,
             status: "success",
             cached: true,
+            revalidating: staleWhileRevalidate,
         });
-        if (!staleWhileRevalidate) return cached;
+        if (!staleWhileRevalidate) return cachedData;
+        backgroundRevalidate = true;
     } else {
         _asyncMetrics.cacheMisses += 1;
     }
@@ -289,14 +429,26 @@ export const fetchStore = async (
         return _inflight[cacheSlot]!;
     }
 
+    if (!_inflight[cacheSlot] && _countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
+        return _reportAsyncUsageError(
+            name,
+            `fetchStore("${name}") exceeded ${MAX_INFLIGHT_SLOTS_PER_STORE} concurrent request slots. Reuse cacheKey values, wait for pending requests, or delete the store to clear async state.`,
+            onError
+        );
+    }
+
     const currentVersion = (_requestVersion[cacheSlot] ?? 0) + 1;
     _requestVersion[cacheSlot] = currentVersion;
 
-    setStore(name, {
-        loading: true,
-        error: null,
-        status: "loading",
-    });
+    if (!backgroundRevalidate) {
+        setStore(name, {
+            loading: true,
+            error: null,
+            status: "loading",
+            cached: false,
+            revalidating: false,
+        });
+    }
 
     _asyncMetrics.requests += 1;
     const startedAt = Date.now();
@@ -374,6 +526,8 @@ export const fetchStore = async (
                         loading: false,
                         error: null,
                         status: "success",
+                        cached: false,
+                        revalidating: false,
                     });
                 }
 
@@ -391,7 +545,7 @@ export const fetchStore = async (
 
                 if (attempts <= effectiveRetryPolicy.retry) {
                     if (mergedSignal?.aborted) return _settleAbort(name);
-                    await delay(delayMs);
+                    await delay(delayMs, mergedSignal);
                     if (mergedSignal?.aborted) return _settleAbort(name);
                     delayMs = Math.min(MAX_RETRY_DELAY_MS, delayMs * effectiveRetryPolicy.retryBackoff);
                     continue;
@@ -402,10 +556,12 @@ export const fetchStore = async (
                 const errorMessage = (err as any)?.message || "Something went wrong";
                 if (hasStore(name)) {
                     setStore(name, {
-                        data: null,
+                        data: backgroundRevalidate ? cachedData : null,
                         loading: false,
                         error: errorMessage,
                         status: "error",
+                        cached: backgroundRevalidate,
+                        revalidating: false,
                     });
                 }
 
@@ -419,7 +575,9 @@ export const fetchStore = async (
 
     const promise = runFetch().finally(() => {
         delete _inflight[cacheSlot];
-        delete _requestVersion[cacheSlot];
+        if (_requestVersion[cacheSlot] === currentVersion) {
+            delete _requestVersion[cacheSlot];
+        }
         if (abortOnCleanup) _unregisterStoreCleanup(name, abortOnCleanup);
     });
 

@@ -450,6 +450,17 @@ const _reportStoreError = (name: string, message: string): void => {
     warn(message);
 };
 
+const _reportStoreCreationError = (message: string, onError?: (message: string) => void): void => {
+    onError?.(message);
+    if (isDev()) {
+        error(message);
+        return;
+    }
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+        console.error(`[stroid] ${message}`);
+    }
+};
+
 const _resolveMigrationFailure = (
     name: string,
     persisted: StoreValue,
@@ -521,7 +532,12 @@ const _devtoolsSend = (name: string, action: string, force = false): void => {
     } catch (_) { /* ignore */ }
 };
 
-const _runMiddleware = (name: string, payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; }): StoreValue => {
+const MIDDLEWARE_ABORT = Symbol("stroid.middleware.abort");
+
+const _runMiddleware = (
+    name: string,
+    payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; }
+): StoreValue | typeof MIDDLEWARE_ABORT => {
     const middlewares = _meta[name]?.options?.middleware || [];
     if (!Array.isArray(middlewares)) return payload.next;
     let nextState = payload.next;
@@ -540,7 +556,7 @@ const _runMiddleware = (name: string, payload: { action: string; prev: StoreValu
             const msg = `Middleware for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
             _meta[name]?.options?.onError?.(msg);
             warn(msg);
-            continue;
+            return MIDDLEWARE_ABORT;
         }
         if (result !== undefined) nextState = result;
     }
@@ -563,17 +579,21 @@ const _runValidator = (
     validator?: (next: StoreValue) => boolean,
     onError?: (message: string) => void
 ): boolean => {
-    const report = (message: string): void => {
-        _meta[name]?.options?.onError?.(message);
-        onError?.(message);
-        warn(message);
+    const report = (message: string, shouldWarn = true): void => {
+        const handlers = new Set<((message: string) => void)>();
+        const metaHandler = _meta[name]?.options?.onError;
+        if (typeof metaHandler === "function") handlers.add(metaHandler);
+        if (typeof onError === "function") handlers.add(onError);
+        handlers.forEach((handler) => handler(message));
+        if (shouldWarn) {
+            warn(message);
+        }
     };
     if (typeof validator !== "function") return true;
     try {
         if (validator(value) === false) {
             const message = `Validator blocked update for "${name}"`;
-            _meta[name]?.options?.onError?.(message);
-            onError?.(message);
+            report(message, false);
             return false;
         }
         return true;
@@ -760,12 +780,11 @@ export const createStore = <Name extends string, State>(
     const allowGlobalSSR = option.allowSSRGlobalStore ?? false;
 
     if (isProdServer && !allowGlobalSSR) {
-        if (isDev()) {
-            error(
-                `createStore("${name}") is blocked on the server in production to prevent cross-request memory leaks.\n` +
-                `Call createStoreForRequest(...) inside each request scope or pass { allowSSRGlobalStore: true } to opt in.`
-            );
-        }
+        _reportStoreCreationError(
+            `createStore("${name}") is blocked on the server in production to prevent cross-request memory leaks.\n` +
+            `Call createStoreForRequest(...) inside each request scope or pass { allowSSRGlobalStore: true } to opt in.`,
+            option.onError as ((message: string) => void) | undefined
+        );
         return;
     }
 
@@ -947,6 +966,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     }
 
     const next = _runMiddleware(storeName, { action: "set", prev, next: sanitizedUpdate, path: keyOrData });
+    if (next === MIDDLEWARE_ABORT) return;
     _stores[storeName] = isDev() ? devDeepFreeze(next) : next;
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
@@ -962,7 +982,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     log(`Store "${storeName}" updated`);
 }
 
-export const setStoreBatch = (fn: () => void): void => {
+export const setStoreBatch = (fn: () => unknown): void => {
     if (typeof fn !== "function") {
         throw new Error("setStoreBatch requires a synchronous function callback.");
     }
@@ -973,6 +993,9 @@ export const setStoreBatch = (fn: () => void): void => {
     try {
         const result = fn();
         if (result && typeof (result as Promise<unknown>).then === "function") {
+            if (_pendingNotifications.size > 0) {
+                _scheduleFlush();
+            }
             throw new Error("setStoreBatch does not support promise-returning callbacks.");
         }
     } finally {
@@ -1081,6 +1104,7 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     }
 
     const final = _runMiddleware(name, { action: "merge", prev: current, next, path: null });
+    if (final === MIDDLEWARE_ABORT) return;
     _stores[name] = isDev() ? devDeepFreeze(final) : final;
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
@@ -1110,6 +1134,7 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
     }
 
     const final = _runMiddleware(name, { action, prev, next: nextValue, path: null });
+    if (final === MIDDLEWARE_ABORT) return;
     _stores[name] = isDev() ? devDeepFreeze(final) : final;
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
@@ -1124,9 +1149,67 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
 };
 
 export const clearAllStores = (): void => {
-    const names = Object.keys(_stores);
-    names.forEach(deleteStore);
-    warn(`All stores cleared (${names.length} stores removed)`);
+    let removed = 0;
+    let passes = 0;
+
+    while (Object.keys(_stores).length > 0 && passes < 1000) {
+        const names = Object.keys(_stores);
+        names.forEach((name) => {
+            if (_hasStoreEntry(name)) {
+                deleteStore(name);
+                removed += 1;
+            }
+        });
+        passes += 1;
+    }
+
+    if (Object.keys(_stores).length > 0) {
+        warn(`clearAllStores() stopped after ${passes} passes with ${Object.keys(_stores).length} stores still registered.`);
+        return;
+    }
+
+    warn(`All stores cleared (${removed} stores removed)`);
+};
+
+export const _hardResetAllStoresForTest = (): void => {
+    Object.values(_persistTimers).forEach((timer) => clearTimeout(timer));
+    Object.values(_persistWatchState).forEach((state) => {
+        try { state.dispose(); } catch (_) { /* ignore cleanup errors */ }
+    });
+    Object.values(_syncWindowCleanup).forEach((dispose) => {
+        try { dispose(); } catch (_) { /* ignore cleanup errors */ }
+    });
+    Object.values(_syncChannels).forEach((channel) => {
+        try { channel.close(); } catch (_) { /* ignore cleanup errors */ }
+    });
+
+    const registries: Array<Record<string, any>> = [
+        _stores,
+        _subscribers,
+        _initial,
+        _meta,
+        _history,
+        _syncChannels,
+        _syncClocks,
+        _syncWindowCleanup,
+        _snapshotCache,
+        _persistTimers as Record<string, ReturnType<typeof setTimeout>>,
+        _persistKeys,
+        _persistWatchState,
+    ];
+
+    registries.forEach((registry) => {
+        Object.keys(registry).forEach((key) => {
+            delete registry[key];
+        });
+    });
+
+    _pendingNotifications.clear();
+    _notifyScheduled = false;
+    _batchDepth = 0;
+    _devtools = undefined;
+    _ssrWarningIssued = false;
+    _entityIdCounter = 0;
 };
 
 export const hasStore = (name: string): boolean => _hasStoreEntry(name);
@@ -1350,6 +1433,14 @@ const _trackSelectorDependencies = <TState, TResult>(
 const _selectorDepsChanged = <TState>(prev: TState, next: TState, deps: SelectorDependency[]): boolean =>
     deps.some((path) => !Object.is(getByPath(prev, path), getByPath(next, path)));
 
+const _serializedSelectorEqual = (next: unknown, prev: unknown): boolean => {
+    try {
+        return JSON.stringify(next) === JSON.stringify(prev);
+    } catch (_) {
+        return false;
+    }
+};
+
 // Selectors & presets
 export const createSelector = <TState, TResult>(storeName: string, selectorFn: (state: TState) => TResult) => {
     let lastRef: TState | undefined;
@@ -1392,7 +1483,7 @@ export const subscribeWithSelector = <R>(
                 && prevSel !== null
                 && typeof nextSel === "object"
                 && typeof prevSel === "object"
-                && hashState(nextSel) === hashState(prevSel)
+                && _serializedSelectorEqual(nextSel, prevSel)
             );
         if (!matches) {
             const last = prevSel;
