@@ -44,7 +44,8 @@
   "homepage": "https://github.com/Himesh-Bhattarai/stroid#readme",
   "sideEffects": false,
   "scripts": {
-    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\" \"tests/**/*.test.tsx\"",
+    "test:heavy": "node --import tsx --test \"tests/heavy/**/*.heavy.ts\"",
     "typecheck": "tsc -p tsconfig.types.json",
     "build": "tsup"
   },

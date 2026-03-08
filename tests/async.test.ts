@@ -3,7 +3,7 @@ import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { fetchStore } from "../src/async.js";
+import { enableRevalidateOnFocus, fetchStore, getAsyncMetrics, refetchStore } from "../src/async.js";
 import { getStore, clearAllStores, deleteStore } from "../src/store.js";
 
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
@@ -479,5 +479,126 @@ test("fetchStore caps per-store inflight request slots under unique cache keys",
     await Promise.all(requests);
   } finally {
     globalThis.fetch = realFetch;
+  }
+});
+
+test("refetchStore returns undefined when no previous fetch exists", async () => {
+  clearAllStores();
+
+  const result = await refetchStore("missingAsyncHistory");
+
+  assert.strictEqual(result, undefined);
+});
+
+test("getAsyncMetrics tracks request, cache, dedupe, and failure counters", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    if (calls === 3) {
+      throw new Error("metrics boom");
+    }
+    await wait(5);
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "application/json" },
+      json: async () => ({ call: calls }),
+      text: async () => JSON.stringify({ call: calls }),
+    } as any;
+  }) as typeof fetch;
+
+  const before = getAsyncMetrics();
+
+  try {
+    await fetchStore("metricsStore", "https://api.example.com/metrics", {
+      ttl: 5_000,
+      dedupe: false,
+    });
+    await fetchStore("metricsStore", "https://api.example.com/metrics", {
+      ttl: 5_000,
+      dedupe: false,
+    });
+
+    const p1 = fetchStore("metricsDedupeStore", "https://api.example.com/dedupe");
+    const p2 = fetchStore("metricsDedupeStore", "https://api.example.com/dedupe");
+    await Promise.all([p1, p2]);
+
+    await fetchStore("metricsFailStore", "https://api.example.com/fail", {
+      dedupe: false,
+    });
+
+    const after = getAsyncMetrics();
+    assert.ok(calls >= 3);
+    assert.ok(after.requests - before.requests >= 3);
+    assert.strictEqual(after.cacheHits - before.cacheHits, 1);
+    assert.ok(after.cacheMisses - before.cacheMisses >= 3);
+    assert.strictEqual(after.dedupes - before.dedupes, 1);
+    assert.strictEqual(after.failures - before.failures, 1);
+    assert.ok(after.lastMs >= 0);
+    assert.ok(after.avgMs >= 0);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("enableRevalidateOnFocus wildcard cleanup removes focus and online listeners", async () => {
+  clearAllStores();
+  const realWindow = (globalThis as any).window;
+  const realFetch = globalThis.fetch;
+  const listeners = new Map<string, Set<() => void>>();
+  let calls = 0;
+
+  (globalThis as any).window = {
+    addEventListener: (event: string, handler: () => void) => {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event)!.add(handler);
+    },
+    removeEventListener: (event: string, handler: () => void) => {
+      listeners.get(event)?.delete(handler);
+    },
+  };
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "application/json" },
+      json: async () => ({ value: calls }),
+      text: async () => JSON.stringify({ value: calls }),
+    } as any;
+  }) as typeof fetch;
+
+  try {
+    await fetchStore("focusStore", "https://api.example.com/focus", { dedupe: false });
+    const cleanup = enableRevalidateOnFocus();
+
+    assert.strictEqual(listeners.get("focus")?.size, 1);
+    assert.strictEqual(listeners.get("online")?.size, 1);
+
+    listeners.get("focus")?.forEach((handler) => handler());
+    await wait(0);
+    assert.strictEqual(calls, 2);
+
+    cleanup();
+
+    assert.strictEqual(listeners.get("focus")?.size ?? 0, 0);
+    assert.strictEqual(listeners.get("online")?.size ?? 0, 0);
+
+    listeners.get("focus")?.forEach((handler) => handler());
+    await wait(0);
+    assert.strictEqual(calls, 2);
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realWindow === undefined) {
+      delete (globalThis as any).window;
+    } else {
+      (globalThis as any).window = realWindow;
+    }
   }
 });

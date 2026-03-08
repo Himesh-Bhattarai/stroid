@@ -21,9 +21,14 @@ import {
   createStoreForRequest,
   getInitialState,
   getStoreMeta,
+  clearHistory,
   subscribeWithSelector,
+  createCounterStore,
+  createListStore,
   createEntityStore,
   createSelector,
+  createZustandCompatStore,
+  getMetrics,
   setStoreBatch,
 } from "../src/store.js";
 
@@ -111,6 +116,9 @@ test("createStore blocks production server globals unless explicitly allowed", (
 
     createStore("ssrAllowed", { value: 2 }, { allowSSRGlobalStore: true });
     assert.strictEqual(hasStore("ssrAllowed"), true);
+
+    createStore("ssrScoped", { value: 3 }, { scope: "global" });
+    assert.strictEqual(hasStore("ssrScoped"), true);
   } finally {
     console.error = originalConsoleError;
     process.env.NODE_ENV = originalEnv;
@@ -525,6 +533,96 @@ test("createEntityStore fallback ids stay unique under repeated timestamps", () 
   }
 });
 
+test("createCounterStore supports increment, decrement, set, reset, and get", () => {
+  clearAllStores();
+  const counter = createCounterStore("counter", 2);
+
+  assert.strictEqual(counter.get(), 2);
+
+  counter.inc();
+  counter.inc(3);
+  counter.dec(2);
+  assert.strictEqual(counter.get(), 4);
+
+  counter.set(9);
+  assert.strictEqual(counter.get(), 9);
+  assert.deepStrictEqual(getStore("counter"), { value: 9 });
+
+  counter.reset();
+  assert.strictEqual(counter.get(), 2);
+});
+
+test("createListStore supports push, removeAt, replace, clear, and all", () => {
+  clearAllStores();
+  const list = createListStore("todos", ["a"]);
+
+  list.push("b");
+  list.push("c");
+  assert.deepStrictEqual(list.all(), ["a", "b", "c"]);
+
+  list.removeAt(1);
+  assert.deepStrictEqual(list.all(), ["a", "c"]);
+
+  list.replace(["x", "y"]);
+  assert.deepStrictEqual(list.all(), ["x", "y"]);
+  assert.deepStrictEqual(getStore("todos"), { items: ["x", "y"] });
+
+  list.clear();
+  assert.deepStrictEqual(list.all(), []);
+});
+
+test("createEntityStore supports remove and clear operations", () => {
+  clearAllStores();
+  const entities = createEntityStore<{ id: string; name: string }>("entityUsers");
+
+  entities.upsert({ id: "1", name: "Alex" });
+  entities.upsert({ id: "2", name: "Jordan" });
+  assert.deepStrictEqual(entities.all(), [
+    { id: "1", name: "Alex" },
+    { id: "2", name: "Jordan" },
+  ]);
+
+  entities.remove("1");
+  assert.deepStrictEqual(entities.all(), [{ id: "2", name: "Jordan" }]);
+  assert.strictEqual(entities.get("1"), undefined);
+
+  entities.clear();
+  assert.deepStrictEqual(entities.all(), []);
+  assert.deepStrictEqual(getStore("entityUsers"), { entities: {}, ids: [] });
+});
+
+test("createZustandCompatStore supports merge, subscribe, and destroy", async () => {
+  clearAllStores();
+  const seen: Array<Record<string, unknown> | null> = [];
+
+  const api = createZustandCompatStore<{ count: number; label: string }>((set, get) => ({
+    count: 1,
+    label: "init",
+    inc: () => set({ count: get().count + 1 }),
+  }) as any, {
+    name: "zustandCompat",
+  });
+
+  const unsubscribe = api.subscribe((value) => {
+    seen.push(value as Record<string, unknown> | null);
+  });
+
+  assert.deepStrictEqual(api.getState(), { count: 1, label: "init", inc: api.getState().inc });
+
+  api.setState({ label: "next" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.strictEqual((api.getState() as any).count, 1);
+  assert.strictEqual((api.getState() as any).label, "next");
+
+  unsubscribe();
+  api.destroy();
+
+  assert.strictEqual(hasStore("zustandCompat"), false);
+  assert.strictEqual(seen.length, 1);
+  assert.strictEqual((seen[0] as any)?.count, 1);
+  assert.strictEqual((seen[0] as any)?.label, "next");
+});
+
 test("_getSnapshot returns stable cloned snapshots", () => {
   clearAllStores();
   createStore("user", { profile: { color: "blue" } });
@@ -533,7 +631,9 @@ test("_getSnapshot returns stable cloned snapshots", () => {
   const second = _getSnapshot("user") as any;
   assert.strictEqual(first, second);
 
-  first.profile.color = "red";
+  assert.throws(() => {
+    first.profile.color = "red";
+  });
   assert.deepStrictEqual(getStore("user"), { profile: { color: "blue" } });
 
   setStore("user", { profile: { color: "green" } });
@@ -594,6 +694,21 @@ test("hydrateStores replaces existing primitive and array stores", () => {
   assert.deepStrictEqual(getStore("list"), [3, 4, 5]);
 });
 
+test("hydrateStores allows null whole-store replacement but blocks undefined replacement", () => {
+  clearAllStores();
+  createStore("nullableHydrate", { value: 1 });
+
+  hydrateStores({
+    nullableHydrate: null,
+  });
+  assert.strictEqual(getStore("nullableHydrate"), null);
+
+  hydrateStores({
+    nullableHydrate: undefined,
+  });
+  assert.strictEqual(getStore("nullableHydrate"), null);
+});
+
 test("createStoreForRequest updates falsy buffered values", () => {
   const scoped = createStoreForRequest(({ create, set }) => {
     create("count", 0);
@@ -640,6 +755,169 @@ test("getStoreMeta returns deep-cloned metadata snapshots", () => {
   const nextMeta = getStoreMeta("user")!;
   assert.strictEqual(nextMeta.options.historyLimit, 50);
   assert.notStrictEqual(nextMeta.metrics.notifyCount, 999);
+});
+
+test("clearHistory supports per-store and global cleanup", () => {
+  clearAllStores();
+  createStore("firstHistory", { value: 1 });
+  createStore("secondHistory", { value: 1 });
+
+  setStore("firstHistory", { value: 2 });
+  setStore("secondHistory", { value: 2 });
+
+  assert.ok(getHistory("firstHistory").length > 0);
+  assert.ok(getHistory("secondHistory").length > 0);
+
+  clearHistory("firstHistory");
+  assert.deepStrictEqual(getHistory("firstHistory"), []);
+  assert.ok(getHistory("secondHistory").length > 0);
+
+  clearHistory();
+  assert.deepStrictEqual(getHistory("secondHistory"), []);
+});
+
+test("historyLimit keeps only the latest entries at the configured boundary", () => {
+  clearAllStores();
+  createStore("historyLimitStore", { value: 0 }, {
+    devtools: { historyLimit: 2 },
+  });
+
+  setStore("historyLimitStore", { value: 1 });
+  setStore("historyLimitStore", { value: 2 });
+  setStore("historyLimitStore", { value: 3 });
+
+  const history = getHistory("historyLimitStore");
+  assert.strictEqual(history.length, 2);
+  assert.deepStrictEqual(history.map((entry) => entry.action), ["set", "set"]);
+  assert.deepStrictEqual(history.map((entry) => (entry.next as any).value), [2, 3]);
+});
+
+test("getMetrics reflects notifications and survives reset operations", async () => {
+  clearAllStores();
+  createStore("metricsStore", { value: 0 });
+  _subscribe("metricsStore", () => undefined);
+
+  const before = getMetrics("metricsStore");
+  assert.deepStrictEqual(before, {
+    notifyCount: 0,
+    totalNotifyMs: 0,
+    lastNotifyMs: 0,
+  });
+
+  setStore("metricsStore", { value: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const afterSet = getMetrics("metricsStore");
+  assert.ok(afterSet);
+  assert.strictEqual(afterSet?.notifyCount, 1);
+  assert.ok((afterSet?.totalNotifyMs ?? -1) >= 0);
+  assert.ok((afterSet?.lastNotifyMs ?? -1) >= 0);
+
+  resetStore("metricsStore");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const afterReset = getMetrics("metricsStore");
+  assert.ok(afterReset);
+  assert.strictEqual(afterReset?.notifyCount, 2);
+  assert.ok((afterReset?.totalNotifyMs ?? -1) >= (afterSet?.totalNotifyMs ?? -1));
+});
+
+test("middleware runs in declaration order and receives action, name, prev, next, and path metadata", () => {
+  clearAllStores();
+  const calls: Array<{ label: string; action: string; name: string; prev: any; next: any; path: unknown }> = [];
+
+  createStore("orderedMiddleware", { value: 1 }, {
+    lifecycle: {
+      middleware: [
+        (ctx) => {
+          calls.push({ label: "mw1", action: ctx.action, name: ctx.name, prev: ctx.prev, next: ctx.next, path: ctx.path });
+          return { ...(ctx.next as Record<string, unknown>), value: (ctx.next as any).value + 1 };
+        },
+        (ctx) => {
+          calls.push({ label: "mw2", action: ctx.action, name: ctx.name, prev: ctx.prev, next: ctx.next, path: ctx.path });
+          return { ...(ctx.next as Record<string, unknown>), marker: "done" };
+        },
+      ],
+    },
+  });
+
+  setStore("orderedMiddleware", "value", 2);
+
+  assert.deepStrictEqual(calls, [
+    {
+      label: "mw1",
+      action: "set",
+      name: "orderedMiddleware",
+      prev: { value: 1 },
+      next: { value: 2 },
+      path: "value",
+    },
+    {
+      label: "mw2",
+      action: "set",
+      name: "orderedMiddleware",
+      prev: { value: 1 },
+      next: { value: 3 },
+      path: "value",
+    },
+  ]);
+  assert.deepStrictEqual(getStore("orderedMiddleware"), { value: 3, marker: "done" });
+});
+
+test("lifecycle hooks fire in operation order with committed values", () => {
+  clearAllStores();
+  const events: string[] = [];
+
+  createStore("hookOrder", { value: 1 }, {
+    lifecycle: {
+      onCreate: (initial) => {
+        events.push(`create:${(initial as any).value}`);
+      },
+      onSet: (prev, next) => {
+        events.push(`set:${(prev as any).value}->${(next as any).value}`);
+      },
+      onReset: (prev, next) => {
+        events.push(`reset:${(prev as any).value}->${(next as any).value}`);
+      },
+      onDelete: (prev) => {
+        events.push(`delete:${(prev as any).value}`);
+      },
+    },
+  });
+
+  setStore("hookOrder", { value: 4 });
+  resetStore("hookOrder");
+  deleteStore("hookOrder");
+
+  assert.deepStrictEqual(events, [
+    "create:1",
+    "set:1->4",
+    "reset:4->1",
+    "delete:1",
+  ]);
+});
+
+test("grouped options normalize lifecycle, devtools, and validate paths", () => {
+  clearAllStores();
+  let created = 0;
+  let sets = 0;
+
+  createStore("grouped", { value: 1 }, {
+    validate: (next: any) => typeof next?.value === "number",
+    devtools: { historyLimit: 2 },
+    lifecycle: {
+      middleware: [({ next }) => ({ ...(next as Record<string, number>), value: (next as Record<string, number>).value + 1 })],
+      onCreate: () => { created += 1; },
+      onSet: () => { sets += 1; },
+    },
+  });
+
+  setStore("grouped", { value: 2 });
+
+  assert.strictEqual(created, 1);
+  assert.strictEqual(sets, 1);
+  assert.deepStrictEqual(getStore("grouped"), { value: 3 });
+  assert.strictEqual(getStoreMeta("grouped")?.options.historyLimit, 2);
 });
 
 test("middleware throws veto the blocked update but allow later valid writes", async () => {
@@ -696,6 +974,120 @@ test("subscriber-triggered updates schedule a follow-up notification", async () 
   assert.deepStrictEqual(getStore("loop"), { value: 2 });
 });
 
+test("duplicate subscriber registration is allowed and each registration is notified", async () => {
+  clearAllStores();
+  const seen: string[] = [];
+  const listener = (value: any) => {
+    seen.push(`dup:${value.value}`);
+  };
+
+  createStore("duplicateSubscribers", { value: 0 });
+  _subscribe("duplicateSubscribers", listener);
+  _subscribe("duplicateSubscribers", listener);
+
+  setStore("duplicateSubscribers", { value: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(seen, ["dup:1", "dup:1"]);
+});
+
+test("duplicate subscriber unsubscriptions remove one registration at a time", async () => {
+  clearAllStores();
+  const seen: string[] = [];
+  const listener = (value: any) => {
+    seen.push(`dup:${value.value}`);
+  };
+
+  createStore("duplicateSubscriberOff", { value: 0 });
+  const off1 = _subscribe("duplicateSubscriberOff", listener);
+  const off2 = _subscribe("duplicateSubscriberOff", listener);
+
+  off1();
+  setStore("duplicateSubscriberOff", { value: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  off2();
+  setStore("duplicateSubscriberOff", { value: 2 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(seen, ["dup:1"]);
+});
+
+test("subscribers are notified in registration order", async () => {
+  clearAllStores();
+  const seen: string[] = [];
+
+  createStore("orderedSubscribers", { value: 0 });
+  _subscribe("orderedSubscribers", (value) => {
+    seen.push(`first:${(value as { value: number }).value}`);
+  });
+  _subscribe("orderedSubscribers", (value) => {
+    seen.push(`second:${(value as { value: number }).value}`);
+  });
+
+  setStore("orderedSubscribers", { value: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(seen, ["first:1", "second:1"]);
+});
+
+test("subscribers added during notify start on the next cycle", async () => {
+  clearAllStores();
+  const seen: string[] = [];
+
+  createStore("subscribeDuringNotify", { value: 0 });
+
+  let attached = false;
+  _subscribe("subscribeDuringNotify", (value) => {
+    seen.push(`first:${(value as { value: number }).value}`);
+    if (attached) return;
+    attached = true;
+    _subscribe("subscribeDuringNotify", (nextValue) => {
+      seen.push(`second:${(nextValue as { value: number }).value}`);
+    });
+  });
+
+  setStore("subscribeDuringNotify", { value: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  setStore("subscribeDuringNotify", { value: 2 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(seen, [
+    "first:1",
+    "first:2",
+    "second:2",
+  ]);
+});
+
+test("unsubscribing another subscriber during notify does not break the current cycle", async () => {
+  clearAllStores();
+  const seen: string[] = [];
+
+  createStore("unsubscribeDuringNotify", { value: 0 });
+
+  let unsubscribeSecond = () => {};
+  _subscribe("unsubscribeDuringNotify", (value) => {
+    seen.push(`first:${(value as { value: number }).value}`);
+    unsubscribeSecond();
+  });
+  unsubscribeSecond = _subscribe("unsubscribeDuringNotify", (value) => {
+    seen.push(`second:${(value as { value: number }).value}`);
+  });
+
+  setStore("unsubscribeDuringNotify", { value: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  setStore("unsubscribeDuringNotify", { value: 2 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(seen, [
+    "first:1",
+    "second:1",
+    "first:2",
+  ]);
+});
+
 test("subscribeWithSelector ignores unrelated object updates", async () => {
   clearAllStores();
   const seen: Array<{ next: Record<string, number>; prev: Record<string, number> }> = [];
@@ -727,6 +1119,35 @@ test("subscribeWithSelector ignores unrelated object updates", async () => {
       next: { count: 2 },
       prev: { count: 1 },
     },
+  ]);
+});
+
+test("subscribeWithSelector can subscribe before createStore and activates when the store is created", async () => {
+  clearAllStores();
+  const seen: Array<{ next: string; prev: string }> = [];
+
+  const unsubscribe = subscribeWithSelector(
+    "lateSelectorStore",
+    (state) => state.profile.name,
+    Object.is,
+    (next, prev) => {
+      seen.push({ next, prev });
+    }
+  );
+
+  assert.doesNotThrow(() => {
+    createStore("lateSelectorStore", { profile: { name: "Alex" } });
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  setStore("lateSelectorStore", "profile.name", "Jordan");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  unsubscribe();
+
+  assert.deepStrictEqual(seen, [
+    { next: "Alex", prev: "Alex" },
+    { next: "Jordan", prev: "Alex" },
   ]);
 });
 
@@ -899,6 +1320,30 @@ test("deleteStore clears orphaned history entries", () => {
   assert.ok(getHistory("user").length > 0);
   deleteStore("user");
   assert.deepStrictEqual(getHistory("user"), []);
+});
+
+test("_getSnapshot returns immutable cached snapshots and clears cache entries on delete", () => {
+  clearAllStores();
+  createStore("snapshotCacheStore", { profile: { name: "Alex" } });
+
+  const first = _getSnapshot("snapshotCacheStore") as any;
+  const second = _getSnapshot("snapshotCacheStore") as any;
+
+  assert.strictEqual(first, second);
+
+  assert.throws(() => {
+    first.profile.name = "Jordan";
+  });
+
+  const third = _getSnapshot("snapshotCacheStore") as any;
+  assert.strictEqual(third.profile.name, "Alex");
+
+  deleteStore("snapshotCacheStore");
+
+  createStore("snapshotCacheStore", { profile: { name: "Recreated" } });
+  const recreated = _getSnapshot("snapshotCacheStore") as any;
+  assert.deepStrictEqual(recreated, { profile: { name: "Recreated" } });
+  assert.notStrictEqual(recreated, first);
 });
 
 test("clearAllStores removes stores created during delete hooks", () => {

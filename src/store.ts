@@ -19,6 +19,44 @@ import {
     PathInput,
 } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
+import {
+    collectLegacyOptionDeprecationWarnings,
+    normalizeStoreOptions,
+    type MiddlewareCtx,
+    type NormalizedOptions,
+    type PersistConfig,
+    type StoreOptions,
+} from "./adapters/options.js";
+import {
+    persistLoad,
+    persistSave,
+    setupPersistWatch,
+    type PersistWatchState,
+} from "./features/persist.js";
+import {
+    MIDDLEWARE_ABORT,
+    runMiddleware,
+    runStoreHook,
+} from "./features/lifecycle.js";
+import {
+    applyRedactor,
+    initDevtools,
+    pushHistory,
+    sendDevtools,
+    type HistoryEntry,
+} from "./features/devtools.js";
+import {
+    absorbSyncClock,
+    broadcastSync,
+    bumpSyncClock,
+    cleanupAllSyncResources,
+    closeSyncResources,
+    setupSync,
+    type SyncChannels,
+    type SyncClocks,
+    type SyncVersions,
+    type SyncWindowCleanup,
+} from "./features/sync.js";
 
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -55,81 +93,7 @@ export interface StoreDefinition<Name extends string = string, State = StoreValu
     // marker for inference only, not used at runtime
     state?: State;
 }
-
-export interface PersistConfig {
-    driver: {
-        getItem?: (k: string) => string | null;
-        setItem?: (k: string, v: string) => void;
-        removeItem?: (k: string) => void;
-        [key: string]: unknown;
-    };
-    key: string;
-    serialize: (v: unknown) => string;
-    deserialize: (v: string) => unknown;
-    encrypt: (v: string) => string;
-    decrypt: (v: string) => string;
-    onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
-    onStorageCleared?: (info: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
-}
-
-export interface MiddlewareCtx {
-    action: string;
-    name: string;
-    prev: StoreValue;
-    next: StoreValue;
-    path: unknown;
-}
-
-export interface StoreOptions<State = StoreValue> {
-    persist?: boolean | string | PersistConfig;
-    devtools?: boolean;
-    middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
-    onSet?: (prev: State, next: State) => void;
-    onReset?: (prev: State, next: State) => void;
-    onDelete?: (prev: State) => void;
-    onCreate?: (initial: State) => void;
-    onError?: (err: string) => void;
-    validator?: (next: State) => boolean;
-    schema?: unknown;
-    migrations?: Record<number, (state: State) => State>;
-    version?: number;
-    redactor?: (state: State) => State;
-    historyLimit?: number;
-    allowSSRGlobalStore?: boolean;
-    sync?: boolean | {
-        channel?: string;
-        maxPayloadBytes?: number;
-        conflictResolver?: (args: {
-            local: StoreValue;
-            incoming: StoreValue;
-            localUpdated: number;
-            incomingUpdated: number;
-        }) => StoreValue | void;
-    };
-}
-
-type NormalizedOptions = {
-    persist: PersistConfig | null;
-    devtools: boolean;
-    middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
-    onSet?: (prev: StoreValue, next: StoreValue) => void;
-    onReset?: (prev: StoreValue, next: StoreValue) => void;
-    onDelete?: (prev: StoreValue) => void;
-    onCreate?: (initial: StoreValue) => void;
-    onError?: (err: string) => void;
-    validator?: (next: StoreValue) => boolean;
-    schema?: unknown;
-    migrations: Record<number, (state: any) => any>;
-    version: number;
-    redactor?: (state: StoreValue) => StoreValue;
-    historyLimit: number;
-    allowSSRGlobalStore?: boolean;
-    sync?: boolean | {
-        channel?: string;
-        maxPayloadBytes?: number;
-        conflictResolver?: (args: { local: StoreValue; incoming: StoreValue; localUpdated: number; incomingUpdated: number; }) => StoreValue | void;
-    };
-};
+export type { PersistConfig, MiddlewareCtx, StoreOptions } from "./adapters/options.js";
 
 interface MetaEntry {
     createdAt: string;
@@ -140,14 +104,6 @@ interface MetaEntry {
     options: NormalizedOptions;
 }
 
-interface HistoryEntry {
-    ts: number;
-    action: string;
-    prev: StoreValue;
-    next: StoreValue;
-    diff: { added: string[]; removed: string[]; changed: string[] } | null;
-}
-
 type Subscriber = (value: StoreValue | null) => void;
 
 const _stores: Record<string, StoreValue> = Object.create(null);
@@ -155,9 +111,10 @@ const _subscribers: Record<string, Subscriber[]> = Object.create(null);
 const _initial: Record<string, StoreValue> = Object.create(null);
 const _meta: Record<string, MetaEntry> = Object.create(null);
 const _history: Record<string, HistoryEntry[]> = Object.create(null);
-const _syncChannels: Record<string, BroadcastChannel> = Object.create(null);
-const _syncClocks: Record<string, number> = Object.create(null);
-const _syncWindowCleanup: Record<string, () => void> = Object.create(null);
+const _syncChannels: SyncChannels = Object.create(null);
+const _syncClocks: SyncClocks = Object.create(null);
+const _syncVersions: SyncVersions = Object.create(null);
+const _syncWindowCleanup: SyncWindowCleanup = Object.create(null);
 const _snapshotCache: Record<string, { source: StoreValue; snapshot: StoreValue | null }> = Object.create(null);
 
 const _pendingNotifications = new Set<string>();
@@ -166,7 +123,7 @@ let _batchDepth = 0;
 const INSTANCE_ID = `stroid_${Math.random().toString(16).slice(2)}`;
 const _persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 const _persistKeys: Record<string, string> = Object.create(null);
-const _persistWatchState: Record<string, { lastPresent: boolean; dispose: () => void }> = Object.create(null);
+const _persistWatchState: PersistWatchState = Object.create(null);
 let _ssrWarningIssued = false;
 let _entityIdCounter = 0;
 const _nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
@@ -174,16 +131,6 @@ const _nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
 
 // DevTools (Redux DevTools extension)
 let _devtools: any;
-
-const memoryStorage = (() => {
-    const m = new Map<string, string>();
-    return {
-        getItem: (k: string) => (m.has(k) ? m.get(k)! : null),
-        setItem: (k: string, v: string) => { m.set(k, v); },
-        removeItem: (k: string) => { m.delete(k); },
-        type: "memory",
-    };
-})();
 
 const _scheduleFlush = (): void => {
     if (_notifyScheduled) return;
@@ -218,6 +165,16 @@ const _scheduleFlush = (): void => {
 const _notify = (name: string): void => {
     _pendingNotifications.add(name);
     if (_batchDepth === 0) _scheduleFlush();
+};
+
+const _recordLocalSyncVersion = (name: string): void => {
+    const meta = _meta[name];
+    if (!meta) return;
+    _syncVersions[name] = {
+        clock: _syncClocks[name] ?? 0,
+        updatedAt: Date.parse(meta.updatedAt || new Date().toISOString()),
+        source: INSTANCE_ID,
+    };
 };
 
 const _hasStoreEntry = (name: string): boolean => Object.prototype.hasOwnProperty.call(_stores, name);
@@ -305,145 +262,22 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
     return { ok: true };
 };
 
-const _safeStorage = (type: string) => {
-    try {
-        if (typeof window === "undefined") return memoryStorage;
-        if (type === "session" || type === "sessionStorage") return window.sessionStorage ?? memoryStorage;
-        return window.localStorage ?? memoryStorage;
-    } catch (_) {
-        return memoryStorage;
-    }
-};
-
-const _setPersistPresence = (name: string, present: boolean): void => {
-    if (_persistWatchState[name]) {
-        _persistWatchState[name].lastPresent = present;
-    }
-};
-
-const _normalizePersist = (persist: StoreOptions<StoreValue>["persist"], name: string): PersistConfig | null => {
-    if (!persist) return null;
-
-    const base = {
-        key: `stroid_${name}`,
-        serialize: JSON.stringify,
-        deserialize: JSON.parse,
-        encrypt: (v: string) => v,
-        decrypt: (v: string) => v,
-        onMigrationFail: "reset" as const,
-    };
-
-    if (persist === true) {
-        return {
-            driver: _safeStorage("localStorage"),
-            ...base,
-        };
-    }
-    if (typeof persist === "string") {
-        return {
-            driver: _safeStorage(persist),
-            ...base,
-        };
-    }
-    return {
-        driver: (persist as any).driver || (persist as any).storage || _safeStorage("localStorage"),
-        key: persist.key || base.key,
-        serialize: persist.serialize || base.serialize,
-        deserialize: persist.deserialize || base.deserialize,
-        encrypt: persist.encrypt || base.encrypt,
-        decrypt: persist.decrypt || base.decrypt,
-        onMigrationFail: persist.onMigrationFail || "reset",
-        onStorageCleared: persist.onStorageCleared,
-    };
-};
-
-const _setupPersistWatch = (name: string): void => {
-    const cfg = _meta[name]?.options?.persist;
-    const callback = cfg?.onStorageCleared;
-    if (!cfg || typeof callback !== "function" || typeof window === "undefined" || typeof window.addEventListener !== "function") return;
-
-    _persistWatchState[name]?.dispose();
-    const hostWindow = window;
-
-    const readPresent = (): boolean => {
-        try {
-            return cfg.driver.getItem?.(cfg.key) != null;
-        } catch (_) {
-            return false;
-        }
-    };
-
-    const notifyIfCleared = (reason: "clear" | "remove" | "missing"): void => {
-        const state = _persistWatchState[name];
-        const present = readPresent();
-        if (!state) return;
-        if (!state.lastPresent || present) {
-            state.lastPresent = present;
-            return;
-        }
-        state.lastPresent = false;
-        callback({ name, key: cfg.key, reason });
-    };
-
-    const onStorage = (event: StorageEvent): void => {
-        if (event.key === null) {
-            notifyIfCleared("clear");
-            return;
-        }
-        if (event.key === cfg.key && event.newValue === null) {
-            notifyIfCleared("remove");
-        }
-    };
-
-    const onFocus = (): void => {
-        notifyIfCleared("missing");
-    };
-
-    hostWindow.addEventListener("storage", onStorage);
-    hostWindow.addEventListener("focus", onFocus);
-
-    _persistWatchState[name] = {
-        lastPresent: readPresent(),
-        dispose: () => {
-            hostWindow.removeEventListener("storage", onStorage);
-            hostWindow.removeEventListener("focus", onFocus);
-        },
-    };
-};
-
 const _devtoolsInit = (name: string): void => {
-    const useDevtools = _meta[name]?.options?.devtools;
-    if (!useDevtools) return;
-    if (typeof window === "undefined") return;
-    const ext = (window as any).__REDUX_DEVTOOLS_EXTENSION__ || (window as any).__REDUX_DEVTOOLS_EXTENSION__;
-    if (!ext || typeof ext.connect !== "function") {
-        warn(`DevTools requested for "${name}" but Redux DevTools extension not found.`);
-        return;
-    }
-    if (!_devtools) {
-        _devtools = ext.connect({ name: "stroid" });
-        _devtools.init(_stores);
-    }
+    _devtools = initDevtools({
+        name,
+        useDevtools: !!_meta[name]?.options?.devtools,
+        existingDevtools: _devtools,
+        stores: _stores,
+        warn,
+    });
 };
 
-const _applyRedactor = (name: string, data: StoreValue): StoreValue => {
-    const redactor = _meta[name]?.options?.redactor;
-    if (typeof redactor === "function") {
-        try { return redactor(deepClone(data)); }
-        catch (_) { return data; }
-    }
-    return data;
-};
-
-const _byteLength = (value: string): number => {
-    if (typeof TextEncoder !== "undefined") {
-        return new TextEncoder().encode(value).length;
-    }
-    if (typeof Buffer !== "undefined") {
-        return Buffer.byteLength(value);
-    }
-    return value.length;
-};
+const _applyRedactor = (name: string, data: StoreValue): StoreValue =>
+    applyRedactor({
+        data,
+        redactor: _meta[name]?.options?.redactor,
+        deepClone,
+    });
 
 const _reportStoreError = (name: string, message: string): void => {
     _meta[name]?.options?.onError?.(message);
@@ -461,107 +295,40 @@ const _reportStoreCreationError = (message: string, onError?: (message: string) 
     }
 };
 
-const _resolveMigrationFailure = (
-    name: string,
-    persisted: StoreValue,
-    reason: string
-): { state: StoreValue; requiresValidation: boolean } => {
-    _reportStoreError(name, reason);
-
-    const strategy = _meta[name]?.options?.persist?.onMigrationFail ?? "reset";
-    if (strategy === "keep") {
-        return { state: persisted, requiresValidation: false };
-    }
-
-    if (typeof strategy === "function") {
-        try {
-            const next = strategy(deepClone(persisted));
-            if (next !== undefined) {
-                return { state: sanitize(next) as StoreValue, requiresValidation: true };
-            }
-            _reportStoreError(name, `onMigrationFail for "${name}" returned undefined. Falling back to initial state.`);
-        } catch (err) {
-            _reportStoreError(name, `onMigrationFail for "${name}" failed: ${(err as { message?: string })?.message ?? err}`);
-        }
-    }
-
-    return { state: deepClone(_initial[name]), requiresValidation: false };
-};
-
-const _diffShallow = (prev: StoreValue, next: StoreValue): { added: string[]; removed: string[]; changed: string[] } | null => {
-    if (typeof prev !== "object" || typeof next !== "object" || prev === null || next === null) return null;
-    const prevObj = prev as Record<string, unknown>;
-    const nextObj = next as Record<string, unknown>;
-    const added: string[] = [];
-    const removed: string[] = [];
-    const changed: string[] = [];
-    const prevKeys = new Set(Object.keys(prevObj));
-    const nextKeys = new Set(Object.keys(nextObj));
-    nextKeys.forEach((k) => {
-        if (!prevKeys.has(k)) added.push(k);
-        else if (!Object.is(prevObj[k], nextObj[k])) changed.push(k);
-    });
-    prevKeys.forEach((k) => {
-        if (!nextKeys.has(k)) removed.push(k);
-    });
-    return { added, removed, changed };
-};
-
-const _pushHistory = (name: string, action: string, prev: StoreValue, next: StoreValue): void => {
-    const limit = _meta[name]?.options?.historyLimit ?? 50;
-    if (limit === 0) return;
-    if (!_history[name]) _history[name] = [];
-    const entry: HistoryEntry = {
-        ts: Date.now(),
+const _pushHistory = (name: string, action: string, prev: StoreValue, next: StoreValue): void =>
+    pushHistory({
+        name,
         action,
-        prev: deepClone(_applyRedactor(name, prev)),
-        next: deepClone(_applyRedactor(name, next)),
-        diff: _diffShallow(prev, next),
-    };
-    _history[name].push(entry);
-    if (_history[name].length > limit) {
-        _history[name].splice(0, _history[name].length - limit);
-    }
-};
+        prev,
+        next,
+        history: _history,
+        historyLimit: _meta[name]?.options?.historyLimit ?? 50,
+        applyRedactor: (value) => _applyRedactor(name, value),
+        deepClone,
+    });
 
-const _devtoolsSend = (name: string, action: string, force = false): void => {
-    if (!_devtools || (!force && !_meta[name]?.options?.devtools)) return;
-    try {
-        const state = { ..._stores, [name]: _applyRedactor(name, _stores[name]) };
-        _devtools.send({ type: `${name}/${action}` }, state);
-    } catch (_) { /* ignore */ }
-};
-
-const MIDDLEWARE_ABORT = Symbol("stroid.middleware.abort");
+const _devtoolsSend = (name: string, action: string, force = false): void =>
+    sendDevtools({
+        name,
+        action,
+        force,
+        devtools: _devtools,
+        enabled: !!_meta[name]?.options?.devtools,
+        stores: _stores,
+        applyRedactor: (value) => _applyRedactor(name, value),
+    });
 
 const _runMiddleware = (
     name: string,
     payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; }
-): StoreValue | typeof MIDDLEWARE_ABORT => {
-    const middlewares = _meta[name]?.options?.middleware || [];
-    if (!Array.isArray(middlewares)) return payload.next;
-    let nextState = payload.next;
-    for (const mw of middlewares) {
-        if (typeof mw !== "function") continue;
-        let result: StoreValue | void;
-        try {
-            result = mw({
-                action: payload.action,
-                name,
-                prev: payload.prev,
-                next: nextState,
-                path: payload.path,
-            });
-        } catch (err) {
-            const msg = `Middleware for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
-            _meta[name]?.options?.onError?.(msg);
-            warn(msg);
-            return MIDDLEWARE_ABORT;
-        }
-        if (result !== undefined) nextState = result;
-    }
-    return nextState;
-};
+): StoreValue | typeof MIDDLEWARE_ABORT =>
+    runMiddleware({
+        name,
+        payload,
+        middlewares: _meta[name]?.options?.middleware || [],
+        onError: _meta[name]?.options?.onError,
+        warn,
+    });
 
 const _validateSchema = (name: string, next: StoreValue): { ok: boolean } => {
     const schema = _meta[name]?.options?.schema;
@@ -609,16 +376,15 @@ const _runStoreHook = (
     label: "onCreate" | "onSet" | "onReset" | "onDelete",
     fn: ((...args: any[]) => void) | undefined,
     args: any[]
-): void => {
-    if (typeof fn !== "function") return;
-    try {
-        fn(...args);
-    } catch (err) {
-        const message = `${label} for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
-        _meta[name]?.options?.onError?.(message);
-        warn(message);
-    }
-};
+): void =>
+    runStoreHook({
+        name,
+        label,
+        fn,
+        args,
+        onError: _meta[name]?.options?.onError,
+        warn,
+    });
 
 const _sanitizeValue = (
     name: string,
@@ -636,132 +402,43 @@ const _sanitizeValue = (
     }
 };
 
+const _setupPersistWatch = (name: string): void => {
+    setupPersistWatch({
+        name,
+        persistConfig: _meta[name]?.options?.persist,
+        persistWatchState: _persistWatchState,
+    });
+};
+
 const _persistSave = (name: string): void => {
-    const cfg = _meta[name]?.options?.persist;
-    if (!cfg) return;
-    if (_persistTimers[name]) clearTimeout(_persistTimers[name]);
-    _persistTimers[name] = setTimeout(() => {
-        delete _persistTimers[name];
-        const meta = _meta[name];
-        if (!meta?.options?.persist || meta.options.persist !== cfg || !_exists(name)) return;
-        try {
-            const serialized = cfg.serialize(_stores[name]);
-            const checksum = hashState(serialized);
-        const envelope = JSON.stringify({
-            v: _meta[name]?.version ?? 1,
-            checksum,
-            data: serialized,
-        });
-        const payload = cfg.encrypt(envelope);
-        cfg.driver.setItem?.(cfg.key, payload);
-        _setPersistPresence(name, true);
-    } catch (e) {
-        _reportStoreError(name, `Could not persist store "${name}" (${(e as { message?: string })?.message || e})`);
-    }
-}, 0);
+    persistSave({
+        name,
+        persistTimers: _persistTimers,
+        persistWatchState: _persistWatchState,
+        exists: _exists,
+        getMeta: () => _meta[name],
+        getStoreValue: () => _stores[name],
+        reportStoreError: _reportStoreError,
+        hashState,
+    });
 };
 
-const _persistLoad = (name: string, { silent } = { silent: false }): boolean => {
-    const cfg = _meta[name]?.options?.persist;
-    if (!cfg) return false;
-    try {
-        const raw = cfg.driver.getItem?.(cfg.key) ?? null;
-        if (!raw) return false;
-        const decrypted = cfg.decrypt(raw);
-        const envelope = JSON.parse(decrypted);
-        const { v = 1, checksum, data } = envelope || {};
-        if (!data) return true;
-        if (checksum !== hashState(data)) {
-            _reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
-            _stores[name] = deepClone(_initial[name]);
-            return true;
-        }
-        let parsed = cfg.deserialize(data);
-        const targetVersion = _meta[name]?.version ?? 1;
-        if (v !== targetVersion) {
-            const migrations = _meta[name]?.options?.migrations || {};
-            const steps = Object.keys(migrations)
-                .map((k) => Number(k))
-                .filter((ver) => ver > v && ver <= targetVersion)
-                .sort((a, b) => a - b);
-
-            if (steps.length === 0) {
-                const fallback = _resolveMigrationFailure(
-                    name,
-                    parsed,
-                    `No migration path from v${v} to v${targetVersion} for "${name}". Applying onMigrationFail strategy.`
-                );
-                parsed = fallback.state;
-                if (!fallback.requiresValidation) {
-                    _stores[name] = parsed;
-                    return true;
-                }
-            }
-
-            let migrationFailed = false;
-            let migrationFailureRequiresValidation = true;
-            steps.forEach((ver) => {
-                if (migrationFailed) return;
-                try {
-                    const migrated = migrations[ver](parsed);
-                    if (migrated !== undefined) parsed = migrated;
-                } catch (e) {
-                    const fallback = _resolveMigrationFailure(
-                        name,
-                        parsed,
-                        `Migration to v${ver} failed for "${name}": ${(e as { message?: string })?.message || e}`
-                    );
-                    parsed = fallback.state;
-                    migrationFailureRequiresValidation = fallback.requiresValidation;
-                    migrationFailed = true;
-                }
-            });
-
-            if (migrationFailed) {
-                if (!migrationFailureRequiresValidation) {
-                    _stores[name] = parsed;
-                    return true;
-                }
-                const recoveredSchema = _validateSchema(name, parsed);
-                if (!recoveredSchema.ok) {
-                    _stores[name] = deepClone(_initial[name]);
-                    return true;
-                }
-                _stores[name] = parsed;
-                return true;
-            }
-        }
-        const schemaResult = _validateSchema(name, parsed);
-        if (!schemaResult.ok) {
-            if (v !== targetVersion) {
-                const fallback = _resolveMigrationFailure(
-                    name,
-                    parsed,
-                    `Persisted state for "${name}" failed schema after version change. Applying onMigrationFail strategy.`
-                );
-                if (!fallback.requiresValidation) {
-                    _stores[name] = fallback.state;
-                    return true;
-                }
-
-                const recoveredSchema = _validateSchema(name, fallback.state);
-                if (recoveredSchema.ok) {
-                    _stores[name] = fallback.state;
-                    return true;
-                }
-            }
-            _reportStoreError(name, `Persisted state for "${name}" failed schema; resetting to initial.`);
-            _stores[name] = deepClone(_initial[name]);
-            return true;
-        }
-        _stores[name] = parsed;
-        if (!silent) log(`Store "${name}" loaded from persistence`);
-        return true;
-    } catch (e) {
-        _reportStoreError(name, `Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
-        return true;
-    }
-};
+const _persistLoad = (name: string, { silent } = { silent: false }): boolean =>
+    persistLoad({
+        name,
+        silent,
+        getMeta: () => _meta[name],
+        getInitialState: () => _initial[name],
+        setStoreValue: (value) => {
+            _stores[name] = value;
+        },
+        reportStoreError: _reportStoreError,
+        validateSchema: (next) => _validateSchema(name, next),
+        log,
+        hashState,
+        deepClone,
+        sanitize,
+    });
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -774,15 +451,21 @@ export const createStore = <Name extends string, State>(
     if (!isValidStoreName(name)) return;
     if (!isValidData(initialData)) return;
 
+    collectLegacyOptionDeprecationWarnings(option).forEach((message) => {
+        warn(message);
+    });
+
+    const normalizedOptions = normalizeStoreOptions(option, name);
+
     const isServer = typeof window === "undefined";
     const nodeEnv = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
     const isProdServer = isServer && nodeEnv === "production";
-    const allowGlobalSSR = option.allowSSRGlobalStore ?? false;
+    const allowGlobalSSR = normalizedOptions.allowSSRGlobalStore ?? false;
 
     if (isProdServer && !allowGlobalSSR) {
         _reportStoreCreationError(
             `createStore("${name}") is blocked on the server in production to prevent cross-request memory leaks.\n` +
-            `Call createStoreForRequest(...) inside each request scope or pass { allowSSRGlobalStore: true } to opt in.`,
+            `Call createStoreForRequest(...) inside each request scope or pass { scope: "global" } to opt in.`,
             option.onError as ((message: string) => void) | undefined
         );
         return;
@@ -795,26 +478,7 @@ export const createStore = <Name extends string, State>(
         return { name } as StoreDefinition<Name, State>;
     }
 
-    const {
-        persist = false,
-        devtools = false,
-        middleware = [],
-        onSet,
-        onReset,
-        onDelete,
-        onCreate,
-        onError,
-        validator,
-        schema,
-        migrations = {},
-        version = 1,
-        redactor,
-        historyLimit = 50,
-        sync,
-        allowSSRGlobalStore = allowGlobalSSR,
-    } = option;
-
-    if (isServer && !allowSSRGlobalStore && !_ssrWarningIssued && isDev()) {
+    if (isServer && !allowGlobalSSR && !_ssrWarningIssued && isDev()) {
         _ssrWarningIssued = true;
         warn(
             `createStore(\"${name}\") called in a server environment. ` +
@@ -823,7 +487,7 @@ export const createStore = <Name extends string, State>(
         );
     }
 
-    const persistConfig = _normalizePersist(persist, name);
+    const persistConfig = normalizedOptions.persist;
     if (persistConfig?.key) {
         const existing = _persistKeys[persistConfig.key];
         if (existing && existing !== name && isDev()) {
@@ -835,32 +499,14 @@ export const createStore = <Name extends string, State>(
             _persistKeys[persistConfig.key] = name;
         }
     }
-    const cleanResult = _sanitizeValue(name, initialData, onError);
+    const cleanResult = _sanitizeValue(name, initialData, normalizedOptions.onError);
     if (!cleanResult.ok) return;
     const clean = cleanResult.value;
-    const normalizedOptions: NormalizedOptions = {
-        persist: persistConfig,
-        devtools: !!devtools,
-        middleware: middleware ?? [],
-        onSet: onSet as NormalizedOptions["onSet"],
-        onReset: onReset as NormalizedOptions["onReset"],
-        onDelete: onDelete as NormalizedOptions["onDelete"],
-        onCreate: onCreate as NormalizedOptions["onCreate"],
-        onError,
-        validator: validator as NormalizedOptions["validator"],
-        schema,
-        migrations: migrations as NormalizedOptions["migrations"],
-        version,
-        redactor: redactor as NormalizedOptions["redactor"],
-        historyLimit,
-        sync: sync ?? false,
-        allowSSRGlobalStore,
-    };
 
-    const initialSchemaResult = schema ? runSchemaValidation(schema, clean) : { ok: true };
+    const initialSchemaResult = normalizedOptions.schema ? runSchemaValidation(normalizedOptions.schema, clean) : { ok: true };
     if (!initialSchemaResult.ok) {
         const msg = `Schema validation failed for "${name}": ${initialSchemaResult.error}`;
-        onError?.(msg);
+        normalizedOptions.onError?.(msg);
         warn(msg);
         return;
     }
@@ -868,13 +514,14 @@ export const createStore = <Name extends string, State>(
     if (!_runValidator(
         name,
         clean as StoreValue,
-        validator as unknown as ((next: StoreValue) => boolean) | undefined,
-        onError
+        normalizedOptions.validator,
+        normalizedOptions.onError
     )) {
         const msg = `Validator blocked initial state for "${name}"`;
         return;
     }
 
+    const hadPreexistingSubscribers = !!_subscribers[name]?.length;
     _stores[name] = clean;
     _subscribers[name] = _subscribers[name] || [];
     _initial[name] = deepClone(clean);
@@ -882,7 +529,7 @@ export const createStore = <Name extends string, State>(
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         updateCount: 0,
-        version,
+        version: normalizedOptions.version,
         metrics: { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
         options: normalizedOptions,
     };
@@ -895,8 +542,10 @@ export const createStore = <Name extends string, State>(
 
     _runStoreHook(name, "onCreate", _meta[name].options.onCreate, [clean]);
     _devtoolsInit(name);
+    _recordLocalSyncVersion(name);
     _setupSync(name);
     _pushHistory(name, "create", null, clean);
+    if (hadPreexistingSubscribers) _notify(name);
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
     return { name } as StoreDefinition<Name, State>;
@@ -971,6 +620,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
     _bumpSyncClock(storeName);
+    _recordLocalSyncVersion(storeName);
 
     if (_meta[storeName].options?.persist) _persistSave(storeName);
     _runStoreHook(storeName, "onSet", _meta[storeName].options.onSet, [prev, next]);
@@ -1044,6 +694,7 @@ export const deleteStore = (name: string): void => {
     delete _initial[name];
     delete _meta[name];
     delete _history[name];
+    delete _snapshotCache[name];
 
     try {
     if (cfg?.driver?.removeItem) cfg.driver.removeItem(cfg.key);
@@ -1052,11 +703,13 @@ export const deleteStore = (name: string): void => {
     if (cfg?.key && _persistKeys[cfg.key] === name) delete _persistKeys[cfg.key];
     _persistWatchState[name]?.dispose();
     delete _persistWatchState[name];
-    _syncChannels[name]?.close();
-    delete _syncChannels[name];
-    _syncWindowCleanup[name]?.();
-    delete _syncWindowCleanup[name];
-    delete _syncClocks[name];
+    closeSyncResources({
+        name,
+        syncChannels: _syncChannels,
+        syncWindowCleanup: _syncWindowCleanup,
+        syncClocks: _syncClocks,
+        syncVersions: _syncVersions,
+    });
 
     if (devtoolsEnabled) _devtoolsSend(name, "delete", true);
     log(`Store "${name}" deleted`);
@@ -1070,6 +723,7 @@ export const resetStore = (name: string): void => {
     _stores[name] = isDev() ? devDeepFreeze(resetValue) : resetValue;
     _meta[name].updatedAt = new Date().toISOString();
     _bumpSyncClock(name);
+    _recordLocalSyncVersion(name);
     if (_meta[name].options?.persist) _persistSave(name);
 
     _runStoreHook(name, "onReset", _meta[name].options.onReset, [prev, resetValue]);
@@ -1109,6 +763,7 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
     _bumpSyncClock(name);
+    _recordLocalSyncVersion(name);
     if (_meta[name].options?.persist) _persistSave(name);
     _runStoreHook(name, "onSet", _meta[name].options.onSet, [current, final]);
     _pushHistory(name, "merge", current, final);
@@ -1124,6 +779,12 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
     const nextResult = _sanitizeValue(name, data);
     if (!nextResult.ok) return;
     const nextValue = nextResult.value;
+    if (nextValue === undefined) {
+        const message = `Whole-store undefined replacement is blocked for "${name}". Use null for intentional empty state.`;
+        _meta[name]?.options?.onError?.(message);
+        warn(message);
+        return;
+    }
 
     const schemaCheck = _validateSchema(name, nextValue);
     if (!schemaCheck.ok) return;
@@ -1139,6 +800,7 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
     _bumpSyncClock(name);
+    _recordLocalSyncVersion(name);
     if (_meta[name].options?.persist) _persistSave(name);
     _runStoreHook(name, "onSet", _meta[name].options.onSet, [prev, final]);
     _pushHistory(name, action, prev, final);
@@ -1176,11 +838,9 @@ export const _hardResetAllStoresForTest = (): void => {
     Object.values(_persistWatchState).forEach((state) => {
         try { state.dispose(); } catch (_) { /* ignore cleanup errors */ }
     });
-    Object.values(_syncWindowCleanup).forEach((dispose) => {
-        try { dispose(); } catch (_) { /* ignore cleanup errors */ }
-    });
-    Object.values(_syncChannels).forEach((channel) => {
-        try { channel.close(); } catch (_) { /* ignore cleanup errors */ }
+    cleanupAllSyncResources({
+        syncChannels: _syncChannels,
+        syncWindowCleanup: _syncWindowCleanup,
     });
 
     const registries: Array<Record<string, any>> = [
@@ -1191,6 +851,7 @@ export const _hardResetAllStoresForTest = (): void => {
         _history,
         _syncChannels,
         _syncClocks,
+        _syncVersions,
         _syncWindowCleanup,
         _snapshotCache,
         _persistTimers as Record<string, ReturnType<typeof setTimeout>>,
@@ -1220,7 +881,13 @@ export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
     if (!_subscribers[name]) _subscribers[name] = [];
     _subscribers[name].push(fn);
     return () => {
-        _subscribers[name] = _subscribers[name].filter((s) => s !== fn);
+        const current = _subscribers[name];
+        if (!current || current.length === 0) return;
+        const index = current.indexOf(fn);
+        if (index < 0) return;
+        const next = current.slice();
+        next.splice(index, 1);
+        _subscribers[name] = next;
     };
 };
 
@@ -1230,165 +897,76 @@ export const _getSnapshot = (name: string): StoreValue | null => {
     const cached = _snapshotCache[name];
     if (cached && cached.source === source) return cached.snapshot;
     const snapshot = deepClone(source);
-    _snapshotCache[name] = { source, snapshot };
-    return snapshot;
+    const safeSnapshot = snapshot && typeof snapshot === "object"
+        ? devDeepFreeze(snapshot)
+        : snapshot;
+    _snapshotCache[name] = { source, snapshot: safeSnapshot };
+    return safeSnapshot;
 };
 
-const _bumpSyncClock = (name: string): number => {
-    _syncClocks[name] = (_syncClocks[name] ?? 0) + 1;
-    return _syncClocks[name];
-};
+const _bumpSyncClock = (name: string): number =>
+    bumpSyncClock(name, _syncClocks);
 
-const _absorbSyncClock = (name: string, incomingClock: number): number => {
-    _syncClocks[name] = Math.max(_syncClocks[name] ?? 0, incomingClock) + 1;
-    return _syncClocks[name];
-};
-
-const _compareSyncOrder = (
-    name: string,
-    incoming: { clock?: number; updatedAt?: number; source?: string }
-): number => {
-    const localClock = _syncClocks[name] ?? 0;
-    const incomingClock = typeof incoming.clock === "number" ? incoming.clock : 0;
-    if (incomingClock !== localClock) return incomingClock - localClock;
-
-    const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
-    const incomingUpdated = typeof incoming.updatedAt === "number" ? incoming.updatedAt : 0;
-    if (incomingUpdated !== localUpdated) return incomingUpdated - localUpdated;
-
-    const localSource = INSTANCE_ID;
-    const incomingSource = incoming.source ?? "";
-    return incomingSource.localeCompare(localSource);
-};
-
-const _requestSyncSnapshot = (name: string): void => {
-    const channel = _syncChannels[name];
-    if (!channel) return;
-    try {
-        channel.postMessage({
-            type: "sync-request",
-            source: INSTANCE_ID,
-            name,
-            requestedAt: Date.now(),
-        });
-    } catch (err) {
-        _reportStoreError(name, `Failed to request sync snapshot for "${name}": ${(err as { message?: string })?.message ?? err}`);
-    }
-};
+const _absorbSyncClock = (name: string, incomingClock: number): number =>
+    absorbSyncClock(name, incomingClock, _syncClocks);
 
 const _setupSync = (name: string): void => {
-    const sync = _meta[name]?.options?.sync;
-    if (!sync) return;
-    if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
-        _reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
-        return;
-    }
-    const channelName = typeof sync === "object" && sync.channel
-        ? sync.channel
-        : `stroid_sync_${name}`;
-    try {
-        const channel = new BroadcastChannel(channelName);
-        _syncChannels[name] = channel;
-        channel.onmessage = (event: MessageEvent) => {
-            const msg = event.data as any;
-            if (!msg || msg.source === INSTANCE_ID) return;
-            if (msg.name !== name) return;
-            if (_syncChannels[name] !== channel || !_hasStoreEntry(name) || !_meta[name]) return;
-            if (msg.type === "sync-request") {
-                _broadcastSync(name);
-                return;
-            }
-            const resolver = typeof sync === "object" ? sync.conflictResolver : null;
-            const order = _compareSyncOrder(name, {
-                clock: msg.clock,
-                updatedAt: msg.updatedAt,
-                source: msg.source,
-            });
-            if (order <= 0) {
-                const localUpdated = new Date(_meta[name]?.updatedAt || 0).getTime();
-                const incomingUpdated = msg.updatedAt;
-                if (resolver) {
-                    const resolved = resolver({
-                        local: _stores[name],
-                        incoming: msg.data,
-                        localUpdated,
-                        incomingUpdated,
-                    });
-                    if (resolved !== undefined) {
-                        const schemaRes = _validateSchema(name, resolved);
-                        if (!schemaRes.ok) return;
-                        _stores[name] = resolved;
-                        _meta[name].updatedAt = new Date(Math.max(localUpdated, incomingUpdated)).toISOString();
-                        _meta[name].updateCount++;
-                        _absorbSyncClock(name, typeof msg.clock === "number" ? msg.clock : 0);
-                        _notify(name);
-                    }
-                }
-                return;
-            }
-            const schemaRes = _validateSchema(name, msg.data);
-            if (!schemaRes.ok) return;
-            _stores[name] = msg.data;
-            _meta[name].updatedAt = new Date(msg.updatedAt).toISOString();
-            _meta[name].updateCount++;
-            _absorbSyncClock(name, typeof msg.clock === "number" ? msg.clock : 0);
-            _notify(name);
-        };
-
-        if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
-            _syncWindowCleanup[name]?.();
-            const hostWindow = window;
-            const requestLatest = () => {
-                _requestSyncSnapshot(name);
+    setupSync({
+        name,
+        syncOption: _meta[name]?.options?.sync,
+        syncChannels: _syncChannels,
+        syncClocks: _syncClocks,
+        syncVersions: _syncVersions,
+        syncWindowCleanup: _syncWindowCleanup,
+        instanceId: INSTANCE_ID,
+        getMeta: (storeName) => _meta[storeName],
+        getAcceptedSyncVersion: (storeName) => _syncVersions[storeName],
+        getStoreValue: (storeName) => _stores[storeName],
+        hasStoreEntry: _hasStoreEntry,
+        notify: _notify,
+        validateSchema: _validateSchema,
+        reportStoreError: _reportStoreError,
+        warn,
+        setStoreValue: (storeName, value) => {
+            _stores[storeName] = value;
+        },
+        acceptIncomingSyncVersion: (storeName, updatedAtMs, incomingClock, source) => {
+            _meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
+            _meta[storeName].updateCount++;
+            _absorbSyncClock(storeName, incomingClock);
+            _syncVersions[storeName] = {
+                clock: incomingClock,
+                updatedAt: updatedAtMs,
+                source,
             };
-            hostWindow.addEventListener("focus", requestLatest);
-            hostWindow.addEventListener("online", requestLatest);
-            _syncWindowCleanup[name] = () => {
-                hostWindow.removeEventListener("focus", requestLatest);
-                hostWindow.removeEventListener("online", requestLatest);
+        },
+        resolveSyncVersion: (storeName, updatedAtMs, incomingClock) => {
+            _meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
+            _meta[storeName].updateCount++;
+            const resolvedClock = _absorbSyncClock(storeName, incomingClock);
+            _syncVersions[storeName] = {
+                clock: resolvedClock,
+                updatedAt: updatedAtMs,
+                source: INSTANCE_ID,
             };
-        }
-
-        queueMicrotask(() => {
-            _requestSyncSnapshot(name);
-        });
-    } catch (e) {
-        warn(`Failed to setup sync for "${name}": ${(e as { message?: string })?.message || e}`);
-    }
+            return resolvedClock;
+        },
+        broadcastSync: _broadcastSync,
+    });
 };
 
-const _broadcastSync = (name: string): void => {
-    const channel = _syncChannels[name];
-    if (!channel) return;
-    try {
-        const sync = _meta[name]?.options?.sync;
-        const payload = {
-            type: "sync-state",
-            source: INSTANCE_ID,
-            name,
-            clock: _syncClocks[name] ?? 0,
-            updatedAt: Date.parse(_meta[name]?.updatedAt || new Date().toISOString()),
-            data: _stores[name],
-            checksum: hashState(_stores[name]),
-        };
-        const maxPayloadBytes = typeof sync === "object" && typeof sync.maxPayloadBytes === "number"
-            ? sync.maxPayloadBytes
-            : 64 * 1024;
-        const payloadSize = _byteLength(JSON.stringify(payload));
-
-        if (payloadSize > maxPayloadBytes) {
-            _reportStoreError(
-                name,
-                `Sync payload for "${name}" exceeds ${maxPayloadBytes} bytes (${payloadSize} bytes). Skipping BroadcastChannel sync.`
-            );
-            return;
-        }
-
-        channel.postMessage(payload);
-    } catch (err) {
-        _reportStoreError(name, `Failed to broadcast sync for "${name}": ${(err as { message?: string })?.message ?? err}`);
-    }
-};
+const _broadcastSync = (name: string): void =>
+    broadcastSync({
+        name,
+        syncOption: _meta[name]?.options?.sync,
+        syncChannels: _syncChannels,
+        syncClocks: _syncClocks,
+        instanceId: INSTANCE_ID,
+        updatedAt: _meta[name]?.updatedAt || new Date().toISOString(),
+        data: _stores[name],
+        hashState,
+        reportStoreError: _reportStoreError,
+    });
 
 type SelectorDependency = string[];
 
@@ -1472,10 +1050,27 @@ export const subscribeWithSelector = <R>(
         warn(`subscribeWithSelector("${name}") requires selector and listener functions.`);
         return () => {};
     }
-    let prevSel: R = selector(_stores[name]);
+    let hasPrev = false;
+    let prevSel = undefined as R;
+
+    if (_hasStoreEntry(name)) {
+        prevSel = selector(_stores[name]);
+        hasPrev = true;
+    }
+
     const wrapped = (_state: StoreValue | null) => {
-        if (!_hasStoreEntry(name)) return;
+        if (_state === null || !_hasStoreEntry(name)) {
+            hasPrev = false;
+            prevSel = undefined as R;
+            return;
+        }
         const nextSel = selector(_stores[name]);
+        if (!hasPrev) {
+            hasPrev = true;
+            prevSel = nextSel;
+            listener(deepClone(nextSel), deepClone(nextSel));
+            return;
+        }
         const matches = equality(nextSel, prevSel)
             || (
                 equality === Object.is
@@ -1501,7 +1096,7 @@ export const createCounterStore = (name: string, initial = 0, options: StoreOpti
         dec: (n = 1) => setStore(name, (draft: any) => { draft.value -= n; }),
         set: (v: number) => setStore(name, "value", v),
         reset: () => resetStore(name),
-        get: () => getStore(name, "value"),
+        get: (): number | null => getStore(name, "value") as number | null,
     };
 };
 

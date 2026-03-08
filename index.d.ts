@@ -9,6 +9,8 @@ export type StorageLike = {
 
 type Primitive = string | number | boolean | null | undefined | symbol | bigint;
 
+export type StoreScope = "request" | "global" | "temp";
+
 export type PersistOptions = {
   storage?: StorageLike;
   driver?: StorageLike;
@@ -17,6 +19,15 @@ export type PersistOptions = {
   deserialize?: (value: string) => any;
   encrypt?: (value: string) => string;
   decrypt?: (value: string) => string;
+  version?: number;
+  migrations?: Record<number, (state: any) => any>;
+  onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
+  onStorageCleared?: (args: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
+};
+
+export type StoreDefinition<Name extends string = string, State = unknown> = {
+  name: Name;
+  state?: State;
 };
 
 export type MiddlewareCtx = {
@@ -27,9 +38,37 @@ export type MiddlewareCtx = {
   path: string | string[] | undefined;
 };
 
+export type SyncOptions = {
+  channel?: string;
+  maxPayloadBytes?: number;
+  conflictResolver?: (args: {
+    local: any;
+    incoming: any;
+    localUpdated: number;
+    incomingUpdated: number;
+  }) => any | void;
+};
+
+export type DevtoolsOptions = {
+  enabled?: boolean;
+  historyLimit?: number;
+  redactor?: (state: any) => any;
+};
+
+export type LifecycleOptions = {
+  middleware?: Array<(ctx: MiddlewareCtx) => any | void>;
+  onSet?: (prev: any, next: any) => void;
+  onReset?: (prev: any, next: any) => void;
+  onDelete?: (prev: any) => void;
+  onCreate?: (initial: any) => void;
+};
+
 export type StoreOptions = {
+  scope?: StoreScope;
+  validate?: any | ((next: any) => boolean);
   persist?: boolean | string | PersistOptions;
-  devtools?: boolean;
+  devtools?: boolean | DevtoolsOptions;
+  lifecycle?: LifecycleOptions;
   middleware?: Array<(ctx: MiddlewareCtx) => any | void>;
   onSet?: (prev: any, next: any) => void;
   onReset?: (prev: any, next: any) => void;
@@ -42,7 +81,8 @@ export type StoreOptions = {
   version?: number;
   redactor?: (state: any) => any;
   historyLimit?: number;
-  sync?: boolean | { channel?: string };
+  allowSSRGlobalStore?: boolean;
+  sync?: boolean | SyncOptions;
 };
 
 type PathImpl<T, K extends keyof T> =
@@ -66,7 +106,7 @@ export type PathValue<T, P extends Path<T>> =
       ? T[P]
       : any;
 
-export function createStore<T>(name: string, initialData: T, options?: StoreOptions): T;
+export function createStore<Name extends string, T>(name: Name, initialData: T, options?: StoreOptions): StoreDefinition<Name, T> | undefined;
 export function setStore<T>(name: string, keyOrData: Path<T> | Path<T>[] | Partial<T> | ((draft: T) => void), value?: any): void;
 export function setStoreBatch(fn: () => void): void;
 export function getStore<T = any, P extends Path<T> = Path<T>>(name: string, path?: P | string | string[]): PathValue<T, P> | T | null;
@@ -92,7 +132,7 @@ export function createListStore<T>(name: string, initial?: T[], options?: StoreO
   removeAt: (index: number) => void;
   clear: () => void;
   replace: (items: T[]) => void;
-  all: () => T[] | null;
+  all: () => T[];
 };
 export function createEntityStore<T extends { id?: string; _id?: string }>(name: string, options?: StoreOptions): {
   upsert: (entity: T) => void;
@@ -157,8 +197,9 @@ export function useSelector<T = any, R = any>(name: string, selector: (state: T)
 export function useAsyncStore(name: string): {
   data: any;
   loading: boolean;
+  revalidating: boolean;
   error: string | null;
-  status: string;
+  status: "idle" | "loading" | "success" | "error" | "aborted";
   isEmpty: boolean;
 };
 export function useStoreStatic<T = any>(name: string, path?: string): T | null;
