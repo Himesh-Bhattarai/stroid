@@ -32,6 +32,11 @@ import {
     setupPersistWatch,
     type PersistWatchState,
 } from "./features/persist.js";
+import {
+    MIDDLEWARE_ABORT,
+    runMiddleware,
+    runStoreHook,
+} from "./features/lifecycle.js";
 
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -328,36 +333,17 @@ const _devtoolsSend = (name: string, action: string, force = false): void => {
     } catch (_) { /* ignore */ }
 };
 
-const MIDDLEWARE_ABORT = Symbol("stroid.middleware.abort");
-
 const _runMiddleware = (
     name: string,
     payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; }
-): StoreValue | typeof MIDDLEWARE_ABORT => {
-    const middlewares = _meta[name]?.options?.middleware || [];
-    if (!Array.isArray(middlewares)) return payload.next;
-    let nextState = payload.next;
-    for (const mw of middlewares) {
-        if (typeof mw !== "function") continue;
-        let result: StoreValue | void;
-        try {
-            result = mw({
-                action: payload.action,
-                name,
-                prev: payload.prev,
-                next: nextState,
-                path: payload.path,
-            });
-        } catch (err) {
-            const msg = `Middleware for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
-            _meta[name]?.options?.onError?.(msg);
-            warn(msg);
-            return MIDDLEWARE_ABORT;
-        }
-        if (result !== undefined) nextState = result;
-    }
-    return nextState;
-};
+): StoreValue | typeof MIDDLEWARE_ABORT =>
+    runMiddleware({
+        name,
+        payload,
+        middlewares: _meta[name]?.options?.middleware || [],
+        onError: _meta[name]?.options?.onError,
+        warn,
+    });
 
 const _validateSchema = (name: string, next: StoreValue): { ok: boolean } => {
     const schema = _meta[name]?.options?.schema;
@@ -405,16 +391,15 @@ const _runStoreHook = (
     label: "onCreate" | "onSet" | "onReset" | "onDelete",
     fn: ((...args: any[]) => void) | undefined,
     args: any[]
-): void => {
-    if (typeof fn !== "function") return;
-    try {
-        fn(...args);
-    } catch (err) {
-        const message = `${label} for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
-        _meta[name]?.options?.onError?.(message);
-        warn(message);
-    }
-};
+): void =>
+    runStoreHook({
+        name,
+        label,
+        fn,
+        args,
+        onError: _meta[name]?.options?.onError,
+        warn,
+    });
 
 const _sanitizeValue = (
     name: string,
