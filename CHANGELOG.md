@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 - Core testing now covers immutable reads/snapshots/history, guarded validator and lifecycle failures, delete/persist races, reset persistence, sanitize rejection for hostile payloads, SSR async fail-fast behavior, hydration replacement semantics, and stale sync messages after delete.
 - `patch1/testing` extends the stabilization pass across selector correctness, dotted-key path handling, retry/caching guardrails, environment defaults, and sync payload consistency.
 - Patch1 testing now covers re-entrant notify delivery, selector subscription false positives, dependency-aware selector memoization, escaped dotted keys and dotted entity IDs, bounded retry/cache behavior, production fallback env resolution, and canonical sync payloads under redaction.
+- `remain` continues the draft-issue hardening pass across persist initialization ordering, pollution-safe sanitization, deep-clone fallback safety, request-scope contract enforcement, promise retry semantics, synchronous batch guarantees, and fallback entity ID uniqueness.
+- Testing now also covers persisted init load precedence, forbidden prototype keys, forced `deepClone` fallback behavior, request-scope unknown-store failures, promise-input retry bypass, async batch rejection, and fixed-clock fallback entity inserts.
 
 ### Changed
 - `v0.0.5` is now the active development branch. `main` stays locked on the released `0.0.4` line until the next release is cut.

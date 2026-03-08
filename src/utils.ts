@@ -68,14 +68,54 @@ export const hashState = (value: unknown): number => {
 // --- cloning / equality helpers ------------------------------------------------
 const hasStructuredClone = typeof globalThis !== "undefined" && typeof (globalThis as any).structuredClone === "function";
 
+const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()): T => {
+    if (value === null || typeof value !== "object") return value;
+    if (seen.has(value as object)) return seen.get(value as object) as T;
+
+    if (value instanceof Date) return new Date(value.getTime()) as T;
+    if (value instanceof Map) {
+        const clone = new Map();
+        seen.set(value, clone);
+        value.forEach((entryValue, key) => {
+            clone.set(_deepCloneFallback(key, seen), _deepCloneFallback(entryValue, seen));
+        });
+        return clone as T;
+    }
+    if (value instanceof Set) {
+        const clone = new Set();
+        seen.set(value, clone);
+        value.forEach((entryValue) => {
+            clone.add(_deepCloneFallback(entryValue, seen));
+        });
+        return clone as T;
+    }
+    if (Array.isArray(value)) {
+        const clone: unknown[] = [];
+        seen.set(value, clone);
+        value.forEach((entry, index) => {
+            clone[index] = _deepCloneFallback(entry, seen);
+        });
+        return clone as T;
+    }
+
+    const clone = Object.create(Object.getPrototypeOf(value));
+    seen.set(value as object, clone);
+    const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+    Object.entries(descriptors).forEach(([key, descriptor]) => {
+        if ("value" in descriptor) {
+            descriptor.value = _deepCloneFallback(descriptor.value, seen);
+        }
+        Object.defineProperty(clone, key, descriptor);
+    });
+    return clone as T;
+};
+
 export const deepClone = <T>(value: T): T => {
     try {
         if (hasStructuredClone) return (structuredClone as <X>(v: X) => X)(value);
         return JSON.parse(JSON.stringify(value)) as T;
     } catch (_) {
-        if (Array.isArray(value)) return [...value] as unknown as T;
-        if (value && typeof value === "object") return { ...(value as Record<string, unknown>) } as T;
-        return value;
+        return _deepCloneFallback(value);
     }
 };
 
@@ -186,6 +226,8 @@ export const isValidData = (value: unknown): boolean => {
     return true;
 };
 
+const FORBIDDEN_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
     const type = getType(value);
     if (type === "number") {
@@ -236,6 +278,7 @@ const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
         const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
         for (const [key, descriptor] of Object.entries(descriptors)) {
             if (!descriptor.enumerable) continue;
+            if (FORBIDDEN_OBJECT_KEYS.has(key)) continue;
             if ("get" in descriptor || "set" in descriptor) {
                 throw new Error(`Accessor properties are not supported during sanitize ("${key}")`);
             }

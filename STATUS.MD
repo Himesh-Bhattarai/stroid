@@ -132,3 +132,26 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `async-cache-unbounded-growth`
   Description: async cache registries kept every unique `cacheKey` entry alive until store deletion, so high-cardinality cache usage could cause unbounded process memory growth.
   Resolution: async cache entries now expire, request-version slots are cleared after requests settle, and per-store cache slots are bounded with oldest-entry eviction.
+
+## Remain Fix Log
+- `status(601)` `create-store-persist-load-order`
+  Description: persisted stores scheduled a save of the initial value before reading existing storage, so a stale first-tick write could overwrite real persisted state during initialization.
+  Resolution: persisted stores now load existing storage first and only schedule an initial save when no persisted payload exists, with regression coverage locking that order.
+- `status(601)` `sanitize-forbidden-prototype-keys`
+  Description: sanitization preserved dangerous keys like `__proto__`, `constructor`, and `prototype`, leaving merge-style updates vulnerable to pollution-style inputs.
+  Resolution: sanitization now strips forbidden prototype-shaping keys before values can enter store state, with regression coverage proving merge updates keep Object.prototype untouched.
+- `status(601)` `deepclone-no-shallow-fallback`
+  Description: `deepClone()` silently fell back to shallow copies after clone failures, which could leak nested references into snapshots, history, and initial state handling.
+  Resolution: clone failures now use a real recursive fallback with circular-reference support instead of degrading to shallow copies, with regression coverage forcing the fallback path.
+- `status(601)` `setstorebatch-async-guard`
+  Description: `setStoreBatch()` accepted async callbacks, which could let batch depth span await boundaries and flush notifications out of order across ticks.
+  Resolution: batch callbacks are now validated as synchronous-only, with regression coverage proving async callbacks are rejected before they mutate store state.
+- `status(601)` `request-store-missing-set-throws`
+  Description: `createStoreForRequest().set()` silently ignored unknown store names, so SSR typos could drop request-local state with no visible failure.
+  Resolution: request-scope updates now throw when `set()` targets a store that was never created in the request buffer, with regression coverage locking the failure mode.
+- `status(601)` `fetchstore-promise-retry-disabled`
+  Description: `fetchStore()` accepted retry settings for direct Promise inputs even though retries only re-awaited the same settled promise and never retried real work.
+  Resolution: direct Promise inputs now disable retry attempts explicitly and emit a warning in development, with regression coverage proving retry delays are skipped.
+- `status(601)` `entity-fallback-id-collision`
+  Description: entity helper fallback IDs depended on timestamp and randomness only, so rapid inserts under mocked clocks could collide and overwrite earlier entities.
+  Resolution: fallback entity IDs now use a monotonic counter plus timestamp, with regression coverage proving repeated inserts stay unique even when the clock is fixed.

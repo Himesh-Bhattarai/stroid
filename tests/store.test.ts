@@ -23,6 +23,7 @@ import {
   subscribeWithSelector,
   createEntityStore,
   createSelector,
+  setStoreBatch,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -311,6 +312,17 @@ test("sanitize ignores inherited props and rejects accessor properties", () => {
   assert.ok(errors.some((msg) => msg.includes('Accessor properties are not supported during sanitize ("danger")')));
 });
 
+test("sanitize strips prototype pollution keys before merging into state", () => {
+  clearAllStores();
+  createStore("safeConfig", { enabled: true });
+
+  const payload = JSON.parse('{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"prototype":{"x":1},"safe":"ok"}');
+  mergeStore("safeConfig", payload);
+
+  assert.deepStrictEqual(getStore("safeConfig"), { enabled: true, safe: "ok" });
+  assert.strictEqual(({} as any).polluted, undefined);
+});
+
 test("getStore returns null for missing store", () => {
   clearAllStores();
   assert.strictEqual(getStore("ghost"), null);
@@ -333,6 +345,26 @@ test("getStore returns deep-cloned snapshots", () => {
   });
 });
 
+test("deepClone fallback stays deep when structuredClone is unavailable", async () => {
+  const originalStructuredClone = (globalThis as any).structuredClone;
+  try {
+    delete (globalThis as any).structuredClone;
+    const utils = await import(`../src/utils.js?deep-clone-fallback-${Date.now()}`);
+    const circular: any = { nested: { value: 1 } };
+    circular.self = circular;
+
+    const clone = utils.deepClone(circular);
+    clone.nested.value = 2;
+
+    assert.notStrictEqual(clone, circular);
+    assert.notStrictEqual(clone.nested, circular.nested);
+    assert.strictEqual(circular.nested.value, 1);
+    assert.strictEqual(clone.self, clone);
+  } finally {
+    (globalThis as any).structuredClone = originalStructuredClone;
+  }
+});
+
 test("escaped dot paths and entity helpers support literal dotted keys", () => {
   clearAllStores();
   createStore("files", { "a.b": 1, nested: { "c.d": 2 } });
@@ -349,6 +381,33 @@ test("escaped dot paths and entity helpers support literal dotted keys", () => {
   entities.upsert({ id: "a.b", name: "dotted" });
 
   assert.deepStrictEqual(entities.get("a.b"), { id: "a.b", name: "dotted" });
+});
+
+test("createEntityStore fallback ids stay unique under repeated timestamps", () => {
+  clearAllStores();
+  const realDateNow = Date.now;
+  const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+
+  Date.now = () => 1234;
+  Object.defineProperty(globalThis, "crypto", {
+    configurable: true,
+    value: {},
+  });
+
+  try {
+    const entities = createEntityStore<{ name: string }>("entityFallbackIds");
+    entities.upsert({ name: "first" });
+    entities.upsert({ name: "second" });
+
+    assert.strictEqual(entities.all().length, 2);
+  } finally {
+    Date.now = realDateNow;
+    if (cryptoDescriptor) {
+      Object.defineProperty(globalThis, "crypto", cryptoDescriptor);
+    } else {
+      delete (globalThis as any).crypto;
+    }
+  }
 });
 
 test("_getSnapshot returns stable cloned snapshots", () => {
@@ -435,6 +494,14 @@ test("createStoreForRequest updates falsy buffered values", () => {
     flag: true,
     empty: "filled",
   });
+});
+
+test("createStoreForRequest rejects updates for unknown stores", () => {
+  assert.throws(() => {
+    createStoreForRequest(({ set }) => {
+      set("missing", 1);
+    });
+  }, /requires create\("missing"/);
 });
 
 test("getInitialState returns original initial values", () => {
@@ -567,6 +634,21 @@ test("createSelector skips recomputation when tracked paths are unchanged", () =
   setStore("selectorMemo", "profile.name", "Jordan");
   assert.strictEqual(selectName(), "Jordan");
   assert.strictEqual(runs, 2);
+});
+
+test("setStoreBatch rejects async callbacks before they can interleave state", () => {
+  clearAllStores();
+  createStore("batchGuard", { value: 0 });
+
+  assert.throws(() => {
+    setStoreBatch(async () => {
+      setStore("batchGuard", { value: 1 });
+      await Promise.resolve();
+      setStore("batchGuard", { value: 2 });
+    });
+  }, /does not support async functions/);
+
+  assert.deepStrictEqual(getStore("batchGuard"), { value: 0 });
 });
 
 test("lifecycle hook errors do not leave partial commits", () => {

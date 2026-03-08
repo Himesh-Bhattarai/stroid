@@ -276,3 +276,33 @@ test("resetStore persists the reset state", async () => {
   const envelope = JSON.parse(writes[0]);
   assert.strictEqual(envelope.data, JSON.stringify({ theme: "dark" }));
 });
+
+test("createStore does not overwrite existing persisted state during init", async () => {
+  clearAllStores();
+  const writes: string[] = [];
+  const persisted = JSON.stringify({
+    v: 1,
+    checksum: hashState(JSON.stringify({ name: "Bob" })),
+    data: JSON.stringify({ name: "Bob" }),
+  });
+
+  createStore("persistedUser", { name: "Alice" }, {
+    persist: {
+      driver: {
+        getItem: () => persisted,
+        setItem: (_key: string, value: string) => { writes.push(value); },
+        removeItem: () => {},
+      },
+      key: "persisted-user",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.deepStrictEqual(getStore("persistedUser"), { name: "Bob" });
+  assert.deepStrictEqual(writes, []);
+});

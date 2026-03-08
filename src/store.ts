@@ -168,6 +168,7 @@ const _persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 const _persistKeys: Record<string, string> = Object.create(null);
 const _persistWatchState: Record<string, { lastPresent: boolean; dispose: () => void }> = Object.create(null);
 let _ssrWarningIssued = false;
+let _entityIdCounter = 0;
 const _nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
     typeof name === "string" ? name : name.name;
 
@@ -640,20 +641,20 @@ const _persistSave = (name: string): void => {
 }, 0);
 };
 
-const _persistLoad = (name: string, { silent } = { silent: false }): void => {
+const _persistLoad = (name: string, { silent } = { silent: false }): boolean => {
     const cfg = _meta[name]?.options?.persist;
-    if (!cfg) return;
+    if (!cfg) return false;
     try {
         const raw = cfg.driver.getItem?.(cfg.key) ?? null;
-        if (!raw) return;
+        if (!raw) return false;
         const decrypted = cfg.decrypt(raw);
         const envelope = JSON.parse(decrypted);
         const { v = 1, checksum, data } = envelope || {};
-        if (!data) return;
+        if (!data) return true;
         if (checksum !== hashState(data)) {
             _reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
             _stores[name] = deepClone(_initial[name]);
-            return;
+            return true;
         }
         let parsed = cfg.deserialize(data);
         const targetVersion = _meta[name]?.version ?? 1;
@@ -673,7 +674,7 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
                 parsed = fallback.state;
                 if (!fallback.requiresValidation) {
                     _stores[name] = parsed;
-                    return;
+                    return true;
                 }
             }
 
@@ -699,15 +700,15 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
             if (migrationFailed) {
                 if (!migrationFailureRequiresValidation) {
                     _stores[name] = parsed;
-                    return;
+                    return true;
                 }
                 const recoveredSchema = _validateSchema(name, parsed);
                 if (!recoveredSchema.ok) {
                     _stores[name] = deepClone(_initial[name]);
-                    return;
+                    return true;
                 }
                 _stores[name] = parsed;
-                return;
+                return true;
             }
         }
         const schemaResult = _validateSchema(name, parsed);
@@ -720,23 +721,25 @@ const _persistLoad = (name: string, { silent } = { silent: false }): void => {
                 );
                 if (!fallback.requiresValidation) {
                     _stores[name] = fallback.state;
-                    return;
+                    return true;
                 }
 
                 const recoveredSchema = _validateSchema(name, fallback.state);
                 if (recoveredSchema.ok) {
                     _stores[name] = fallback.state;
-                    return;
+                    return true;
                 }
             }
             _reportStoreError(name, `Persisted state for "${name}" failed schema; resetting to initial.`);
             _stores[name] = deepClone(_initial[name]);
-            return;
+            return true;
         }
         _stores[name] = parsed;
         if (!silent) log(`Store "${name}" loaded from persistence`);
+        return true;
     } catch (e) {
         _reportStoreError(name, `Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
+        return true;
     }
 };
 
@@ -866,8 +869,8 @@ export const createStore = <Name extends string, State>(
     };
 
     if (persistConfig) {
-        _persistSave(name);
-        _persistLoad(name, { silent: true });
+        const hadPersistedState = _persistLoad(name, { silent: true });
+        if (!hadPersistedState) _persistSave(name);
         _setupPersistWatch(name);
     }
 
@@ -960,9 +963,18 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
 }
 
 export const setStoreBatch = (fn: () => void): void => {
+    if (typeof fn !== "function") {
+        throw new Error("setStoreBatch requires a synchronous function callback.");
+    }
+    if ((fn as Function).constructor?.name === "AsyncFunction") {
+        throw new Error("setStoreBatch does not support async functions.");
+    }
     _batchDepth++;
     try {
-        fn();
+        const result = fn();
+        if (result && typeof (result as Promise<unknown>).then === "function") {
+            throw new Error("setStoreBatch does not support promise-returning callbacks.");
+        }
     } finally {
         _batchDepth = Math.max(0, _batchDepth - 1);
         if (_batchDepth === 0 && _pendingNotifications.size > 0) {
@@ -1421,7 +1433,7 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
                 ?? entity._id
                 ?? ((typeof crypto !== "undefined" && (crypto as any).randomUUID)
                     ? (crypto as any).randomUUID()
-                    : `${Date.now()}_${Math.random().toString(16).slice(2)}`);
+                    : `e_${++_entityIdCounter}_${Date.now()}`);
             if (!draft.ids.includes(id)) draft.ids.push(id);
             draft.entities[id] = entity;
         }),
@@ -1471,7 +1483,9 @@ export const createStoreForRequest = (initializer?: (api: { create: (name: strin
             return buffer[name];
         },
         set: (name: string, updater: any) => {
-            if (!hasBuffered(name)) return;
+            if (!hasBuffered(name)) {
+                throw new Error(`createStoreForRequest.set("${name}") requires create("${name}", initialState) first.`);
+            }
             buffer[name] = typeof updater === "function" ? produceClone(buffer[name], updater) : updater;
             return buffer[name];
         },

@@ -241,7 +241,15 @@ export const fetchStore = async (
     }
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
+    const isPromiseInput = typeof urlOrPromise !== "string" && typeof (urlOrPromise as any).then === "function";
     const retryPolicy = _normalizeRetryOptions(name, retry, retryDelay, retryBackoff);
+    const effectiveRetryPolicy = isPromiseInput
+        ? { ...retryPolicy, retry: 0 }
+        : retryPolicy;
+
+    if (isPromiseInput && retryPolicy.retry > 0) {
+        warn(`fetchStore("${name}") ignores retry settings for direct Promise inputs; pass a URL string to use retries.`);
+    }
 
     if (!hasStore(name)) {
         createStore(name, {
@@ -381,11 +389,11 @@ export const fetchStore = async (
                     return _settleAbort(name);
                 }
 
-                if (attempts <= retryPolicy.retry) {
+                if (attempts <= effectiveRetryPolicy.retry) {
                     if (mergedSignal?.aborted) return _settleAbort(name);
                     await delay(delayMs);
                     if (mergedSignal?.aborted) return _settleAbort(name);
-                    delayMs = Math.min(MAX_RETRY_DELAY_MS, delayMs * retryPolicy.retryBackoff);
+                    delayMs = Math.min(MAX_RETRY_DELAY_MS, delayMs * effectiveRetryPolicy.retryBackoff);
                     continue;
                 }
 
