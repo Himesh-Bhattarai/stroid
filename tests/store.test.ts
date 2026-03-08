@@ -17,6 +17,12 @@ import {
   _getSnapshot,
   hydrateStores,
   getHistory,
+  createStoreForRequest,
+  getInitialState,
+  getStoreMeta,
+  subscribeWithSelector,
+  createEntityStore,
+  createSelector,
 } from "../src/store.js";
 
 test("createStore with object data", () => {
@@ -79,6 +85,29 @@ test("createStore blocks production server globals unless explicitly allowed", (
   clearAllStores();
 });
 
+test("unknown Node env falls back to production mode", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const utilsPath = path.join(repoRoot, "src", "utils.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const utils = await import(pathToFileURL(${JSON.stringify(utilsPath)}).href);
+    assert.strictEqual(utils.__DEV__, false);
+    assert.strictEqual(utils.isDev(), false);
+  `;
+
+  const env = { ...process.env } as Record<string, string>;
+  delete env.NODE_ENV;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env,
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("setStore updates a single field", () => {
   clearAllStores();
   createStore("user", { name: "Alex", age: 25 });
@@ -131,6 +160,14 @@ test("setStore blocks type mismatches", () => {
   setStore("user", "name", 123);
   assert.strictEqual(getStore("user", "name"), "Alex");
   assert.ok(errorMessage?.includes("Type mismatch"));
+});
+
+test("setStore does not reshape primitive stores with object merges", () => {
+  clearAllStores();
+  createStore("count", 1);
+
+  setStore("count", { bad: true } as any);
+  assert.strictEqual(getStore("count"), 1);
 });
 
 test("validator exceptions are reported without throwing", () => {
@@ -245,6 +282,35 @@ test("sanitize rejects non-JSON-safe values before they corrupt state", () => {
   assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "safeMap"')));
 });
 
+test("sanitize ignores inherited props and rejects accessor properties", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  const proto = { inherited: 123 };
+  const payload = Object.create(proto) as Record<string, unknown>;
+  payload.own = 1;
+  createStore("plain", payload, {
+    onError: (msg) => { errors.push(msg); },
+  });
+  assert.deepStrictEqual(getStore("plain"), { own: 1 });
+
+  const accessorPayload: Record<string, unknown> = {};
+  Object.defineProperty(accessorPayload, "danger", {
+    enumerable: true,
+    get() {
+      throw new Error("getter should not run");
+    },
+  });
+
+  assert.doesNotThrow(() => {
+    createStore("accessor", accessorPayload as any, {
+      onError: (msg) => { errors.push(msg); },
+    });
+  });
+  assert.strictEqual(hasStore("accessor"), false);
+  assert.ok(errors.some((msg) => msg.includes('Accessor properties are not supported during sanitize ("danger")')));
+});
+
 test("getStore returns null for missing store", () => {
   clearAllStores();
   assert.strictEqual(getStore("ghost"), null);
@@ -265,6 +331,24 @@ test("getStore returns deep-cloned snapshots", () => {
     profile: { color: "blue" },
     items: [{ id: 1 }],
   });
+});
+
+test("escaped dot paths and entity helpers support literal dotted keys", () => {
+  clearAllStores();
+  createStore("files", { "a.b": 1, nested: { "c.d": 2 } });
+
+  assert.strictEqual(getStore("files", "a\\.b"), 1);
+  assert.strictEqual(getStore("files", "nested.c\\.d"), 2);
+
+  setStore("files", "a\\.b", 3);
+  setStore("files", ["nested", "c.d"], 4);
+
+  assert.deepStrictEqual(getStore("files"), { "a.b": 3, nested: { "c.d": 4 } });
+
+  const entities = createEntityStore<{ id: string; name: string }>("entityDotIds");
+  entities.upsert({ id: "a.b", name: "dotted" });
+
+  assert.deepStrictEqual(entities.get("a.b"), { id: "a.b", name: "dotted" });
 });
 
 test("_getSnapshot returns stable cloned snapshots", () => {
@@ -336,6 +420,46 @@ test("hydrateStores replaces existing primitive and array stores", () => {
   assert.deepStrictEqual(getStore("list"), [3, 4, 5]);
 });
 
+test("createStoreForRequest updates falsy buffered values", () => {
+  const scoped = createStoreForRequest(({ create, set }) => {
+    create("count", 0);
+    create("flag", false);
+    create("empty", "");
+    set("count", 1);
+    set("flag", true);
+    set("empty", "filled");
+  });
+
+  assert.deepStrictEqual(scoped.snapshot(), {
+    count: 1,
+    flag: true,
+    empty: "filled",
+  });
+});
+
+test("getInitialState returns original initial values", () => {
+  clearAllStores();
+  createStore("user", { value: 1 });
+  setStore("user", { value: 2 });
+
+  assert.deepStrictEqual(getInitialState(), {
+    user: { value: 1 },
+  });
+});
+
+test("getStoreMeta returns deep-cloned metadata snapshots", () => {
+  clearAllStores();
+  createStore("user", { value: 1 }, { historyLimit: 50 });
+
+  const meta = getStoreMeta("user")!;
+  meta.options.historyLimit = 0;
+  meta.metrics.notifyCount = 999;
+
+  const nextMeta = getStoreMeta("user")!;
+  assert.strictEqual(nextMeta.options.historyLimit, 50);
+  assert.notStrictEqual(nextMeta.metrics.notifyCount, 999);
+});
+
 test("middleware errors do not block later notifications", async () => {
   clearAllStores();
   const errors: string[] = [];
@@ -363,6 +487,86 @@ test("middleware errors do not block later notifications", async () => {
   assert.deepStrictEqual(getStore("prefs"), { theme: "blue" });
   assert.deepStrictEqual(seen, [{ theme: "light" }, { theme: "blue" }]);
   assert.ok(errors.some((msg) => msg.includes('Middleware for "prefs" failed')));
+});
+
+test("subscriber-triggered updates schedule a follow-up notification", async () => {
+  clearAllStores();
+  const seen: number[] = [];
+
+  createStore("loop", { value: 0 });
+  _subscribe("loop", (value) => {
+    if (!value) return;
+    seen.push((value as { value: number }).value);
+    if ((value as { value: number }).value === 1) {
+      setStore("loop", { value: 2 });
+    }
+  });
+
+  setStore("loop", { value: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(seen, [1, 2]);
+  assert.deepStrictEqual(getStore("loop"), { value: 2 });
+});
+
+test("subscribeWithSelector ignores unrelated object updates", async () => {
+  clearAllStores();
+  const seen: Array<{ next: Record<string, number>; prev: Record<string, number> }> = [];
+
+  createStore("selectorUser", {
+    profile: { count: 1 },
+    other: 0,
+  });
+
+  const unsubscribe = subscribeWithSelector(
+    "selectorUser",
+    (state) => state.profile,
+    Object.is,
+    (next, prev) => {
+      seen.push({ next, prev });
+    }
+  );
+
+  setStore("selectorUser", "other", 1);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  setStore("selectorUser", "profile.count", 2);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  unsubscribe();
+
+  assert.deepStrictEqual(seen, [
+    {
+      next: { count: 2 },
+      prev: { count: 1 },
+    },
+  ]);
+});
+
+test("createSelector skips recomputation when tracked paths are unchanged", () => {
+  clearAllStores();
+  createStore("selectorMemo", {
+    profile: { name: "Alex" },
+    other: 0,
+  });
+
+  let runs = 0;
+  const selectName = createSelector("selectorMemo", (state: any) => {
+    runs += 1;
+    return state.profile.name;
+  });
+
+  assert.strictEqual(selectName(), "Alex");
+  assert.strictEqual(runs, 1);
+
+  setStore("selectorMemo", "other", 1);
+  assert.strictEqual(selectName(), "Alex");
+  assert.strictEqual(runs, 1);
+
+  setStore("selectorMemo", "profile.name", "Jordan");
+  assert.strictEqual(selectName(), "Jordan");
+  assert.strictEqual(runs, 2);
 });
 
 test("lifecycle hook errors do not leave partial commits", () => {
@@ -461,6 +665,16 @@ test("deleteStore still cleans up when a subscriber throws", () => {
     deleteStore("user");
   });
   assert.strictEqual(hasStore("user"), false);
+});
+
+test("deleteStore clears orphaned history entries", () => {
+  clearAllStores();
+  createStore("user", { name: "Alex" });
+  setStore("user", { name: "Jordan" });
+
+  assert.ok(getHistory("user").length > 0);
+  deleteStore("user");
+  assert.deepStrictEqual(getHistory("user"), []);
 });
 
 test("history snapshots stay immutable in production", () => {

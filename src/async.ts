@@ -29,10 +29,15 @@ type AsyncState = {
 const _fetchRegistry: Record<string, { url: string | Promise<unknown>; options: FetchOptions }> = {};
 const _inflight: Partial<Record<string, Promise<unknown>>> = {};
 const _requestVersion: Record<string, number> = {};
-const _cacheMeta: Record<string, { timestamp: number; data: unknown }> = {};
+const _cacheMeta: Record<string, { timestamp: number; expiresAt: number | null; data: unknown }> = {};
 const _noSignalWarned = new Set<string>();
 const _cleanupSubs: Record<string, () => void> = {};
 const _storeCleanupFns: Record<string, Set<() => void>> = {};
+const MAX_RETRY_ATTEMPTS = 10;
+const MIN_RETRY_DELAY_MS = 10;
+const MAX_RETRY_DELAY_MS = 30_000;
+const MAX_RETRY_BACKOFF = 8;
+const MAX_CACHE_SLOTS_PER_STORE = 100;
 
 const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
@@ -50,10 +55,76 @@ const _runAsyncHook = (
     }
 };
 
+const _settleAbort = (name: string): null => {
+    warn(`fetchStore("${name}") aborted`);
+    if (hasStore(name)) {
+        setStore(name, {
+            loading: false,
+            error: "aborted",
+            status: "aborted",
+        });
+    }
+    return null;
+};
+
+const _normalizeRetryNumber = (name: string, label: "retry" | "retryDelay" | "retryBackoff", value: number, fallback: number): number => {
+    if (!Number.isFinite(value)) {
+        warn(`fetchStore("${name}") received non-finite ${label}; using ${fallback}.`);
+        return fallback;
+    }
+    return value;
+};
+
+const _normalizeRetryOptions = (
+    name: string,
+    retry: number,
+    retryDelay: number,
+    retryBackoff: number
+): { retry: number; retryDelay: number; retryBackoff: number } => {
+    const rawRetry = Number.isFinite(retry)
+        ? retry
+        : (retry > 0 ? MAX_RETRY_ATTEMPTS : 0);
+    const safeRetry = Math.min(
+        MAX_RETRY_ATTEMPTS,
+        Math.max(0, Math.trunc(rawRetry))
+    );
+    if (!Number.isFinite(retry)) {
+        warn(`fetchStore("${name}") received non-finite retry; using ${safeRetry}.`);
+    }
+    const safeRetryDelay = Math.min(
+        MAX_RETRY_DELAY_MS,
+        Math.max(MIN_RETRY_DELAY_MS, _normalizeRetryNumber(name, "retryDelay", retryDelay, 400))
+    );
+    const safeRetryBackoff = Math.min(
+        MAX_RETRY_BACKOFF,
+        Math.max(1, _normalizeRetryNumber(name, "retryBackoff", retryBackoff, 1.7))
+    );
+
+    if (safeRetry !== retry) {
+        warn(`fetchStore("${name}") clamped retry attempts to ${safeRetry}.`);
+    }
+    if (safeRetryDelay !== retryDelay) {
+        warn(`fetchStore("${name}") clamped retryDelay to ${safeRetryDelay}ms.`);
+    }
+    if (safeRetryBackoff !== retryBackoff) {
+        warn(`fetchStore("${name}") clamped retryBackoff to ${safeRetryBackoff}.`);
+    }
+
+    return {
+        retry: safeRetry,
+        retryDelay: safeRetryDelay,
+        retryBackoff: safeRetryBackoff,
+    };
+};
+
 const shouldUseCache = (name: string, ttl?: number): boolean => {
     if (!ttl) return false;
     const meta = _cacheMeta[name];
     if (!meta) return false;
+    if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
+        delete _cacheMeta[name];
+        return false;
+    }
     return Date.now() - meta.timestamp < ttl;
 };
 
@@ -76,6 +147,27 @@ const _clearAsyncMeta = (name: string): void => {
     Object.keys(_inflight).forEach((k) => { if (startsWithName(k)) delete _inflight[k]; });
     Object.keys(_requestVersion).forEach((k) => { if (startsWithName(k)) delete _requestVersion[k]; });
     Object.keys(_cacheMeta).forEach((k) => { if (startsWithName(k)) delete _cacheMeta[k]; });
+};
+
+const _pruneAsyncCache = (name: string): void => {
+    const prefix = `${name}:`;
+    const slots = Object.entries(_cacheMeta)
+        .filter(([key, meta]) => {
+            if (key !== name && !key.startsWith(prefix)) return false;
+            if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
+                delete _cacheMeta[key];
+                return false;
+            }
+            return true;
+        })
+        .sort((a, b) => a[1].timestamp - b[1].timestamp);
+
+    if (slots.length <= MAX_CACHE_SLOTS_PER_STORE) return;
+    const overflow = slots.length - MAX_CACHE_SLOTS_PER_STORE;
+    slots.slice(0, overflow).forEach(([key]) => {
+        delete _cacheMeta[key];
+        delete _requestVersion[key];
+    });
 };
 
 const _registerStoreCleanup = (name: string, fn: () => void): void => {
@@ -149,6 +241,7 @@ export const fetchStore = async (
     }
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
+    const retryPolicy = _normalizeRetryOptions(name, retry, retryDelay, retryBackoff);
 
     if (!hasStore(name)) {
         createStore(name, {
@@ -216,8 +309,11 @@ export const fetchStore = async (
 
     const runFetch = async (): Promise<unknown> => {
         let attempts = 0;
-        let delayMs = retryDelay ?? 400;
+        let delayMs = retryPolicy.retryDelay;
         while (true) {
+            if (mergedSignal?.aborted) {
+                return _settleAbort(name);
+            }
             try {
                 let result: unknown;
 
@@ -257,7 +353,12 @@ export const fetchStore = async (
                     return null; // stale, ignore
                 }
 
-                _cacheMeta[cacheSlot] = { timestamp: Date.now(), data: transformed };
+                _cacheMeta[cacheSlot] = {
+                    timestamp: Date.now(),
+                    expiresAt: ttl ? Date.now() + ttl : null,
+                    data: transformed,
+                };
+                _pruneAsyncCache(name);
 
                 if (hasStore(name)) {
                     setStore(name, {
@@ -277,20 +378,14 @@ export const fetchStore = async (
                 attempts += 1;
                 const isAbort = (err as any)?.name === "AbortError";
                 if (isAbort) {
-                    warn(`fetchStore("${name}") aborted`);
-                    if (hasStore(name)) {
-                        setStore(name, {
-                            loading: false,
-                            error: "aborted",
-                            status: "aborted",
-                        });
-                    }
-                    return null;
+                    return _settleAbort(name);
                 }
 
-                if (attempts <= (retry ?? 0)) {
+                if (attempts <= retryPolicy.retry) {
+                    if (mergedSignal?.aborted) return _settleAbort(name);
                     await delay(delayMs);
-                    delayMs *= retryBackoff ?? 1.7;
+                    if (mergedSignal?.aborted) return _settleAbort(name);
+                    delayMs = Math.min(MAX_RETRY_DELAY_MS, delayMs * retryPolicy.retryBackoff);
                     continue;
                 }
 
@@ -316,6 +411,7 @@ export const fetchStore = async (
 
     const promise = runFetch().finally(() => {
         delete _inflight[cacheSlot];
+        delete _requestVersion[cacheSlot];
         if (abortOnCleanup) _unregisterStoreCleanup(name, abortOnCleanup);
     });
 

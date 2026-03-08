@@ -196,6 +196,44 @@ test("sync requests the latest snapshot when a tab reconnects", async () => {
   }
 });
 
+test("sync broadcasts canonical state even when a redactor is configured", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const a = await import(`../src/store.js?sync-redactor-a-${Date.now()}`);
+  const b = await import(`../src/store.js?sync-redactor-b-${Date.now()}`);
+
+  try {
+    a.createStore("shared", { visible: "seed", secret: "keep" }, {
+      sync: true,
+      redactor: (state: any) => ({ visible: state.visible }),
+    });
+    b.createStore("shared", { visible: "seed", secret: "keep" }, { sync: true });
+    await wait();
+
+    a.setStore("shared", { visible: "next", secret: "top-secret" });
+    await wait();
+    await wait();
+
+    assert.deepStrictEqual(b.getStore("shared"), {
+      visible: "next",
+      secret: "top-secret",
+    });
+  } finally {
+    a.clearAllStores();
+    b.clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});
+
 test("late sync messages after delete are ignored safely", async () => {
   const originalWindow = (globalThis as any).window;
   const originalBroadcastChannel = (globalThis as any).BroadcastChannel;

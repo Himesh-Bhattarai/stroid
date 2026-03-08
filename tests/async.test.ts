@@ -173,3 +173,99 @@ test("fetchStore bails out cleanly when production SSR store creation is blocked
 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
+
+test("fetchStore stops retrying after abort during backoff", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  const controller = new AbortController();
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    throw new Error("retry me");
+  }) as typeof fetch;
+
+  try {
+    const request = fetchStore("retryAbortStore", "https://api.example.com/retry", {
+      retry: 2,
+      retryDelay: 50,
+      signal: controller.signal,
+    });
+
+    await wait(10);
+    controller.abort();
+    const result = await request;
+
+    assert.strictEqual(result, null);
+    assert.strictEqual(calls, 1);
+    const state = getStore("retryAbortStore");
+    assert.strictEqual(state?.status, "aborted");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("fetchStore clamps unbounded retry storms to a finite policy", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    throw new Error("storm");
+  }) as typeof fetch;
+
+  try {
+    const result = await fetchStore("retryStormStore", "https://api.example.com/storm", {
+      retry: Number.POSITIVE_INFINITY,
+      retryDelay: 0,
+      retryBackoff: 1,
+    });
+
+    assert.strictEqual(result, null);
+    assert.strictEqual(calls, 11);
+    const state = getStore("retryStormStore");
+    assert.strictEqual(state?.status, "error");
+    assert.strictEqual(state?.error, "storm");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("fetchStore evicts old cache slots under high-cardinality cacheKey usage", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "application/json" },
+      json: async () => ({ call: calls }),
+      text: async () => JSON.stringify({ call: calls }),
+    } as any;
+  }) as typeof fetch;
+
+  try {
+    for (let i = 0; i <= 100; i++) {
+      await fetchStore("searchCacheStore", "https://api.example.com/search", {
+        cacheKey: `k${i}`,
+        ttl: 60_000,
+        dedupe: false,
+      });
+    }
+
+    await fetchStore("searchCacheStore", "https://api.example.com/search", {
+      cacheKey: "k0",
+      ttl: 60_000,
+      dedupe: false,
+    });
+
+    assert.strictEqual(calls, 102);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

@@ -85,3 +85,50 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)` `non-json-safe-values-corrupt-or-throw`
   Description: values like `NaN`, `Infinity`, `BigInt`, `Symbol`, and non-string `Map` keys could silently corrupt through JSON-based clone/persist/sync paths or throw deep inside runtime helpers.
   Resolution: sanitize now rejects non-JSON-safe values up front, and store APIs report those failures before invalid data can enter persistence, sync, or cloning flows.
+
+## Patch1 P1 Fix Log
+- `status(601)` `request-store-falsy-set-ignored`
+  Description: request-scoped store helpers treated falsy buffered values like missing stores, so `0`, `false`, `""`, and `null` could not be updated.
+  Resolution: request-scope updates now use key presence instead of truthiness, and tests cover falsy buffered values.
+- `status(601)` `getinitialstate-returns-current-state`
+  Description: `getInitialState()` exposed current store state instead of the original initial snapshot, violating the API contract.
+  Resolution: `getInitialState()` now returns `_initial`, with regression coverage proving updates do not rewrite the initial snapshot.
+- `status(601)` `delete-store-leaves-history-behind`
+  Description: deleting a store removed live state but retained its history entries, leaving orphaned memory and stale tooling output.
+  Resolution: `deleteStore()` now clears history for the removed store, with regression coverage verifying deleted stores no longer report past history.
+- `status(601)` `getstoremeta-live-reference-leak`
+  Description: `getStoreMeta()` returned only a shallow copy, so callers could mutate live nested `options` and `metrics`.
+  Resolution: metadata reads now return deep-cloned snapshots, preventing inspector-style code from changing runtime behavior.
+- `status(601)` `primitive-store-object-merge-shape-change`
+  Description: `setStore(name, object)` could silently turn primitive stores into objects by running the merge path against non-object state.
+  Resolution: object-merge updates are now rejected for non-object stores, preserving the store shape established at creation.
+- `status(601)` `sanitize-inherited-properties-and-getters`
+  Description: `sanitize()` walked inherited enumerable properties and could execute accessor getters while normalizing input objects.
+  Resolution: sanitization now only reads own enumerable data properties and rejects accessor properties before they can execute during store writes.
+- `status(601)` `fetchstore-retry-abort`
+  Description: aborting during retry backoff still allowed one more retry cycle because the signal was not checked between attempts.
+  Resolution: `fetchStore()` now settles aborted state before and after retry delays so aborting backoff prevents any further network attempts.
+- `status(601)` `reentrant-notify-drops-follow-up-updates`
+  Description: subscriber-triggered `setStore()` calls could enqueue a second notification and then lose it when the current flush cleared the pending set.
+  Resolution: the notify queue now drains one batch at a time and reschedules when re-entrant updates arrive, so follow-up notifications are delivered instead of dropped.
+- `status(601)` `subscribe-with-selector-false-positives`
+  Description: selector subscriptions compared against deep-cloned notify snapshots, so object and array selectors fired on unrelated updates under the default `Object.is` equality.
+  Resolution: selector subscriptions now evaluate against the canonical store state and only clone values at the listener boundary, preserving correct slice equality while still isolating listener mutations.
+- `status(601)` `path-keys-with-dots-unaddressable`
+  Description: string path parsing always split on `.`, so literal dotted keys and entity IDs like `a.b` could not be addressed correctly through the public helpers.
+  Resolution: path parsing now supports escaped dots, and `createEntityStore().get()` uses exact path segments so dotted IDs resolve safely.
+- `status(601)` `fetchstore-unbounded-retry-storm`
+  Description: `fetchStore()` accepted non-finite or degenerate retry settings like `retry: Infinity` and `retryDelay: 0`, which could create sustained retry storms against failing services.
+  Resolution: retry attempts, delay, and backoff are now normalized to bounded safe values before the request loop starts, with regression coverage locking a finite retry policy.
+- `status(601)` `env-fallback-defaults-to-development-in-node`
+  Description: the environment comment promised unknown runtimes would default to production, but Node without `NODE_ENV` still resolved to development mode.
+  Resolution: the environment fallback is now production in every unknown runtime, with a regression test covering bare Node imports without `NODE_ENV`.
+- `status(601)` `redactor-affects-sync-payload`
+  Description: sync broadcasting reused the redactor output, so privacy tooling could strip canonical state before cross-tab replication and conflict handling.
+  Resolution: BroadcastChannel sync now sends the canonical store state, while redaction remains limited to debug/history-style surfaces.
+- `status(601)` `create-selector-invalidates-on-unrelated-updates`
+  Description: `createSelector()` memoized only on the root store reference, so unrelated writes recomputed derived selectors even when the accessed slice did not change.
+  Resolution: selectors now track the state paths they read and reuse the previous result when those dependencies stay unchanged across store updates.
+- `status(601)` `async-cache-unbounded-growth`
+  Description: async cache registries kept every unique `cacheKey` entry alive until store deletion, so high-cardinality cache usage could cause unbounded process memory growth.
+  Resolution: async cache entries now expire, request-version slots are cleared after requests settle, and per-store cache slots are bounded with oldest-entry eviction.

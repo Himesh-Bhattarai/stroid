@@ -9,7 +9,7 @@ const _devFlag = typeof globalThis !== "undefined" && typeof (globalThis as any)
     : undefined;
 
 // Default to production when the environment is unknown to avoid leaking dev logs in bundled builds.
-const _fallbackEnv = typeof process !== "undefined" ? "development" : "production";
+const _fallbackEnv = "production";
 const _resolvedEnv = _envFromProcess ?? _envFromImportMeta ?? _fallbackEnv;
 
 export const __DEV__ = typeof _devFlag === "boolean"
@@ -233,8 +233,13 @@ const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
         }
         seen.add(value as object);
         const clean: Record<string, unknown> = {};
-        for (const key in value as Record<string, unknown>) {
-            clean[key] = _sanitize((value as Record<string, unknown>)[key], seen);
+        const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+        for (const [key, descriptor] of Object.entries(descriptors)) {
+            if (!descriptor.enumerable) continue;
+            if ("get" in descriptor || "set" in descriptor) {
+                throw new Error(`Accessor properties are not supported during sanitize ("${key}")`);
+            }
+            clean[key] = _sanitize(descriptor.value, seen);
         }
         return clean;
     }
@@ -254,10 +259,38 @@ const MAX_DEPTH = 10;
 const WARN_DEPTH = 5;
 export type PathInput = string | readonly string[] | string[];
 
+const _splitPath = (path: string): string[] => {
+    const parts: string[] = [];
+    let current = "";
+    let escaping = false;
+
+    for (const ch of path) {
+        if (escaping) {
+            current += ch;
+            escaping = false;
+            continue;
+        }
+        if (ch === "\\") {
+            escaping = true;
+            continue;
+        }
+        if (ch === ".") {
+            parts.push(current);
+            current = "";
+            continue;
+        }
+        current += ch;
+    }
+
+    if (escaping) current += "\\";
+    parts.push(current);
+    return parts;
+};
+
 export const parsePath = (path: PathInput): string[] => {
     if (Array.isArray(path)) return [...path] as string[];
     if (typeof path === "string" && !path.includes(".")) return [path];
-    if (typeof path === "string") return path.split(".");
+    if (typeof path === "string") return _splitPath(path);
     return [String(path)];
 };
 

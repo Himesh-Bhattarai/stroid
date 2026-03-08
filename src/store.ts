@@ -189,7 +189,9 @@ const _scheduleFlush = (): void => {
     _notifyScheduled = true;
     const run = () => {
         _notifyScheduled = false;
-        _pendingNotifications.forEach((name) => {
+        const names = Array.from(_pendingNotifications);
+        _pendingNotifications.clear();
+        names.forEach((name) => {
             const subs = _subscribers[name];
             if (!subs || subs.length === 0) return;
             const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
@@ -206,7 +208,7 @@ const _scheduleFlush = (): void => {
             metrics.lastNotifyMs = delta;
             if (_meta[name]) _meta[name].metrics = metrics;
         });
-        _pendingNotifications.clear();
+        if (_pendingNotifications.size > 0) _scheduleFlush();
     };
     if (typeof queueMicrotask === "function") queueMicrotask(run);
     else Promise.resolve().then(run);
@@ -896,6 +898,13 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         updated = produceClone(prev, keyOrData as (draft: any) => void);
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) return;
+        if (typeof prev !== "object" || prev === null || Array.isArray(prev)) {
+            error(
+                `setStore("${storeName}", data) only merges into object stores.\n` +
+                `Use setStore("${storeName}", "path", value) or recreate the store with an object shape.`
+            );
+            return;
+        }
         const partialResult = _sanitizeValue(storeName, keyOrData);
         if (!partialResult.ok) return;
         updated = { ...(prev as Record<string, unknown>), ...partialResult.value as Record<string, unknown> };
@@ -906,7 +915,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         const sanitizedValue = valueResult.value;
         const safePath = _validatePathSafety(storeName, prev, keyOrData as PathInput, sanitizedValue);
         if (!safePath.ok) {
-            if (isDev()) _meta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
+            _meta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
             return;
         }
         updated = setByPath(prev as Record<string, unknown>, keyOrData as PathInput, sanitizedValue);
@@ -999,6 +1008,7 @@ export const deleteStore = (name: string): void => {
     delete _subscribers[name];
     delete _initial[name];
     delete _meta[name];
+    delete _history[name];
 
     try {
     if (cfg?.driver?.removeItem) cfg.driver.removeItem(cfg.key);
@@ -1109,7 +1119,7 @@ export const clearAllStores = (): void => {
 
 export const hasStore = (name: string): boolean => _hasStoreEntry(name);
 export const listStores = (): string[] => Object.keys(_stores);
-export const getStoreMeta = (name: string): MetaEntry | null => (_exists(name) ? { ..._meta[name] } : null);
+export const getStoreMeta = (name: string): MetaEntry | null => (_exists(name) ? deepClone(_meta[name]) : null);
 
 export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
     if (!_subscribers[name]) _subscribers[name] = [];
@@ -1263,7 +1273,7 @@ const _broadcastSync = (name: string): void => {
             name,
             clock: _syncClocks[name] ?? 0,
             updatedAt: Date.parse(_meta[name]?.updatedAt || new Date().toISOString()),
-            data: _applyRedactor(name, _stores[name]),
+            data: _stores[name],
             checksum: hashState(_stores[name]),
         };
         const maxPayloadBytes = typeof sync === "object" && typeof sync.maxPayloadBytes === "number"
@@ -1285,16 +1295,66 @@ const _broadcastSync = (name: string): void => {
     }
 };
 
+type SelectorDependency = string[];
+
+const _trackSelectorDependencies = <TState, TResult>(
+    state: TState,
+    selectorFn: (state: TState) => TResult
+): { result: TResult; deps: SelectorDependency[] } => {
+    const seen = new WeakMap<object, unknown>();
+    const deps = new Set<string>();
+    const sep = "\u0000";
+
+    const wrap = (value: unknown, path: string[]): unknown => {
+        if (!value || typeof value !== "object") return value;
+        const cached = seen.get(value as object);
+        if (cached) return cached;
+
+        const proxy = new Proxy(value as object, {
+            get(target, prop, receiver) {
+                if (typeof prop !== "string") {
+                    return Reflect.get(target, prop, receiver);
+                }
+                const nextPath = [...path, prop];
+                const result = Reflect.get(target, prop, receiver);
+                if (!result || typeof result !== "object") {
+                    deps.add(nextPath.join(sep));
+                }
+                return wrap(result, nextPath);
+            },
+        });
+
+        seen.set(value as object, proxy);
+        return proxy;
+    };
+
+    const result = selectorFn(wrap(state, []) as TState);
+    return {
+        result,
+        deps: Array.from(deps, (entry) => entry.split(sep)),
+    };
+};
+
+const _selectorDepsChanged = <TState>(prev: TState, next: TState, deps: SelectorDependency[]): boolean =>
+    deps.some((path) => !Object.is(getByPath(prev, path), getByPath(next, path)));
+
 // Selectors & presets
 export const createSelector = <TState, TResult>(storeName: string, selectorFn: (state: TState) => TResult) => {
     let lastRef: TState | undefined;
     let lastResult: TResult | undefined;
+    let lastDeps: SelectorDependency[] = [];
     return () => {
         const state = _stores[storeName] as TState | undefined;
         if (state === undefined) return null;
         if (state === lastRef) return lastResult ?? null;
+        if (lastRef !== undefined && lastDeps.length > 0 && !_selectorDepsChanged(lastRef, state, lastDeps)) {
+            lastRef = state;
+            return lastResult ?? null;
+        }
+        const tracked = _trackSelectorDependencies(state, selectorFn);
         lastRef = state;
-        lastResult = selectorFn(state);
+        lastDeps = tracked.deps;
+        lastResult = tracked.result;
         return lastResult ?? null;
     };
 };
@@ -1310,12 +1370,22 @@ export const subscribeWithSelector = <R>(
         return () => {};
     }
     let prevSel: R = selector(_stores[name]);
-    const wrapped = (state: StoreValue | null) => {
-        const nextSel = selector(state);
-        if (!equality(nextSel, prevSel)) {
+    const wrapped = (_state: StoreValue | null) => {
+        if (!_hasStoreEntry(name)) return;
+        const nextSel = selector(_stores[name]);
+        const matches = equality(nextSel, prevSel)
+            || (
+                equality === Object.is
+                && nextSel !== null
+                && prevSel !== null
+                && typeof nextSel === "object"
+                && typeof prevSel === "object"
+                && hashState(nextSel) === hashState(prevSel)
+            );
+        if (!matches) {
             const last = prevSel;
             prevSel = nextSel;
-            listener(nextSel, last);
+            listener(deepClone(nextSel), deepClone(last));
         }
     };
     return _subscribe(name, wrapped);
@@ -1364,12 +1434,12 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
             if (!store) return [];
             return store.ids.map((id: string) => store.entities[id]) as T[];
         },
-        get: (id: string) => getStore(name, `entities.${id}`) as T | null,
+        get: (id: string) => getStore(name, ["entities", id]) as T | null,
         clear: () => resetStore(name),
     };
 };
 
-export const getInitialState = (): Record<string, StoreValue> => deepClone(_stores) as Record<string, StoreValue>;
+export const getInitialState = (): Record<string, StoreValue> => deepClone(_initial) as Record<string, StoreValue>;
 
 export const getHistory = (name: string, limit?: number): HistoryEntry[] => {
     if (!_history[name]) return [];
@@ -1394,17 +1464,18 @@ export const getMetrics = (name: string): MetaEntry["metrics"] | null => {
 
 export const createStoreForRequest = (initializer?: (api: { create: (name: string, data: any, options?: StoreOptions) => any; set: (name: string, updater: any) => any; get: (name: string) => any }) => void) => {
     const buffer: Record<string, any> = {};
+    const hasBuffered = (name: string): boolean => Object.prototype.hasOwnProperty.call(buffer, name);
     const api = {
         create: (name: string, data: any, options: StoreOptions = {}) => {
             buffer[name] = deepClone(data);
             return buffer[name];
         },
         set: (name: string, updater: any) => {
-            if (!buffer[name]) return;
+            if (!hasBuffered(name)) return;
             buffer[name] = typeof updater === "function" ? produceClone(buffer[name], updater) : updater;
             return buffer[name];
         },
-        get: (name: string) => deepClone(buffer[name]),
+        get: (name: string) => (hasBuffered(name) ? deepClone(buffer[name]) : undefined),
     };
     if (typeof initializer === "function") initializer(api);
     return {
