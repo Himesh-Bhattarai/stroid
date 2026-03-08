@@ -7,7 +7,9 @@ export interface PersistDriver {
     [key: string]: unknown;
 }
 
-export interface PersistOptions {
+export type StoreScope = "request" | "global" | "temp";
+
+export interface PersistOptions<State = StoreValue> {
     driver?: PersistDriver;
     storage?: PersistDriver;
     key?: string;
@@ -15,6 +17,8 @@ export interface PersistOptions {
     deserialize?: (v: string) => unknown;
     encrypt?: (v: string) => string;
     decrypt?: (v: string) => string;
+    version?: number;
+    migrations?: Record<number, (state: State) => State>;
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
     onStorageCleared?: (info: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
 }
@@ -49,9 +53,26 @@ export interface SyncOptions {
     }) => StoreValue | void;
 }
 
+export interface DevtoolsOptions<State = StoreValue> {
+    enabled?: boolean;
+    historyLimit?: number;
+    redactor?: (state: State) => State;
+}
+
+export interface LifecycleOptions<State = StoreValue> {
+    middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
+    onSet?: (prev: State, next: State) => void;
+    onReset?: (prev: State, next: State) => void;
+    onDelete?: (prev: State) => void;
+    onCreate?: (initial: State) => void;
+}
+
 export interface StoreOptions<State = StoreValue> {
-    persist?: boolean | string | PersistOptions;
-    devtools?: boolean;
+    scope?: StoreScope;
+    validate?: unknown | ((next: State) => boolean);
+    persist?: boolean | string | PersistOptions<State>;
+    devtools?: boolean | DevtoolsOptions<State>;
+    lifecycle?: LifecycleOptions<State>;
     middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
     onSet?: (prev: State, next: State) => void;
     onReset?: (prev: State, next: State) => void;
@@ -107,8 +128,11 @@ const safeStorage = (type: string): PersistDriver => {
     }
 };
 
-export const normalizePersistOptions = (
-    persist: StoreOptions["persist"],
+const isObject = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+
+export const normalizePersistOptions = <State>(
+    persist: StoreOptions<State>["persist"],
     name: string
 ): PersistConfig | null => {
     if (!persist) return null;
@@ -152,41 +176,41 @@ export const normalizeStoreOptions = <State>(
     option: StoreOptions<State> = {},
     name: string
 ): NormalizedOptions => {
+    const lifecycle = isObject(option.lifecycle) ? option.lifecycle as LifecycleOptions<State> : undefined;
+    const persistGroup = isObject(option.persist) ? option.persist as PersistOptions<State> : undefined;
+    const devtoolsGroup = isObject(option.devtools) ? option.devtools as DevtoolsOptions<State> : undefined;
+    const validate = option.validate;
+    const normalizedSchema = option.schema
+        ?? (validate !== undefined && typeof validate !== "function" ? validate : undefined);
+    const normalizedValidator = option.validator
+        ?? (typeof validate === "function" ? validate : undefined);
+    const normalizedAllowSSRGlobalStore = option.scope === "global"
+        ? true
+        : (option.allowSSRGlobalStore ?? false);
+
     const {
         persist = false,
         devtools = false,
-        middleware = [],
-        onSet,
-        onReset,
-        onDelete,
-        onCreate,
         onError,
-        validator,
-        schema,
-        migrations = {},
-        version = 1,
-        redactor,
-        historyLimit = 50,
         sync,
-        allowSSRGlobalStore = option.allowSSRGlobalStore ?? false,
     } = option;
 
     return {
-        persist: normalizePersistOptions(persist, name),
-        devtools: !!devtools,
-        middleware: middleware ?? [],
-        onSet: onSet as NormalizedOptions["onSet"],
-        onReset: onReset as NormalizedOptions["onReset"],
-        onDelete: onDelete as NormalizedOptions["onDelete"],
-        onCreate: onCreate as NormalizedOptions["onCreate"],
+        persist: normalizePersistOptions<State>(persist, name),
+        devtools: typeof devtools === "boolean" ? devtools : (devtoolsGroup?.enabled ?? true),
+        middleware: (lifecycle?.middleware ?? option.middleware ?? []) as NormalizedOptions["middleware"],
+        onSet: (lifecycle?.onSet ?? option.onSet) as NormalizedOptions["onSet"],
+        onReset: (lifecycle?.onReset ?? option.onReset) as NormalizedOptions["onReset"],
+        onDelete: (lifecycle?.onDelete ?? option.onDelete) as NormalizedOptions["onDelete"],
+        onCreate: (lifecycle?.onCreate ?? option.onCreate) as NormalizedOptions["onCreate"],
         onError,
-        validator: validator as NormalizedOptions["validator"],
-        schema,
-        migrations: migrations as NormalizedOptions["migrations"],
-        version,
-        redactor: redactor as NormalizedOptions["redactor"],
-        historyLimit,
+        validator: normalizedValidator as NormalizedOptions["validator"],
+        schema: normalizedSchema,
+        migrations: (persistGroup?.migrations ?? option.migrations ?? {}) as NormalizedOptions["migrations"],
+        version: persistGroup?.version ?? option.version ?? 1,
+        redactor: (devtoolsGroup?.redactor ?? option.redactor) as NormalizedOptions["redactor"],
+        historyLimit: devtoolsGroup?.historyLimit ?? option.historyLimit ?? 50,
         sync: sync ?? false,
-        allowSSRGlobalStore,
+        allowSSRGlobalStore: normalizedAllowSSRGlobalStore,
     };
 };

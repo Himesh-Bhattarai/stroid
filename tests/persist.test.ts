@@ -149,6 +149,44 @@ test("persist onMigrationFail can recover data after a schema version change", (
   clearAllStores();
 });
 
+test("grouped persist options support nested version and migrations", () => {
+  clearAllStores();
+  const serialized = JSON.stringify({ name: "Alex" });
+  const driver = {
+    getItem: () => JSON.stringify({
+      v: 1,
+      checksum: hashState(serialized),
+      data: serialized,
+    }),
+    setItem: () => {},
+    removeItem: () => {},
+  };
+
+  createStore(
+    "profileGrouped",
+    { fullName: "Initial" },
+    {
+      schema: (value: any) => (typeof value?.fullName === "string" ? value : false),
+      persist: {
+        driver,
+        key: "profile-grouped-migration",
+        version: 2,
+        migrations: {
+          2: (state: any) => ({ fullName: state.name }),
+        },
+        serialize: JSON.stringify,
+        deserialize: JSON.parse,
+        encrypt: (v: string) => v,
+        decrypt: (v: string) => v,
+      },
+    }
+  );
+
+  assert.deepStrictEqual(getStore("profileGrouped"), { fullName: "Alex" });
+
+  clearAllStores();
+});
+
 test("persist onStorageCleared fires when a saved key disappears mid-session", async () => {
   clearAllStores();
   const events: Array<{ name: string; key: string; reason: string }> = [];

@@ -438,10 +438,12 @@ export const createStore = <Name extends string, State>(
     if (!isValidStoreName(name)) return;
     if (!isValidData(initialData)) return;
 
+    const normalizedOptions = normalizeStoreOptions(option, name);
+
     const isServer = typeof window === "undefined";
     const nodeEnv = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
     const isProdServer = isServer && nodeEnv === "production";
-    const allowGlobalSSR = option.allowSSRGlobalStore ?? false;
+    const allowGlobalSSR = normalizedOptions.allowSSRGlobalStore ?? false;
 
     if (isProdServer && !allowGlobalSSR) {
         _reportStoreCreationError(
@@ -468,8 +470,6 @@ export const createStore = <Name extends string, State>(
         );
     }
 
-    const normalizedOptions = normalizeStoreOptions(option, name);
-    normalizedOptions.allowSSRGlobalStore = allowGlobalSSR;
     const persistConfig = normalizedOptions.persist;
     if (persistConfig?.key) {
         const existing = _persistKeys[persistConfig.key];

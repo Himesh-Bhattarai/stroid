@@ -111,6 +111,9 @@ test("createStore blocks production server globals unless explicitly allowed", (
 
     createStore("ssrAllowed", { value: 2 }, { allowSSRGlobalStore: true });
     assert.strictEqual(hasStore("ssrAllowed"), true);
+
+    createStore("ssrScoped", { value: 3 }, { scope: "global" });
+    assert.strictEqual(hasStore("ssrScoped"), true);
   } finally {
     console.error = originalConsoleError;
     process.env.NODE_ENV = originalEnv;
@@ -640,6 +643,29 @@ test("getStoreMeta returns deep-cloned metadata snapshots", () => {
   const nextMeta = getStoreMeta("user")!;
   assert.strictEqual(nextMeta.options.historyLimit, 50);
   assert.notStrictEqual(nextMeta.metrics.notifyCount, 999);
+});
+
+test("grouped options normalize lifecycle, devtools, and validate paths", () => {
+  clearAllStores();
+  let created = 0;
+  let sets = 0;
+
+  createStore("grouped", { value: 1 }, {
+    validate: (next: any) => typeof next?.value === "number",
+    devtools: { historyLimit: 2 },
+    lifecycle: {
+      middleware: [({ next }) => ({ ...(next as Record<string, number>), value: (next as Record<string, number>).value + 1 })],
+      onCreate: () => { created += 1; },
+      onSet: () => { sets += 1; },
+    },
+  });
+
+  setStore("grouped", { value: 2 });
+
+  assert.strictEqual(created, 1);
+  assert.strictEqual(sets, 1);
+  assert.deepStrictEqual(getStore("grouped"), { value: 3 });
+  assert.strictEqual(getStoreMeta("grouped")?.options.historyLimit, 2);
 });
 
 test("middleware throws veto the blocked update but allow later valid writes", async () => {
