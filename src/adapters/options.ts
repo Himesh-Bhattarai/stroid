@@ -108,6 +108,12 @@ export interface NormalizedOptions {
     sync?: boolean | SyncOptions;
 }
 
+const warnedLegacyOptions = new Set<string>();
+
+export const resetLegacyOptionDeprecationWarningsForTests = (): void => {
+    warnedLegacyOptions.clear();
+};
+
 const memoryStorage: PersistDriver = (() => {
     const m = new Map<string, string>();
     return {
@@ -130,6 +136,24 @@ const safeStorage = (type: string): PersistDriver => {
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null && !Array.isArray(value);
+
+const hasOwn = (value: object, key: string): boolean =>
+    Object.prototype.hasOwnProperty.call(value, key);
+
+const legacyOptionReplacementMap: Record<string, string> = {
+    allowSSRGlobalStore: `scope: "global"`,
+    schema: "validate",
+    validator: "validate",
+    version: "persist.version",
+    migrations: "persist.migrations",
+    historyLimit: "devtools.historyLimit",
+    redactor: "devtools.redactor",
+    middleware: "lifecycle.middleware",
+    onCreate: "lifecycle.onCreate",
+    onSet: "lifecycle.onSet",
+    onReset: "lifecycle.onReset",
+    onDelete: "lifecycle.onDelete",
+};
 
 export const normalizePersistOptions = <State>(
     persist: StoreOptions<State>["persist"],
@@ -170,6 +194,19 @@ export const normalizePersistOptions = <State>(
         onMigrationFail: persist.onMigrationFail || "reset",
         onStorageCleared: persist.onStorageCleared,
     };
+};
+
+export const collectLegacyOptionDeprecationWarnings = <State>(option: StoreOptions<State>): string[] => {
+    if (!isObject(option)) return [];
+
+    const warnings: string[] = [];
+    Object.entries(legacyOptionReplacementMap).forEach(([legacyKey, replacement]) => {
+        if (!hasOwn(option, legacyKey)) return;
+        if (warnedLegacyOptions.has(legacyKey)) return;
+        warnedLegacyOptions.add(legacyKey);
+        warnings.push(`createStore option "${legacyKey}" is deprecated. Use "${replacement}" instead.`);
+    });
+    return warnings;
 };
 
 export const normalizeStoreOptions = <State>(

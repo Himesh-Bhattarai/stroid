@@ -20,6 +20,7 @@ import {
 } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import {
+    collectLegacyOptionDeprecationWarnings,
     normalizeStoreOptions,
     type MiddlewareCtx,
     type NormalizedOptions,
@@ -438,6 +439,10 @@ export const createStore = <Name extends string, State>(
     if (!isValidStoreName(name)) return;
     if (!isValidData(initialData)) return;
 
+    collectLegacyOptionDeprecationWarnings(option).forEach((message) => {
+        warn(message);
+    });
+
     const normalizedOptions = normalizeStoreOptions(option, name);
 
     const isServer = typeof window === "undefined";
@@ -448,7 +453,7 @@ export const createStore = <Name extends string, State>(
     if (isProdServer && !allowGlobalSSR) {
         _reportStoreCreationError(
             `createStore("${name}") is blocked on the server in production to prevent cross-request memory leaks.\n` +
-            `Call createStoreForRequest(...) inside each request scope or pass { allowSSRGlobalStore: true } to opt in.`,
+            `Call createStoreForRequest(...) inside each request scope or pass { scope: "global" } to opt in.`,
             option.onError as ((message: string) => void) | undefined
         );
         return;

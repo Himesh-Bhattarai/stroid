@@ -9,6 +9,8 @@ export type StorageLike = {
 
 type Primitive = string | number | boolean | null | undefined | symbol | bigint;
 
+export type StoreScope = "request" | "global" | "temp";
+
 export type PersistOptions = {
   storage?: StorageLike;
   driver?: StorageLike;
@@ -17,6 +19,10 @@ export type PersistOptions = {
   deserialize?: (value: string) => any;
   encrypt?: (value: string) => string;
   decrypt?: (value: string) => string;
+  version?: number;
+  migrations?: Record<number, (state: any) => any>;
+  onMigrationFail?: "reset" | "ignore";
+  onStorageCleared?: (args: { key: string; reason: string }) => void;
 };
 
 export type MiddlewareCtx = {
@@ -27,9 +33,37 @@ export type MiddlewareCtx = {
   path: string | string[] | undefined;
 };
 
+export type SyncOptions = {
+  channel?: string;
+  maxPayloadBytes?: number;
+  conflictResolver?: (args: {
+    local: any;
+    incoming: any;
+    localUpdated: number;
+    incomingUpdated: number;
+  }) => any | void;
+};
+
+export type DevtoolsOptions = {
+  enabled?: boolean;
+  historyLimit?: number;
+  redactor?: (state: any) => any;
+};
+
+export type LifecycleOptions = {
+  middleware?: Array<(ctx: MiddlewareCtx) => any | void>;
+  onSet?: (prev: any, next: any) => void;
+  onReset?: (prev: any, next: any) => void;
+  onDelete?: (prev: any) => void;
+  onCreate?: (initial: any) => void;
+};
+
 export type StoreOptions = {
+  scope?: StoreScope;
+  validate?: any | ((next: any) => boolean);
   persist?: boolean | string | PersistOptions;
-  devtools?: boolean;
+  devtools?: boolean | DevtoolsOptions;
+  lifecycle?: LifecycleOptions;
   middleware?: Array<(ctx: MiddlewareCtx) => any | void>;
   onSet?: (prev: any, next: any) => void;
   onReset?: (prev: any, next: any) => void;
@@ -42,7 +76,8 @@ export type StoreOptions = {
   version?: number;
   redactor?: (state: any) => any;
   historyLimit?: number;
-  sync?: boolean | { channel?: string };
+  allowSSRGlobalStore?: boolean;
+  sync?: boolean | SyncOptions;
 };
 
 type PathImpl<T, K extends keyof T> =
