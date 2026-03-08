@@ -1,15 +1,10 @@
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { _subscribe, subscribeWithSelector, _getSnapshot, hasStore } from "./store.js";
-import { warn, isDev } from "./utils.js";
+import { getByPath, warn, isDev } from "./utils.js";
 
 const pickPath = (data: any, path?: string) => {
     if (!path) return data;
-    const parts = path.split(".");
-    let current = data;
-    for (const part of parts) {
-        if (current === null || current === undefined) return null;
-        current = current[part];
-    }
+    const current = getByPath(data, path);
     return current ?? null;
 };
 

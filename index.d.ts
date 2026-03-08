@@ -21,8 +21,13 @@ export type PersistOptions = {
   decrypt?: (value: string) => string;
   version?: number;
   migrations?: Record<number, (state: any) => any>;
-  onMigrationFail?: "reset" | "ignore";
-  onStorageCleared?: (args: { key: string; reason: string }) => void;
+  onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
+  onStorageCleared?: (args: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
+};
+
+export type StoreDefinition<Name extends string = string, State = unknown> = {
+  name: Name;
+  state?: State;
 };
 
 export type MiddlewareCtx = {
@@ -101,7 +106,7 @@ export type PathValue<T, P extends Path<T>> =
       ? T[P]
       : any;
 
-export function createStore<T>(name: string, initialData: T, options?: StoreOptions): T;
+export function createStore<Name extends string, T>(name: Name, initialData: T, options?: StoreOptions): StoreDefinition<Name, T> | undefined;
 export function setStore<T>(name: string, keyOrData: Path<T> | Path<T>[] | Partial<T> | ((draft: T) => void), value?: any): void;
 export function setStoreBatch(fn: () => void): void;
 export function getStore<T = any, P extends Path<T> = Path<T>>(name: string, path?: P | string | string[]): PathValue<T, P> | T | null;
@@ -127,7 +132,7 @@ export function createListStore<T>(name: string, initial?: T[], options?: StoreO
   removeAt: (index: number) => void;
   clear: () => void;
   replace: (items: T[]) => void;
-  all: () => T[] | null;
+  all: () => T[];
 };
 export function createEntityStore<T extends { id?: string; _id?: string }>(name: string, options?: StoreOptions): {
   upsert: (entity: T) => void;
@@ -192,8 +197,9 @@ export function useSelector<T = any, R = any>(name: string, selector: (state: T)
 export function useAsyncStore(name: string): {
   data: any;
   loading: boolean;
+  revalidating: boolean;
   error: string | null;
-  status: string;
+  status: "idle" | "loading" | "success" | "error" | "aborted";
   isEmpty: boolean;
 };
 export function useStoreStatic<T = any>(name: string, path?: string): T | null;

@@ -54,6 +54,7 @@ import {
     setupSync,
     type SyncChannels,
     type SyncClocks,
+    type SyncVersions,
     type SyncWindowCleanup,
 } from "./features/sync.js";
 
@@ -112,6 +113,7 @@ const _meta: Record<string, MetaEntry> = Object.create(null);
 const _history: Record<string, HistoryEntry[]> = Object.create(null);
 const _syncChannels: SyncChannels = Object.create(null);
 const _syncClocks: SyncClocks = Object.create(null);
+const _syncVersions: SyncVersions = Object.create(null);
 const _syncWindowCleanup: SyncWindowCleanup = Object.create(null);
 const _snapshotCache: Record<string, { source: StoreValue; snapshot: StoreValue | null }> = Object.create(null);
 
@@ -163,6 +165,16 @@ const _scheduleFlush = (): void => {
 const _notify = (name: string): void => {
     _pendingNotifications.add(name);
     if (_batchDepth === 0) _scheduleFlush();
+};
+
+const _recordLocalSyncVersion = (name: string): void => {
+    const meta = _meta[name];
+    if (!meta) return;
+    _syncVersions[name] = {
+        clock: _syncClocks[name] ?? 0,
+        updatedAt: Date.parse(meta.updatedAt || new Date().toISOString()),
+        source: INSTANCE_ID,
+    };
 };
 
 const _hasStoreEntry = (name: string): boolean => Object.prototype.hasOwnProperty.call(_stores, name);
@@ -509,6 +521,7 @@ export const createStore = <Name extends string, State>(
         return;
     }
 
+    const hadPreexistingSubscribers = !!_subscribers[name]?.length;
     _stores[name] = clean;
     _subscribers[name] = _subscribers[name] || [];
     _initial[name] = deepClone(clean);
@@ -529,8 +542,10 @@ export const createStore = <Name extends string, State>(
 
     _runStoreHook(name, "onCreate", _meta[name].options.onCreate, [clean]);
     _devtoolsInit(name);
+    _recordLocalSyncVersion(name);
     _setupSync(name);
     _pushHistory(name, "create", null, clean);
+    if (hadPreexistingSubscribers) _notify(name);
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
     return { name } as StoreDefinition<Name, State>;
@@ -605,6 +620,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
     _bumpSyncClock(storeName);
+    _recordLocalSyncVersion(storeName);
 
     if (_meta[storeName].options?.persist) _persistSave(storeName);
     _runStoreHook(storeName, "onSet", _meta[storeName].options.onSet, [prev, next]);
@@ -678,6 +694,7 @@ export const deleteStore = (name: string): void => {
     delete _initial[name];
     delete _meta[name];
     delete _history[name];
+    delete _snapshotCache[name];
 
     try {
     if (cfg?.driver?.removeItem) cfg.driver.removeItem(cfg.key);
@@ -691,6 +708,7 @@ export const deleteStore = (name: string): void => {
         syncChannels: _syncChannels,
         syncWindowCleanup: _syncWindowCleanup,
         syncClocks: _syncClocks,
+        syncVersions: _syncVersions,
     });
 
     if (devtoolsEnabled) _devtoolsSend(name, "delete", true);
@@ -705,6 +723,7 @@ export const resetStore = (name: string): void => {
     _stores[name] = isDev() ? devDeepFreeze(resetValue) : resetValue;
     _meta[name].updatedAt = new Date().toISOString();
     _bumpSyncClock(name);
+    _recordLocalSyncVersion(name);
     if (_meta[name].options?.persist) _persistSave(name);
 
     _runStoreHook(name, "onReset", _meta[name].options.onReset, [prev, resetValue]);
@@ -744,6 +763,7 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
     _bumpSyncClock(name);
+    _recordLocalSyncVersion(name);
     if (_meta[name].options?.persist) _persistSave(name);
     _runStoreHook(name, "onSet", _meta[name].options.onSet, [current, final]);
     _pushHistory(name, "merge", current, final);
@@ -759,6 +779,12 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
     const nextResult = _sanitizeValue(name, data);
     if (!nextResult.ok) return;
     const nextValue = nextResult.value;
+    if (nextValue === undefined) {
+        const message = `Whole-store undefined replacement is blocked for "${name}". Use null for intentional empty state.`;
+        _meta[name]?.options?.onError?.(message);
+        warn(message);
+        return;
+    }
 
     const schemaCheck = _validateSchema(name, nextValue);
     if (!schemaCheck.ok) return;
@@ -774,6 +800,7 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
     _bumpSyncClock(name);
+    _recordLocalSyncVersion(name);
     if (_meta[name].options?.persist) _persistSave(name);
     _runStoreHook(name, "onSet", _meta[name].options.onSet, [prev, final]);
     _pushHistory(name, action, prev, final);
@@ -824,6 +851,7 @@ export const _hardResetAllStoresForTest = (): void => {
         _history,
         _syncChannels,
         _syncClocks,
+        _syncVersions,
         _syncWindowCleanup,
         _snapshotCache,
         _persistTimers as Record<string, ReturnType<typeof setTimeout>>,
@@ -853,7 +881,13 @@ export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
     if (!_subscribers[name]) _subscribers[name] = [];
     _subscribers[name].push(fn);
     return () => {
-        _subscribers[name] = _subscribers[name].filter((s) => s !== fn);
+        const current = _subscribers[name];
+        if (!current || current.length === 0) return;
+        const index = current.indexOf(fn);
+        if (index < 0) return;
+        const next = current.slice();
+        next.splice(index, 1);
+        _subscribers[name] = next;
     };
 };
 
@@ -863,8 +897,11 @@ export const _getSnapshot = (name: string): StoreValue | null => {
     const cached = _snapshotCache[name];
     if (cached && cached.source === source) return cached.snapshot;
     const snapshot = deepClone(source);
-    _snapshotCache[name] = { source, snapshot };
-    return snapshot;
+    const safeSnapshot = snapshot && typeof snapshot === "object"
+        ? devDeepFreeze(snapshot)
+        : snapshot;
+    _snapshotCache[name] = { source, snapshot: safeSnapshot };
+    return safeSnapshot;
 };
 
 const _bumpSyncClock = (name: string): number =>
@@ -879,9 +916,11 @@ const _setupSync = (name: string): void => {
         syncOption: _meta[name]?.options?.sync,
         syncChannels: _syncChannels,
         syncClocks: _syncClocks,
+        syncVersions: _syncVersions,
         syncWindowCleanup: _syncWindowCleanup,
         instanceId: INSTANCE_ID,
         getMeta: (storeName) => _meta[storeName],
+        getAcceptedSyncVersion: (storeName) => _syncVersions[storeName],
         getStoreValue: (storeName) => _stores[storeName],
         hasStoreEntry: _hasStoreEntry,
         notify: _notify,
@@ -891,10 +930,26 @@ const _setupSync = (name: string): void => {
         setStoreValue: (storeName, value) => {
             _stores[storeName] = value;
         },
-        updateMetaAfterSync: (storeName, updatedAtMs, incomingClock) => {
+        acceptIncomingSyncVersion: (storeName, updatedAtMs, incomingClock, source) => {
             _meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
             _meta[storeName].updateCount++;
             _absorbSyncClock(storeName, incomingClock);
+            _syncVersions[storeName] = {
+                clock: incomingClock,
+                updatedAt: updatedAtMs,
+                source,
+            };
+        },
+        resolveSyncVersion: (storeName, updatedAtMs, incomingClock) => {
+            _meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
+            _meta[storeName].updateCount++;
+            const resolvedClock = _absorbSyncClock(storeName, incomingClock);
+            _syncVersions[storeName] = {
+                clock: resolvedClock,
+                updatedAt: updatedAtMs,
+                source: INSTANCE_ID,
+            };
+            return resolvedClock;
         },
         broadcastSync: _broadcastSync,
     });
@@ -995,10 +1050,27 @@ export const subscribeWithSelector = <R>(
         warn(`subscribeWithSelector("${name}") requires selector and listener functions.`);
         return () => {};
     }
-    let prevSel: R = selector(_stores[name]);
+    let hasPrev = false;
+    let prevSel = undefined as R;
+
+    if (_hasStoreEntry(name)) {
+        prevSel = selector(_stores[name]);
+        hasPrev = true;
+    }
+
     const wrapped = (_state: StoreValue | null) => {
-        if (!_hasStoreEntry(name)) return;
+        if (_state === null || !_hasStoreEntry(name)) {
+            hasPrev = false;
+            prevSel = undefined as R;
+            return;
+        }
         const nextSel = selector(_stores[name]);
+        if (!hasPrev) {
+            hasPrev = true;
+            prevSel = nextSel;
+            listener(deepClone(nextSel), deepClone(nextSel));
+            return;
+        }
         const matches = equality(nextSel, prevSel)
             || (
                 equality === Object.is
@@ -1024,7 +1096,7 @@ export const createCounterStore = (name: string, initial = 0, options: StoreOpti
         dec: (n = 1) => setStore(name, (draft: any) => { draft.value -= n; }),
         set: (v: number) => setStore(name, "value", v),
         reset: () => resetStore(name),
-        get: () => getStore(name, "value"),
+        get: (): number | null => getStore(name, "value") as number | null,
     };
 };
 

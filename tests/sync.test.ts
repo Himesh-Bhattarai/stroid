@@ -273,3 +273,232 @@ test("late sync messages after delete are ignored safely", async () => {
     (globalThis as any).BroadcastChannel = originalBroadcastChannel;
   }
 });
+
+test("conflictResolver can resolve contested incoming sync state against local state", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const store = await import(`../src/store.js?sync-conflict-${Date.now()}`);
+
+  try {
+    store.createStore("shared", { local: "seed", remote: "seed" }, {
+      sync: {
+        conflictResolver: ({ local, incoming }: any) => ({
+          local: local.local,
+          remote: incoming.remote,
+        }),
+      },
+    });
+
+    store.setStore("shared", { local: "local-win", remote: "seed" });
+    await wait();
+
+    const channel = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? [])[0];
+    assert.ok(channel);
+
+    channel.onmessage?.({
+      data: {
+        type: "sync-state",
+        source: "remote-tab",
+        name: "shared",
+        clock: 0,
+        updatedAt: 0,
+        data: { local: "seed", remote: "remote-win" },
+      },
+    } as MessageEvent);
+
+    await wait();
+
+    assert.deepStrictEqual(store.getStore("shared"), {
+      local: "local-win",
+      remote: "remote-win",
+    });
+  } finally {
+    store.clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});
+
+test("conflictResolver rebroadcasts resolved state so peers converge", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const a = await import(`../src/store.js?sync-conflict-a-${Date.now()}`);
+  const b = await import(`../src/store.js?sync-conflict-b-${Date.now()}`);
+  const c = await import(`../src/store.js?sync-conflict-c-${Date.now()}`);
+
+  try {
+    a.createStore("shared", { local: "seed", remote: "seed", resolved: false }, {
+      sync: {
+        conflictResolver: ({ local, incoming }: any) => ({
+          local: local.local,
+          remote: incoming.remote,
+          resolved: true,
+        }),
+      },
+    });
+    b.createStore("shared", { local: "seed", remote: "seed", resolved: false }, { sync: true });
+    c.createStore("shared", { local: "seed", remote: "seed", resolved: false }, { sync: true });
+    await wait();
+
+    a.setStore("shared", { local: "local-win", remote: "seed", resolved: false });
+    await wait();
+
+    const channelA = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? [])[0];
+    assert.ok(channelA);
+
+    channelA.onmessage?.({
+      data: {
+        type: "sync-state",
+        source: "remote-tab",
+        name: "shared",
+        clock: 0,
+        updatedAt: 0,
+        data: { local: "seed", remote: "remote-win", resolved: false },
+      },
+    } as MessageEvent);
+
+    await wait();
+    await wait();
+
+    assert.deepStrictEqual(a.getStore("shared"), {
+      local: "local-win",
+      remote: "remote-win",
+      resolved: true,
+    });
+    assert.deepStrictEqual(b.getStore("shared"), {
+      local: "local-win",
+      remote: "remote-win",
+      resolved: true,
+    });
+    assert.deepStrictEqual(c.getStore("shared"), {
+      local: "local-win",
+      remote: "remote-win",
+      resolved: true,
+    });
+  } finally {
+    a.clearAllStores();
+    b.clearAllStores();
+    c.clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});
+
+test("sync convergence is stable for equal-clock equal-timestamp writes delivered in different orders", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const first = await import(`../src/store.js?sync-order-first-${Date.now()}`);
+  const second = await import(`../src/store.js?sync-order-second-${Date.now()}`);
+
+  try {
+    first.createStore("shared", { value: "seed" }, { sync: true });
+    second.createStore("shared", { value: "seed" }, { sync: true });
+    await wait();
+
+    const channels = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? []);
+    assert.strictEqual(channels.length, 2);
+
+    const [firstChannel, secondChannel] = channels;
+    const messageA = {
+      type: "sync-state",
+      source: "writer-a",
+      name: "shared",
+      clock: 1,
+      updatedAt: 100,
+      data: { value: "A" },
+    };
+    const messageB = {
+      type: "sync-state",
+      source: "writer-b",
+      name: "shared",
+      clock: 1,
+      updatedAt: 100,
+      data: { value: "B" },
+    };
+
+    firstChannel.onmessage?.({ data: messageA } as MessageEvent);
+    firstChannel.onmessage?.({ data: messageB } as MessageEvent);
+
+    secondChannel.onmessage?.({ data: messageB } as MessageEvent);
+    secondChannel.onmessage?.({ data: messageA } as MessageEvent);
+
+    await wait();
+
+    assert.deepStrictEqual(first.getStore("shared"), { value: "B" });
+    assert.deepStrictEqual(second.getStore("shared"), { value: "B" });
+  } finally {
+    first.clearAllStores();
+    second.clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});
+
+test("repeated sync create delete cycles clean up channels and ignore stale handlers", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const store = await import(`../src/store.js?sync-recreate-${Date.now()}`);
+
+  try {
+    for (let i = 0; i < 5; i++) {
+      store.createStore("shared", { cycle: i }, { sync: true });
+      await wait();
+
+      const channel = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? [])[0];
+      assert.ok(channel);
+
+      store.deleteStore("shared");
+      assert.strictEqual(store.hasStore("shared"), false);
+      assert.strictEqual(MockBroadcastChannel.channels.get("stroid_sync_shared")?.size ?? 0, 0);
+
+      assert.doesNotThrow(() => {
+        channel.onmessage?.({
+          data: {
+            type: "sync-state",
+            source: `remote-${i}`,
+            name: "shared",
+            clock: 1,
+            updatedAt: Date.now(),
+            data: { cycle: 999 },
+          },
+        } as MessageEvent);
+      });
+    }
+  } finally {
+    store.clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});

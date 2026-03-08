@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   collectLegacyOptionDeprecationWarnings,
+  normalizeStoreOptions,
   resetLegacyOptionDeprecationWarningsForTests,
 } from "../src/adapters/options.js";
 
@@ -59,4 +60,24 @@ test("grouped options do not emit legacy deprecation warnings", () => {
   });
 
   assert.deepEqual(warnings, []);
+});
+
+test("normalizeStoreOptions preserves grouped sync options and global scope opt-in", () => {
+  const conflictResolver = ({ incoming }: { incoming: unknown }) => incoming;
+
+  const normalized = normalizeStoreOptions({
+    scope: "global",
+    sync: {
+      channel: "shared-room",
+      maxPayloadBytes: 321,
+      conflictResolver,
+    },
+  }, "sharedStore");
+
+  assert.equal(normalized.allowSSRGlobalStore, true);
+  assert.deepEqual(normalized.sync, {
+    channel: "shared-room",
+    maxPayloadBytes: 321,
+    conflictResolver,
+  });
 });

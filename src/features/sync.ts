@@ -2,6 +2,8 @@ import type { StoreValue, SyncOptions } from "../adapters/options.js";
 
 export type SyncChannels = Record<string, BroadcastChannel>;
 export type SyncClocks = Record<string, number>;
+export type SyncVersion = { clock: number; updatedAt: number; source: string };
+export type SyncVersions = Record<string, SyncVersion>;
 export type SyncWindowCleanup = Record<string, () => void>;
 
 type SyncMeta = {
@@ -23,28 +25,23 @@ const byteLength = (value: string): number => {
 };
 
 const compareSyncOrder = ({
-    name,
     incoming,
-    syncClocks,
-    getMeta,
-    instanceId,
+    accepted,
 }: {
-    name: string;
     incoming: { clock?: number; updatedAt?: number; source?: string };
-    syncClocks: SyncClocks;
-    getMeta: (name: string) => SyncMeta | undefined;
-    instanceId: string;
+    accepted?: SyncVersion;
 }): number => {
-    const localClock = syncClocks[name] ?? 0;
+    const localClock = accepted?.clock ?? 0;
     const incomingClock = typeof incoming.clock === "number" ? incoming.clock : 0;
     if (incomingClock !== localClock) return incomingClock - localClock;
 
-    const localUpdated = new Date(getMeta(name)?.updatedAt || 0).getTime();
+    const localUpdated = accepted?.updatedAt ?? 0;
     const incomingUpdated = typeof incoming.updatedAt === "number" ? incoming.updatedAt : 0;
     if (incomingUpdated !== localUpdated) return incomingUpdated - localUpdated;
 
     const incomingSource = incoming.source ?? "";
-    return incomingSource.localeCompare(instanceId);
+    const localSource = accepted?.source ?? "";
+    return incomingSource.localeCompare(localSource);
 };
 
 const requestSyncSnapshot = ({
@@ -91,17 +88,20 @@ export const closeSyncResources = ({
     syncChannels,
     syncWindowCleanup,
     syncClocks,
+    syncVersions,
 }: {
     name: string;
     syncChannels: SyncChannels;
     syncWindowCleanup: SyncWindowCleanup;
     syncClocks: SyncClocks;
+    syncVersions: SyncVersions;
 }): void => {
     syncChannels[name]?.close();
     delete syncChannels[name];
     syncWindowCleanup[name]?.();
     delete syncWindowCleanup[name];
     delete syncClocks[name];
+    delete syncVersions[name];
 };
 
 export const cleanupAllSyncResources = ({
@@ -124,9 +124,11 @@ export const setupSync = ({
     syncOption,
     syncChannels,
     syncClocks,
+    syncVersions,
     syncWindowCleanup,
     instanceId,
     getMeta,
+    getAcceptedSyncVersion,
     getStoreValue,
     hasStoreEntry,
     notify,
@@ -134,16 +136,19 @@ export const setupSync = ({
     reportStoreError,
     warn,
     setStoreValue,
-    updateMetaAfterSync,
+    acceptIncomingSyncVersion,
+    resolveSyncVersion,
     broadcastSync,
 }: {
     name: string;
     syncOption?: boolean | SyncOptions;
     syncChannels: SyncChannels;
     syncClocks: SyncClocks;
+    syncVersions: SyncVersions;
     syncWindowCleanup: SyncWindowCleanup;
     instanceId: string;
     getMeta: (name: string) => SyncMeta | undefined;
+    getAcceptedSyncVersion: (name: string) => SyncVersion | undefined;
     getStoreValue: (name: string) => StoreValue;
     hasStoreEntry: (name: string) => boolean;
     notify: (name: string) => void;
@@ -151,7 +156,8 @@ export const setupSync = ({
     reportStoreError: (name: string, message: string) => void;
     warn: (message: string) => void;
     setStoreValue: (name: string, value: StoreValue) => void;
-    updateMetaAfterSync: (name: string, updatedAtMs: number, incomingClock: number) => void;
+    acceptIncomingSyncVersion: (name: string, updatedAtMs: number, incomingClock: number, source: string) => void;
+    resolveSyncVersion: (name: string, updatedAtMs: number, incomingClock: number) => number;
     broadcastSync: (name: string) => void;
 }): void => {
     if (!syncOption) return;
@@ -176,15 +182,12 @@ export const setupSync = ({
             }
             const resolver = typeof syncOption === "object" ? syncOption.conflictResolver : null;
             const order = compareSyncOrder({
-                name,
                 incoming: {
                     clock: msg.clock,
                     updatedAt: msg.updatedAt,
                     source: msg.source,
                 },
-                syncClocks,
-                getMeta,
-                instanceId,
+                accepted: getAcceptedSyncVersion(name),
             });
             if (order <= 0) {
                 const localUpdated = new Date(getMeta(name)?.updatedAt || 0).getTime();
@@ -200,8 +203,10 @@ export const setupSync = ({
                         const schemaRes = validateSchema(name, resolved);
                         if (!schemaRes.ok) return;
                         setStoreValue(name, resolved);
-                        updateMetaAfterSync(name, Math.max(localUpdated, incomingUpdated), typeof msg.clock === "number" ? msg.clock : 0);
+                        const resolvedUpdatedAt = Math.max(Date.now(), localUpdated, incomingUpdated);
+                        resolveSyncVersion(name, resolvedUpdatedAt, typeof msg.clock === "number" ? msg.clock : 0);
                         notify(name);
+                        broadcastSync(name);
                     }
                 }
                 return;
@@ -209,7 +214,12 @@ export const setupSync = ({
             const schemaRes = validateSchema(name, msg.data);
             if (!schemaRes.ok) return;
             setStoreValue(name, msg.data);
-            updateMetaAfterSync(name, msg.updatedAt, typeof msg.clock === "number" ? msg.clock : 0);
+            acceptIncomingSyncVersion(
+                name,
+                typeof msg.updatedAt === "number" ? msg.updatedAt : Date.now(),
+                typeof msg.clock === "number" ? msg.clock : 0,
+                typeof msg.source === "string" ? msg.source : ""
+            );
             notify(name);
         };
 

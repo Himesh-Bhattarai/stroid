@@ -4,6 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createStore, setStore, getStore, clearAllStores, deleteStore, resetStore } from "../src/store.js";
+import { resetAllStoresForTest } from "../src/testing.js";
 import { hashState } from "../src/utils.js";
 
 test("persist setItem errors surface via onError without throwing", async () => {
@@ -343,4 +344,134 @@ test("createStore does not overwrite existing persisted state during init", asyn
 
   assert.deepStrictEqual(getStore("persistedUser"), { name: "Bob" });
   assert.deepStrictEqual(writes, []);
+});
+
+test("persist uses sessionStorage when configured with the session shorthand", async () => {
+  clearAllStores();
+  const originalWindow = (globalThis as any).window;
+  const sessionWrites: string[] = [];
+  const localWrites: string[] = [];
+  const storageFactory = (writes: string[]) => {
+    const values = new Map<string, string>();
+    return {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        writes.push(`${key}:${value}`);
+        values.set(key, value);
+      },
+      removeItem: (key: string) => {
+        values.delete(key);
+      },
+    };
+  };
+
+  (globalThis as any).window = {
+    localStorage: storageFactory(localWrites),
+    sessionStorage: storageFactory(sessionWrites),
+  };
+
+  try {
+    createStore("sessionPrefs", { theme: "dark" }, {
+      persist: "session",
+    });
+
+    setStore("sessionPrefs", { theme: "light" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    assert.ok(sessionWrites.some((entry) => entry.startsWith("stroid_sessionPrefs:")));
+    assert.deepStrictEqual(localWrites, []);
+  } finally {
+    clearAllStores();
+    (globalThis as any).window = originalWindow;
+  }
+});
+
+test("persist true uses localStorage in browser-like environments", async () => {
+  clearAllStores();
+  const originalWindow = (globalThis as any).window;
+  const sessionWrites: string[] = [];
+  const localWrites: string[] = [];
+  const storageFactory = (writes: string[]) => {
+    const values = new Map<string, string>();
+    return {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        writes.push(`${key}:${value}`);
+        values.set(key, value);
+      },
+      removeItem: (key: string) => {
+        values.delete(key);
+      },
+    };
+  };
+
+  (globalThis as any).window = {
+    localStorage: storageFactory(localWrites),
+    sessionStorage: storageFactory(sessionWrites),
+  };
+
+  try {
+    createStore("localPrefs", { theme: "dark" }, {
+      persist: true,
+    });
+
+    setStore("localPrefs", { theme: "light" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    assert.ok(localWrites.some((entry) => entry.startsWith("stroid_localPrefs:")));
+    assert.deepStrictEqual(sessionWrites, []);
+  } finally {
+    clearAllStores();
+    (globalThis as any).window = originalWindow;
+  }
+});
+
+test("persist custom serialize deserialize encrypt and decrypt hooks round-trip state", async () => {
+  clearAllStores();
+  const writes: string[] = [];
+  const driver = {
+    stored: "" as string,
+    getItem() {
+      return this.stored || null;
+    },
+    setItem(_key: string, value: string) {
+      writes.push(value);
+      this.stored = value;
+    },
+    removeItem() {
+      this.stored = "";
+    },
+  };
+
+  createStore("securePrefs", { theme: "dark" }, {
+    persist: {
+      driver,
+      key: "secure-prefs",
+      serialize: (value: any) => `SER:${JSON.stringify(value)}`,
+      deserialize: (value: string) => JSON.parse(value.slice(4)),
+      encrypt: (value: string) => `ENC:${value}`,
+      decrypt: (value: string) => value.slice(4),
+    },
+  });
+
+  setStore("securePrefs", { theme: "light" });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.strictEqual(writes.length > 0, true);
+  assert.ok(writes[writes.length - 1].startsWith("ENC:"));
+
+  resetAllStoresForTest();
+
+  createStore("securePrefs", { theme: "fallback" }, {
+    persist: {
+      driver,
+      key: "secure-prefs",
+      serialize: (value: any) => `SER:${JSON.stringify(value)}`,
+      deserialize: (value: string) => JSON.parse(value.slice(4)),
+      encrypt: (value: string) => `ENC:${value}`,
+      decrypt: (value: string) => value.slice(4),
+    },
+  });
+
+  assert.deepStrictEqual(getStore("securePrefs"), { theme: "light" });
 });
