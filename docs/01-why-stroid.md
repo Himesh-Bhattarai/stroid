@@ -6,7 +6,7 @@
 
 ## The Problem
 
-Redux brings ceremony. Zustand brings inconsistency. Context brings re-renders. Most tools make you choose between power and ease.
+Redux brings ceremony. Context brings re-renders. Most tools make you choose between power and ease.
 
 ---
 

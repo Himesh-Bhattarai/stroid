@@ -1,5 +1,6 @@
 import assert from "node:assert";
 import test from "node:test";
+import "../../src/sync.js";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 

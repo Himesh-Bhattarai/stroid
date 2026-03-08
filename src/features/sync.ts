@@ -1,10 +1,13 @@
 import type { StoreValue, SyncOptions } from "../adapters/options.js";
+import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
 
 export type SyncChannels = Record<string, BroadcastChannel>;
 export type SyncClocks = Record<string, number>;
 export type SyncVersion = { clock: number; updatedAt: number; source: string };
 export type SyncVersions = Record<string, SyncVersion>;
 export type SyncWindowCleanup = Record<string, () => void>;
+
+let _registered = false;
 
 type SyncMeta = {
     updatedAt: string;
@@ -305,4 +308,131 @@ export const broadcastSync = ({
     } catch (err) {
         reportStoreError(name, `Failed to broadcast sync for "${name}": ${(err as { message?: string })?.message ?? err}`);
     }
+};
+
+export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
+    const syncChannels: SyncChannels = Object.create(null);
+    const syncClocks: SyncClocks = Object.create(null);
+    const syncVersions: SyncVersions = Object.create(null);
+    const syncWindowCleanup: SyncWindowCleanup = Object.create(null);
+    const instanceId = `stroid_${Math.random().toString(16).slice(2)}`;
+
+    const recordLocalVersion = (name: string, updatedAt: string): void => {
+        syncVersions[name] = {
+            clock: syncClocks[name] ?? 0,
+            updatedAt: Date.parse(updatedAt || new Date().toISOString()),
+            source: instanceId,
+        };
+    };
+
+    const ensureLocalClock = (name: string, updatedAt: string): void => {
+        bumpSyncClock(name, syncClocks);
+        recordLocalVersion(name, updatedAt);
+    };
+
+    return {
+        onStoreCreate(ctx) {
+            if (!ctx.options.sync) return;
+
+            recordLocalVersion(ctx.name, ctx.getMeta()?.updatedAt || new Date().toISOString());
+
+            setupSync({
+                name: ctx.name,
+                syncOption: ctx.options.sync,
+                syncChannels,
+                syncClocks,
+                syncVersions,
+                syncWindowCleanup,
+                instanceId,
+                getMeta: ctx.getMeta,
+                getAcceptedSyncVersion: (name) => syncVersions[name],
+                getStoreValue: (name) => ctx.getStoreValue(),
+                hasStoreEntry: () => ctx.hasStore(),
+                notify: () => ctx.notify(),
+                validateSchema: (name, next) => ctx.validateSchema(next),
+                reportStoreError: (name, message) => ctx.reportStoreError(message),
+                warn: ctx.warn,
+                setStoreValue: (name, value) => ctx.setStoreValue(value),
+                acceptIncomingSyncVersion: (name, updatedAtMs, incomingClock, source) => {
+                    ctx.applyFeatureState(ctx.getStoreValue(), updatedAtMs);
+                    syncClocks[ctx.name] = Math.max(syncClocks[ctx.name] ?? 0, incomingClock);
+                    syncVersions[ctx.name] = {
+                        clock: incomingClock,
+                        updatedAt: updatedAtMs,
+                        source,
+                    };
+                },
+                resolveSyncVersion: (name, updatedAtMs, incomingClock) => {
+                    ctx.applyFeatureState(ctx.getStoreValue(), updatedAtMs);
+                    const resolvedClock = absorbSyncClock(ctx.name, incomingClock, syncClocks);
+                    syncVersions[ctx.name] = {
+                        clock: resolvedClock,
+                        updatedAt: updatedAtMs,
+                        source: instanceId,
+                    };
+                    return resolvedClock;
+                },
+                broadcastSync: () => {
+                    const meta = ctx.getMeta();
+                    if (!meta) return;
+                    broadcastSync({
+                        name: ctx.name,
+                        syncOption: ctx.options.sync,
+                        syncChannels,
+                        syncClocks,
+                        instanceId,
+                        updatedAt: meta.updatedAt,
+                        data: ctx.getStoreValue(),
+                        hashState: ctx.hashState,
+                        reportStoreError: (name, message) => ctx.reportStoreError(message),
+                    });
+                },
+            });
+        },
+
+        onStoreWrite(ctx) {
+            if (!ctx.options.sync) return;
+            const meta = ctx.getMeta();
+            if (!meta) return;
+            ensureLocalClock(ctx.name, meta.updatedAt);
+            broadcastSync({
+                name: ctx.name,
+                syncOption: ctx.options.sync,
+                syncChannels,
+                syncClocks,
+                instanceId,
+                updatedAt: meta.updatedAt,
+                data: ctx.next,
+                hashState: ctx.hashState,
+                reportStoreError: (name, message) => ctx.reportStoreError(message),
+            });
+        },
+
+        beforeStoreDelete(ctx) {
+            closeSyncResources({
+                name: ctx.name,
+                syncChannels,
+                syncWindowCleanup,
+                syncClocks,
+                syncVersions,
+            });
+        },
+
+        resetAll() {
+            cleanupAllSyncResources({
+                syncChannels,
+                syncWindowCleanup,
+            });
+            Object.keys(syncChannels).forEach((key) => delete syncChannels[key]);
+            Object.keys(syncClocks).forEach((key) => delete syncClocks[key]);
+            Object.keys(syncVersions).forEach((key) => delete syncVersions[key]);
+            Object.keys(syncWindowCleanup).forEach((key) => delete syncWindowCleanup[key]);
+        },
+    };
+};
+
+export const registerSyncFeature = (): void => {
+    if (_registered) return;
+    _registered = true;
+    registerStoreFeature("sync", createSyncFeatureRuntime);
 };

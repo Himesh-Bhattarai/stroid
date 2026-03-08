@@ -1,8 +1,11 @@
 import type { PersistConfig, StoreValue } from "../adapters/options.js";
+import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
 
 export type PersistWatchEntry = { lastPresent: boolean; dispose: () => void };
 export type PersistWatchState = Record<string, PersistWatchEntry>;
 export type PersistTimers = Record<string, ReturnType<typeof setTimeout>>;
+
+let _registered = false;
 
 type PersistMeta = {
     version: number;
@@ -309,4 +312,116 @@ export const persistLoad = ({
         reportStoreError(name, `Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
         return true;
     }
+};
+
+export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
+    const persistTimers: PersistTimers = {};
+    const persistKeys: Record<string, string> = Object.create(null);
+    const persistWatchState: PersistWatchState = Object.create(null);
+
+    return {
+        onStoreCreate(ctx) {
+            const cfg = ctx.options.persist;
+            if (!cfg) return;
+
+            if (cfg.key) {
+                const existing = persistKeys[cfg.key];
+                if (existing && existing !== ctx.name && ctx.isDev()) {
+                    ctx.warn(
+                        `Persist key collision: "${cfg.key}" already used by store "${existing}". ` +
+                        `Store "${ctx.name}" will overwrite the same storage key.`,
+                    );
+                } else {
+                    persistKeys[cfg.key] = ctx.name;
+                }
+            }
+
+            const hadPersistedState = persistLoad({
+                name: ctx.name,
+                silent: true,
+                getMeta: ctx.getMeta,
+                getInitialState: ctx.getInitialState,
+                setStoreValue: ctx.setStoreValue,
+                reportStoreError: (name, message) => ctx.reportStoreError(message),
+                validateSchema: ctx.validateSchema,
+                log: ctx.log,
+                hashState: ctx.hashState,
+                deepClone: ctx.deepClone,
+                sanitize: ctx.sanitize,
+            });
+
+            if (!hadPersistedState) {
+                persistSave({
+                    name: ctx.name,
+                    persistTimers,
+                    persistWatchState,
+                    exists: () => ctx.hasStore(),
+                    getMeta: ctx.getMeta,
+                    getStoreValue: ctx.getStoreValue,
+                    reportStoreError: (name, message) => ctx.reportStoreError(message),
+                    hashState: ctx.hashState,
+                });
+            }
+
+            setupPersistWatch({
+                name: ctx.name,
+                persistConfig: cfg,
+                persistWatchState,
+            });
+        },
+
+        onStoreWrite(ctx) {
+            if (!ctx.options.persist) return;
+            persistSave({
+                name: ctx.name,
+                persistTimers,
+                persistWatchState,
+                exists: () => ctx.hasStore(),
+                getMeta: ctx.getMeta,
+                getStoreValue: ctx.getStoreValue,
+                reportStoreError: (name, message) => ctx.reportStoreError(message),
+                hashState: ctx.hashState,
+            });
+        },
+
+        beforeStoreDelete(ctx) {
+            const cfg = ctx.options.persist;
+            if (!cfg) return;
+
+            if (persistTimers[ctx.name]) {
+                clearTimeout(persistTimers[ctx.name]);
+                delete persistTimers[ctx.name];
+            }
+
+            try {
+                cfg.driver.removeItem?.(cfg.key);
+            } catch (_) {
+                // ignore driver cleanup errors
+            }
+
+            if (cfg.key && persistKeys[cfg.key] === ctx.name) {
+                delete persistKeys[cfg.key];
+            }
+
+            persistWatchState[ctx.name]?.dispose();
+            delete persistWatchState[ctx.name];
+        },
+
+        resetAll() {
+            Object.values(persistTimers).forEach((timer) => clearTimeout(timer));
+            Object.values(persistWatchState).forEach((entry) => {
+                try { entry.dispose(); } catch (_) { /* ignore cleanup errors */ }
+            });
+
+            Object.keys(persistTimers).forEach((key) => delete persistTimers[key]);
+            Object.keys(persistKeys).forEach((key) => delete persistKeys[key]);
+            Object.keys(persistWatchState).forEach((key) => delete persistWatchState[key]);
+        },
+    };
+};
+
+export const registerPersistFeature = (): void => {
+    if (_registered) return;
+    _registered = true;
+    registerStoreFeature("persist", createPersistFeatureRuntime);
 };

@@ -3,7 +3,9 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createStore, setStore, getStore, clearAllStores, deleteStore, resetStore } from "../src/store.js";
+import "../src/persist.js";
+import { clearAllStores } from "../src/runtime-admin.js";
+import { createStore, setStore, getStore, deleteStore, resetStore } from "../src/store.js";
 import { resetAllStoresForTest } from "../src/testing.js";
 import { hashState } from "../src/utils.js";
 
@@ -47,9 +49,11 @@ test("persist setItem errors surface via onError without throwing", async () => 
 test("persist critical failures still surface via onError in production", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const storePath = path.join(repoRoot, "src", "store.ts");
+  const persistPath = path.join(repoRoot, "src", "persist.ts");
   const script = `
     const assert = (await import("node:assert")).default;
     const { pathToFileURL } = await import("node:url");
+    await import(pathToFileURL(${JSON.stringify(persistPath)}).href);
     const { createStore, getStore, clearAllStores } = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
 
     const checksumErrors = [];
@@ -97,6 +101,49 @@ test("persist critical failures still surface via onError in production", () => 
 
     assert.ok(loadErrors.some((msg) => msg.includes('Could not load store "secureCart"')));
     clearAllStores();
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("full package stays lean and requires explicit persist registration in production", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const indexPath = path.join(repoRoot, "src", "index.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const stroid = await import(pathToFileURL(${JSON.stringify(indexPath)}).href);
+    const errors = [];
+
+    stroid.createStore("cart", { items: [1] }, {
+      allowSSRGlobalStore: true,
+      persist: {
+        driver: {
+          getItem: () => JSON.stringify({ v: 1, checksum: 0, data: JSON.stringify({ items: [2] }) }),
+          setItem: () => {},
+          removeItem: () => {},
+        },
+        key: "cart-prod-root",
+        serialize: JSON.stringify,
+        deserialize: JSON.parse,
+        encrypt: (v) => v,
+        decrypt: (v) => v,
+      },
+      onError: (msg) => errors.push(msg),
+    });
+
+    assert.deepStrictEqual(stroid.getStore("cart"), { items: [1] });
+    assert.ok(errors.some((msg) => msg.includes('Store "cart" requested persist support, but "persist" is not registered.')));
+    assert.strictEqual(typeof stroid.clearAllStores, "undefined");
   `;
 
   const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {

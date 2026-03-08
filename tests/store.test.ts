@@ -3,7 +3,18 @@ import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import "../src/persist.js";
+import "../src/sync.js";
+import "../src/devtools.js";
 import { devDeepFreeze } from "../src/devfreeze.js";
+import { getHistory, clearHistory } from "../src/devtools.js";
+import { clearAllStores } from "../src/runtime-admin.js";
+import {
+  listStores,
+  getInitialState,
+  getStoreMeta,
+  getMetrics,
+} from "../src/runtime-tools.js";
 import {
   createStore,
   setStore,
@@ -12,25 +23,14 @@ import {
   resetStore,
   mergeStore,
   hasStore,
-  listStores,
-  clearAllStores,
   _subscribe,
   _getSnapshot,
   hydrateStores,
-  getHistory,
-  createStoreForRequest,
-  getInitialState,
-  getStoreMeta,
-  clearHistory,
-  subscribeWithSelector,
-  createCounterStore,
-  createListStore,
-  createEntityStore,
-  createSelector,
-  createZustandCompatStore,
-  getMetrics,
   setStoreBatch,
 } from "../src/store.js";
+import { createCounterStore, createListStore, createEntityStore } from "../src/helpers.js";
+import { subscribeWithSelector, createSelector } from "../src/selectors.js";
+import { createStoreForRequest } from "../src/server.js";
 
 test("createStore with object data", () => {
   clearAllStores();
@@ -589,38 +589,6 @@ test("createEntityStore supports remove and clear operations", () => {
   entities.clear();
   assert.deepStrictEqual(entities.all(), []);
   assert.deepStrictEqual(getStore("entityUsers"), { entities: {}, ids: [] });
-});
-
-test("createZustandCompatStore supports merge, subscribe, and destroy", async () => {
-  clearAllStores();
-  const seen: Array<Record<string, unknown> | null> = [];
-
-  const api = createZustandCompatStore<{ count: number; label: string }>((set, get) => ({
-    count: 1,
-    label: "init",
-    inc: () => set({ count: get().count + 1 }),
-  }) as any, {
-    name: "zustandCompat",
-  });
-
-  const unsubscribe = api.subscribe((value) => {
-    seen.push(value as Record<string, unknown> | null);
-  });
-
-  assert.deepStrictEqual(api.getState(), { count: 1, label: "init", inc: api.getState().inc });
-
-  api.setState({ label: "next" });
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.strictEqual((api.getState() as any).count, 1);
-  assert.strictEqual((api.getState() as any).label, "next");
-
-  unsubscribe();
-  api.destroy();
-
-  assert.strictEqual(hasStore("zustandCompat"), false);
-  assert.strictEqual(seen.length, 1);
-  assert.strictEqual((seen[0] as any)?.count, 1);
-  assert.strictEqual((seen[0] as any)?.label, "next");
 });
 
 test("_getSnapshot returns stable cloned snapshots", () => {
@@ -1367,24 +1335,63 @@ test("clearAllStores removes stores created during delete hooks", () => {
 test("history snapshots stay immutable in production", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const storePath = path.join(repoRoot, "src", "store.ts");
+  const devtoolsPath = path.join(repoRoot, "src", "devtools.ts");
   const script = `
     const assert = (await import("node:assert")).default;
     const { pathToFileURL } = await import("node:url");
+    await import(pathToFileURL(${JSON.stringify(devtoolsPath)}).href);
     const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const devtools = await import(pathToFileURL(${JSON.stringify(devtoolsPath)}).href);
 
     store.createStore("user", { profile: { color: "blue" } }, { allowSSRGlobalStore: true });
     store.setStore("user", { profile: { color: "green" } });
 
-    const history = store.getHistory("user");
+    const history = devtools.getHistory("user");
     history[1].next.profile.color = "red";
 
-    assert.deepStrictEqual(store.getHistory("user")[1].next, { profile: { color: "green" } });
+    assert.deepStrictEqual(devtools.getHistory("user")[1].next, { profile: { color: "green" } });
 
     const live = store.getStore("user");
     live.profile.color = "purple";
 
-    assert.deepStrictEqual(store.getHistory("user")[1].next, { profile: { color: "green" } });
+    assert.deepStrictEqual(devtools.getHistory("user")[1].next, { profile: { color: "green" } });
     assert.deepStrictEqual(store.getStore("user"), { profile: { color: "green" } });
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("full package stays lean and requires explicit devtools registration in production", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const indexPath = path.join(repoRoot, "src", "index.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const stroid = await import(pathToFileURL(${JSON.stringify(indexPath)}).href);
+    const errors = [];
+
+    stroid.createStore("user", { profile: { color: "blue" } }, {
+      allowSSRGlobalStore: true,
+      devtools: {
+        enabled: true,
+        historyLimit: 10,
+      },
+      onError: (msg) => errors.push(msg),
+    });
+    stroid.setStore("user", { profile: { color: "green" } });
+
+    assert.strictEqual(typeof stroid.getHistory, "undefined");
+    assert.strictEqual(typeof stroid.clearAllStores, "undefined");
+    assert.ok(errors.some((msg) => msg.includes('Store "user" requested devtools support, but "devtools" is not registered.')));
   `;
 
   const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {

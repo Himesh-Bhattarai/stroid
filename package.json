@@ -13,9 +13,45 @@
       "types": "./dist/core.d.ts",
       "import": "./dist/core.js"
     },
+    "./runtime-tools": {
+      "types": "./dist/runtime-tools.d.ts",
+      "import": "./dist/runtime-tools.js"
+    },
+    "./runtime-admin": {
+      "types": "./dist/runtime-admin.d.ts",
+      "import": "./dist/runtime-admin.js"
+    },
+    "./selectors": {
+      "types": "./dist/selectors.d.ts",
+      "import": "./dist/selectors.js"
+    },
+    "./chain": {
+      "types": "./dist/chain.d.ts",
+      "import": "./dist/chain.js"
+    },
+    "./helpers": {
+      "types": "./dist/helpers.d.ts",
+      "import": "./dist/helpers.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
     "./async": {
       "types": "./dist/async.d.ts",
       "import": "./dist/async.js"
+    },
+    "./persist": {
+      "types": "./dist/persist.d.ts",
+      "import": "./dist/persist.js"
+    },
+    "./sync": {
+      "types": "./dist/sync.d.ts",
+      "import": "./dist/sync.js"
+    },
+    "./devtools": {
+      "types": "./dist/devtools.d.ts",
+      "import": "./dist/devtools.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
@@ -42,7 +78,14 @@
     "url": "https://github.com/Himesh-Bhattarai/stroid/issues"
   },
   "homepage": "https://github.com/Himesh-Bhattarai/stroid#readme",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/persist.ts",
+    "./src/sync.ts",
+    "./src/devtools.ts",
+    "./dist/persist.js",
+    "./dist/sync.js",
+    "./dist/devtools.js"
+  ],
   "scripts": {
     "test": "node --import tsx --test \"tests/**/*.test.ts\" \"tests/**/*.test.tsx\"",
     "test:heavy": "node --import tsx --test \"tests/heavy/**/*.heavy.ts\"",

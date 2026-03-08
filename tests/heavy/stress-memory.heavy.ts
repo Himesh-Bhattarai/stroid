@@ -1,7 +1,9 @@
 import assert from "node:assert";
 import test from "node:test";
 import { fetchStore, refetchStore } from "../../src/async.js";
-import { _subscribe, clearAllStores, createStore, deleteStore, getMetrics, getStore, hasStore, listStores, setStore } from "../../src/store.js";
+import { clearAllStores } from "../../src/runtime-admin.js";
+import { _subscribe, createStore, deleteStore, getStore, hasStore, setStore } from "../../src/store.js";
+import { getMetrics, listStores } from "../../src/runtime-tools.js";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 

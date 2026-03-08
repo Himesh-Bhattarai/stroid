@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
-import { _subscribe, subscribeWithSelector, _getSnapshot, hasStore } from "./store.js";
+import { _subscribe, _getSnapshot, hasStore } from "./store.js";
+import { subscribeWithSelector } from "./selectors.js";
 import { getByPath, warn, isDev } from "./utils.js";
 
 const pickPath = (data: any, path?: string) => {

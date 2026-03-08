@@ -85,18 +85,18 @@ Stroid ships a few helpers for common patterns:
 - `createCounterStore(name, initial = 0, options?)` -> { inc, dec, set, reset, get }
 - `createListStore(name, initialArray = [], options?)` -> { push, removeAt, clear, replace, all }
 - `createEntityStore(name, options?)` -> { upsert, remove, all, get, clear }
-- `createSelector(storeName, selectorFn)` -> memoized selector you can call without React
-- `createZustandCompatStore(initializer, options?)` -> small compat layer for Zustand-style APIs
-- `chain(storeName)` -> fluent getter/setter for nested paths
+- `createSelector(storeName, selectorFn)` from `stroid/selectors` -> memoized selector you can call without React
+- `subscribeWithSelector(name, selector, equalityFn, listener)` from `stroid/selectors` -> watch a derived value outside React
+- `chain(storeName)` from `stroid/chain` -> fluent getter/setter for nested paths
 
-All of these are exported from the main package.
+Factory helpers are exported from `stroid/helpers`, selector helpers from `stroid/selectors`, and `chain` from `stroid/chain`.
 
 ---
 
 ## Introspection and Cleanup
 
 - `getStoreMeta(name)` -> options and metrics
-- `getHistory(name, limit?)` and `clearHistory(name?)`
+- `getHistory(name, limit?)` and `clearHistory(name?)` from `stroid/devtools`
 - `getMetrics(name)` -> subscriber timing stats
 - `listStores()` and `hasStore(name)`
 - `clearAllStores()` and `deleteStore(name)`

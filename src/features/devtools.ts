@@ -1,4 +1,5 @@
 import type { StoreValue } from "../adapters/options.js";
+import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
 
 export type HistoryDiff = { added: string[]; removed: string[]; changed: string[] } | null;
 
@@ -8,6 +9,17 @@ export type HistoryEntry = {
     prev: StoreValue;
     next: StoreValue;
     diff: HistoryDiff;
+};
+
+let _registered = false;
+
+const cloneValue = <T,>(value: T): T => {
+    try {
+        if (typeof structuredClone === "function") return structuredClone(value);
+        return JSON.parse(JSON.stringify(value)) as T;
+    } catch (_) {
+        return value;
+    }
 };
 
 export const initDevtools = ({
@@ -129,4 +141,117 @@ export const sendDevtools = ({
     } catch (_) {
         // ignore devtools transport errors
     }
+};
+
+export const createDevtoolsFeatureRuntime = (): StoreFeatureRuntime => {
+    const history: Record<string, HistoryEntry[]> = Object.create(null);
+    let devtools: any;
+
+    return {
+        onStoreCreate(ctx) {
+            devtools = initDevtools({
+                name: ctx.name,
+                useDevtools: !!ctx.options.devtools,
+                existingDevtools: devtools,
+                stores: ctx.getAllStores(),
+                warn: ctx.warn,
+            });
+
+            pushHistory({
+                name: ctx.name,
+                action: "create",
+                prev: null,
+                next: ctx.getStoreValue(),
+                history,
+                historyLimit: ctx.options.historyLimit ?? 50,
+                applyRedactor: (value) => applyRedactor({
+                    data: value,
+                    redactor: ctx.options.redactor,
+                    deepClone: ctx.deepClone,
+                }),
+                deepClone: ctx.deepClone,
+            });
+        },
+
+        onStoreWrite(ctx) {
+            pushHistory({
+                name: ctx.name,
+                action: ctx.action,
+                prev: ctx.prev,
+                next: ctx.next,
+                history,
+                historyLimit: ctx.options.historyLimit ?? 50,
+                applyRedactor: (value) => applyRedactor({
+                    data: value,
+                    redactor: ctx.options.redactor,
+                    deepClone: ctx.deepClone,
+                }),
+                deepClone: ctx.deepClone,
+            });
+
+            sendDevtools({
+                name: ctx.name,
+                action: ctx.action,
+                devtools,
+                enabled: !!ctx.options.devtools,
+                stores: ctx.getAllStores(),
+                applyRedactor: (value) => applyRedactor({
+                    data: value,
+                    redactor: ctx.options.redactor,
+                    deepClone: ctx.deepClone,
+                }),
+            });
+        },
+
+        afterStoreDelete(ctx) {
+            if (ctx.options.devtools) {
+                sendDevtools({
+                    name: ctx.name,
+                    action: "delete",
+                    force: true,
+                    devtools,
+                    enabled: true,
+                    stores: ctx.getAllStores(),
+                    applyRedactor: (value) => applyRedactor({
+                        data: value,
+                        redactor: ctx.options.redactor,
+                        deepClone: ctx.deepClone,
+                    }),
+                });
+            }
+            delete history[ctx.name];
+        },
+
+        resetAll() {
+            Object.keys(history).forEach((name) => {
+                delete history[name];
+            });
+            devtools = undefined;
+        },
+
+        api: {
+            getHistory(name, limit) {
+                if (!history[name]) return [];
+                const entries = history[name];
+                if (limit && limit > 0) return cloneValue(entries.slice(-limit));
+                return cloneValue(entries);
+            },
+
+            clearHistory(name) {
+                if (name) {
+                    delete history[name];
+                    return;
+                }
+                Object.keys(history).forEach((key) => {
+                    delete history[key];
+                });
+            },
+        },
+    };
+};
+
+export const registerDevtoolsFeature = (): void => {
+    if (_registered) return;
+    _registered = true;
+    registerStoreFeature("devtools", createDevtoolsFeatureRuntime);
 };

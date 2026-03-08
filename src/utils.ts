@@ -1,34 +1,28 @@
-const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NODE_ENV === "string"
-    ? process.env.NODE_ENV
-    : undefined;
-const _envFromImportMeta = typeof import.meta !== "undefined" && (import.meta as any)?.env?.MODE
-    ? (import.meta as any).env.MODE
-    : undefined;
-const _devFlag = typeof globalThis !== "undefined" && typeof (globalThis as any).__STROID_DEV__ === "boolean"
-    ? (globalThis as any).__STROID_DEV__
-    : undefined;
-
-// Default to production when the environment is unknown to avoid leaking dev logs in bundled builds.
-const _fallbackEnv = "production";
-const _resolvedEnv = _envFromProcess ?? _envFromImportMeta ?? _fallbackEnv;
-
-export const __DEV__ = typeof _devFlag === "boolean"
-    ? _devFlag
-    : _resolvedEnv !== "production";
-
-export const isDev = (): boolean => __DEV__;
-
-export const warn: (msg: string) => void = __DEV__
-    ? (msg: string) => { console.warn(`[stroid] ${msg}`); }
-    : () => { };
-
-export const error: (msg: string) => void = __DEV__
-    ? (msg: string) => { console.error(`[stroid] ${msg}`); }
-    : () => { };
-
-export const log: (msg: string) => void = __DEV__
-    ? (msg: string) => { console.log(`[stroid] ${msg}`); }
-    : () => { };
+export {
+    __DEV__,
+    isDev,
+    warn,
+    error,
+    log,
+    suggestStoreName,
+} from "./internals/diagnostics.js";
+import {
+    error,
+    getDateStoreWarningMessage,
+    getDeepNestingWarningMessage,
+    getInvalidFunctionStoreValueMessage,
+    getInvalidStoreNameMessage,
+    getMapSetStoreWarningMessage,
+    getPathDepthExceededMessage,
+    getPathNotObjectMessage,
+    getPathReachedNullMessage,
+    getSanitizeDateWarningMessage,
+    getSanitizeMapWarningMessage,
+    getSanitizeSetWarningMessage,
+    getStoreNameContainsSpacesMessage,
+    isDev,
+    warn,
+} from "./internals/diagnostics.js";
 
 // --- hashing / checksum ------------------------------------------------------
 let _crcTable: number[] | null = null;
@@ -203,24 +197,15 @@ export const getType = (value: unknown): SupportedType => {
 export const isValidData = (value: unknown): boolean => {
     const type = getType(value);
     if (type === "function") {
-        error(
-            `Functions cannot be stored in stroid.\n` +
-            `Store data only - handle functions outside the store.`
-        );
+        error(getInvalidFunctionStoreValueMessage());
         return false;
     }
     if (type === "map" || type === "set") {
-        warn(
-            `Map/Set detected. stroid converts these to plain objects.\n` +
-            `Use arrays or plain objects for best results.`
-        );
+        warn(getMapSetStoreWarningMessage());
         return true;
     }
     if (type === "date") {
-        warn(
-            `Date object detected. stroid stores it as ISO string.\n` +
-            `Use new Date(value) to convert back when reading.`
-        );
+        warn(getDateStoreWarningMessage());
         return true;
     }
     return true;
@@ -241,7 +226,7 @@ const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
         throw new Error("Symbol values are not supported");
     }
     if (type === "date") {
-        if (isDev()) warn("Date detected; stored as ISO string. Use new Date(value) when reading.");
+        if (isDev()) warn(getSanitizeDateWarningMessage());
         return (value as Date).toISOString();
     }
     if (type === "map") {
@@ -249,7 +234,7 @@ const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
             throw new Error("Circular reference detected during sanitize");
         }
         seen.add(value as object);
-        if (isDev()) warn("Map detected; converting to plain object.");
+        if (isDev()) warn(getSanitizeMapWarningMessage());
         const clean: Record<string, unknown> = {};
         for (const [key, entryValue] of value as Map<unknown, unknown>) {
             if (typeof key !== "string") {
@@ -264,7 +249,7 @@ const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
             throw new Error("Circular reference detected during sanitize");
         }
         seen.add(value as object);
-        if (isDev()) warn("Set detected; converting to array.");
+        if (isDev()) warn(getSanitizeSetWarningMessage());
         return Array.from(value as Set<unknown>, (entry) => _sanitize(entry, seen));
     }
     if (type === "object") {
@@ -339,19 +324,11 @@ export const validateDepth = (path: PathInput): boolean => {
     const parts = parsePath(path);
     const depth = parts.length;
     if (depth > MAX_DEPTH) {
-        error(
-            `Path depth of ${depth} exceeded maximum of ${MAX_DEPTH}.\n` +
-            `"${parts.join(".")}"\n` +
-            `This is a data design issue. Split into separate stores:\n` +
-            `createStore("${parts[0]}", ...) and createStore("${parts[1]}", ...)`
-        );
+        error(getPathDepthExceededMessage(depth, MAX_DEPTH, parts));
         return false;
     }
     if (depth > WARN_DEPTH) {
-        warn(
-            `Deep nesting detected (${depth} levels): "${parts.join(".")}"\n` +
-            `Consider splitting into separate stores for better readability.`
-        );
+        warn(getDeepNestingWarningMessage(depth, parts));
     }
     return true;
 };
@@ -361,11 +338,11 @@ export const getByPath = (obj: unknown, path: PathInput): unknown => {
     let current: unknown = obj;
     for (const part of parts) {
         if (current === null || current === undefined) {
-            warn(`Path "${parts.join(".")}" not found - reached null at "${part}"`);
+            warn(getPathReachedNullMessage(parts, part));
             return undefined;
         }
         if (typeof current !== "object") {
-            warn(`Cannot go deeper at "${part}" - value is not an object`);
+            warn(getPathNotObjectMessage(part));
             return undefined;
         }
         current = (current as Record<string, unknown>)[part];
@@ -412,64 +389,12 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
 
 export const isValidStoreName = (name: string): boolean => {
     if (typeof name !== "string" || name.trim() === "") {
-        error(`Store name must be a non-empty string. Got: ${JSON.stringify(name)}`);
+        error(getInvalidStoreNameMessage(name));
         return false;
     }
     if (name.includes(" ")) {
-        error(
-            `Store name "${name}" contains spaces.\n` +
-            `Use camelCase or kebab-case: "userName" or "user-name"`
-        );
+        error(getStoreNameContainsSpacesMessage(name));
         return false;
     }
     return true;
-};
-
-export const suggestStoreName = (name: string, existingNames: string[]): void => {
-    const similar = existingNames.find((n) => {
-        const a = n.toLowerCase();
-        const b = name.toLowerCase();
-        return (
-            a.includes(b) ||
-            b.includes(a) ||
-            _shouldCheckLevenshtein(a, b) && levenshtein(a, b) <= 2
-        );
-    });
-    if (similar) {
-        warn(`Store "${name}" not found. Did you mean "${similar}"?`);
-    } else {
-        error(
-            `Store "${name}" not found.\n` +
-            `Available stores: [${existingNames.join(", ")}]\n` +
-            `Call createStore("${name}", data) first.`
-        );
-    }
-};
-
-const MAX_LEVENSHTEIN_INPUT_LENGTH = 128;
-
-const _shouldCheckLevenshtein = (a: string, b: string): boolean => {
-    if (Math.abs(a.length - b.length) > 2) return false;
-    return Math.max(a.length, b.length) <= MAX_LEVENSHTEIN_INPUT_LENGTH;
-};
-
-const levenshtein = (a: string, b: string): number => {
-    if (a === b) return 0;
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
-
-    let prev = Array.from({ length: a.length + 1 }, (_, i) => i);
-    let next = new Array<number>(a.length + 1);
-
-    for (let i = 1; i <= b.length; i++) {
-        next[0] = i;
-        for (let j = 1; j <= a.length; j++) {
-            next[j] =
-                b[i - 1] === a[j - 1]
-                    ? prev[j - 1]
-                    : Math.min(prev[j - 1], next[j - 1], prev[j]) + 1;
-        }
-        [prev, next] = [next, prev];
-    }
-    return prev[a.length];
 };

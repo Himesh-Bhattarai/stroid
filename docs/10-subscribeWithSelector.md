@@ -7,7 +7,7 @@
 ## Basic Usage
 
 ```js
-import { subscribeWithSelector } from "stroid"
+import { subscribeWithSelector } from "stroid/selectors"
 
 const unsubscribe = subscribeWithSelector(
   "user",                          // store name

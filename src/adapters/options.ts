@@ -106,6 +106,9 @@ export interface NormalizedOptions {
     historyLimit: number;
     allowSSRGlobalStore?: boolean;
     sync?: boolean | SyncOptions;
+    explicitPersist: boolean;
+    explicitSync: boolean;
+    explicitDevtools: boolean;
 }
 
 const warnedLegacyOptions = new Set<string>();
@@ -249,5 +252,8 @@ export const normalizeStoreOptions = <State>(
         historyLimit: devtoolsGroup?.historyLimit ?? option.historyLimit ?? 50,
         sync: sync ?? false,
         allowSSRGlobalStore: normalizedAllowSSRGlobalStore,
+        explicitPersist: Boolean(persist),
+        explicitSync: Boolean(sync),
+        explicitDevtools: hasOwn(option, "devtools") || hasOwn(option, "historyLimit") || hasOwn(option, "redactor"),
     };
 };

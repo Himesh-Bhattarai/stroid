@@ -3,13 +3,11 @@ import {
   createStore,
   setStore,
   getStore,
-  createSelector,
-  createCounterStore,
-  createListStore,
-  createEntityStore,
-  createZustandCompatStore,
   type StoreDefinition,
 } from "../../src/store.js";
+import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers.js";
+import { createSelector } from "../../src/selectors.js";
+import { createStoreForRequest } from "../../src/server.js";
 import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/hooks.js";
 import { fetchStore, getAsyncMetrics } from "../../src/async.js";
 import { createMockStore, benchmarkStoreSet, withMockedTime } from "../../src/testing.js";
@@ -133,24 +131,6 @@ const entity = entities.get("1");
 type EntityGetReturn = Expect<Equal<typeof entity, { id: string; name: string } | null>>;
 // @ts-expect-error entity payload is missing required fields
 entities.upsert({ id: "2" });
-
-const zustandCompat = createZustandCompatStore<{ count: number; label: string }>((set, get, api) => {
-  api.subscribe(() => undefined);
-  return {
-    count: 1,
-    label: "ready",
-  };
-}, { name: "typedZustand" });
-
-zustandCompat.setState({ count: 2 });
-zustandCompat.subscribeWithSelector((state) => state.count, Object.is, (next, prev) => {
-  const diff = next - prev;
-  void diff;
-});
-const zustandState = zustandCompat.getState();
-type ZustandGetState = Expect<Equal<typeof zustandState, { count: number; label: string }>>;
-// @ts-expect-error count must remain numeric
-zustandCompat.setState({ count: "bad" });
 
 const fetchPromise = fetchStore("typedAsync", Promise.resolve({ ok: true }), {
   retry: 1,

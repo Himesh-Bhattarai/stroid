@@ -28,35 +28,26 @@ import {
     type StoreOptions,
 } from "./adapters/options.js";
 import {
-    persistLoad,
-    persistSave,
-    setupPersistWatch,
-    type PersistWatchState,
-} from "./features/persist.js";
-import {
     MIDDLEWARE_ABORT,
     runMiddleware,
     runStoreHook,
 } from "./features/lifecycle.js";
 import {
-    applyRedactor,
-    initDevtools,
-    pushHistory,
-    sendDevtools,
-    type HistoryEntry,
-} from "./features/devtools.js";
+    getStoreFeatureFactory,
+    hasRegisteredStoreFeature,
+    type FeatureDeleteContext,
+    type FeatureName,
+    type FeatureWriteContext,
+    type StoreFeatureMeta,
+    type StoreFeatureRuntime,
+} from "./feature-registry.js";
 import {
-    absorbSyncClock,
-    broadcastSync,
-    bumpSyncClock,
-    cleanupAllSyncResources,
-    closeSyncResources,
-    setupSync,
-    type SyncChannels,
-    type SyncClocks,
-    type SyncVersions,
-    type SyncWindowCleanup,
-} from "./features/sync.js";
+    getStoreRegistry,
+    hasStoreEntry as _hasStoreEntry,
+    clearStoreRegistries,
+    normalizeStoreRegistryScope,
+} from "./store-registry.js";
+import { createStoreAdmin } from "./internals/store-admin.js";
 
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -95,42 +86,25 @@ export interface StoreDefinition<Name extends string = string, State = StoreValu
 }
 export type { PersistConfig, MiddlewareCtx, StoreOptions } from "./adapters/options.js";
 
-interface MetaEntry {
-    createdAt: string;
-    updatedAt: string;
-    updateCount: number;
-    version: number;
-    metrics: { notifyCount: number; totalNotifyMs: number; lastNotifyMs: number };
-    options: NormalizedOptions;
-}
+interface MetaEntry extends StoreFeatureMeta {}
 
 type Subscriber = (value: StoreValue | null) => void;
 
-const _stores: Record<string, StoreValue> = Object.create(null);
-const _subscribers: Record<string, Subscriber[]> = Object.create(null);
-const _initial: Record<string, StoreValue> = Object.create(null);
-const _meta: Record<string, MetaEntry> = Object.create(null);
-const _history: Record<string, HistoryEntry[]> = Object.create(null);
-const _syncChannels: SyncChannels = Object.create(null);
-const _syncClocks: SyncClocks = Object.create(null);
-const _syncVersions: SyncVersions = Object.create(null);
-const _syncWindowCleanup: SyncWindowCleanup = Object.create(null);
-const _snapshotCache: Record<string, { source: StoreValue; snapshot: StoreValue | null }> = Object.create(null);
+const _registry = getStoreRegistry(normalizeStoreRegistryScope(import.meta.url));
+const _stores = _registry.stores as Record<string, StoreValue>;
+const _subscribers = _registry.subscribers as Record<string, Subscriber[]>;
+const _initial = _registry.initialStates as Record<string, StoreValue>;
+const _meta = _registry.metaEntries as Record<string, MetaEntry>;
+const _snapshotCache = _registry.snapshotCache as Record<string, { source: StoreValue; snapshot: StoreValue | null }>;
 
 const _pendingNotifications = new Set<string>();
 let _notifyScheduled = false;
 let _batchDepth = 0;
-const INSTANCE_ID = `stroid_${Math.random().toString(16).slice(2)}`;
-const _persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
-const _persistKeys: Record<string, string> = Object.create(null);
-const _persistWatchState: PersistWatchState = Object.create(null);
 let _ssrWarningIssued = false;
-let _entityIdCounter = 0;
+const _featureRuntimes = _registry.featureRuntimes as Map<FeatureName, StoreFeatureRuntime>;
+const _storeAdmin = createStoreAdmin(import.meta.url);
 const _nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
     typeof name === "string" ? name : name.name;
-
-// DevTools (Redux DevTools extension)
-let _devtools: any;
 
 const _scheduleFlush = (): void => {
     if (_notifyScheduled) return;
@@ -167,20 +141,8 @@ const _notify = (name: string): void => {
     if (_batchDepth === 0) _scheduleFlush();
 };
 
-const _recordLocalSyncVersion = (name: string): void => {
-    const meta = _meta[name];
-    if (!meta) return;
-    _syncVersions[name] = {
-        clock: _syncClocks[name] ?? 0,
-        updatedAt: Date.parse(meta.updatedAt || new Date().toISOString()),
-        source: INSTANCE_ID,
-    };
-};
-
-const _hasStoreEntry = (name: string): boolean => Object.prototype.hasOwnProperty.call(_stores, name);
-
 const _exists = (name: string): boolean => {
-    if (_hasStoreEntry(name)) return true;
+    if (_hasStoreEntry(_registry, name)) return true;
     suggestStoreName(name, Object.keys(_stores));
     return false;
 };
@@ -262,23 +224,6 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
     return { ok: true };
 };
 
-const _devtoolsInit = (name: string): void => {
-    _devtools = initDevtools({
-        name,
-        useDevtools: !!_meta[name]?.options?.devtools,
-        existingDevtools: _devtools,
-        stores: _stores,
-        warn,
-    });
-};
-
-const _applyRedactor = (name: string, data: StoreValue): StoreValue =>
-    applyRedactor({
-        data,
-        redactor: _meta[name]?.options?.redactor,
-        deepClone,
-    });
-
 const _reportStoreError = (name: string, message: string): void => {
     _meta[name]?.options?.onError?.(message);
     warn(message);
@@ -294,29 +239,6 @@ const _reportStoreCreationError = (message: string, onError?: (message: string) 
         console.error(`[stroid] ${message}`);
     }
 };
-
-const _pushHistory = (name: string, action: string, prev: StoreValue, next: StoreValue): void =>
-    pushHistory({
-        name,
-        action,
-        prev,
-        next,
-        history: _history,
-        historyLimit: _meta[name]?.options?.historyLimit ?? 50,
-        applyRedactor: (value) => _applyRedactor(name, value),
-        deepClone,
-    });
-
-const _devtoolsSend = (name: string, action: string, force = false): void =>
-    sendDevtools({
-        name,
-        action,
-        force,
-        devtools: _devtools,
-        enabled: !!_meta[name]?.options?.devtools,
-        stores: _stores,
-        applyRedactor: (value) => _applyRedactor(name, value),
-    });
 
 const _runMiddleware = (
     name: string,
@@ -402,43 +324,107 @@ const _sanitizeValue = (
     }
 };
 
-const _setupPersistWatch = (name: string): void => {
-    setupPersistWatch({
-        name,
-        persistConfig: _meta[name]?.options?.persist,
-        persistWatchState: _persistWatchState,
+const _setStoreValueInternal = (name: string, value: StoreValue): void => {
+    _stores[name] = isDev() ? devDeepFreeze(value) : value;
+};
+
+const _applyFeatureState = (name: string, value: StoreValue, updatedAtMs = Date.now()): void => {
+    _setStoreValueInternal(name, value);
+    if (!_meta[name]) return;
+    _meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    _meta[name].updateCount++;
+};
+
+const _getFeatureRuntime = (name: FeatureName): StoreFeatureRuntime | undefined => {
+    const existing = _featureRuntimes.get(name);
+    if (existing) return existing;
+    const factory = getStoreFeatureFactory(name);
+    if (!factory) return undefined;
+    const runtime = factory();
+    _featureRuntimes.set(name, runtime);
+    return runtime;
+};
+
+const _warnMissingFeature = (storeName: string, featureName: FeatureName, onError?: (message: string) => void): void => {
+    const message =
+        `Store "${storeName}" requested ${featureName} support, but "${featureName}" is not registered.\n` +
+        `Import "stroid/${featureName}" before calling createStore("${storeName}", ...).`;
+    onError?.(message);
+    warn(message);
+};
+
+const _resolveFeatureAvailability = (name: string, options: NormalizedOptions): NormalizedOptions => {
+    const next: NormalizedOptions = { ...options };
+
+    if (next.persist && !hasRegisteredStoreFeature("persist")) {
+        if (next.explicitPersist) _warnMissingFeature(name, "persist", next.onError);
+        next.persist = null;
+    }
+
+    if (next.sync && !hasRegisteredStoreFeature("sync")) {
+        if (next.explicitSync) _warnMissingFeature(name, "sync", next.onError);
+        next.sync = false;
+    }
+
+    if (!hasRegisteredStoreFeature("devtools")) {
+        if (next.explicitDevtools) _warnMissingFeature(name, "devtools", next.onError);
+        next.devtools = false;
+        next.historyLimit = 0;
+        next.redactor = undefined;
+    }
+
+    return next;
+};
+
+const _createBaseFeatureContext = (name: string) => ({
+    name,
+    options: _meta[name].options,
+    getMeta: () => _meta[name],
+    getStoreValue: () => _stores[name],
+    getAllStores: () => _stores,
+    getInitialState: () => _initial[name],
+    hasStore: () => _hasStoreEntry(_registry, name),
+    setStoreValue: (value: StoreValue) => {
+        _setStoreValueInternal(name, value);
+    },
+    applyFeatureState: (value: StoreValue, updatedAtMs?: number) => {
+        _applyFeatureState(name, value, updatedAtMs);
+    },
+    notify: () => {
+        _notify(name);
+    },
+    reportStoreError: (message: string) => {
+        _reportStoreError(name, message);
+    },
+    warn,
+    log,
+    hashState,
+    deepClone,
+    sanitize,
+    validateSchema: (next: StoreValue) => _validateSchema(name, next),
+    isDev,
+});
+
+const _runFeatureCreateHooks = (name: string): void => {
+    (["persist", "devtools", "sync"] as FeatureName[]).forEach((featureName) => {
+        const runtime = _getFeatureRuntime(featureName);
+        runtime?.onStoreCreate?.(_createBaseFeatureContext(name));
     });
 };
 
-const _persistSave = (name: string): void => {
-    persistSave({
-        name,
-        persistTimers: _persistTimers,
-        persistWatchState: _persistWatchState,
-        exists: _exists,
-        getMeta: () => _meta[name],
-        getStoreValue: () => _stores[name],
-        reportStoreError: _reportStoreError,
-        hashState,
+const _runFeatureWriteHooks = (name: string, action: string, prev: StoreValue, next: StoreValue): void => {
+    const ctx: FeatureWriteContext = {
+        ..._createBaseFeatureContext(name),
+        action,
+        prev,
+        next,
+    };
+
+    (["persist", "devtools", "sync"] as FeatureName[]).forEach((featureName) => {
+        const runtime = _getFeatureRuntime(featureName);
+        runtime?.onStoreWrite?.(ctx);
     });
 };
-
-const _persistLoad = (name: string, { silent } = { silent: false }): boolean =>
-    persistLoad({
-        name,
-        silent,
-        getMeta: () => _meta[name],
-        getInitialState: () => _initial[name],
-        setStoreValue: (value) => {
-            _stores[name] = value;
-        },
-        reportStoreError: _reportStoreError,
-        validateSchema: (next) => _validateSchema(name, next),
-        log,
-        hashState,
-        deepClone,
-        sanitize,
-    });
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -455,7 +441,7 @@ export const createStore = <Name extends string, State>(
         warn(message);
     });
 
-    const normalizedOptions = normalizeStoreOptions(option, name);
+    const normalizedOptions = _resolveFeatureAvailability(name, normalizeStoreOptions(option, name));
 
     const isServer = typeof window === "undefined";
     const nodeEnv = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
@@ -471,7 +457,7 @@ export const createStore = <Name extends string, State>(
         return;
     }
 
-    if (_hasStoreEntry(name)) {
+    if (_hasStoreEntry(_registry, name)) {
         const msg = `Store "${name}" already exists. Call setStore("${name}", data) to update instead.`;
         warn(msg);
         _meta[name]?.options?.onError?.(msg);
@@ -487,18 +473,6 @@ export const createStore = <Name extends string, State>(
         );
     }
 
-    const persistConfig = normalizedOptions.persist;
-    if (persistConfig?.key) {
-        const existing = _persistKeys[persistConfig.key];
-        if (existing && existing !== name && isDev()) {
-            warn(
-                `Persist key collision: "${persistConfig.key}" already used by store "${existing}". ` +
-                `Store "${name}" will overwrite the same storage key.`
-            );
-        } else {
-            _persistKeys[persistConfig.key] = name;
-        }
-    }
     const cleanResult = _sanitizeValue(name, initialData, normalizedOptions.onError);
     if (!cleanResult.ok) return;
     const clean = cleanResult.value;
@@ -511,15 +485,7 @@ export const createStore = <Name extends string, State>(
         return;
     }
 
-    if (!_runValidator(
-        name,
-        clean as StoreValue,
-        normalizedOptions.validator,
-        normalizedOptions.onError
-    )) {
-        const msg = `Validator blocked initial state for "${name}"`;
-        return;
-    }
+    if (!_runValidator(name, clean as StoreValue, normalizedOptions.validator, normalizedOptions.onError)) return;
 
     const hadPreexistingSubscribers = !!_subscribers[name]?.length;
     _stores[name] = clean;
@@ -534,17 +500,8 @@ export const createStore = <Name extends string, State>(
         options: normalizedOptions,
     };
 
-    if (persistConfig) {
-        const hadPersistedState = _persistLoad(name, { silent: true });
-        if (!hadPersistedState) _persistSave(name);
-        _setupPersistWatch(name);
-    }
-
+    _runFeatureCreateHooks(name);
     _runStoreHook(name, "onCreate", _meta[name].options.onCreate, [clean]);
-    _devtoolsInit(name);
-    _recordLocalSyncVersion(name);
-    _setupSync(name);
-    _pushHistory(name, "create", null, clean);
     if (hadPreexistingSubscribers) _notify(name);
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
@@ -616,17 +573,11 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
 
     const next = _runMiddleware(storeName, { action: "set", prev, next: sanitizedUpdate, path: keyOrData });
     if (next === MIDDLEWARE_ABORT) return;
-    _stores[storeName] = isDev() ? devDeepFreeze(next) : next;
+    _setStoreValueInternal(storeName, next);
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
-    _bumpSyncClock(storeName);
-    _recordLocalSyncVersion(storeName);
-
-    if (_meta[storeName].options?.persist) _persistSave(storeName);
+    _runFeatureWriteHooks(storeName, "set", prev, next);
     _runStoreHook(storeName, "onSet", _meta[storeName].options.onSet, [prev, next]);
-    _pushHistory(storeName, "set", prev, next);
-    _devtoolsSend(storeName, "set");
-    _broadcastSync(storeName);
     _notify(storeName);
 
     log(`Store "${storeName}" updated`);
@@ -672,47 +623,7 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
 
 export const deleteStore = (name: string): void => {
     if (!_exists(name)) return;
-    const subs = _subscribers[name];
-    subs?.forEach((fn) => {
-        try {
-            fn(null);
-        } catch (err) {
-            warn(`Subscriber for "${name}" threw during delete: ${(err as { message?: string })?.message ?? err}`);
-        }
-    });
-    _runStoreHook(name, "onDelete", _meta[name].options.onDelete, [_stores[name]]);
-    const cfg = _meta[name].options.persist;
-    const devtoolsEnabled = _meta[name].options.devtools;
-
-    if (_persistTimers[name]) {
-        clearTimeout(_persistTimers[name]);
-        delete _persistTimers[name];
-    }
-
-    delete _stores[name];
-    delete _subscribers[name];
-    delete _initial[name];
-    delete _meta[name];
-    delete _history[name];
-    delete _snapshotCache[name];
-
-    try {
-    if (cfg?.driver?.removeItem) cfg.driver.removeItem(cfg.key);
-    } catch (_) {}
-
-    if (cfg?.key && _persistKeys[cfg.key] === name) delete _persistKeys[cfg.key];
-    _persistWatchState[name]?.dispose();
-    delete _persistWatchState[name];
-    closeSyncResources({
-        name,
-        syncChannels: _syncChannels,
-        syncWindowCleanup: _syncWindowCleanup,
-        syncClocks: _syncClocks,
-        syncVersions: _syncVersions,
-    });
-
-    if (devtoolsEnabled) _devtoolsSend(name, "delete", true);
-    log(`Store "${name}" deleted`);
+    _storeAdmin.deleteExistingStore(name);
 };
 
 export const resetStore = (name: string): void => {
@@ -720,16 +631,11 @@ export const resetStore = (name: string): void => {
     if (!_initial[name]) return;
     const prev = _stores[name];
     const resetValue = deepClone(_initial[name]);
-    _stores[name] = isDev() ? devDeepFreeze(resetValue) : resetValue;
+    _setStoreValueInternal(name, resetValue);
     _meta[name].updatedAt = new Date().toISOString();
-    _bumpSyncClock(name);
-    _recordLocalSyncVersion(name);
-    if (_meta[name].options?.persist) _persistSave(name);
-
+    _meta[name].updateCount++;
+    _runFeatureWriteHooks(name, "reset", prev, resetValue);
     _runStoreHook(name, "onReset", _meta[name].options.onReset, [prev, resetValue]);
-    _pushHistory(name, "reset", prev, resetValue);
-    _devtoolsSend(name, "reset");
-    _broadcastSync(name);
     _notify(name);
     log(`Store "${name}" reset to initial state/value`);
 };
@@ -759,16 +665,11 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
 
     const final = _runMiddleware(name, { action: "merge", prev: current, next, path: null });
     if (final === MIDDLEWARE_ABORT) return;
-    _stores[name] = isDev() ? devDeepFreeze(final) : final;
+    _setStoreValueInternal(name, final);
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
-    _bumpSyncClock(name);
-    _recordLocalSyncVersion(name);
-    if (_meta[name].options?.persist) _persistSave(name);
+    _runFeatureWriteHooks(name, "merge", current, final);
     _runStoreHook(name, "onSet", _meta[name].options.onSet, [current, final]);
-    _pushHistory(name, "merge", current, final);
-    _devtoolsSend(name, "merge");
-    _broadcastSync(name);
     _notify(name);
     log(`Store "${name}" merged with data`);
 };
@@ -796,86 +697,37 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
 
     const final = _runMiddleware(name, { action, prev, next: nextValue, path: null });
     if (final === MIDDLEWARE_ABORT) return;
-    _stores[name] = isDev() ? devDeepFreeze(final) : final;
+    _setStoreValueInternal(name, final);
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
-    _bumpSyncClock(name);
-    _recordLocalSyncVersion(name);
-    if (_meta[name].options?.persist) _persistSave(name);
+    _runFeatureWriteHooks(name, action, prev, final);
     _runStoreHook(name, "onSet", _meta[name].options.onSet, [prev, final]);
-    _pushHistory(name, action, prev, final);
-    _devtoolsSend(name, action);
-    _broadcastSync(name);
     _notify(name);
     log(`Store "${name}" hydrated`);
 };
 
 export const clearAllStores = (): void => {
-    let removed = 0;
-    let passes = 0;
-
-    while (Object.keys(_stores).length > 0 && passes < 1000) {
-        const names = Object.keys(_stores);
-        names.forEach((name) => {
-            if (_hasStoreEntry(name)) {
-                deleteStore(name);
-                removed += 1;
-            }
-        });
-        passes += 1;
-    }
-
-    if (Object.keys(_stores).length > 0) {
-        warn(`clearAllStores() stopped after ${passes} passes with ${Object.keys(_stores).length} stores still registered.`);
-        return;
-    }
-
-    warn(`All stores cleared (${removed} stores removed)`);
+    _storeAdmin.clearAllStores();
 };
 
 export const _hardResetAllStoresForTest = (): void => {
-    Object.values(_persistTimers).forEach((timer) => clearTimeout(timer));
-    Object.values(_persistWatchState).forEach((state) => {
-        try { state.dispose(); } catch (_) { /* ignore cleanup errors */ }
+    _featureRuntimes.forEach((runtime) => {
+        try { runtime.resetAll?.(); } catch (_) { /* ignore cleanup errors */ }
     });
-    cleanupAllSyncResources({
-        syncChannels: _syncChannels,
-        syncWindowCleanup: _syncWindowCleanup,
-    });
-
-    const registries: Array<Record<string, any>> = [
-        _stores,
-        _subscribers,
-        _initial,
-        _meta,
-        _history,
-        _syncChannels,
-        _syncClocks,
-        _syncVersions,
-        _syncWindowCleanup,
-        _snapshotCache,
-        _persistTimers as Record<string, ReturnType<typeof setTimeout>>,
-        _persistKeys,
-        _persistWatchState,
-    ];
-
-    registries.forEach((registry) => {
-        Object.keys(registry).forEach((key) => {
-            delete registry[key];
-        });
-    });
+    clearStoreRegistries(_registry);
 
     _pendingNotifications.clear();
     _notifyScheduled = false;
     _batchDepth = 0;
-    _devtools = undefined;
     _ssrWarningIssued = false;
-    _entityIdCounter = 0;
+    _featureRuntimes.clear();
 };
 
-export const hasStore = (name: string): boolean => _hasStoreEntry(name);
-export const listStores = (): string[] => Object.keys(_stores);
-export const getStoreMeta = (name: string): MetaEntry | null => (_exists(name) ? deepClone(_meta[name]) : null);
+export const _hasStoreEntryInternal = (name: string): boolean => _hasStoreEntry(_registry, name);
+export const _getStoreValueRef = (name: string): StoreValue | undefined => _stores[name];
+export const _getFeatureApi = (name: FeatureName) => _getFeatureRuntime(name)?.api;
+
+export const hasStore = (name: string): boolean => _hasStoreEntry(_registry, name);
 
 export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
     if (!_subscribers[name]) _subscribers[name] = [];
@@ -892,7 +744,7 @@ export const _subscribe = (name: string, fn: Subscriber): (() => void) => {
 };
 
 export const _getSnapshot = (name: string): StoreValue | null => {
-    if (!_hasStoreEntry(name)) return null;
+    if (!_hasStoreEntry(_registry, name)) return null;
     const source = _stores[name];
     const cached = _snapshotCache[name];
     if (cached && cached.source === source) return cached.snapshot;
@@ -904,284 +756,12 @@ export const _getSnapshot = (name: string): StoreValue | null => {
     return safeSnapshot;
 };
 
-const _bumpSyncClock = (name: string): number =>
-    bumpSyncClock(name, _syncClocks);
-
-const _absorbSyncClock = (name: string, incomingClock: number): number =>
-    absorbSyncClock(name, incomingClock, _syncClocks);
-
-const _setupSync = (name: string): void => {
-    setupSync({
-        name,
-        syncOption: _meta[name]?.options?.sync,
-        syncChannels: _syncChannels,
-        syncClocks: _syncClocks,
-        syncVersions: _syncVersions,
-        syncWindowCleanup: _syncWindowCleanup,
-        instanceId: INSTANCE_ID,
-        getMeta: (storeName) => _meta[storeName],
-        getAcceptedSyncVersion: (storeName) => _syncVersions[storeName],
-        getStoreValue: (storeName) => _stores[storeName],
-        hasStoreEntry: _hasStoreEntry,
-        notify: _notify,
-        validateSchema: _validateSchema,
-        reportStoreError: _reportStoreError,
-        warn,
-        setStoreValue: (storeName, value) => {
-            _stores[storeName] = value;
-        },
-        acceptIncomingSyncVersion: (storeName, updatedAtMs, incomingClock, source) => {
-            _meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
-            _meta[storeName].updateCount++;
-            _absorbSyncClock(storeName, incomingClock);
-            _syncVersions[storeName] = {
-                clock: incomingClock,
-                updatedAt: updatedAtMs,
-                source,
-            };
-        },
-        resolveSyncVersion: (storeName, updatedAtMs, incomingClock) => {
-            _meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
-            _meta[storeName].updateCount++;
-            const resolvedClock = _absorbSyncClock(storeName, incomingClock);
-            _syncVersions[storeName] = {
-                clock: resolvedClock,
-                updatedAt: updatedAtMs,
-                source: INSTANCE_ID,
-            };
-            return resolvedClock;
-        },
-        broadcastSync: _broadcastSync,
-    });
-};
-
-const _broadcastSync = (name: string): void =>
-    broadcastSync({
-        name,
-        syncOption: _meta[name]?.options?.sync,
-        syncChannels: _syncChannels,
-        syncClocks: _syncClocks,
-        instanceId: INSTANCE_ID,
-        updatedAt: _meta[name]?.updatedAt || new Date().toISOString(),
-        data: _stores[name],
-        hashState,
-        reportStoreError: _reportStoreError,
-    });
-
-type SelectorDependency = string[];
-
-const _trackSelectorDependencies = <TState, TResult>(
-    state: TState,
-    selectorFn: (state: TState) => TResult
-): { result: TResult; deps: SelectorDependency[] } => {
-    const seen = new WeakMap<object, unknown>();
-    const deps = new Set<string>();
-    const sep = "\u0000";
-
-    const wrap = (value: unknown, path: string[]): unknown => {
-        if (!value || typeof value !== "object") return value;
-        const cached = seen.get(value as object);
-        if (cached) return cached;
-
-        const proxy = new Proxy(value as object, {
-            get(target, prop, receiver) {
-                if (typeof prop !== "string") {
-                    return Reflect.get(target, prop, receiver);
-                }
-                const nextPath = [...path, prop];
-                const result = Reflect.get(target, prop, receiver);
-                if (!result || typeof result !== "object") {
-                    deps.add(nextPath.join(sep));
-                }
-                return wrap(result, nextPath);
-            },
-        });
-
-        seen.set(value as object, proxy);
-        return proxy;
-    };
-
-    const result = selectorFn(wrap(state, []) as TState);
-    return {
-        result,
-        deps: Array.from(deps, (entry) => entry.split(sep)),
-    };
-};
-
-const _selectorDepsChanged = <TState>(prev: TState, next: TState, deps: SelectorDependency[]): boolean =>
-    deps.some((path) => !Object.is(getByPath(prev, path), getByPath(next, path)));
-
-const _serializedSelectorEqual = (next: unknown, prev: unknown): boolean => {
-    try {
-        return JSON.stringify(next) === JSON.stringify(prev);
-    } catch (_) {
-        return false;
-    }
-};
-
-// Selectors & presets
-export const createSelector = <TState, TResult>(storeName: string, selectorFn: (state: TState) => TResult) => {
-    let lastRef: TState | undefined;
-    let lastResult: TResult | undefined;
-    let lastDeps: SelectorDependency[] = [];
-    return () => {
-        const state = _stores[storeName] as TState | undefined;
-        if (state === undefined) return null;
-        if (state === lastRef) return lastResult ?? null;
-        if (lastRef !== undefined && lastDeps.length > 0 && !_selectorDepsChanged(lastRef, state, lastDeps)) {
-            lastRef = state;
-            return lastResult ?? null;
-        }
-        const tracked = _trackSelectorDependencies(state, selectorFn);
-        lastRef = state;
-        lastDeps = tracked.deps;
-        lastResult = tracked.result;
-        return lastResult ?? null;
-    };
-};
-
-export const subscribeWithSelector = <R>(
-    name: string,
-    selector: (state: any) => R,
-    equality: (a: R, b: R) => boolean = Object.is,
-    listener: (next: R, prev: R) => void
-): (() => void) => {
-    if (typeof selector !== "function" || typeof listener !== "function") {
-        warn(`subscribeWithSelector("${name}") requires selector and listener functions.`);
-        return () => {};
-    }
-    let hasPrev = false;
-    let prevSel = undefined as R;
-
-    if (_hasStoreEntry(name)) {
-        prevSel = selector(_stores[name]);
-        hasPrev = true;
-    }
-
-    const wrapped = (_state: StoreValue | null) => {
-        if (_state === null || !_hasStoreEntry(name)) {
-            hasPrev = false;
-            prevSel = undefined as R;
-            return;
-        }
-        const nextSel = selector(_stores[name]);
-        if (!hasPrev) {
-            hasPrev = true;
-            prevSel = nextSel;
-            listener(deepClone(nextSel), deepClone(nextSel));
-            return;
-        }
-        const matches = equality(nextSel, prevSel)
-            || (
-                equality === Object.is
-                && nextSel !== null
-                && prevSel !== null
-                && typeof nextSel === "object"
-                && typeof prevSel === "object"
-                && _serializedSelectorEqual(nextSel, prevSel)
-            );
-        if (!matches) {
-            const last = prevSel;
-            prevSel = nextSel;
-            listener(deepClone(nextSel), deepClone(last));
-        }
-    };
-    return _subscribe(name, wrapped);
-};
-
-export const createCounterStore = (name: string, initial = 0, options: StoreOptions = {}) => {
-    createStore(name, { value: initial }, options);
-    return {
-        inc: (n = 1) => setStore(name, (draft: any) => { draft.value += n; }),
-        dec: (n = 1) => setStore(name, (draft: any) => { draft.value -= n; }),
-        set: (v: number) => setStore(name, "value", v),
-        reset: () => resetStore(name),
-        get: (): number | null => getStore(name, "value") as number | null,
-    };
-};
-
-export const createListStore = <T>(name: string, initial: T[] = [], options: StoreOptions = {}) => {
-    createStore(name, { items: initial }, options);
-    return {
-        push: (item: T) => setStore(name, (draft: any) => { draft.items.push(item); }),
-        removeAt: (index: number) => setStore(name, (draft: any) => { draft.items.splice(index, 1); }),
-        clear: () => setStore(name, { items: [] }),
-        replace: (items: T[]) => setStore(name, { items }),
-        all: () => getStore(name, "items") as T[],
-    };
-};
-
-export const createEntityStore = <T extends { id?: string; _id?: string }>(name: string, options: StoreOptions = {}) => {
-    createStore(name, { entities: {}, ids: [] as string[] }, options);
-    return {
-        upsert: (entity: T) => setStore(name, (draft: any) => {
-            const id = entity.id
-                ?? entity._id
-                ?? ((typeof crypto !== "undefined" && (crypto as any).randomUUID)
-                    ? (crypto as any).randomUUID()
-                    : `e_${++_entityIdCounter}_${Date.now()}`);
-            if (!draft.ids.includes(id)) draft.ids.push(id);
-            draft.entities[id] = entity;
-        }),
-        remove: (id: string) => setStore(name, (draft: any) => {
-            draft.ids = draft.ids.filter((i: string) => i !== id);
-            delete draft.entities[id];
-        }),
-        all: () => {
-            const store = _stores[name] as any;
-            if (!store) return [];
-            return store.ids.map((id: string) => store.entities[id]) as T[];
-        },
-        get: (id: string) => getStore(name, ["entities", id]) as T | null,
-        clear: () => resetStore(name),
-    };
-};
-
 export const getInitialState = (): Record<string, StoreValue> => deepClone(_initial) as Record<string, StoreValue>;
-
-export const getHistory = (name: string, limit?: number): HistoryEntry[] => {
-    if (!_history[name]) return [];
-    const entries = _history[name];
-    if (limit && limit > 0) return deepClone(entries.slice(-limit));
-    return deepClone(entries);
-};
-
-export const clearHistory = (name?: string): void => {
-    if (name) {
-        delete _history[name];
-    } else {
-        Object.keys(_history).forEach((n) => delete _history[n]);
-    }
-};
 
 export const getMetrics = (name: string): MetaEntry["metrics"] | null => {
     const meta = _meta[name];
     if (!meta?.metrics) return null;
     return { ...meta.metrics };
-};
-
-export const createStoreForRequest = (initializer?: (api: { create: (name: string, data: any, options?: StoreOptions) => any; set: (name: string, updater: any) => any; get: (name: string) => any }) => void) => {
-    const buffer: Record<string, any> = {};
-    const hasBuffered = (name: string): boolean => Object.prototype.hasOwnProperty.call(buffer, name);
-    const api = {
-        create: (name: string, data: any, options: StoreOptions = {}) => {
-            buffer[name] = deepClone(data);
-            return buffer[name];
-        },
-        set: (name: string, updater: any) => {
-            if (!hasBuffered(name)) {
-                throw new Error(`createStoreForRequest.set("${name}") requires create("${name}", initialState) first.`);
-            }
-            buffer[name] = typeof updater === "function" ? produceClone(buffer[name], updater) : updater;
-            return buffer[name];
-        },
-        get: (name: string) => (hasBuffered(name) ? deepClone(buffer[name]) : undefined),
-    };
-    if (typeof initializer === "function") initializer(api);
-    return {
-        snapshot: () => deepClone(buffer),
-        hydrate: (options: Record<string, StoreOptions> & { default?: StoreOptions } = {}) => hydrateStores(buffer, options),
-    };
 };
 
 export const hydrateStores = (snapshot: Record<string, any>, options: Record<string, StoreOptions> & { default?: StoreOptions } = {}): void => {
@@ -1195,30 +775,3 @@ export const hydrateStores = (snapshot: Record<string, any>, options: Record<str
     });
 };
 
-export const createZustandCompatStore = <T>(
-    initializer: (set: (partial: Partial<T>, replace?: boolean) => void, get: () => T, api: any) => T,
-    options: StoreOptions & { name?: string } = {}
-) => {
-    const name = options.name || `zstore_${Date.now()}`;
-
-    const setState = (partial: Partial<T> | ((state: T) => Partial<T>), replace = false) => {
-        const current = _stores[name] as T | undefined ?? {} as T;
-        const nextPartial = typeof partial === "function" ? (partial as (s: T) => Partial<T>)(current) : partial;
-        const next = replace ? nextPartial : { ...current, ...nextPartial };
-        setStore(name, next as any);
-    };
-
-    const getState = () => _stores[name] as T;
-    const api = {
-        setState,
-        getState,
-        subscribe: (listener: Subscriber) => _subscribe(name, listener),
-        subscribeWithSelector: (selector: (state: T) => any, equality = Object.is, listener?: (next: any, prev: any) => void) =>
-            subscribeWithSelector(name, selector, equality, listener ?? (() => {})),
-        destroy: () => deleteStore(name),
-    };
-
-    const initial = initializer(setState, getState, api);
-    createStore(name, initial, options);
-    return api;
-};

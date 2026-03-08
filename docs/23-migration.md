@@ -16,14 +16,14 @@
 
 ---
 
-## From Redux or Zustand
+## From Redux or another state library
 
 ```js
 // Redux -> Stroid
 createStore("user", { name: "Eli" })
 setStore("user", "name", "Jo")
 
-// Zustand -> Stroid
+// Another store -> Stroid
 createStore("user", { name: "Eli" })
 const name = useStore("user", "name")
 ```
