@@ -581,3 +581,38 @@ const _buildFetchOptions = (options: FetchOptions): RequestInit => {
 };
 
 export const getAsyncMetrics = () => ({ ..._asyncMetrics });
+
+export const _resetAsyncStateForTests = (): void => {
+    Object.values(_revalidateHandlers).forEach((cleanup) => {
+        try { cleanup(); } catch (_) { /* ignore cleanup errors */ }
+    });
+
+    Object.values(_cleanupSubs).forEach((unsubscribe) => {
+        try { unsubscribe(); } catch (_) { /* ignore cleanup errors */ }
+    });
+
+    Object.values(_storeCleanupFns).forEach((fns) => {
+        fns.forEach((fn) => {
+            try { fn(); } catch (_) { /* ignore cleanup errors */ }
+        });
+    });
+
+    Object.keys(_fetchRegistry).forEach((key) => delete _fetchRegistry[key]);
+    Object.keys(_inflight).forEach((key) => delete _inflight[key]);
+    Object.keys(_requestVersion).forEach((key) => delete _requestVersion[key]);
+    Object.keys(_cacheMeta).forEach((key) => delete _cacheMeta[key]);
+    Object.keys(_cleanupSubs).forEach((key) => delete _cleanupSubs[key]);
+    Object.keys(_revalidateHandlers).forEach((key) => delete _revalidateHandlers[key]);
+    Object.keys(_storeCleanupFns).forEach((key) => delete _storeCleanupFns[key]);
+
+    _revalidateKeys.clear();
+    _noSignalWarned.clear();
+
+    _asyncMetrics.cacheHits = 0;
+    _asyncMetrics.cacheMisses = 0;
+    _asyncMetrics.dedupes = 0;
+    _asyncMetrics.requests = 0;
+    _asyncMetrics.failures = 0;
+    _asyncMetrics.avgMs = 0;
+    _asyncMetrics.lastMs = 0;
+};

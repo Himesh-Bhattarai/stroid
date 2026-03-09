@@ -1,3 +1,4 @@
+import { _resetAsyncStateForTests } from "./async.js";
 import { createStore, setStore, resetStore, _hardResetAllStoresForTest } from "./store.js";
 
 export const createMockStore = (name = "mock", initial: Record<string, unknown> = {}) => {
@@ -21,7 +22,10 @@ export const withMockedTime = <T>(nowMs: number, fn: () => T): T => {
     }
 };
 
-export const resetAllStoresForTest = (): void => _hardResetAllStoresForTest();
+export const resetAllStoresForTest = (): void => {
+    _hardResetAllStoresForTest();
+    _resetAsyncStateForTests();
+};
 
 export const benchmarkStoreSet = (
     name: string,

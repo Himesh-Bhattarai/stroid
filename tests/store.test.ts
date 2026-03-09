@@ -725,6 +725,57 @@ test("getStoreMeta returns deep-cloned metadata snapshots", () => {
   assert.notStrictEqual(nextMeta.metrics.notifyCount, 999);
 });
 
+test("store metadata preserves scope semantics", () => {
+  clearAllStores();
+
+  createStore("tempMeta", { open: true }, { scope: "temp" });
+  createStore("globalMeta", { theme: "light" }, { scope: "global" });
+  createStore("requestMeta", { step: 1 });
+
+  const tempMeta = getStoreMeta("tempMeta")!;
+  const globalMeta = getStoreMeta("globalMeta")!;
+  const requestMeta = getStoreMeta("requestMeta")!;
+
+  assert.strictEqual(tempMeta.options.scope, "temp");
+  assert.strictEqual(tempMeta.options.persist, null);
+  assert.strictEqual(tempMeta.options.sync, false);
+  assert.strictEqual(tempMeta.options.historyLimit, 0);
+
+  assert.strictEqual(globalMeta.options.scope, "global");
+  assert.strictEqual(globalMeta.options.allowSSRGlobalStore, true);
+
+  assert.strictEqual(requestMeta.options.scope, "request");
+  assert.strictEqual(requestMeta.options.allowSSRGlobalStore, false);
+  assert.strictEqual(requestMeta.options.historyLimit, 50);
+});
+
+test("temp stores warn when persistence is explicitly enabled", () => {
+  clearAllStores();
+  const reported: string[] = [];
+  const originalConsoleWarn = console.warn;
+  console.warn = (message) => {
+    reported.push(String(message ?? ""));
+  };
+
+  try {
+    createStore("tempPersist", { open: true }, {
+      scope: "temp",
+      persist: true,
+    });
+  } finally {
+    console.warn = originalConsoleWarn;
+  }
+
+  assert.ok(
+    reported.some((msg) =>
+      msg.includes('Store "tempPersist" has scope: "temp" but persist is enabled.')
+      && msg.includes("Temp stores are intended to be ephemeral.")
+    )
+  );
+  assert.strictEqual(hasStore("tempPersist"), true);
+  clearAllStores();
+});
+
 test("clearHistory supports per-store and global cleanup", () => {
   clearAllStores();
   createStore("firstHistory", { value: 1 });

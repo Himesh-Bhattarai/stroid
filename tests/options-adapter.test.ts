@@ -81,3 +81,46 @@ test("normalizeStoreOptions preserves grouped sync options and global scope opt-
     conflictResolver,
   });
 });
+
+test("normalizeStoreOptions defaults scope to request", () => {
+  const normalized = normalizeStoreOptions({}, "requestScoped");
+
+  assert.equal(normalized.scope, "request");
+  assert.equal(normalized.allowSSRGlobalStore, false);
+  assert.equal(normalized.historyLimit, 50);
+});
+
+test("normalizeStoreOptions gives temp stores lighter defaults", () => {
+  const normalized = normalizeStoreOptions({
+    scope: "temp",
+  }, "tempStore");
+
+  assert.equal(normalized.scope, "temp");
+  assert.equal(normalized.persist, null);
+  assert.equal(normalized.sync, false);
+  assert.equal(normalized.devtools, false);
+  assert.equal(normalized.historyLimit, 0);
+  assert.equal(normalized.redactor, undefined);
+});
+
+test("normalizeStoreOptions preserves explicit temp store feature opt-ins", () => {
+  const normalized = normalizeStoreOptions({
+    scope: "temp",
+    persist: true,
+    sync: {
+      channel: "temp-sync",
+    },
+    devtools: {
+      enabled: true,
+      historyLimit: 12,
+    },
+  }, "tempStore");
+
+  assert.equal(normalized.scope, "temp");
+  assert.ok(normalized.persist);
+  assert.deepEqual(normalized.sync, {
+    channel: "temp-sync",
+  });
+  assert.equal(normalized.devtools, true);
+  assert.equal(normalized.historyLimit, 12);
+});

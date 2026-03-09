@@ -90,6 +90,7 @@ export interface StoreOptions<State = StoreValue> {
 }
 
 export interface NormalizedOptions {
+    scope: StoreScope;
     persist: PersistConfig | null;
     devtools: boolean;
     middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
@@ -216,6 +217,7 @@ export const normalizeStoreOptions = <State>(
     option: StoreOptions<State> = {},
     name: string
 ): NormalizedOptions => {
+    const normalizedScope: StoreScope = option.scope ?? "request";
     const lifecycle = isObject(option.lifecycle) ? option.lifecycle as LifecycleOptions<State> : undefined;
     const persistGroup = isObject(option.persist) ? option.persist as PersistOptions<State> : undefined;
     const devtoolsGroup = isObject(option.devtools) ? option.devtools as DevtoolsOptions<State> : undefined;
@@ -224,7 +226,10 @@ export const normalizeStoreOptions = <State>(
         ?? (validate !== undefined && typeof validate !== "function" ? validate : undefined);
     const normalizedValidator = option.validator
         ?? (typeof validate === "function" ? validate : undefined);
-    const normalizedAllowSSRGlobalStore = option.scope === "global"
+    const explicitPersist = hasOwn(option, "persist");
+    const explicitSync = hasOwn(option, "sync");
+    const explicitDevtools = hasOwn(option, "devtools") || hasOwn(option, "historyLimit") || hasOwn(option, "redactor");
+    const normalizedAllowSSRGlobalStore = normalizedScope === "global"
         ? true
         : (option.allowSSRGlobalStore ?? false);
 
@@ -236,8 +241,13 @@ export const normalizeStoreOptions = <State>(
     } = option;
 
     return {
-        persist: normalizePersistOptions<State>(persist, name),
-        devtools: typeof devtools === "boolean" ? devtools : (devtoolsGroup?.enabled ?? true),
+        scope: normalizedScope,
+        persist: normalizedScope === "temp" && !explicitPersist
+            ? null
+            : normalizePersistOptions<State>(persist, name),
+        devtools: normalizedScope === "temp" && !explicitDevtools
+            ? false
+            : (typeof devtools === "boolean" ? devtools : (devtoolsGroup?.enabled ?? true)),
         middleware: (lifecycle?.middleware ?? option.middleware ?? []) as NormalizedOptions["middleware"],
         onSet: (lifecycle?.onSet ?? option.onSet) as NormalizedOptions["onSet"],
         onReset: (lifecycle?.onReset ?? option.onReset) as NormalizedOptions["onReset"],
@@ -248,12 +258,18 @@ export const normalizeStoreOptions = <State>(
         schema: normalizedSchema,
         migrations: (persistGroup?.migrations ?? option.migrations ?? {}) as NormalizedOptions["migrations"],
         version: persistGroup?.version ?? option.version ?? 1,
-        redactor: (devtoolsGroup?.redactor ?? option.redactor) as NormalizedOptions["redactor"],
-        historyLimit: devtoolsGroup?.historyLimit ?? option.historyLimit ?? 50,
-        sync: sync ?? false,
+        redactor: normalizedScope === "temp" && !explicitDevtools
+            ? undefined
+            : (devtoolsGroup?.redactor ?? option.redactor) as NormalizedOptions["redactor"],
+        historyLimit: normalizedScope === "temp" && !explicitDevtools
+            ? 0
+            : (devtoolsGroup?.historyLimit ?? option.historyLimit ?? 50),
+        sync: normalizedScope === "temp" && !explicitSync
+            ? false
+            : (sync ?? false),
         allowSSRGlobalStore: normalizedAllowSSRGlobalStore,
-        explicitPersist: Boolean(persist),
-        explicitSync: Boolean(sync),
-        explicitDevtools: hasOwn(option, "devtools") || hasOwn(option, "historyLimit") || hasOwn(option, "redactor"),
+        explicitPersist,
+        explicitSync,
+        explicitDevtools,
     };
 };

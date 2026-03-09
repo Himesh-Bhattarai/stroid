@@ -22,6 +22,7 @@ import { devDeepFreeze } from "./devfreeze.js";
 import {
     collectLegacyOptionDeprecationWarnings,
     normalizeStoreOptions,
+    resetLegacyOptionDeprecationWarningsForTests,
     type MiddlewareCtx,
     type NormalizedOptions,
     type PersistConfig,
@@ -376,45 +377,57 @@ const _resolveFeatureAvailability = (name: string, options: NormalizedOptions): 
     return next;
 };
 
-const _createBaseFeatureContext = (name: string) => ({
-    name,
-    options: _meta[name].options,
-    getMeta: () => _meta[name],
-    getStoreValue: () => _stores[name],
-    getAllStores: () => _stores,
-    getInitialState: () => _initial[name],
-    hasStore: () => _hasStoreEntry(_registry, name),
-    setStoreValue: (value: StoreValue) => {
-        _setStoreValueInternal(name, value);
-    },
-    applyFeatureState: (value: StoreValue, updatedAtMs?: number) => {
-        _applyFeatureState(name, value, updatedAtMs);
-    },
-    notify: () => {
-        _notify(name);
-    },
-    reportStoreError: (message: string) => {
-        _reportStoreError(name, message);
-    },
-    warn,
-    log,
-    hashState,
-    deepClone,
-    sanitize,
-    validateSchema: (next: StoreValue) => _validateSchema(name, next),
-    isDev,
-});
+const _createBaseFeatureContext = (name: string) => {
+    const meta = _meta[name];
+    if (!meta) {
+        warn(`Internal feature context requested for "${name}" after metadata was cleared.`);
+        return null;
+    }
+
+    return {
+        name,
+        options: meta.options,
+        getMeta: () => _meta[name],
+        getStoreValue: () => _stores[name],
+        getAllStores: () => _stores,
+        getInitialState: () => _initial[name],
+        hasStore: () => _hasStoreEntry(_registry, name),
+        setStoreValue: (value: StoreValue) => {
+            _setStoreValueInternal(name, value);
+        },
+        applyFeatureState: (value: StoreValue, updatedAtMs?: number) => {
+            _applyFeatureState(name, value, updatedAtMs);
+        },
+        notify: () => {
+            _notify(name);
+        },
+        reportStoreError: (message: string) => {
+            _reportStoreError(name, message);
+        },
+        warn,
+        log,
+        hashState,
+        deepClone,
+        sanitize,
+        validateSchema: (next: StoreValue) => _validateSchema(name, next),
+        isDev,
+    };
+};
 
 const _runFeatureCreateHooks = (name: string): void => {
+    const baseContext = _createBaseFeatureContext(name);
+    if (!baseContext) return;
     (["persist", "devtools", "sync"] as FeatureName[]).forEach((featureName) => {
         const runtime = _getFeatureRuntime(featureName);
-        runtime?.onStoreCreate?.(_createBaseFeatureContext(name));
+        runtime?.onStoreCreate?.(baseContext);
     });
 };
 
 const _runFeatureWriteHooks = (name: string, action: string, prev: StoreValue, next: StoreValue): void => {
+    const baseContext = _createBaseFeatureContext(name);
+    if (!baseContext) return;
     const ctx: FeatureWriteContext = {
-        ..._createBaseFeatureContext(name),
+        ...baseContext,
         action,
         prev,
         next,
@@ -442,6 +455,13 @@ export const createStore = <Name extends string, State>(
     });
 
     const normalizedOptions = _resolveFeatureAvailability(name, normalizeStoreOptions(option, name));
+
+    if (normalizedOptions.scope === "temp" && option.persist) {
+        warn(
+            `Store "${name}" has scope: "temp" but persist is enabled. ` +
+            `Temp stores are intended to be ephemeral.`
+        );
+    }
 
     const isServer = typeof window === "undefined";
     const nodeEnv = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
@@ -715,6 +735,7 @@ export const _hardResetAllStoresForTest = (): void => {
         try { runtime.resetAll?.(); } catch (_) { /* ignore cleanup errors */ }
     });
     clearStoreRegistries(_registry);
+    resetLegacyOptionDeprecationWarningsForTests();
 
     _pendingNotifications.clear();
     _notifyScheduled = false;
