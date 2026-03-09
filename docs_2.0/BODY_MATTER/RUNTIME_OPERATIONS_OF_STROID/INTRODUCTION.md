@@ -98,3 +98,10 @@ That friction is often wisdom.
 
 - [src/runtime-tools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-tools.ts)
 - [src/runtime-admin.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-admin.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 36: Real Use of Selectors Stroid](../SELECTORS_OF_STROID/REAL_USE.md)
+- Jump to: [Unit Ten: Runtime Operations of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-ten-runtime-operations-of-stroid)
+- Next: [Chapter 38: Inspection Tools and Registry Visibility](INSPECTION_TOOLS.md)

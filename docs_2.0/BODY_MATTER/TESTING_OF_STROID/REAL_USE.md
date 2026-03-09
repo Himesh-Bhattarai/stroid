@@ -74,3 +74,10 @@ That is the standard Stroid testing helpers should be held to.
 
 - [src/testing.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/testing.ts)
 - [test_report/3-8-2026.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/test_report/3-8-2026.md)
+
+
+## Navigation
+
+- Previous: [Chapter 51: Resets, Isolation, and Lightweight Benchmarks](RESETS_AND_BENCHMARKS.md)
+- Jump to: [Unit Thirteen: Testing of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-thirteen-testing-of-stroid)
+- Next: [Chapter 53: Why the Mind Needs Structure](../PHILOSOPHY_OF_STROID/WHY_THE_MIND_NEEDS_STRUCTURE.md)

@@ -86,3 +86,10 @@ They are harmful when they multiply ceremony without reducing meaningful work.
 
 - [src/selectors.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/selectors.ts)
 - [tests/store.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/store.test.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 34: createSelector and Dependency Tracking](CREATE_SELECTOR.md)
+- Jump to: [Unit Nine: Selectors of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-nine-selectors-of-stroid)
+- Next: [Chapter 36: Real Use of Selectors Stroid](REAL_USE.md)

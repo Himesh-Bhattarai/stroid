@@ -14,6 +14,7 @@ export type StoreRegistry = {
     metaEntries: Record<string, StoreFeatureMeta>;
     snapshotCache: Record<string, RegistrySnapshotEntry>;
     featureRuntimes: Map<FeatureName, StoreFeatureRuntime>;
+    deletingStores: Set<string>;
 };
 
 const _registries = new Map<string, StoreRegistry>();
@@ -33,6 +34,7 @@ export const getStoreRegistry = (scope: string): StoreRegistry => {
         metaEntries: Object.create(null),
         snapshotCache: Object.create(null),
         featureRuntimes: new Map(),
+        deletingStores: new Set(),
     };
     _registries.set(normalizedScope, created);
     return created;
@@ -41,12 +43,16 @@ export const getStoreRegistry = (scope: string): StoreRegistry => {
 export const hasStoreEntry = (registry: StoreRegistry, name: string): boolean =>
     Object.prototype.hasOwnProperty.call(registry.stores, name);
 
+export const isStoreDeleting = (registry: StoreRegistry, name: string): boolean =>
+    registry.deletingStores.has(name);
+
 export const clearStoreRegistries = (registry: StoreRegistry): void => {
     [registry.stores, registry.subscribers, registry.initialStates, registry.metaEntries, registry.snapshotCache].forEach((registryPart) => {
         Object.keys(registryPart).forEach((key) => {
             delete registryPart[key];
         });
     });
+    registry.deletingStores.clear();
 };
 
 export const resetAllStoreRegistriesForTests = (): void => {
@@ -56,6 +62,7 @@ export const resetAllStoreRegistriesForTests = (): void => {
                 delete registryPart[key];
             });
         });
+        registry.deletingStores.clear();
     });
     _registries.clear();
 };

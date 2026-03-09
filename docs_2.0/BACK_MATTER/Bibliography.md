@@ -69,3 +69,10 @@ This bibliography is not pretending to be a formal academic citation set yet.
 It is a practical map of what this documentation is grounded in.
 
 That is more useful for the current book than decorative citation formatting.
+
+
+## Navigation
+
+- Previous: [Appendices](APPENDICES.md)
+- Jump to: [Back Matter](../FRONT_MATTER/CONTENTS.md#back-matter)
+- Next: [Colophon](Colophon.md)

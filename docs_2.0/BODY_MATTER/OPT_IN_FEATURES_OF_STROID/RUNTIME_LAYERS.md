@@ -178,3 +178,10 @@ That is an architectural maturity move: the library says, "here is the official 
 - [src/selectors-entry.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/selectors-entry.ts)
 - [docs/12-react.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/12-react.md)
 - [docs/13-async.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/13-async.md)
+
+
+## Navigation
+
+- Previous: [Chapter 6: Store-Attached Features](STORE_FEATURES.md)
+- Jump to: [Unit Two: Opt-In Features of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-two-opt-in-features-of-stroid)
+- Next: [Chapter 8: Power Tools and Utility Subpaths](POWER_TOOLS.md)

@@ -127,3 +127,10 @@ That is a better identity than pretending it is a universal collaboration engine
 - [docs/15-sync.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/15-sync.md)
 - [src/features/sync.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/sync.ts)
 - [tests/sync.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/sync.test.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 15: Conflicts, Catch-Up, and Cleanup](CONFLICTS_AND_RECOVERY.md)
+- Jump to: [Unit Four: Sync of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-four-sync-of-stroid)
+- Next: [Chapter 17: Introduction to React Stroid](../REACT_OF_STROID/INTRODUCTION.md)

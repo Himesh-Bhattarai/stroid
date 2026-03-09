@@ -10,10 +10,12 @@ export const createStoreForRequest = (
     }) => void
 ) => {
     const buffer: Record<string, any> = {};
+    const bufferedOptions: Record<string, StoreOptions> = {};
     const hasBuffered = (name: string): boolean => Object.prototype.hasOwnProperty.call(buffer, name);
     const api = {
-        create: (name: string, data: any, _options: StoreOptions = {}) => {
+        create: (name: string, data: any, options: StoreOptions = {}) => {
             buffer[name] = deepClone(data);
+            bufferedOptions[name] = { ...options };
             return buffer[name];
         },
         set: (name: string, updater: any) => {
@@ -28,6 +30,21 @@ export const createStoreForRequest = (
     if (typeof initializer === "function") initializer(api);
     return {
         snapshot: () => deepClone(buffer),
-        hydrate: (options: Record<string, StoreOptions> & { default?: StoreOptions } = {}) => hydrateStores(buffer, options),
+        hydrate: (options: Record<string, StoreOptions> & { default?: StoreOptions } = {}) => {
+            const merged: Record<string, StoreOptions> & { default?: StoreOptions } = {
+                ...options,
+                default: options.default,
+            };
+
+            Object.keys(buffer).forEach((name) => {
+                merged[name] = {
+                    ...(options.default || {}),
+                    ...(bufferedOptions[name] || {}),
+                    ...(options[name] || {}),
+                };
+            });
+
+            hydrateStores(buffer, merged);
+        },
     };
 };

@@ -218,3 +218,10 @@ Explicit warning creates understanding.
 - [docs/14-persist.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/14-persist.md)
 - [docs/15-sync.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/15-sync.md)
 - [docs/19-devtools.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/19-devtools.md)
+
+
+## Navigation
+
+- Previous: [Chapter 5: Introduction to Opt-In Features](INTRODUCTION.md)
+- Jump to: [Unit Two: Opt-In Features of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-two-opt-in-features-of-stroid)
+- Next: [Chapter 7: Runtime Layers](RUNTIME_LAYERS.md)

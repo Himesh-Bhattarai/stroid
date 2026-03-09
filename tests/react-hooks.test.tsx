@@ -401,3 +401,31 @@ test("useFormStore updates store values from direct values and input events", as
     renderer.unmount();
   });
 });
+
+test("useFormStore uses checked for checkbox inputs", async () => {
+  clearAllStores();
+  createStore("checkboxFormStore", { accepted: false });
+
+  let latestOnChange!: (value: unknown) => void;
+
+  const App = () => {
+    const form = useFormStore<boolean>("checkboxFormStore", "accepted");
+    latestOnChange = form.onChange;
+    return React.createElement("span", null, String(form.value));
+  };
+
+  let renderer!: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(React.createElement(App));
+  });
+
+  await act(async () => {
+    latestOnChange({ target: { type: "checkbox", checked: true, value: "on" } });
+  });
+
+  assert.strictEqual(useStoreStatic("checkboxFormStore", "accepted"), true);
+
+  await act(async () => {
+    renderer.unmount();
+  });
+});

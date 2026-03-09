@@ -108,3 +108,10 @@ That is the right test for these hooks.
 - [src/hooks-async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks-async.ts)
 - [src/hooks-form.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks-form.ts)
 - [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 18: Hooks, Selectors, and Render Precision](HOOKS.md)
+- Jump to: [Unit Five: React of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-five-react-of-stroid)
+- Next: [Chapter 20: Real Use of React Stroid](REAL_USE.md)

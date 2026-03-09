@@ -43,3 +43,10 @@ The aim is to make Stroid understandable enough that a developer can answer thre
 3. What costs am I accepting if I adopt it?
 
 That is a better introduction than hype.
+
+
+## Navigation
+
+- Previous: [Preface](PREFACE.md)
+- Jump to: [Front Matter](CONTENTS.md#front-matter)
+- Next: [How to Use This Book](HOW_TO_USE.md)

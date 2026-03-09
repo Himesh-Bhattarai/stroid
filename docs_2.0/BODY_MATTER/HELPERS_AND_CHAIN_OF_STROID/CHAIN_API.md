@@ -79,3 +79,10 @@ If the API feels elegant but obscures that, the elegance is counterfeit.
 ## Chapter 47 References/Further Reading
 
 - [src/chain.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/chain.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 46: Helper Factories](HELPER_FACTORIES.md)
+- Jump to: [Unit Twelve: Helpers and Chain of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-twelve-helpers-and-chain-of-stroid)
+- Next: [Chapter 48: Real Use of Helpers and Chain](REAL_USE.md)

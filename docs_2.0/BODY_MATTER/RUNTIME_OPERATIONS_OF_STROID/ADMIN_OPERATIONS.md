@@ -87,3 +87,10 @@ That weight reminds the caller that a decision is being made, not just a helper 
 
 - [src/runtime-admin.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-admin.ts)
 - [src/internals/store-admin.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/internals/store-admin.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 38: Inspection Tools and Registry Visibility](INSPECTION_TOOLS.md)
+- Jump to: [Unit Ten: Runtime Operations of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-ten-runtime-operations-of-stroid)
+- Next: [Chapter 40: Real Use of Runtime Operations](REAL_USE.md)

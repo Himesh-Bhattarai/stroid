@@ -73,3 +73,10 @@ The narrower contract is often more humane:
 ## Chapter 44 References/Further Reading
 
 - [docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/INTRODUCTION.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/INTRODUCTION.md)
+
+
+## Navigation
+
+- Previous: [Chapter 43: Snapshot and Hydrate Flow](HYDRATE_FLOW.md)
+- Jump to: [Unit Eleven: Server of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eleven-server-of-stroid)
+- Next: [Chapter 45: Introduction to Helpers and Chain](../HELPERS_AND_CHAIN_OF_STROID/INTRODUCTION.md)

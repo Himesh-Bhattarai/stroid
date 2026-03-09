@@ -20,6 +20,7 @@ export const createStoreAdmin = (scope: string) => {
     const metaEntries = registry.metaEntries as Record<string, MetaEntry>;
     const snapshotCache = registry.snapshotCache as Record<string, { source: unknown; snapshot: unknown | null }>;
     const featureRuntimes = registry.featureRuntimes;
+    const deletingStores = registry.deletingStores;
 
     const reportStoreError = (name: string, message: string): void => {
         metaEntries[name]?.options?.onError?.(message);
@@ -114,46 +115,51 @@ export const createStoreAdmin = (scope: string) => {
         const options = metaEntries[name].options;
         const initialState = initialStates[name];
         const subs = subscribers[name];
+        deletingStores.add(name);
 
-        subs?.forEach((fn) => {
-            try {
-                fn(null);
-            } catch (err) {
-                warn(`Subscriber for "${name}" threw during delete: ${(err as { message?: string })?.message ?? err}`);
-            }
-        });
+        try {
+            subs?.forEach((fn) => {
+                try {
+                    fn(null);
+                } catch (err) {
+                    warn(`Subscriber for "${name}" threw during delete: ${(err as { message?: string })?.message ?? err}`);
+                }
+            });
 
-        runStoreHook({
-            name,
-            label: "onDelete",
-            fn: options.onDelete,
-            args: [prev],
-            onError: options.onError,
-            warn,
-        });
+            runStoreHook({
+                name,
+                label: "onDelete",
+                fn: options.onDelete,
+                args: [prev],
+                onError: options.onError,
+                warn,
+            });
 
-        runFeatureDeleteHooks({
-            name,
-            prev,
-            options,
-            initialState,
-            phase: "before",
-        });
+            runFeatureDeleteHooks({
+                name,
+                prev,
+                options,
+                initialState,
+                phase: "before",
+            });
 
-        delete stores[name];
-        delete subscribers[name];
-        delete initialStates[name];
-        delete metaEntries[name];
-        delete snapshotCache[name];
+            delete stores[name];
+            delete subscribers[name];
+            delete initialStates[name];
+            delete metaEntries[name];
+            delete snapshotCache[name];
 
-        runFeatureDeleteHooks({
-            name,
-            prev,
-            options,
-            initialState,
-            phase: "after",
-        });
-        log(`Store "${name}" deleted`);
+            runFeatureDeleteHooks({
+                name,
+                prev,
+                options,
+                initialState,
+                phase: "after",
+            });
+            log(`Store "${name}" deleted`);
+        } finally {
+            deletingStores.delete(name);
+        }
     };
 
     const clearAllStores = (): void => {

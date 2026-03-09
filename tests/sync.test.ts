@@ -257,6 +257,7 @@ test("late sync messages after delete are ignored safely", async () => {
     assert.doesNotThrow(() => {
       channel.onmessage?.({
         data: {
+          protocol: 1,
           type: "sync-state",
           source: "remote-tab",
           name: "shared",
@@ -305,6 +306,7 @@ test("conflictResolver can resolve contested incoming sync state against local s
 
     channel.onmessage?.({
       data: {
+        protocol: 1,
         type: "sync-state",
         source: "remote-tab",
         name: "shared",
@@ -364,6 +366,7 @@ test("conflictResolver rebroadcasts resolved state so peers converge", async () 
 
     channelA.onmessage?.({
       data: {
+        protocol: 1,
         type: "sync-state",
         source: "remote-tab",
         name: "shared",
@@ -401,6 +404,98 @@ test("conflictResolver rebroadcasts resolved state so peers converge", async () 
   }
 });
 
+test("sync ignores protocol-mismatched messages", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const store = await import(`../src/store.js?sync-protocol-${Date.now()}`);
+  const errors: string[] = [];
+
+  try {
+    store.createStore("shared", { value: "seed" }, {
+      sync: true,
+      onError: (msg: string) => { errors.push(msg); },
+    });
+    await wait();
+
+    const channel = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? [])[0];
+    assert.ok(channel);
+
+    channel.onmessage?.({
+      data: {
+        protocol: 1,
+        type: "sync-state",
+        source: "remote-tab",
+        name: "shared",
+        clock: 1,
+        updatedAt: 100,
+        data: { value: "wrong-build" },
+      },
+    } as MessageEvent);
+
+    await wait();
+
+    assert.deepStrictEqual(store.getStore("shared"), { value: "seed" });
+    assert.ok(errors.some((msg) => msg.includes('Sync protocol mismatch for "shared"')));
+  } finally {
+    store.clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});
+
+test("incoming sync state is sanitized and validated before commit", async () => {
+  const originalWindow = (globalThis as any).window;
+  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+  (globalThis as any).window = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+  const store = await import(`../src/store.js?sync-sanitize-${Date.now()}`);
+
+  try {
+    store.createStore("shared", { when: "seed" }, {
+      sync: true,
+      validator: (next: any) => typeof next?.when === "string" && next.when.endsWith("Z"),
+    });
+    await wait();
+
+    const channel = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? [])[0];
+    assert.ok(channel);
+
+    channel.onmessage?.({
+      data: {
+        protocol: 1,
+        type: "sync-state",
+        source: "remote-tab",
+        name: "shared",
+        clock: 1,
+        updatedAt: 100,
+        data: { when: new Date("2024-01-02T03:04:05.000Z") },
+      },
+    } as MessageEvent);
+
+    await wait();
+
+    assert.deepStrictEqual(store.getStore("shared"), { when: "2024-01-02T03:04:05.000Z" });
+  } finally {
+    store.clearAllStores();
+    MockBroadcastChannel.reset();
+    (globalThis as any).window = originalWindow;
+    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+  }
+});
+
 test("sync convergence is stable for equal-clock equal-timestamp writes delivered in different orders", async () => {
   const originalWindow = (globalThis as any).window;
   const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
@@ -424,6 +519,7 @@ test("sync convergence is stable for equal-clock equal-timestamp writes delivere
 
     const [firstChannel, secondChannel] = channels;
     const messageA = {
+      protocol: 1,
       type: "sync-state",
       source: "writer-a",
       name: "shared",
@@ -432,6 +528,7 @@ test("sync convergence is stable for equal-clock equal-timestamp writes delivere
       data: { value: "A" },
     };
     const messageB = {
+      protocol: 1,
       type: "sync-state",
       source: "writer-b",
       name: "shared",
@@ -486,6 +583,7 @@ test("repeated sync create delete cycles clean up channels and ignore stale hand
       assert.doesNotThrow(() => {
         channel.onmessage?.({
           data: {
+            protocol: 1,
             type: "sync-state",
             source: `remote-${i}`,
             name: "shared",

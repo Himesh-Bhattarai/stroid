@@ -84,3 +84,10 @@ That prevents the library from forcing one taste of ergonomics on every team.
 
 - [src/helpers.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/helpers.ts)
 - [src/chain.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/chain.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 44: Real Use of Server Stroid](../SERVER_OF_STROID/REAL_USE.md)
+- Jump to: [Unit Twelve: Helpers and Chain of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-twelve-helpers-and-chain-of-stroid)
+- Next: [Chapter 46: Helper Factories](HELPER_FACTORIES.md)

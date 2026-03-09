@@ -213,3 +213,10 @@ Once names become first-class, store design becomes a domain exercise, not just 
 - [docs/05-setStore.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/05-setStore.md)
 - [docs/09-setStoreBatch.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/09-setStoreBatch.md)
 - [docs/18-ssr.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/18-ssr.md)
+
+
+## Navigation
+
+- Previous: [Chapter 2: Core Options](CORE_OPTIONS.md)
+- Jump to: [Unit One: Core of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-one-core-of-stroid)
+- Next: [Chapter 4: Real Use of Core Stroid](REAL_USE.md)

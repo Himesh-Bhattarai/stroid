@@ -74,3 +74,10 @@ It is also a better one because it is actually supportable.
 
 - [src/server.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/server.ts)
 - [src/store.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/store.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 42: Request Scope and Buffered Mutation](REQUEST_SCOPE.md)
+- Jump to: [Unit Eleven: Server of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eleven-server-of-stroid)
+- Next: [Chapter 44: Real Use of Server Stroid](REAL_USE.md)

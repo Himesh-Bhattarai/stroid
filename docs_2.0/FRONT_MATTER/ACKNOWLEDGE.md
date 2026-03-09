@@ -45,4 +45,6 @@ Many of the strongest decisions in Stroid came from:
 - size pressure
 - boundary problems
 
+NOTE: I AM A DRIVER. THE BUG IS MY DESTINATION -- NOT MY DISGRACE.
+
 That process deserves acknowledgment too, because technical maturity is often built from correction, not from elegance.

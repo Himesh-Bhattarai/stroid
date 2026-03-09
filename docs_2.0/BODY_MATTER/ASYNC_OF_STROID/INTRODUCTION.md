@@ -163,3 +163,10 @@ That is why the async layer deserves its own unit. Once time enters the model, t
 - [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
 - [docs/13-async.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/13-async.md)
 - [RUNTIME_LAYERS.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/RUNTIME_LAYERS.md)
+
+
+## Navigation
+
+- Previous: [Chapter 8: Power Tools and Utility Subpaths](../OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md)
+- Jump to: [Unit Three: Async of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-three-async-of-stroid)
+- Next: [Chapter 10: Fetch Flow, Retry, and Dedupe](FETCH_FLOW.md)

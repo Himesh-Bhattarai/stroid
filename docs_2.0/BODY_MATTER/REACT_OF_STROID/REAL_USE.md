@@ -136,3 +136,10 @@ That chain matters more than most teams realize.
 - [src/hooks-core.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks-core.ts)
 - [src/hooks-form.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks-form.ts)
 - [src/hooks-async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks-async.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 19: Async and Form Hooks](FORM_AND_ASYNC.md)
+- Jump to: [Unit Five: React of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-five-react-of-stroid)
+- Next: [Chapter 21: Limitations as Design Boundaries](../THE_GLITCH_IN_MATRIX/INTRODUCTION.md)

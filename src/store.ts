@@ -45,6 +45,7 @@ import {
 import {
     getStoreRegistry,
     hasStoreEntry as _hasStoreEntry,
+    isStoreDeleting,
     clearStoreRegistries,
     normalizeStoreRegistryScope,
 } from "./store-registry.js";
@@ -143,7 +144,7 @@ const _notify = (name: string): void => {
 };
 
 const _exists = (name: string): boolean => {
-    if (_hasStoreEntry(_registry, name)) return true;
+    if (_hasStoreEntry(_registry, name) && !isStoreDeleting(_registry, name)) return true;
     suggestStoreName(name, Object.keys(_stores));
     return false;
 };
@@ -186,7 +187,7 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
 
             if (isLast) {
                 const existing = arr[idx];
-                if (existing !== undefined) {
+                if (existing !== undefined && existing !== null) {
                     const expected = getType(existing);
                     const incoming = getType(nextValue);
                     if (expected !== incoming) {
@@ -209,7 +210,7 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
         }
         if (isLast) {
             const existing = (cursor as Record<string, unknown>)[key];
-            if (existing !== undefined) {
+            if (existing !== undefined && existing !== null) {
                 const expected = getType(existing);
                 const incoming = getType(nextValue);
                 if (expected !== incoming) {
@@ -323,6 +324,25 @@ const _sanitizeValue = (
         warn(message);
         return { ok: false };
     }
+};
+
+const _normalizeCommittedState = (
+    name: string,
+    value: unknown,
+    validator?: (next: StoreValue) => boolean,
+    onError?: (message: string) => void
+): { ok: true; value: StoreValue } | { ok: false } => {
+    const sanitized = _sanitizeValue(name, value, onError);
+    if (!sanitized.ok) return { ok: false };
+
+    const schemaCheck = _validateSchema(name, sanitized.value);
+    if (!schemaCheck.ok) return { ok: false };
+
+    if (!_runValidator(name, sanitized.value, validator, onError)) {
+        return { ok: false };
+    }
+
+    return { ok: true, value: sanitized.value };
 };
 
 const _setStoreValueInternal = (name: string, value: StoreValue): void => {
@@ -543,7 +563,12 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     const prev = _stores[storeName];
 
     if (typeof keyOrData === "function" && value === undefined) {
-        updated = produceClone(prev, keyOrData as (draft: any) => void);
+        try {
+            updated = produceClone(prev, keyOrData as (draft: any) => void);
+        } catch (err) {
+            _reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
+            return;
+        }
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) return;
         if (typeof prev !== "object" || prev === null || Array.isArray(prev)) {
@@ -579,25 +604,20 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     }
 
     if (!isValidData(updated)) return;
-    const updateResult = _sanitizeValue(storeName, updated);
-    if (!updateResult.ok) return;
-    const sanitizedUpdate = updateResult.value;
-
-    const schemaCheck = _validateSchema(storeName, sanitizedUpdate);
-    if (!schemaCheck.ok) return;
-
     const validator = _meta[storeName]?.options?.validator;
-    if (!_runValidator(storeName, sanitizedUpdate, validator)) {
-        return;
-    }
+    const normalizedUpdate = _normalizeCommittedState(storeName, updated, validator);
+    if (!normalizedUpdate.ok) return;
+    const sanitizedUpdate = normalizedUpdate.value;
 
     const next = _runMiddleware(storeName, { action: "set", prev, next: sanitizedUpdate, path: keyOrData });
     if (next === MIDDLEWARE_ABORT) return;
-    _setStoreValueInternal(storeName, next);
+    const committed = _normalizeCommittedState(storeName, next, validator);
+    if (!committed.ok) return;
+    _setStoreValueInternal(storeName, committed.value);
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
-    _runFeatureWriteHooks(storeName, "set", prev, next);
-    _runStoreHook(storeName, "onSet", _meta[storeName].options.onSet, [prev, next]);
+    _runFeatureWriteHooks(storeName, "set", prev, committed.value);
+    _runStoreHook(storeName, "onSet", _meta[storeName].options.onSet, [prev, committed.value]);
     _notify(storeName);
 
     log(`Store "${storeName}" updated`);
@@ -675,21 +695,19 @@ export const mergeStore = (name: string, data: Record<string, unknown>): void =>
     if (!mergeResult.ok) return;
     const next = { ...(current as Record<string, unknown>), ...mergeResult.value as Record<string, unknown> };
 
-    const schemaCheck = _validateSchema(name, next);
-    if (!schemaCheck.ok) return;
-
     const validator = _meta[name]?.options?.validator;
-    if (!_runValidator(name, next, validator)) {
-        return;
-    }
+    const normalizedNext = _normalizeCommittedState(name, next, validator);
+    if (!normalizedNext.ok) return;
 
-    const final = _runMiddleware(name, { action: "merge", prev: current, next, path: null });
+    const final = _runMiddleware(name, { action: "merge", prev: current, next: normalizedNext.value, path: null });
     if (final === MIDDLEWARE_ABORT) return;
-    _setStoreValueInternal(name, final);
+    const committed = _normalizeCommittedState(name, final, validator);
+    if (!committed.ok) return;
+    _setStoreValueInternal(name, committed.value);
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
-    _runFeatureWriteHooks(name, "merge", current, final);
-    _runStoreHook(name, "onSet", _meta[name].options.onSet, [current, final]);
+    _runFeatureWriteHooks(name, "merge", current, committed.value);
+    _runStoreHook(name, "onSet", _meta[name].options.onSet, [current, committed.value]);
     _notify(name);
     log(`Store "${name}" merged with data`);
 };
@@ -707,21 +725,19 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
         return;
     }
 
-    const schemaCheck = _validateSchema(name, nextValue);
-    if (!schemaCheck.ok) return;
-
     const validator = _meta[name]?.options?.validator;
-    if (!_runValidator(name, nextValue, validator)) {
-        return;
-    }
+    const normalizedNext = _normalizeCommittedState(name, nextValue, validator);
+    if (!normalizedNext.ok) return;
 
-    const final = _runMiddleware(name, { action, prev, next: nextValue, path: null });
+    const final = _runMiddleware(name, { action, prev, next: normalizedNext.value, path: null });
     if (final === MIDDLEWARE_ABORT) return;
-    _setStoreValueInternal(name, final);
+    const committed = _normalizeCommittedState(name, final, validator);
+    if (!committed.ok) return;
+    _setStoreValueInternal(name, committed.value);
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
-    _runFeatureWriteHooks(name, action, prev, final);
-    _runStoreHook(name, "onSet", _meta[name].options.onSet, [prev, final]);
+    _runFeatureWriteHooks(name, action, prev, committed.value);
+    _runStoreHook(name, "onSet", _meta[name].options.onSet, [prev, committed.value]);
     _notify(name);
     log(`Store "${name}" hydrated`);
 };

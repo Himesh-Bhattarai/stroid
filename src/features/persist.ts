@@ -9,6 +9,7 @@ let _registered = false;
 
 type PersistMeta = {
     version: number;
+    updatedAt: string;
     options: {
         persist: PersistConfig | null;
         migrations: Record<number, (state: any) => any>;
@@ -48,7 +49,7 @@ const resolveMigrationFailure = ({
 
     const strategy = persistConfig?.onMigrationFail ?? "reset";
     if (strategy === "keep") {
-        return { state: persisted, requiresValidation: false };
+        return { state: persisted, requiresValidation: true };
     }
 
     if (typeof strategy === "function") {
@@ -158,6 +159,7 @@ export const persistSave = ({
             const checksum = hashState(serialized);
             const envelope = JSON.stringify({
                 v: meta.version ?? 1,
+                updatedAt: meta.updatedAt,
                 checksum,
                 data: serialized,
             });
@@ -175,7 +177,7 @@ export const persistLoad = ({
     silent = false,
     getMeta,
     getInitialState,
-    setStoreValue,
+    applyFeatureState,
     reportStoreError,
     validateSchema,
     log,
@@ -187,7 +189,7 @@ export const persistLoad = ({
     silent?: boolean;
     getMeta: () => PersistMeta | undefined;
     getInitialState: () => StoreValue;
-    setStoreValue: (value: StoreValue) => void;
+    applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
     reportStoreError: (name: string, message: string) => void;
     validateSchema: (next: StoreValue) => { ok: boolean };
     log: (message: string) => void;
@@ -203,11 +205,16 @@ export const persistLoad = ({
         if (!raw) return false;
         const decrypted = cfg.decrypt(raw);
         const envelope = JSON.parse(decrypted);
-        const { v = 1, checksum, data } = envelope || {};
+        const { v = 1, checksum, data, updatedAt } = envelope || {};
         if (!data) return true;
+        const restoredUpdatedAt =
+            typeof updatedAt === "string" || typeof updatedAt === "number"
+                ? Date.parse(String(updatedAt))
+                : Number.NaN;
+        const safeUpdatedAt = Number.isFinite(restoredUpdatedAt) ? restoredUpdatedAt : 0;
         if (checksum !== hashState(data)) {
             reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
-            setStoreValue(deepClone(getInitialState()));
+            applyFeatureState(deepClone(getInitialState()), Date.now());
             return true;
         }
         let parsed = cfg.deserialize(data);
@@ -232,7 +239,7 @@ export const persistLoad = ({
                 });
                 parsed = fallback.state;
                 if (!fallback.requiresValidation) {
-                    setStoreValue(parsed);
+                    applyFeatureState(parsed, safeUpdatedAt);
                     return true;
                 }
             }
@@ -263,15 +270,15 @@ export const persistLoad = ({
 
             if (migrationFailed) {
                 if (!migrationFailureRequiresValidation) {
-                    setStoreValue(parsed);
+                    applyFeatureState(parsed, safeUpdatedAt);
                     return true;
                 }
                 const recoveredSchema = validateSchema(parsed);
                 if (!recoveredSchema.ok) {
-                    setStoreValue(deepClone(getInitialState()));
+                    applyFeatureState(deepClone(getInitialState()), Date.now());
                     return true;
                 }
-                setStoreValue(parsed);
+                applyFeatureState(parsed, safeUpdatedAt);
                 return true;
             }
         }
@@ -290,22 +297,22 @@ export const persistLoad = ({
                     deepClone,
                 });
                 if (!fallback.requiresValidation) {
-                    setStoreValue(fallback.state);
+                    applyFeatureState(fallback.state, safeUpdatedAt);
                     return true;
                 }
 
                 const recoveredSchema = validateSchema(fallback.state);
                 if (recoveredSchema.ok) {
-                    setStoreValue(fallback.state);
+                    applyFeatureState(fallback.state, safeUpdatedAt);
                     return true;
                 }
             }
             reportStoreError(name, `Persisted state for "${name}" failed schema; resetting to initial.`);
-            setStoreValue(deepClone(getInitialState()));
+            applyFeatureState(deepClone(getInitialState()), Date.now());
             return true;
         }
 
-        setStoreValue(parsed);
+        applyFeatureState(parsed, safeUpdatedAt);
         if (!silent) log(`Store "${name}" loaded from persistence`);
         return true;
     } catch (e) {
@@ -341,7 +348,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 silent: true,
                 getMeta: ctx.getMeta,
                 getInitialState: ctx.getInitialState,
-                setStoreValue: ctx.setStoreValue,
+                applyFeatureState: ctx.applyFeatureState,
                 reportStoreError: (name, message) => ctx.reportStoreError(message),
                 validateSchema: ctx.validateSchema,
                 log: ctx.log,

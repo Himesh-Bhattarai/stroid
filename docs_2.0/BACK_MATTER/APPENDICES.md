@@ -153,3 +153,10 @@ Main test areas in the repository:
 - [tests/heavy](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/heavy)
 
 This appendix matters because a state-management library should not be understood only by API surface. It should also be understood by what behavior is being defended in tests.
+
+
+## Navigation
+
+- Previous: [Chapter 77: Roadmap of Stroid](../BODY_MATTER/ROADMAP_OF_STROID/ROADMAP.md)
+- Jump to: [Back Matter](../FRONT_MATTER/CONTENTS.md#back-matter)
+- Next: [Bibliography](Bibliography.md)

@@ -16,6 +16,7 @@ The dangerous phase in library adoption is not confusion. It is premature certai
 - 22.1 Core Tradeoffs
 - 22.2 Where Stroid Is Weaker
 - 22.3 Choosing the Wrong Tool Early
+- 22.4 What Breaks, When, and Why
 
 ## 22.1 Core Tradeoffs
 
@@ -80,12 +81,42 @@ Months later they discover:
 The lesson is not that convenience is bad.
 It is that convenience without explicit structure often delays cost instead of removing it.
 
+## 22.4 What Breaks, When, and Why
+
+The missing question in many docs is not "does it scale?"
+It is:
+
+- what breaks
+- when does it break
+- why does it break
+
+Table 22.2: What Breaks, When, and Why
+
+| What breaks first | When it usually shows up | Why it breaks |
+|---|---|---|
+| selector-heavy React screens | when many components derive state aggressively | selector work and subscription precision become the real cost center, not raw core writes |
+| store naming discipline | when teams create state casually across many files | the named-store model depends on deliberate domain naming, not accidental labels |
+| sync confidence | when apps assume cross-tab order means true causality | sync ordering is deterministic, but not a substitute for domain conflict design |
+| persistence assumptions | when old snapshots, migrations, or storage failure appear | remembered state is a lifecycle problem, not a boolean feature |
+| temp-state expectations | when teams expect automatic lifecycle magic | `scope: "temp"` is lighter policy, not full runtime ownership of UI lifetimes |
+| debugging confidence | when no one knows which store owns a symptom | observability helps, but only if stores and features were structured clearly to begin with |
+
+This is the honest reading:
+
+- core writes stay strong for a long time
+- architecture mistakes appear before raw runtime collapse
+- advanced layers cost more because they are doing more
+
+That does not make Stroid weak.
+It makes the failure modes easier to name.
+
 ## Chapter 22 Summary
 
 - Stroid's gains come with real costs in explicitness and structure.
 - It is weaker in some architectures, especially selector-heavy React designs.
 - Split features increase clarity but also require user intention.
 - Wrong tool choice often begins as emotional avoidance of visible tradeoffs.
+- Mature docs should also explain what breaks first, when it breaks, and why.
 
 ## Chapter 22 Review Questions
 
@@ -98,9 +129,17 @@ It is that convenience without explicit structure often delays cost instead of r
 1. Describe one project where Stroid would be a strong fit and one where it would be a weak fit.
 2. List the explicit decisions Stroid asks you to make that another library might hide.
 3. Explain whether your team benefits more from visible rules or invisible convenience.
+4. Write a short `what breaks / when / why` note for one architecture your team is considering.
 
 ## Chapter 22 References/Further Reading
 
 - [docs_2.0/BODY_MATTER/CORE_OF_STROID/REAL_USE.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/CORE_OF_STROID/REAL_USE.md)
 - [docs_2.0/BODY_MATTER/REACT_OF_STROID/REAL_USE.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/REACT_OF_STROID/REAL_USE.md)
 - [docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md)
+
+
+## Navigation
+
+- Previous: [Chapter 21: Limitations as Design Boundaries](INTRODUCTION.md)
+- Jump to: [Unit Six: The Glitch in Matrix](../../FRONT_MATTER/CONTENTS.md#unit-six-the-glitch-in-matrix)
+- Next: [Chapter 23: Performance, Scaling, and Reality](PERFORMANCE_AND_REALITY.md)

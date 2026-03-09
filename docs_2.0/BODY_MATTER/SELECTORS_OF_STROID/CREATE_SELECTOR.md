@@ -81,3 +81,10 @@ Good engineering asks whether the cleverness paid rent.
 
 - [src/selectors.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/selectors.ts)
 - [src/internals/selector-store.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/internals/selector-store.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 33: Introduction to Selectors Stroid](INTRODUCTION.md)
+- Jump to: [Unit Nine: Selectors of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-nine-selectors-of-stroid)
+- Next: [Chapter 35: subscribeWithSelector, Equality, and Notifications](SUBSCRIBE_WITH_SELECTOR.md)

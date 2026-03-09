@@ -48,3 +48,10 @@ If this becomes a formal public documentation release later, this page should be
 Until then, the honest contact model is simple:
 
 the repository is the contact surface.
+
+
+## Navigation
+
+- Previous: [Colophon](Colophon.md)
+- Jump to: [Back Matter](../FRONT_MATTER/CONTENTS.md#back-matter)
+- Next: [Back Matter](../FRONT_MATTER/CONTENTS.md#back-matter)

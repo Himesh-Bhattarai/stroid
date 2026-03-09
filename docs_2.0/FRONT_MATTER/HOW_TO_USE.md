@@ -77,3 +77,10 @@ That means the intended reading model is stable:
 - examples are meant to explain current behavior, not aspirational behavior
 
 Use it as the primary long-form documentation reference for the project.
+
+
+## Navigation
+
+- Previous: [Introduction](INTRODUCTION.md)
+- Jump to: [Front Matter](CONTENTS.md#front-matter)
+- Next: [Chapter 1: Introduction to Core Stroid](../BODY_MATTER/CORE_OF_STROID/INTRODUCTION.md)

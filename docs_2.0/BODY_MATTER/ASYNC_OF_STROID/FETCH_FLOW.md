@@ -158,3 +158,10 @@ They are the ones that fail predictably when continuing is no longer meaningful.
 
 - [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
 - [tests/async.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/async.test.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 9: Introduction to Async Stroid](INTRODUCTION.md)
+- Jump to: [Unit Three: Async of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-three-async-of-stroid)
+- Next: [Chapter 11: Cache, Revalidation, and Cleanup](CACHE_AND_REVALIDATION.md)

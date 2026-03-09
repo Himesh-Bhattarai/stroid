@@ -1,4 +1,5 @@
 import type { StoreValue } from "../adapters/options.js";
+import { deepClone } from "../utils.js";
 
 export const MIDDLEWARE_ABORT = Symbol("stroid.middleware.abort");
 
@@ -26,12 +27,13 @@ export const runMiddleware = ({
     for (const mw of middlewares) {
         if (typeof mw !== "function") continue;
         let result: StoreValue | void;
+        const middlewareNext = deepClone(nextState);
         try {
             result = mw({
                 action: payload.action,
                 name,
                 prev: payload.prev,
-                next: nextState,
+                next: middlewareNext,
                 path: payload.path,
             });
         } catch (err) {
@@ -40,7 +42,13 @@ export const runMiddleware = ({
             warn(message);
             return MIDDLEWARE_ABORT;
         }
-        if (result !== undefined) nextState = result;
+        if (result && typeof (result as Promise<unknown>).then === "function") {
+            const message = `Middleware for "${name}" must be synchronous. Promise-returning middleware is not supported.`;
+            onError?.(message);
+            warn(message);
+            return MIDDLEWARE_ABORT;
+        }
+        nextState = result !== undefined ? result : middlewareNext;
     }
     return nextState;
 };

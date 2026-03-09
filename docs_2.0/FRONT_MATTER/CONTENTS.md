@@ -100,6 +100,46 @@
 - [Chapter 51: Resets, Isolation, and Lightweight Benchmarks](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/TESTING_OF_STROID/RESETS_AND_BENCHMARKS.md)
 - [Chapter 52: Real Use of Testing Stroid](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/TESTING_OF_STROID/REAL_USE.md)
 
+### Unit Fourteen: Philosophy of Stroid
+
+- [Chapter 53: Why the Mind Needs Structure](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/PHILOSOPHY_OF_STROID/WHY_THE_MIND_NEEDS_STRUCTURE.md)
+- [Chapter 54: Predictable State Mutation](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/PHILOSOPHY_OF_STROID/PREDICTABLE_STATE_MUTATION.md)
+- [Chapter 55: Minimal Abstraction](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/PHILOSOPHY_OF_STROID/MINIMAL_ABSTRACTION.md)
+- [Chapter 56: Runtime Observability](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/PHILOSOPHY_OF_STROID/RUNTIME_OBSERVABILITY.md)
+- [Chapter 57: Optional Complexity, Real Architecture, and Comparative Analysis](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/PHILOSOPHY_OF_STROID/OPTIONAL_COMPLEXITY_AND_COMPARISON.md)
+
+### Unit Fifteen: Binary to Being
+
+- [Chapter 58: Why State Management Fails in Large Apps](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/WHY_STATE_MANAGEMENT_FAILS_IN_LARGE_APPS.md)
+- [Chapter 59: Design Principles of Stroid](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/DESIGN_PRINCIPLES_OF_STROID.md)
+- [Chapter 60: Runtime Architecture](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/RUNTIME_ARCHITECTURE.md)
+- [Chapter 61: Store System](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/STORE_SYSTEM.md)
+- [Chapter 62: Async Layer](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/ASYNC_LAYER.md)
+- [Chapter 63: Persistence Layer](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/PERSISTENCE_LAYER.md)
+- [Chapter 64: Selectors](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/SELECTORS.md)
+- [Chapter 65: React Bindings](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/REACT_BINDINGS.md)
+- [Chapter 66: Tooling and Debugging](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/TOOLING_AND_DEBUGGING.md)
+- [Chapter 67: Production Patterns](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BINARY_TO_BEING/PRODUCTION_PATTERNS.md)
+
+### Unit Sixteen: Beginner Guide
+
+- [Chapter 68: Start Here](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BEGINNER_GUIDE/START_HERE.md)
+- [Chapter 69: Install and Imports](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BEGINNER_GUIDE/INSTALL_AND_IMPORTS.md)
+- [Chapter 70: Your First Store](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BEGINNER_GUIDE/FIRST_STORE.md)
+- [Chapter 71: Use Stroid in React](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BEGINNER_GUIDE/REACT_USAGE.md)
+- [Chapter 72: From Basic to Real Usage](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BEGINNER_GUIDE/FROM_BASIC_TO_REAL.md)
+
+### Unit Seventeen: Bug as Helper
+
+- [Chapter 73: Introduction to Bug as Helper](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BUG_AS_HELPER/INTRODUCTION.md)
+- [Chapter 74: Intentional Bugs, Guardrails, and Productive Friction](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BUG_AS_HELPER/INTENTIONAL_BUGS.md)
+- [Chapter 75: No Need to Fix, Low Drama, and Edge-Case Humility](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BUG_AS_HELPER/NO_NEED_TO_FIX.md)
+- [Chapter 76: Real Use of Bug as Helper](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/BUG_AS_HELPER/REAL_USE.md)
+
+### Unit Eighteen: Roadmap of Stroid
+
+- [Chapter 77: Roadmap of Stroid](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/ROADMAP_OF_STROID/ROADMAP.md)
+
 ## Back Matter
 
 - [Appendices](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BACK_MATTER/APPENDICES.md)

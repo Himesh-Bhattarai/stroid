@@ -117,3 +117,10 @@ The correct strategy depends on the domain:
 
 - [src/features/persist.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/persist.ts)
 - [tests/persist.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/persist.test.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 25: Introduction to Persist Stroid](INTRODUCTION.md)
+- Jump to: [Unit Seven: Persist of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-seven-persist-of-stroid)
+- Next: [Chapter 27: Failure, Storage Clearing, and Recovery](FAILURE_AND_RECOVERY.md)

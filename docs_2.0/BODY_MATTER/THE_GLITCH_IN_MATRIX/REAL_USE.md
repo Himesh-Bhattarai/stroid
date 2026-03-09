@@ -103,3 +103,10 @@ it replaces vague hope with deliberate choice.
 - [docs_2.0/BODY_MATTER/ASYNC_OF_STROID/REAL_USE.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/ASYNC_OF_STROID/REAL_USE.md)
 - [docs_2.0/BODY_MATTER/SYNC_OF_STROID/REAL_USE.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/SYNC_OF_STROID/REAL_USE.md)
 - [docs_2.0/BODY_MATTER/REACT_OF_STROID/REAL_USE.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/REACT_OF_STROID/REAL_USE.md)
+
+
+## Navigation
+
+- Previous: [Chapter 23: Performance, Scaling, and Reality](PERFORMANCE_AND_REALITY.md)
+- Jump to: [Unit Six: The Glitch in Matrix](../../FRONT_MATTER/CONTENTS.md#unit-six-the-glitch-in-matrix)
+- Next: [Chapter 25: Introduction to Persist Stroid](../PERSIST_OF_STROID/INTRODUCTION.md)

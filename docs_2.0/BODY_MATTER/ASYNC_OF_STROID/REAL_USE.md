@@ -125,3 +125,10 @@ That honesty matters because good documentation should help someone reject the t
 - [docs/13-async.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/13-async.md)
 - [src/hooks-async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks-async.ts)
 - [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 11: Cache, Revalidation, and Cleanup](CACHE_AND_REVALIDATION.md)
+- Jump to: [Unit Three: Async of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-three-async-of-stroid)
+- Next: [Chapter 13: Introduction to Sync Stroid](../SYNC_OF_STROID/INTRODUCTION.md)

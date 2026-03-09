@@ -143,3 +143,10 @@ That is why cleanup is not a side detail. It is part of whether the runtime is s
 
 - [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
 - [tests/async.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/async.test.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 10: Fetch Flow, Retry, and Dedupe](FETCH_FLOW.md)
+- Jump to: [Unit Three: Async of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-three-async-of-stroid)
+- Next: [Chapter 12: Real Use of Async Stroid](REAL_USE.md)

@@ -28,7 +28,7 @@ type AsyncState = {
 };
 
 const _fetchRegistry: Record<string, { url: string | Promise<unknown>; options: FetchOptions }> = {};
-const _inflight: Partial<Record<string, Promise<unknown>>> = {};
+const _inflight: Partial<Record<string, { promise: Promise<unknown>; transform?: FetchOptions["transform"] }>> = {};
 const _requestVersion: Record<string, number> = {};
 const _cacheMeta: Record<string, { timestamp: number; expiresAt: number | null; data: unknown }> = {};
 const _noSignalWarned = new Set<string>();
@@ -91,9 +91,12 @@ const _reportAsyncUsageError = (
     return null;
 };
 
-const _settleAbort = (name: string): null => {
+const _isCurrentRequest = (cacheSlot: string, version: number): boolean =>
+    (_requestVersion[cacheSlot] ?? 0) === version;
+
+const _settleAbort = (name: string, cacheSlot: string, version: number): null => {
     warn(`fetchStore("${name}") aborted`);
-    if (hasStore(name)) {
+    if (_isCurrentRequest(cacheSlot, version) && hasStore(name)) {
         setStore(name, {
             loading: false,
             error: "aborted",
@@ -349,8 +352,16 @@ export const fetchStore = async (
     }
 
     if (dedupe && _inflight[cacheSlot]) {
+        const active = _inflight[cacheSlot]!;
+        if (active.transform !== transform) {
+            return _reportAsyncUsageError(
+                name,
+                `fetchStore("${name}") cannot dedupe callers that use different transform functions for the same cache slot. Use a distinct cacheKey or set dedupe: false.`,
+                onError
+            );
+        }
         _asyncMetrics.dedupes += 1;
-        return _inflight[cacheSlot]!;
+        return active.promise;
     }
 
     if (!_inflight[cacheSlot] && _countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
@@ -396,7 +407,7 @@ export const fetchStore = async (
         let delayMs = retryPolicy.retryDelay;
         while (true) {
             if (mergedSignal?.aborted) {
-                return _settleAbort(name);
+                return _settleAbort(name, cacheSlot, currentVersion);
             }
             try {
                 let result: unknown;
@@ -431,9 +442,17 @@ export const fetchStore = async (
                     return null;
                 }
 
+                if (mergedSignal?.aborted) {
+                    return _settleAbort(name, cacheSlot, currentVersion);
+                }
+
                 const transformed = transform ? transform(result) : result;
 
-                if (_requestVersion[cacheSlot] !== currentVersion) {
+                if (mergedSignal?.aborted) {
+                    return _settleAbort(name, cacheSlot, currentVersion);
+                }
+
+                if (!_isCurrentRequest(cacheSlot, currentVersion)) {
                     return null; // stale, ignore
                 }
 
@@ -464,18 +483,18 @@ export const fetchStore = async (
                 attempts += 1;
                 const isAbort = (err as any)?.name === "AbortError";
                 if (isAbort) {
-                    return _settleAbort(name);
+                    return _settleAbort(name, cacheSlot, currentVersion);
                 }
 
                 if (attempts <= effectiveRetryPolicy.retry) {
-                    if (mergedSignal?.aborted) return _settleAbort(name);
+                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion);
                     await delay(delayMs, mergedSignal);
-                    if (mergedSignal?.aborted) return _settleAbort(name);
+                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion);
                     delayMs = Math.min(MAX_RETRY_DELAY_MS, delayMs * effectiveRetryPolicy.retryBackoff);
                     continue;
                 }
 
-                if (_requestVersion[cacheSlot] !== currentVersion) return null;
+                if (!_isCurrentRequest(cacheSlot, currentVersion)) return null;
 
                 const errorMessage = (err as any)?.message || "Something went wrong";
                 if (hasStore(name)) {
@@ -505,7 +524,7 @@ export const fetchStore = async (
         if (abortOnCleanup) _unregisterStoreCleanup(name, abortOnCleanup);
     });
 
-    _inflight[cacheSlot] = promise;
+    _inflight[cacheSlot] = { promise, transform };
     _fetchRegistry[name] = { url: urlOrPromise, options: { ...options, cacheKey } };
 
     return promise;

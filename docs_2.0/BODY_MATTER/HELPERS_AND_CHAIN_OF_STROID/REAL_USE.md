@@ -72,3 +72,10 @@ That distinction matters more than the API looking elegant in isolation.
 
 - [src/helpers.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/helpers.ts)
 - [src/chain.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/chain.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 47: The Chain API](CHAIN_API.md)
+- Jump to: [Unit Twelve: Helpers and Chain of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-twelve-helpers-and-chain-of-stroid)
+- Next: [Chapter 49: Introduction to Testing Stroid](../TESTING_OF_STROID/INTRODUCTION.md)

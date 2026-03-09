@@ -142,3 +142,10 @@ That is why React documentation must teach restraint, not only capability.
 - [src/hooks.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks.ts)
 - [src/hooks-core.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks-core.ts)
 - [docs/12-react.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/12-react.md)
+
+
+## Navigation
+
+- Previous: [Chapter 16: Real Use of Sync Stroid](../SYNC_OF_STROID/REAL_USE.md)
+- Jump to: [Unit Five: React of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-five-react-of-stroid)
+- Next: [Chapter 18: Hooks, Selectors, and Render Precision](HOOKS.md)

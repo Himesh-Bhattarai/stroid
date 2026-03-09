@@ -335,6 +335,88 @@ test("fetchStore ignores retry delays for direct Promise inputs", async () => {
   assert.strictEqual(state?.error, "promise boom");
 });
 
+test("fetchStore ignores a direct Promise result that resolves after abort", async () => {
+  clearAllStores();
+  const controller = new AbortController();
+  const pending = deferred<{ value: string }>();
+
+  const request = fetchStore("promiseAbortStore", pending.promise, {
+    dedupe: false,
+    signal: controller.signal,
+  });
+
+  controller.abort();
+  pending.resolve({ value: "late" });
+
+  const result = await request;
+
+  assert.strictEqual(result, null);
+  const state = getStore("promiseAbortStore");
+  assert.strictEqual(state?.status, "aborted");
+  assert.strictEqual(state?.data, null);
+});
+
+test("stale abort settlement does not overwrite a newer async success", async () => {
+  clearAllStores();
+  const first = deferred<{ value: string }>();
+  const second = deferred<{ value: string }>();
+  const controller = new AbortController();
+
+  const firstRequest = fetchStore("abortRaceStore", first.promise, {
+    dedupe: false,
+    signal: controller.signal,
+  });
+  await wait(0);
+  const secondRequest = fetchStore("abortRaceStore", second.promise, {
+    dedupe: false,
+  });
+
+  second.resolve({ value: "fresh" });
+  await secondRequest;
+  controller.abort();
+  first.resolve({ value: "stale" });
+
+  const firstResult = await firstRequest;
+
+  assert.strictEqual(firstResult, null);
+  const state = getStore("abortRaceStore");
+  assert.deepStrictEqual(state?.data, { value: "fresh" });
+  assert.strictEqual(state?.status, "success");
+});
+
+test("fetchStore rejects deduped callers that use different transforms for one cache slot", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  const errors: string[] = [];
+
+  globalThis.fetch = (async () => ({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    headers: { get: () => "application/json" },
+    json: async () => ({ value: 1 }),
+    text: async () => JSON.stringify({ value: 1 }),
+  })) as typeof fetch;
+
+  try {
+    const first = fetchStore("dedupeTransformStore", "https://api.example.com/value", {
+      transform: (value: any) => ({ value: value.value + 1 }),
+    });
+    const second = await fetchStore("dedupeTransformStore", "https://api.example.com/value", {
+      transform: (value: any) => ({ value: value.value + 2 }),
+      onError: (msg) => { errors.push(msg); },
+    });
+
+    const firstResult = await first;
+
+    assert.strictEqual(second, null);
+    assert.deepStrictEqual(firstResult, { value: 2 });
+    assert.ok(errors.some((msg) => msg.includes('cannot dedupe callers that use different transform functions')));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("fetchStore exposes background revalidation while serving cached data", async () => {
   clearAllStores();
   const realFetch = globalThis.fetch;

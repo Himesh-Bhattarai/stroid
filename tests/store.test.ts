@@ -702,6 +702,24 @@ test("createStoreForRequest rejects updates for unknown stores", () => {
   }, /requires create\("missing"/);
 });
 
+test("createStoreForRequest hydrates buffered store options", () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const scoped = createStoreForRequest(({ create }) => {
+    create("scopedProfile", { value: 1 }, {
+      schema: (value: any) => (typeof value?.value === "number" ? value : false),
+      onError: (msg) => { errors.push(msg); },
+    });
+  });
+
+  scoped.hydrate();
+
+  setStore("scopedProfile", { value: "bad" as any });
+
+  assert.deepStrictEqual(getStore("scopedProfile"), { value: 1 });
+  assert.ok(errors.some((msg) => msg.includes('Schema validation failed for "scopedProfile"')));
+});
+
 test("getInitialState returns original initial values", () => {
   clearAllStores();
   createStore("user", { value: 1 });
@@ -970,6 +988,66 @@ test("middleware throws veto the blocked update but allow later valid writes", a
   assert.deepStrictEqual(getStore("prefs"), { theme: "blue" });
   assert.deepStrictEqual(seen, [{ theme: "blue" }]);
   assert.ok(errors.some((msg) => msg.includes('Middleware for "prefs" failed')));
+});
+
+test("promise-returning middleware is rejected before it can commit async state", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  createStore("asyncMiddleware", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+    middleware: [() => Promise.resolve({ value: 99 }) as any],
+  });
+
+  setStore("asyncMiddleware", { value: 2 });
+
+  assert.deepStrictEqual(getStore("asyncMiddleware"), { value: 1 });
+  assert.ok(errors.some((msg) => msg.includes('must be synchronous')));
+});
+
+test("middleware mutations are revalidated before commit", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  createStore("middlewareValidation", { count: 1 }, {
+    schema: (value: any) => (typeof value?.count === "number" ? value : false),
+    onError: (msg) => { errors.push(msg); },
+    middleware: [({ next }) => {
+      (next as { count: unknown }).count = "broken";
+    }],
+  });
+
+  setStore("middlewareValidation", { count: 2 });
+
+  assert.deepStrictEqual(getStore("middlewareValidation"), { count: 1 });
+  assert.ok(errors.some((msg) => msg.includes('Schema validation failed for "middlewareValidation"')));
+});
+
+test("path writes allow replacing null leaves with objects", () => {
+  clearAllStores();
+  createStore("nullablePath", { user: null as null | { name: string } });
+
+  setStore("nullablePath", "user", { name: "Alex" });
+
+  assert.deepStrictEqual(getStore("nullablePath"), { user: { name: "Alex" } });
+});
+
+test("mutator errors report through onError instead of throwing out of setStore", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  createStore("mutatorErrors", { value: 1 }, {
+    onError: (msg) => { errors.push(msg); },
+  });
+
+  assert.doesNotThrow(() => {
+    setStore("mutatorErrors", () => {
+      throw new Error("recipe boom");
+    });
+  });
+
+  assert.deepStrictEqual(getStore("mutatorErrors"), { value: 1 });
+  assert.ok(errors.some((msg) => msg.includes('Mutator for "mutatorErrors" failed: recipe boom')));
 });
 
 test("subscriber-triggered updates schedule a follow-up notification", async () => {
@@ -1329,6 +1407,20 @@ test("deleteStore still cleans up when a subscriber throws", () => {
     deleteStore("user");
   });
   assert.strictEqual(hasStore("user"), false);
+});
+
+test("deleteStore blocks subscriber writes while deletion is in progress", () => {
+  clearAllStores();
+  createStore("deleteRace", { name: "Alex" });
+  _subscribe("deleteRace", (value) => {
+    if (value !== null) return;
+    setStore("deleteRace", { name: "Jordan" });
+  });
+
+  assert.doesNotThrow(() => {
+    deleteStore("deleteRace");
+  });
+  assert.strictEqual(hasStore("deleteRace"), false);
 });
 
 test("deleteStore clears orphaned history entries", () => {

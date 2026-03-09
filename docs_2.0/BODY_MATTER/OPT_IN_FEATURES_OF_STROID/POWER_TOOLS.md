@@ -196,3 +196,10 @@ Stroid keeps these tools explicit so that:
 - [src/runtime-tools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-tools.ts)
 - [src/runtime-admin.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-admin.ts)
 - [src/testing.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/testing.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 7: Runtime Layers](RUNTIME_LAYERS.md)
+- Jump to: [Unit Two: Opt-In Features of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-two-opt-in-features-of-stroid)
+- Next: [Chapter 9: Introduction to Async Stroid](../ASYNC_OF_STROID/INTRODUCTION.md)

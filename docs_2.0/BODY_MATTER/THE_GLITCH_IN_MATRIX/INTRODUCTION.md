@@ -125,3 +125,10 @@ The reader stops expecting perfection and starts expecting coherence.
 - [OVERVIEW.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/OVERVIEW.md)
 - [BUNDLE_UNDER_10KB_PLAN.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/BUNDLE_UNDER_10KB_PLAN.md)
 - [answer.ms](/c:/Users/Himesh/Desktop/SM_STROID/stroid/answer.ms)
+
+
+## Navigation
+
+- Previous: [Chapter 20: Real Use of React Stroid](../REACT_OF_STROID/REAL_USE.md)
+- Jump to: [Unit Six: The Glitch in Matrix](../../FRONT_MATTER/CONTENTS.md#unit-six-the-glitch-in-matrix)
+- Next: [Chapter 22: Tradeoffs, Costs, and Weaker Fits](TRADEOFFS_AND_LIMITS.md)

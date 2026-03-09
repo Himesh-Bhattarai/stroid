@@ -69,3 +69,10 @@ They hurt when product code starts depending on registry introspection as if the
 
 - [src/runtime-tools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-tools.ts)
 - [src/store-registry.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/store-registry.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 37: Introduction to Runtime Operations](INTRODUCTION.md)
+- Jump to: [Unit Ten: Runtime Operations of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-ten-runtime-operations-of-stroid)
+- Next: [Chapter 39: Admin Operations and Global Cleanup](ADMIN_OPERATIONS.md)

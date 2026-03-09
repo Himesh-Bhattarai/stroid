@@ -77,3 +77,10 @@ That separation reduces accidental cross-request confusion.
 ## Chapter 42 References/Further Reading
 
 - [src/server.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/server.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 41: Introduction to Server Stroid](INTRODUCTION.md)
+- Jump to: [Unit Eleven: Server of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eleven-server-of-stroid)
+- Next: [Chapter 43: Snapshot and Hydrate Flow](HYDRATE_FLOW.md)

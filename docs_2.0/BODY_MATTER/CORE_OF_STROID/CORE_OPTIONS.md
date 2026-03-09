@@ -220,3 +220,10 @@ The options object stays unified. The imports decide which power systems are ali
 - [docs/04-createStore.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/04-createStore.md)
 - [docs/16-middleware.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/16-middleware.md)
 - [docs/17-schema.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/17-schema.md)
+
+
+## Navigation
+
+- Previous: [Chapter 1: Introduction to Core Stroid](INTRODUCTION.md)
+- Jump to: [Unit One: Core of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-one-core-of-stroid)
+- Next: [Chapter 3: Core Examples](EXAMPLE.md)

@@ -8,6 +8,7 @@ export type SyncVersions = Record<string, SyncVersion>;
 export type SyncWindowCleanup = Record<string, () => void>;
 
 let _registered = false;
+const SYNC_PROTOCOL_VERSION = 1;
 
 type SyncMeta = {
     updatedAt: string;
@@ -31,20 +32,17 @@ const compareSyncOrder = ({
     incoming,
     accepted,
 }: {
-    incoming: { clock?: number; updatedAt?: number; source?: string };
+    incoming: { clock?: number; source?: string };
     accepted?: SyncVersion;
 }): number => {
     const localClock = accepted?.clock ?? 0;
     const incomingClock = typeof incoming.clock === "number" ? incoming.clock : 0;
     if (incomingClock !== localClock) return incomingClock - localClock;
 
-    const localUpdated = accepted?.updatedAt ?? 0;
-    const incomingUpdated = typeof incoming.updatedAt === "number" ? incoming.updatedAt : 0;
-    if (incomingUpdated !== localUpdated) return incomingUpdated - localUpdated;
-
     const incomingSource = incoming.source ?? "";
     const localSource = accepted?.source ?? "";
-    return incomingSource.localeCompare(localSource);
+    if (incomingSource === localSource) return 0;
+    return incomingSource < localSource ? -1 : 1;
 };
 
 const requestSyncSnapshot = ({
@@ -62,6 +60,7 @@ const requestSyncSnapshot = ({
     if (!channel) return;
     try {
         channel.postMessage({
+            protocol: SYNC_PROTOCOL_VERSION,
             type: "sync-request",
             source: instanceId,
             name,
@@ -139,6 +138,7 @@ export const setupSync = ({
     reportStoreError,
     warn,
     setStoreValue,
+    normalizeIncomingState,
     acceptIncomingSyncVersion,
     resolveSyncVersion,
     broadcastSync,
@@ -159,6 +159,7 @@ export const setupSync = ({
     reportStoreError: (name: string, message: string) => void;
     warn: (message: string) => void;
     setStoreValue: (name: string, value: StoreValue) => void;
+    normalizeIncomingState: (name: string, value: StoreValue) => StoreValue | null;
     acceptIncomingSyncVersion: (name: string, updatedAtMs: number, incomingClock: number, source: string) => void;
     resolveSyncVersion: (name: string, updatedAtMs: number, incomingClock: number) => number;
     broadcastSync: (name: string) => void;
@@ -179,6 +180,10 @@ export const setupSync = ({
             if (!msg || msg.source === instanceId) return;
             if (msg.name !== name) return;
             if (syncChannels[name] !== channel || !hasStoreEntry(name) || !getMeta(name)) return;
+            if (msg.protocol !== SYNC_PROTOCOL_VERSION) {
+                reportStoreError(name, `Sync protocol mismatch for "${name}". Expected v${SYNC_PROTOCOL_VERSION} but received ${String(msg.protocol ?? "unknown")}. Ignoring message.`);
+                return;
+            }
             if (msg.type === "sync-request") {
                 broadcastSync(name);
                 return;
@@ -187,7 +192,6 @@ export const setupSync = ({
             const order = compareSyncOrder({
                 incoming: {
                     clock: msg.clock,
-                    updatedAt: msg.updatedAt,
                     source: msg.source,
                 },
                 accepted: getAcceptedSyncVersion(name),
@@ -203,9 +207,9 @@ export const setupSync = ({
                         incomingUpdated,
                     });
                     if (resolved !== undefined) {
-                        const schemaRes = validateSchema(name, resolved);
-                        if (!schemaRes.ok) return;
-                        setStoreValue(name, resolved);
+                        const normalizedResolved = normalizeIncomingState(name, resolved);
+                        if (normalizedResolved === null) return;
+                        setStoreValue(name, normalizedResolved);
                         const resolvedUpdatedAt = Math.max(Date.now(), localUpdated, incomingUpdated);
                         resolveSyncVersion(name, resolvedUpdatedAt, typeof msg.clock === "number" ? msg.clock : 0);
                         notify(name);
@@ -214,9 +218,9 @@ export const setupSync = ({
                 }
                 return;
             }
-            const schemaRes = validateSchema(name, msg.data);
-            if (!schemaRes.ok) return;
-            setStoreValue(name, msg.data);
+            const normalizedIncoming = normalizeIncomingState(name, msg.data);
+            if (normalizedIncoming === null) return;
+            setStoreValue(name, normalizedIncoming);
             acceptIncomingSyncVersion(
                 name,
                 typeof msg.updatedAt === "number" ? msg.updatedAt : Date.now(),
@@ -283,6 +287,7 @@ export const broadcastSync = ({
     if (!channel) return;
     try {
         const payload = {
+            protocol: SYNC_PROTOCOL_VERSION,
             type: "sync-state",
             source: instanceId,
             name,
@@ -353,6 +358,33 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                 reportStoreError: (name, message) => ctx.reportStoreError(message),
                 warn: ctx.warn,
                 setStoreValue: (name, value) => ctx.setStoreValue(value),
+                normalizeIncomingState: (name, value) => {
+                    let sanitized: StoreValue;
+                    try {
+                        sanitized = ctx.sanitize(value) as StoreValue;
+                    } catch (err) {
+                        ctx.reportStoreError(`Sanitize failed for incoming sync "${name}": ${(err as { message?: string })?.message ?? err}`);
+                        return null;
+                    }
+
+                    const schemaRes = ctx.validateSchema(sanitized);
+                    if (!schemaRes.ok) return null;
+
+                    const validator = ctx.options.validator;
+                    if (typeof validator === "function") {
+                        try {
+                            if (validator(sanitized) === false) {
+                                ctx.reportStoreError(`Validator blocked incoming sync update for "${name}"`);
+                                return null;
+                            }
+                        } catch (err) {
+                            ctx.reportStoreError(`Validator for incoming sync "${name}" failed: ${(err as { message?: string })?.message ?? err}`);
+                            return null;
+                        }
+                    }
+
+                    return sanitized;
+                },
                 acceptIncomingSyncVersion: (name, updatedAtMs, incomingClock, source) => {
                     ctx.applyFeatureState(ctx.getStoreValue(), updatedAtMs);
                     syncClocks[ctx.name] = Math.max(syncClocks[ctx.name] ?? 0, incomingClock);

@@ -87,3 +87,10 @@ A good persistence design remembers what deserves continuity and forgets what de
 
 - [docs_2.0/BODY_MATTER/CORE_OF_STROID/CORE_OPTIONS.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/CORE_OF_STROID/CORE_OPTIONS.md)
 - [docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/REAL_USE.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/REAL_USE.md)
+
+
+## Navigation
+
+- Previous: [Chapter 27: Failure, Storage Clearing, and Recovery](FAILURE_AND_RECOVERY.md)
+- Jump to: [Unit Seven: Persist of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-seven-persist-of-stroid)
+- Next: [Chapter 29: Introduction to Devtools Stroid](../DEVTOOLS_OF_STROID/INTRODUCTION.md)

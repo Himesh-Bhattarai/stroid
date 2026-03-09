@@ -5,6 +5,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import "../src/persist.js";
 import { clearAllStores } from "../src/runtime-admin.js";
+import { getStoreMeta } from "../src/runtime-tools.js";
 import { createStore, setStore, getStore, deleteStore, resetStore } from "../src/store.js";
 import { resetAllStoresForTest } from "../src/testing.js";
 import { hashState } from "../src/utils.js";
@@ -195,6 +196,45 @@ test("persist onMigrationFail can recover data after a schema version change", (
   assert.ok(errors.some((msg) => msg.includes('No migration path from v1 to v2 for "profile"')));
 
   clearAllStores();
+});
+
+test('persist onMigrationFail "keep" still validates partial migration results', () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const serialized = JSON.stringify({ name: "Alex" });
+  const driver = {
+    getItem: () => JSON.stringify({
+      v: 1,
+      checksum: hashState(serialized),
+      data: serialized,
+    }),
+    setItem: () => {},
+    removeItem: () => {},
+  };
+
+  createStore("partialMigration", { fullName: "Initial" }, {
+    version: 3,
+    schema: (value: any) => (typeof value?.fullName === "string" ? value : false),
+    persist: {
+      driver,
+      key: "partial-migration",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+      migrations: {
+        2: (state: any) => ({ legacyName: state.name }),
+        3: () => {
+          throw new Error("step boom");
+        },
+      },
+      onMigrationFail: "keep",
+    },
+    onError: (msg) => errors.push(msg),
+  });
+
+  assert.deepStrictEqual(getStore("partialMigration"), { fullName: "Initial" });
+  assert.ok(errors.some((msg) => msg.includes('Migration to v3 failed for "partialMigration"')));
 });
 
 test("grouped persist options support nested version and migrations", () => {
@@ -391,6 +431,36 @@ test("createStore does not overwrite existing persisted state during init", asyn
 
   assert.deepStrictEqual(getStore("persistedUser"), { name: "Bob" });
   assert.deepStrictEqual(writes, []);
+});
+
+test("persisted loads restore updatedAt metadata from storage", () => {
+  clearAllStores();
+  const restoredAt = "2020-01-02T03:04:05.000Z";
+  const persistedState = JSON.stringify({ name: "Bob" });
+  const persisted = JSON.stringify({
+    v: 1,
+    updatedAt: restoredAt,
+    checksum: hashState(persistedState),
+    data: persistedState,
+  });
+
+  createStore("persistedMetaUser", { name: "Alice" }, {
+    persist: {
+      driver: {
+        getItem: () => persisted,
+        setItem: () => {},
+        removeItem: () => {},
+      },
+      key: "persisted-meta-user",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+    },
+  });
+
+  assert.deepStrictEqual(getStore("persistedMetaUser"), { name: "Bob" });
+  assert.strictEqual(getStoreMeta("persistedMetaUser")?.updatedAt, restoredAt);
 });
 
 test("persist uses sessionStorage when configured with the session shorthand", async () => {

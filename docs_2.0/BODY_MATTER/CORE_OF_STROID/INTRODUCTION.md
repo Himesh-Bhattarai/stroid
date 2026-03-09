@@ -183,3 +183,10 @@ That continuity is not accidental. It is what makes the library feel stable unde
 - [docs/03-core-philosophy.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/03-core-philosophy.md)
 - [docs/04-createStore.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/04-createStore.md)
 - [OVERVIEW.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/OVERVIEW.md)
+
+
+## Navigation
+
+- Previous: [How to Use This Book](../../FRONT_MATTER/HOW_TO_USE.md)
+- Jump to: [Unit One: Core of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-one-core-of-stroid)
+- Next: [Chapter 2: Core Options](CORE_OPTIONS.md)

@@ -204,3 +204,10 @@ This matters because systems become cleaner when intent is named before implemen
 - [src/server.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/server.ts)
 - [docs/18-ssr.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/18-ssr.md)
 - [OVERVIEW.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/OVERVIEW.md)
+
+
+## Navigation
+
+- Previous: [Chapter 3: Core Examples](EXAMPLE.md)
+- Jump to: [Unit One: Core of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-one-core-of-stroid)
+- Next: [Chapter 5: Introduction to Opt-In Features](../OPT_IN_FEATURES_OF_STROID/INTRODUCTION.md)

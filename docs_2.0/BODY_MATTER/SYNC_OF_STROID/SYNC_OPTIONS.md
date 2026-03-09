@@ -140,3 +140,10 @@ The runtime needs an answer because humans disagree about truth faster than code
 
 - [src/features/sync.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/sync.ts)
 - [tests/sync.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/sync.test.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 13: Introduction to Sync Stroid](INTRODUCTION.md)
+- Jump to: [Unit Four: Sync of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-four-sync-of-stroid)
+- Next: [Chapter 15: Conflicts, Catch-Up, and Cleanup](CONFLICTS_AND_RECOVERY.md)

@@ -39,3 +39,10 @@ If a part of Stroid is strong, this documentation should say so clearly.
 If a part is still a tradeoff, this documentation should say that just as clearly.
 
 That is the standard for the rest of this book.
+
+
+## Navigation
+
+- Previous: [Front Cover Page](../FRONT_COVER_PAGE.md)
+- Jump to: [Front Matter](CONTENTS.md#front-matter)
+- Next: [Introduction](INTRODUCTION.md)

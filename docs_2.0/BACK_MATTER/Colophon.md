@@ -67,3 +67,10 @@ A later publication-stage version would likely include:
 For now, the honest colophon is simple:
 
 this is a technical documentation book shaped alongside the system it describes.
+
+
+## Navigation
+
+- Previous: [Bibliography](Bibliography.md)
+- Jump to: [Back Matter](../FRONT_MATTER/CONTENTS.md#back-matter)
+- Next: [Contact Information](Contact_Information.md)

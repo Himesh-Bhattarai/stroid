@@ -152,3 +152,10 @@ That reduces migration stress. It also reduces the psychological cost of growth,
 - [src/index.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/index.ts)
 - [src/core.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/core.ts)
 - [src/feature-registry.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/feature-registry.ts)
+
+
+## Navigation
+
+- Previous: [Chapter 4: Real Use of Core Stroid](../CORE_OF_STROID/REAL_USE.md)
+- Jump to: [Unit Two: Opt-In Features of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-two-opt-in-features-of-stroid)
+- Next: [Chapter 6: Store-Attached Features](STORE_FEATURES.md)

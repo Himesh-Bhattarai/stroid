@@ -147,3 +147,10 @@ Persistence is useful precisely because it is optional.
 - [src/persist.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/persist.ts)
 - [src/features/persist.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/persist.ts)
 - [docs/14-persist.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/14-persist.md)
+
+
+## Navigation
+
+- Previous: [Chapter 24: Real Use, Real Limits, Real Confidence](../THE_GLITCH_IN_MATRIX/REAL_USE.md)
+- Jump to: [Unit Seven: Persist of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-seven-persist-of-stroid)
+- Next: [Chapter 26: Storage Drivers, Versioning, and Migrations](STORAGE_AND_MIGRATIONS.md)

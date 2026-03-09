@@ -21,3 +21,9 @@ It is written for developers who want to understand:
 The goal is not to market Stroid as magic.
 
 The goal is to make Stroid legible.
+
+## Navigation
+
+- Previous: [Front Matter](FRONT_MATTER/CONTENTS.md#front-matter)
+- Jump to: [Front Matter](FRONT_MATTER/CONTENTS.md#front-matter)
+- Next: [Preface](FRONT_MATTER/PREFACE.md)
