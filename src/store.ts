@@ -459,6 +459,23 @@ const _runFeatureWriteHooks = (name: string, action: string, prev: StoreValue, n
     });
 };
 
+const _persistLoad = (name: string, { silent } = { silent: false }): boolean =>
+    persistLoad({
+        name,
+        silent,
+        getMeta: () => _meta[name],
+        getInitialState: () => _initial[name],
+        setStoreValue: (value) => {
+            _stores[name] = value;
+        },
+        reportStoreError: _reportStoreError,
+        validateSchema: (next) => _validateSchema(name, next),
+        log,
+        hashState,
+        deepClone,
+        sanitize,
+    });
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
