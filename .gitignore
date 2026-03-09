@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+# silent
+stroid-website/
+
 # builds
 dist/
 .next/

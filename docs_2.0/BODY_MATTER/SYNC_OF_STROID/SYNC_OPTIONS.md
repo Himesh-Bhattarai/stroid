@@ -52,8 +52,10 @@ Table 14.1: Sync Option Roles
 Stroid's sync layer orders state using a combination of:
 
 - clock
-- updated timestamp
 - source identifier
+
+`updatedAt` still exists as metadata and as input for `conflictResolver(...)`.
+But the built-in accept/reject rule is driven by logical clocks first, then a deterministic source identifier tie-break.
 
 That means incoming state is not accepted just because it arrived later.
 
@@ -79,7 +81,7 @@ That is the difference between synchronization and message echo.
 
 ## 14.3 Validation and Safety
 
-Incoming sync state still passes through schema validation.
+Incoming sync state still passes through sanitize, schema, and validator checks before commit.
 
 That means malformed or invalid incoming state should not silently corrupt the target store.
 
@@ -102,13 +104,14 @@ createStore("profile", {
 
 If the environment does not support `BroadcastChannel`, Stroid reports that through `onError` rather than pretending sync exists.
 
+If a peer sends an incompatible sync protocol message, Stroid ignores it and reports the mismatch instead of guessing.
+
 ### Case Study 14.1: Why Ordering Is a Philosophy Problem Too
 
 Most synchronization problems are hidden arguments about authority.
 
 What should win?
 
-- the newest timestamp?
 - the highest clock?
 - the local user?
 - the remote writer?

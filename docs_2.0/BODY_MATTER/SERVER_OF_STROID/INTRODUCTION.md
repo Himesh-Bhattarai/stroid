@@ -52,11 +52,16 @@ This subpath is intentionally narrow.
 - `snapshot`
 - `hydrate`
 
+`create(name, data, options)` buffers both state and per-store options.
+That matters later because `hydrate()` can use those buffered options when it creates the real stores.
+
 ### Example 41.1: Request Buffer
 
 ```ts
 const requestState = createStoreForRequest(({ create, set }) => {
-  create("session", { user: null });
+  create("session", { user: null }, {
+    schema: (next: any) => next?.user === null || typeof next?.user?.id === "string",
+  });
   set("session", (draft: any) => {
     draft.user = { id: "u1" };
   });

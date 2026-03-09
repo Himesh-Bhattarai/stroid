@@ -50,15 +50,27 @@ function DashboardSummary() {
 function ProfileDraftForm() {
   const name = useFormStore("profileDraft", "name");
   const bio = useFormStore("profileDraft", "bio");
+  const accepted = useFormStore("profileDraft", "acceptedTerms");
 
   return (
     <>
       <input value={name.value ?? ""} onChange={name.onChange} />
       <textarea value={bio.value ?? ""} onChange={bio.onChange} />
+      <label>
+        <input
+          type="checkbox"
+          checked={!!accepted.value}
+          onChange={accepted.onChange}
+        />
+        Accept terms
+      </label>
     </>
   );
 }
 ```
+
+This matters because good form helpers do not flatten every input into text.
+`useFormStore(...)` keeps text inputs simple, but it also treats checkboxes as booleans instead of the misleading browser `"on"` default.
 
 ### Example 20.4: Async Panel
 

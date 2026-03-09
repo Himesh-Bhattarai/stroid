@@ -82,6 +82,14 @@ createStore("settings", {
 
 Use `validate` for simple boolean gates. Use `schema` when data shape is a contract, not a suggestion.
 
+Important note:
+Lifecycle middleware is synchronous.
+If middleware returns a `Promise`, Stroid rejects that update instead of committing async uncertainty into store state.
+
+Another important note:
+Middleware is not a secret tunnel around validation.
+If middleware changes the next value, Stroid still sanitizes and validates the final result before commit.
+
 ## 2.2 Scope, Validation, and Lifecycle
 
 The most important frozen semantic in current core is `scope`.

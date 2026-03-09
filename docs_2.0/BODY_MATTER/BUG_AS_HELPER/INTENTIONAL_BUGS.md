@@ -67,10 +67,11 @@ Table 74.2: Intentional Feature-Layer Behaviors
 The sync layer chooses a practical ordering rule:
 
 - logical clock
-- timestamp
 - source tie-breaker
 
 That is enough for deterministic convergence in many local-peer cases.
+Timestamps still exist as metadata and resolver context.
+They are not the primary ordering authority.
 It is not a PhD thesis in causality.
 That limitation is documented because pretending otherwise would be comedy, not engineering.
 

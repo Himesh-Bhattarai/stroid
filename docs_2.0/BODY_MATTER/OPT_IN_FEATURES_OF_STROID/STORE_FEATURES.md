@@ -106,10 +106,15 @@ Sync handles:
 
 - peer channel setup
 - message broadcast
-- last-write ordering
+- logical-clock ordering with a deterministic source tie-break
 - conflict resolution
 - reconnect and focus catch-up
 - payload safety limits
+- incompatible sync-protocol messages are ignored instead of guessed through
+
+Note:
+`localUpdated` and `incomingUpdated` still matter inside `conflictResolver(...)` as context.
+But the built-in accept/reject rule is driven by sync clocks first, then a deterministic source tie-break.
 
 ## 6.3 Devtools and History
 

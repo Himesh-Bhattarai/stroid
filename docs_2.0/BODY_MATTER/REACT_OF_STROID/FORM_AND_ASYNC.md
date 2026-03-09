@@ -46,6 +46,11 @@ This hook is useful because it removes repetitive shape unpacking while keeping 
 - `value`
 - `onChange`
 
+`onChange` reads:
+
+- `event.target.value` for normal text-like inputs
+- `event.target.checked` for checkbox inputs
+
 ### Example 19.2: Form Hook
 
 ```tsx
@@ -58,6 +63,11 @@ function NameField() {
 ```
 
 This is a small helper, but it matters because repeated field wiring is exactly the kind of friction that slowly pollutes UI codebases.
+
+Note:
+Checkboxes are where innocent form helpers become accidental liars.
+If you read the raw browser `value`, you often get `"on"`.
+`useFormStore(...)` uses `checked` for checkbox inputs so the store receives a real boolean.
 
 ## 19.3 Convenience Without Confusion
 

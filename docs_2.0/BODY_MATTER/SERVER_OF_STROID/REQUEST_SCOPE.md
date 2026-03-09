@@ -23,12 +23,18 @@ Buffered mutation is a promise that work can happen safely before truth is publi
 
 ```ts
 const req = createStoreForRequest(({ create, set }) => {
-  create("cart", { items: [] });
+  create("cart", { items: [] }, {
+    validate: (next: any) => Array.isArray(next?.items),
+  });
   set("cart", (draft: any) => {
     draft.items.push({ id: "a1" });
   });
 });
 ```
+
+Note:
+Inside the request buffer, `create(...)` can stage store options as well as store data.
+Those options travel forward into `hydrate()` unless you override them there explicitly.
 
 ## 42.2 Snapshot Reads
 
@@ -38,7 +44,7 @@ Table 42.1: Request Buffer API
 
 | API | Purpose |
 |---|---|
-| `create` | create request-local state |
+| `create` | create request-local state and optionally stage per-store options |
 | `set` | update request-local state |
 | `get` | read request-local state |
 | `snapshot` | export the buffered record |

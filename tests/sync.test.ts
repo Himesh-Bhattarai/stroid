@@ -429,7 +429,7 @@ test("sync ignores protocol-mismatched messages", async () => {
 
     channel.onmessage?.({
       data: {
-        protocol: 1,
+        protocol: 999,
         type: "sync-state",
         source: "remote-tab",
         name: "shared",

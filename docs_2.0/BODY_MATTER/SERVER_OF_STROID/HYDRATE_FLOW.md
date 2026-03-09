@@ -20,16 +20,21 @@ Hydration is the moment a prepared story becomes shared truth. That transition d
 ## 43.1 From Buffer to Store
 
 `hydrate()` applies the buffered snapshot into actual stores using `hydrateStores`.
+It also carries forward any per-store options that were buffered through `createStoreForRequest(...).create(name, data, options)`.
 
 ### Example 43.1: Hydrate Request State
 
 ```ts
 const requestState = createStoreForRequest(({ create }) => {
-  create("session", { user: { id: "u1" } });
+  create("session", { user: { id: "u1" } }, {
+    validate: (next: any) => typeof next?.user?.id === "string",
+  });
 });
 
 requestState.hydrate();
 ```
+
+If you call `hydrate(...)` with explicit per-store options, those hydrate-time options override the buffered ones.
 
 ## 43.2 The Role of `hydrateStores`
 
@@ -39,8 +44,8 @@ Table 43.1: Buffer and Hydrate Roles
 
 | Layer | Responsibility |
 |---|---|
-| `stroid/server` | request-local preparation |
-| core hydration | apply prepared state to stores |
+| `stroid/server` | request-local preparation, including staged per-store options |
+| core hydration | apply prepared state to stores and create missing ones with the resolved option set |
 
 ## 43.3 Honest SSR Boundary
 

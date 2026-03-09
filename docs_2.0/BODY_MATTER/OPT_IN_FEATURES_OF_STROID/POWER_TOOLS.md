@@ -76,14 +76,22 @@ Table 8.1: Runtime Operation Boundaries
 import { createStoreForRequest } from "stroid/server";
 
 const requestState = createStoreForRequest((api) => {
-  api.create("bootstrap", { user: null, locale: "en" });
+  api.create("bootstrap", { user: null, locale: "en" }, {
+    schema: (next: any) => typeof next?.locale === "string",
+  });
   api.set("bootstrap", (draft: any) => {
     draft.locale = "ne";
   });
 });
 
 const snapshot = requestState.snapshot();
+requestState.hydrate();
 ```
+
+Note:
+Options passed to `api.create(name, data, options)` are buffered and applied later when `hydrate()` creates the real store.
+
+If you also pass options into `hydrate(...)`, those explicit hydrate-time options override the buffered per-store options.
 
 ### Example 8.4: Runtime Inspection
 

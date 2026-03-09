@@ -18,6 +18,12 @@ Categories used:
 - `Intentional`
 - `No Need to Fix`
 
+## Current Verification Note
+
+- `tests/store.test.ts` still has a failing case at [tests/store.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/store.test.ts#L770) named `temp stores warn when persistence is explicitly enabled`.
+- Status:
+  This is a current verification failure discovered during the release-hardening pass. It should be treated as unresolved until the underlying cause is confirmed and fixed.
+
 ## Must Fix
 
 ### Bug 10
