@@ -11,7 +11,7 @@ test("validator with side effects runs once per write", () => {
   clearAllStores();
   let calls = 0;
   createStore("x", { value: 0 }, {
-    validator: (next) => {
+    validate: (next) => {
       calls += 1;
       return (next as any).value >= 0;
     },

@@ -9,6 +9,8 @@ export interface PersistDriver {
 
 export type StoreScope = "request" | "global" | "temp";
 
+export type ValidateOption<State = StoreValue> = unknown | ((next: State) => boolean | State);
+
 export interface PersistOptions<State = StoreValue> {
     driver?: PersistDriver;
     storage?: PersistDriver;
@@ -69,7 +71,8 @@ export interface LifecycleOptions<State = StoreValue> {
 
 export interface StoreOptions<State = StoreValue> {
     scope?: StoreScope;
-    validate?: unknown | ((next: State) => boolean);
+    lazy?: boolean;
+    validate?: ValidateOption<State>;
     persist?: boolean | string | PersistOptions<State>;
     devtools?: boolean | DevtoolsOptions<State>;
     lifecycle?: LifecycleOptions<State>;
@@ -79,7 +82,9 @@ export interface StoreOptions<State = StoreValue> {
     onDelete?: (prev: State) => void;
     onCreate?: (initial: State) => void;
     onError?: (err: string) => void;
+    /** @deprecated use validate instead */
     validator?: (next: State) => boolean;
+    /** @deprecated use validate instead */
     schema?: unknown;
     migrations?: Record<number, (state: State) => State>;
     version?: number;
@@ -91,6 +96,7 @@ export interface StoreOptions<State = StoreValue> {
 
 export interface NormalizedOptions {
     scope: StoreScope;
+    lazy: boolean;
     persist: PersistConfig | null;
     devtools: boolean;
     middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
@@ -99,8 +105,7 @@ export interface NormalizedOptions {
     onDelete?: (prev: StoreValue) => void;
     onCreate?: (initial: StoreValue) => void;
     onError?: (err: string) => void;
-    validator?: (next: StoreValue) => boolean;
-    schema?: unknown;
+    validate?: ValidateOption;
     migrations: Record<number, (state: any) => any>;
     version: number;
     redactor?: (state: StoreValue) => StoreValue;
@@ -218,14 +223,11 @@ export const normalizeStoreOptions = <State>(
     name: string
 ): NormalizedOptions => {
     const normalizedScope: StoreScope = option.scope ?? "request";
+    const normalizedLazy = option.lazy === true;
     const lifecycle = isObject(option.lifecycle) ? option.lifecycle as LifecycleOptions<State> : undefined;
     const persistGroup = isObject(option.persist) ? option.persist as PersistOptions<State> : undefined;
     const devtoolsGroup = isObject(option.devtools) ? option.devtools as DevtoolsOptions<State> : undefined;
-    const validate = option.validate;
-    const normalizedSchema = option.schema
-        ?? (validate !== undefined && typeof validate !== "function" ? validate : undefined);
-    const normalizedValidator = option.validator
-        ?? (typeof validate === "function" ? validate : undefined);
+    const normalizedValidate = option.validate ?? option.validator ?? option.schema;
     const explicitPersist = hasOwn(option, "persist");
     const explicitSync = hasOwn(option, "sync");
     const explicitDevtools = hasOwn(option, "devtools") || hasOwn(option, "historyLimit") || hasOwn(option, "redactor");
@@ -242,6 +244,7 @@ export const normalizeStoreOptions = <State>(
 
     return {
         scope: normalizedScope,
+        lazy: normalizedLazy,
         persist: normalizedScope === "temp" && !explicitPersist
             ? null
             : normalizePersistOptions<State>(persist, name),
@@ -254,8 +257,7 @@ export const normalizeStoreOptions = <State>(
         onDelete: (lifecycle?.onDelete ?? option.onDelete) as NormalizedOptions["onDelete"],
         onCreate: (lifecycle?.onCreate ?? option.onCreate) as NormalizedOptions["onCreate"],
         onError,
-        validator: normalizedValidator as NormalizedOptions["validator"],
-        schema: normalizedSchema,
+        validate: normalizedValidate as NormalizedOptions["validate"],
         migrations: (persistGroup?.migrations ?? option.migrations ?? {}) as NormalizedOptions["migrations"],
         version: persistGroup?.version ?? option.version ?? 1,
         redactor: normalizedScope === "temp" && !explicitDevtools

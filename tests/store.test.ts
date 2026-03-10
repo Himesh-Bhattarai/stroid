@@ -85,7 +85,7 @@ test("setStore enforces schema on updates", () => {
   clearAllStores();
   let errorMsg: string | undefined;
   const schema = (v: any) => (typeof v?.name === "string" ? v : false);
-  createStore("user", { name: "Alex" }, { schema, onError: (msg) => { errorMsg = msg; } });
+  createStore("user", { name: "Alex" }, { validate: schema, onError: (msg) => { errorMsg = msg; } });
   // bad type: name as number
   // @ts-expect-error runtime guard
   setStore("user", { name: 123 });
@@ -252,7 +252,7 @@ test("validator exceptions are reported without throwing", () => {
   assert.doesNotThrow(() => {
     createStore("user", { score: 0 }, {
       onError: (msg) => { errors.push(msg); },
-      validator: () => {
+      validate: () => {
         throw new Error("boom");
       },
     });
@@ -262,7 +262,7 @@ test("validator exceptions are reported without throwing", () => {
 
   createStore("safeUser", { score: 0 }, {
     onError: (msg) => { errors.push(msg); },
-    validator: (next: any) => next.score <= 10,
+    validate: (next: any) => next.score <= 10,
   });
 
   assert.doesNotThrow(() => {
@@ -273,7 +273,7 @@ test("validator exceptions are reported without throwing", () => {
   let mergeChecks = 0;
   createStore("mergeUser", { score: 0 }, {
     onError: (msg) => { errors.push(msg); },
-    validator: () => {
+    validate: () => {
       mergeChecks += 1;
       if (mergeChecks > 1) {
         throw new Error("merge boom");
@@ -286,8 +286,8 @@ test("validator exceptions are reported without throwing", () => {
     mergeStore("mergeUser", { score: 1 });
   });
   assert.deepStrictEqual(getStore("mergeUser"), { score: 0 });
-  assert.ok(errors.some((msg) => msg.includes('Validator for "user" failed')));
-  assert.ok(errors.some((msg) => msg.includes('Validator for "mergeUser" failed')));
+  assert.ok(errors.some((msg) => msg.includes('Validation for "user" failed')));
+  assert.ok(errors.some((msg) => msg.includes('Validation for "mergeUser" failed')));
 });
 
 test("validator failures do not call the same onError handler twice", () => {
@@ -299,21 +299,21 @@ test("validator failures do not call the same onError handler twice", () => {
 
   createStore("validatorOnce", { value: 1 }, {
     onError,
-    validator: (next: any) => next.value < 2,
+    validate: (next: any) => next.value < 2,
   });
 
   setStore("validatorOnce", { value: 2 });
-  assert.deepStrictEqual(messages, ['Validator blocked update for "validatorOnce"']);
+  assert.deepStrictEqual(messages, ['Validation blocked update for "validatorOnce"']);
 
   messages.length = 0;
 
   const blocked = createStore("validatorInitOnce", { value: 2 }, {
     onError,
-    validator: (next: any) => next.value < 2,
+    validate: (next: any) => next.value < 2,
   });
 
   assert.strictEqual(blocked, undefined);
-  assert.deepStrictEqual(messages, ['Validator blocked update for "validatorInitOnce"']);
+  assert.deepStrictEqual(messages, ['Validation blocked update for "validatorInitOnce"']);
 });
 
 test("sanitize errors are reported without throwing on circular input", () => {
@@ -624,7 +624,7 @@ test("hydrateStores skips invalid schema payloads and keeps reset state intact",
   const schema = (v: any) => (typeof v?.name === "string" ? v : false);
 
   createStore("profile", { name: "Alex" }, {
-    schema,
+    validate: schema,
     onError: (msg) => { errors.push(`profile:${msg}`); },
   });
 
@@ -635,7 +635,7 @@ test("hydrateStores skips invalid schema payloads and keeps reset state intact",
     },
     {
       default: {
-        schema,
+        validate: schema,
         onError: (msg) => { errors.push(`hydrate:${msg}`); },
       },
     }
@@ -645,7 +645,7 @@ test("hydrateStores skips invalid schema payloads and keeps reset state intact",
   resetStore("profile");
   assert.deepStrictEqual(getStore("profile"), { name: "Alex" });
   assert.strictEqual(hasStore("ghost"), false);
-  assert.ok(errors.some((msg) => msg.includes('Schema validation failed for "ghost"')));
+  assert.ok(errors.some((msg) => msg.includes('Validation failed for "ghost"')));
 });
 
 test("hydrateStores replaces existing primitive and array stores", () => {
@@ -707,7 +707,7 @@ test("createStoreForRequest hydrates buffered store options", () => {
   const errors: string[] = [];
   const scoped = createStoreForRequest(({ create }) => {
     create("scopedProfile", { value: 1 }, {
-      schema: (value: any) => (typeof value?.value === "number" ? value : false),
+      validate: (value: any) => (typeof value?.value === "number" ? value : false),
       onError: (msg) => { errors.push(msg); },
     });
   });
@@ -717,7 +717,7 @@ test("createStoreForRequest hydrates buffered store options", () => {
   setStore("scopedProfile", { value: "bad" as any });
 
   assert.deepStrictEqual(getStore("scopedProfile"), { value: 1 });
-  assert.ok(errors.some((msg) => msg.includes('Schema validation failed for "scopedProfile"')));
+  assert.ok(errors.some((msg) => msg.includes('Validation failed for "scopedProfile"')));
 });
 
 test("getInitialState returns original initial values", () => {
@@ -1010,7 +1010,7 @@ test("middleware mutations are revalidated before commit", () => {
   const errors: string[] = [];
 
   createStore("middlewareValidation", { count: 1 }, {
-    schema: (value: any) => (typeof value?.count === "number" ? value : false),
+    validate: (value: any) => (typeof value?.count === "number" ? value : false),
     onError: (msg) => { errors.push(msg); },
     middleware: [({ next }) => {
       (next as { count: unknown }).count = "broken";
@@ -1020,7 +1020,7 @@ test("middleware mutations are revalidated before commit", () => {
   setStore("middlewareValidation", { count: 2 });
 
   assert.deepStrictEqual(getStore("middlewareValidation"), { count: 1 });
-  assert.ok(errors.some((msg) => msg.includes('Schema validation failed for "middlewareValidation"')));
+  assert.ok(errors.some((msg) => msg.includes('Validation failed for "middlewareValidation"')));
 });
 
 test("path writes allow replacing null leaves with objects", () => {

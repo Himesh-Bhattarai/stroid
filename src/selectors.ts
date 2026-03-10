@@ -98,14 +98,14 @@ export const subscribeWithSelector = <R>(
         if (!hasPrev) {
             hasPrev = true;
             prevSel = nextSel;
-            listener(deepClone(nextSel), deepClone(nextSel));
+            listener(nextSel, nextSel);
             return;
         }
         const matches = equality(nextSel, prevSel);
         if (!matches) {
             const last = prevSel;
             prevSel = nextSel;
-            listener(deepClone(nextSel), deepClone(last));
+            listener(nextSel, last);
         }
     };
     return subscribeSelectorStore(name, wrapped);

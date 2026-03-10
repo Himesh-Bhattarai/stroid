@@ -39,8 +39,8 @@ export const createStoreForRequest = (
             Object.keys(buffer).forEach((name) => {
                 merged[name] = {
                     ...(options.default || {}),
-                    ...(bufferedOptions[name] || {}),
                     ...(options[name] || {}),
+                    ...(bufferedOptions[name] || {}),
                 };
             });
 

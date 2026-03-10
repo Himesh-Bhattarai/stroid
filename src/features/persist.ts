@@ -128,7 +128,7 @@ export const setupPersistWatch = ({
     };
 };
 
-export const persistSave = ({
+const persistSaveInner = ({
     name,
     persistTimers,
     persistWatchState,
@@ -146,11 +146,12 @@ export const persistSave = ({
     getStoreValue: () => StoreValue;
     reportStoreError: (name: string, message: string) => void;
     hashState: (value: unknown) => number;
-}): void => {
+}, immediate = false): void => {
     const cfg = getMeta()?.options?.persist;
     if (!cfg) return;
     if (persistTimers[name]) clearTimeout(persistTimers[name]);
-    persistTimers[name] = setTimeout(() => {
+
+    const writeNow = () => {
         delete persistTimers[name];
         const meta = getMeta();
         if (!meta?.options?.persist || meta.options.persist !== cfg || !exists(name)) return;
@@ -169,7 +170,19 @@ export const persistSave = ({
         } catch (e) {
             reportStoreError(name, `Could not persist store "${name}" (${(e as { message?: string })?.message || e})`);
         }
-    }, 0);
+    };
+
+    if (immediate) {
+        writeNow();
+        return;
+    }
+
+    if (typeof queueMicrotask === "function") {
+        persistTimers[name] = setTimeout(() => writeNow(), 0); // fallback timer in case microtask not available
+        queueMicrotask(writeNow);
+    } else {
+        persistTimers[name] = setTimeout(writeNow, 0);
+    }
 };
 
 export const persistLoad = ({
@@ -179,7 +192,7 @@ export const persistLoad = ({
     getInitialState,
     applyFeatureState,
     reportStoreError,
-    validateSchema,
+    validate,
     log,
     hashState,
     deepClone,
@@ -191,7 +204,7 @@ export const persistLoad = ({
         getInitialState: () => StoreValue;
         applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
         reportStoreError: (name: string, message: string) => void;
-        validateSchema: (next: StoreValue) => { ok: boolean };
+        validate: (next: StoreValue) => { ok: boolean; value?: StoreValue };
         log: (message: string) => void;
     hashState: (value: unknown) => number;
     deepClone: <T>(value: T) => T;
@@ -200,6 +213,11 @@ export const persistLoad = ({
     const meta = getMeta();
     const cfg = meta?.options?.persist;
     if (!cfg) return false;
+    const validateState = (candidate: StoreValue): { ok: boolean; value?: StoreValue } => {
+        const res = validate(candidate);
+        if (!res.ok) return { ok: false };
+        return { ok: true, value: res.value ?? candidate };
+    };
     try {
         const raw = cfg.driver.getItem?.(cfg.key) ?? null;
         if (!raw) return false;
@@ -273,18 +291,18 @@ export const persistLoad = ({
                     applyFeatureState(parsed, safeUpdatedAt);
                     return true;
                 }
-                const recoveredSchema = validateSchema(parsed);
-                if (!recoveredSchema.ok) {
+                const recoveredValidation = validateState(parsed);
+                if (!recoveredValidation.ok) {
                     applyFeatureState(deepClone(getInitialState()), Date.now());
                     return true;
                 }
-                applyFeatureState(parsed, safeUpdatedAt);
+                applyFeatureState(recoveredValidation.value ?? parsed, safeUpdatedAt);
                 return true;
             }
         }
 
-        const schemaResult = validateSchema(parsed);
-        if (!schemaResult.ok) {
+        const validationResult = validateState(parsed);
+        if (!validationResult.ok) {
             if (v !== targetVersion) {
                 const fallback = resolveMigrationFailure({
                     name,
@@ -301,9 +319,9 @@ export const persistLoad = ({
                     return true;
                 }
 
-                const recoveredSchema = validateSchema(fallback.state);
-                if (recoveredSchema.ok) {
-                    applyFeatureState(fallback.state, safeUpdatedAt);
+                const recoveredValidation = validateState(fallback.state);
+                if (recoveredValidation.ok) {
+                    applyFeatureState(recoveredValidation.value ?? fallback.state, safeUpdatedAt);
                     return true;
                 }
             }
@@ -312,7 +330,7 @@ export const persistLoad = ({
             return true;
         }
 
-        applyFeatureState(parsed, safeUpdatedAt);
+        applyFeatureState(validationResult.value ?? parsed, safeUpdatedAt);
         if (!silent) log(`Store "${name}" loaded from persistence`);
         return true;
     } catch (e) {
@@ -320,6 +338,27 @@ export const persistLoad = ({
         return true;
     }
 };
+
+export const persistSave = (args: {
+    name: string;
+    persistTimers: PersistTimers;
+    persistWatchState: PersistWatchState;
+    exists: (name: string) => boolean;
+    getMeta: () => PersistMeta | undefined;
+    getStoreValue: () => StoreValue;
+    reportStoreError: (name: string, message: string) => void;
+    hashState: (value: unknown) => number;
+}): void => persistSaveInner(args);
+
+export const flushPersistImmediately = (name: string, args: {
+    persistTimers: PersistTimers;
+    persistWatchState: PersistWatchState;
+    exists: (name: string) => boolean;
+    getMeta: () => PersistMeta | undefined;
+    getStoreValue: () => StoreValue;
+    reportStoreError: (name: string, message: string) => void;
+    hashState: (value: unknown) => number;
+}): void => persistSaveInner({ ...args, name }, true);
 
 export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
     const persistTimers: PersistTimers = {};
@@ -331,9 +370,14 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             const cfg = ctx.options.persist;
             if (!cfg) return;
 
-            const isIdentity = (fn: Function): boolean => {
-                const src = fn.toString().replace(/\s/g, "");
-                return src === "v=>v" || src === "(v)=>v" || src === "function(v){returnv;}";
+            const isIdentity = (fn: (v: string) => string): boolean => {
+                try {
+                    const probe = "__stroid_plaintext_probe__";
+                    return fn(probe) === probe;
+                } catch (_) {
+                    const src = fn.toString().replace(/\s/g, "");
+                    return src === "v=>v" || src === "(v)=>v" || src === "function(v){returnv;}";
+                }
             };
 
             if (typeof cfg.encrypt === "function" && isIdentity(cfg.encrypt)) {
@@ -363,7 +407,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 getInitialState: ctx.getInitialState,
                 applyFeatureState: ctx.applyFeatureState,
                 reportStoreError: (name, message) => ctx.reportStoreError(message),
-                validateSchema: ctx.validateSchema,
+                validate: ctx.validate,
                 log: ctx.log,
                 hashState: ctx.hashState,
                 deepClone: ctx.deepClone,
@@ -381,6 +425,22 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                     reportStoreError: (name, message) => ctx.reportStoreError(message),
                     hashState: ctx.hashState,
                 });
+            }
+
+            if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+                const flush = () => {
+                    flushPersistImmediately(ctx.name, {
+                        persistTimers,
+                        persistWatchState,
+                        exists: () => ctx.hasStore(),
+                        getMeta: ctx.getMeta,
+                        getStoreValue: ctx.getStoreValue,
+                        reportStoreError: (name, message) => ctx.reportStoreError(message),
+                        hashState: ctx.hashState,
+                    });
+                };
+                window.addEventListener("pagehide", flush, { once: true });
+                window.addEventListener("beforeunload", flush, { once: true });
             }
 
             setupPersistWatch({

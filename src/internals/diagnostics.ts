@@ -59,7 +59,7 @@ export const error = (msg: string, meta?: Record<string, unknown>): void => {
 
 export const log = (msg: string, meta?: Record<string, unknown>): void => {
     if (!__DEV__) return;
-    const sink = getConfig().logSink.warn ?? defaultLog;
+    const sink = getConfig().logSink.log ?? defaultLog;
     sink(msg, meta);
 };
 

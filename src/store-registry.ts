@@ -20,14 +20,21 @@ export type StoreRegistry = {
 const _registries = new Map<string, StoreRegistry>();
 
 declare const __STROID_REGISTRY_ID__: string | undefined;
-const _registryOverride =
+const _registryOverrideEnv =
     (typeof __STROID_REGISTRY_ID__ !== "undefined" && __STROID_REGISTRY_ID__)
     || (typeof process !== "undefined" && process.env?.STROID_REGISTRY_ID)
     || undefined;
 
+let _registryOverrideRuntime: string | undefined;
+
 export const normalizeStoreRegistryScope = (scope: string): string => {
-    const resolved = _registryOverride || scope;
+    const resolved = _registryOverrideRuntime || _registryOverrideEnv || scope;
     return resolved.replace(/\.ts(\?|$)/, ".js$1");
+};
+
+export const setRegistryScope = (scope: string): void => {
+    _registryOverrideRuntime = scope;
+    _registries.clear();
 };
 
 export const getStoreRegistry = (scope: string): StoreRegistry => {

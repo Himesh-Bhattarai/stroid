@@ -43,6 +43,9 @@ The core path API uses `storeName` and `path` separately:
 - Async helpers: `fetchStore`, `refetchStore`, `enableRevalidateOnFocus`
 - Per-store features: `persist`, `sync`, middleware, validator/schema, devtools, history
 - Utility helpers: selectors, metrics, testing helpers, entity/list/counter presets, SSR hydrate helpers
+- Lazy stores for expensive initial state (see below)
+- Store handles with autocomplete: `store("user")` returns `{ name: "user" }` for strongly typed calls
+- `createStore` returns `undefined` on failure; prefer passing literal names or `store("name")` into setters, or null‑check the return value first
 
 ## Highlights
 
@@ -52,6 +55,52 @@ The core path API uses `storeName` and `path` separately:
 - Async caching with TTL, dedupe, retries, and focus/online revalidation
 - BroadcastChannel sync with conflict resolution and payload size guardrails
 - No Provider required for React usage
+
+## Lazy stores
+
+If your initial state is expensive to build, pass a factory with `{ lazy: true }`:
+
+```ts
+createStore(
+  "heavyReport",
+  () => buildLargeInitialState(),
+  { lazy: true }
+)
+// the factory runs only on first access to "heavyReport"
+```
+
+> Note: lazy factories run only after the store is first read/updated. If you see `undefined` reads, make sure you haven’t disabled validation that would block materialization.
+
+## Import paths that enable features
+
+The root import (`import { createStore } from "stroid"`) is side-effect free and does **not** register optional features. To use persistence, sync, or devtools you must import their side-effect modules once in your app:
+
+```ts
+import "stroid/persist";
+import "stroid/sync";
+import "stroid/devtools";
+```
+
+If you prefer explicit paths, you can also import from subpaths (`stroid/core`, `stroid/runtime-tools`, etc.), but remember to include the feature side-effect imports when you need them.
+
+## Persistence and encryption
+
+The default `encrypt`/`decrypt` functions are identity (no encryption). If you store sensitive data, provide real encryption functions:
+
+```ts
+createStore("secrets", { token: "..." }, {
+  persist: {
+    encrypt: (plaintext) => encryptWithYourKey(plaintext),
+    decrypt: (ciphertext) => decryptWithYourKey(ciphertext),
+  },
+});
+```
+
+The persist feature warns in dev if your `encrypt` is identity, but the default is also identity—don’t rely on defaults for sensitive data.
+
+## SSR warning
+
+In production server environments (`NODE_ENV=production` and no `allowSSRGlobalStore`/`scope:"global"`), `createStore` returns `undefined` to prevent cross-request leaks. Handle this case or use `createStoreForRequest` inside each request scope.
 
 ## Docs
 

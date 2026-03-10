@@ -34,7 +34,7 @@ export interface BaseFeatureContext {
     hashState: (value: unknown) => number;
     deepClone: <T>(value: T) => T;
     sanitize: (value: unknown) => unknown;
-    validateSchema: (next: StoreValue) => { ok: boolean };
+    validate: (next: StoreValue) => { ok: boolean; value?: StoreValue };
     isDev: () => boolean;
 }
 

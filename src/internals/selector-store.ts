@@ -1,32 +1,29 @@
 import {
-    getStoreRegistry,
-    hasStoreEntry,
-    normalizeStoreRegistryScope,
-    type RegistryStoreValue,
-    type RegistrySubscriber,
-} from "../store-registry.js";
+    stores as _stores,
+    subscribers as _subscribers,
+    type StoreValue as SelectorStoreValue,
+} from "../store-lifecycle.js";
 
-const _registry = getStoreRegistry(normalizeStoreRegistryScope(new URL("../store.js", import.meta.url).href));
+type SelectorSubscriber = (value: SelectorStoreValue | null) => void;
 
-export type SelectorStoreValue = RegistryStoreValue;
-type SelectorSubscriber = RegistrySubscriber;
+export type { SelectorStoreValue };
 
 export const hasSelectorStoreEntry = (name: string): boolean =>
-    hasStoreEntry(_registry, name);
+    Object.prototype.hasOwnProperty.call(_stores, name);
 
 export const getSelectorStoreValueRef = (name: string): SelectorStoreValue | undefined =>
-    _registry.stores[name];
+    _stores[name];
 
 export const subscribeSelectorStore = (name: string, fn: SelectorSubscriber): (() => void) => {
-    if (!_registry.subscribers[name]) _registry.subscribers[name] = [];
-    _registry.subscribers[name].push(fn);
+    if (!_subscribers[name]) _subscribers[name] = [];
+    _subscribers[name].push(fn);
     return () => {
-        const current = _registry.subscribers[name];
+        const current = _subscribers[name];
         if (!current || current.length === 0) return;
         const index = current.indexOf(fn);
         if (index < 0) return;
         const next = current.slice();
         next.splice(index, 1);
-        _registry.subscribers[name] = next;
+        _subscribers[name] = next;
     };
 };

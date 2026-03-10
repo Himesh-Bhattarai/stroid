@@ -1,4 +1,4 @@
-export { configureStroid } from "./internals/config.js";
+export { configureStroid, resetConfig } from "./internals/config.js";
 export type {
     LogSink,
     StroidConfig,

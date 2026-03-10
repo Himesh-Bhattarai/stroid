@@ -161,7 +161,7 @@ export const setupSync = ({
     getStoreValue,
     hasStoreEntry,
     notify,
-    validateSchema,
+    validate,
     reportStoreError,
     warn,
     setStoreValue,
@@ -182,7 +182,7 @@ export const setupSync = ({
     getStoreValue: (name: string) => StoreValue;
     hasStoreEntry: (name: string) => boolean;
     notify: (name: string) => void;
-    validateSchema: (name: string, next: StoreValue) => { ok: boolean };
+    validate: (name: string, next: StoreValue) => { ok: boolean; value?: StoreValue };
     reportStoreError: (name: string, message: string) => void;
     warn: (message: string) => void;
     setStoreValue: (name: string, value: StoreValue) => void;
@@ -392,7 +392,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                 getStoreValue: (name) => ctx.getStoreValue(),
                 hasStoreEntry: () => ctx.hasStore(),
                 notify: () => ctx.notify(),
-                validateSchema: (name, next) => ctx.validateSchema(next),
+                validate: (name, next) => ctx.validate(next),
                 reportStoreError: (name, message) => ctx.reportStoreError(message),
                 warn: ctx.warn,
                 setStoreValue: (name, value) => ctx.setStoreValue(value),
@@ -405,23 +405,9 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                         return null;
                     }
 
-                    const schemaRes = ctx.validateSchema(sanitized);
-                    if (!schemaRes.ok) return null;
-
-                    const validator = ctx.options.validator;
-                    if (typeof validator === "function") {
-                        try {
-                            if (validator(sanitized) === false) {
-                                ctx.reportStoreError(`Validator blocked incoming sync update for "${name}"`);
-                                return null;
-                            }
-                        } catch (err) {
-                            ctx.reportStoreError(`Validator for incoming sync "${name}" failed: ${(err as { message?: string })?.message ?? err}`);
-                            return null;
-                        }
-                    }
-
-                    return sanitized;
+                    const validation = validate(name, sanitized);
+                    if (!validation.ok) return null;
+                    return validation.value ?? sanitized;
                 },
                 acceptIncomingSyncVersion: (name, updatedAtMs, incomingClock, source) => {
                     ctx.applyFeatureState(ctx.getStoreValue(), updatedAtMs);

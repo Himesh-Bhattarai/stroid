@@ -2,14 +2,16 @@ import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { _subscribe, _getSnapshot, hasStore } from "./store.js";
 import { subscribeWithSelector } from "./selectors.js";
 import { getByPath, warn, isDev, shallowEqual } from "./utils.js";
+import {
+    hasBroadUseStoreWarning,
+    markBroadUseStoreWarning,
+} from "./internals/hooks-warnings.js";
 
 const pickPath = (data: any, path?: string) => {
     if (!path) return data;
     const current = getByPath(data, path);
     return current ?? null;
 };
-
-const _broadUseStoreWarnings = new Set<string>();
 
 type SelectorCache<R> = {
     hasValue: boolean;
@@ -120,8 +122,8 @@ export function useStore<T = any, R = any>(
                 `Component will update automatically when createStore("${name}") is called.`
             );
         }
-        if (isDev() && !hasSelector && !path && !_broadUseStoreWarnings.has(name)) {
-            _broadUseStoreWarnings.add(name);
+        if (isDev() && !hasSelector && !path && !hasBroadUseStoreWarning(name)) {
+            markBroadUseStoreWarning(name);
             warn(
                 `useStore("${name}") without a selector/path subscribes to the entire store and may re-render on every change.\n` +
                 `Prefer useSelector/useStoreField for better performance.`

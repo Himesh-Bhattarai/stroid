@@ -53,6 +53,9 @@ export const crc32 = (str: string): number => {
     return (crc ^ (-1)) >>> 0;
 };
 
+/**
+ * Non-cryptographic checksum for integrity (CRC32). Do not use for security.
+ */
 export const hashState = (value: unknown): number => {
     try {
         return crc32(JSON.stringify(value));
@@ -60,6 +63,8 @@ export const hashState = (value: unknown): number => {
         return crc32(String(value));
     }
 };
+
+export const checksumState = hashState; // alias for clarity
 
 // --- cloning / equality helpers ------------------------------------------------
 const hasStructuredClone = typeof globalThis !== "undefined" && typeof (globalThis as any).structuredClone === "function";
@@ -161,8 +166,15 @@ export const runSchemaValidation = (schema: unknown, value: unknown): { ok: bool
             return valid ? { ok: true, data: value } : { ok: false, error: "Schema validation failed" };
         }
         if (typeof (schema as { validate?: unknown }).validate === "function") {
-            const valid = (schema as any).validate(value);
-            return valid ? { ok: true, data: value } : { ok: false, error: (schema as any).errors || "Schema validation failed" };
+            const res = (schema as any).validate(value);
+            if (res === true) return { ok: true, data: value };
+            if (res === false) return { ok: false, error: (schema as any).errors || "Schema validation failed" };
+            if (res && typeof res === "object") {
+                const message = (res as any).error?.message || (res as any).message || (schema as any).errors;
+                if (message) return { ok: false, error: message };
+            }
+            const errMsg = (schema as any).errors || "Schema validation failed";
+            return { ok: false, error: errMsg };
         }
         if (typeof schema === "function") {
             const res = (schema as (v: unknown) => unknown | boolean)(value);

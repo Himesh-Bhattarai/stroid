@@ -35,4 +35,14 @@ Middlewares run in array order; the output of one is passed to the next. Keep th
 
 ---
 
+## What *doesn't* flow through middleware
+
+- `resetStore(name)` skips middleware by design. It restores the initial snapshot, then runs feature hooks (persist/devtools/sync) and notifies subscribers. Use a normal `setStore` if you need middleware to see the reset payload.
+- `deleteStore(name)` also bypasses middleware. It runs feature delete hooks and subscriber cleanup only.
+- `setStoreBatch(fn)` executes the batched `setStore` calls inside the batch; the batch boundaries themselves are not a middleware action.
+
+This keeps resets and deletes fast and side-effect-free, but it means middleware is not guaranteed to observe every state transition. If you need audit logging for resets/deletes, add `onReset/onDelete` handlers or feature hooks instead.
+
+---
+
 **[<- Chapter 15 -- Sync](./15-sync.md) :: [Chapter 17 -- Schema & Validation ->](./17-schema.md)**

@@ -64,7 +64,7 @@ export const createStoreAdmin = (scope: string) => {
         hashState,
         deepClone,
         sanitize,
-        validateSchema: () => ({ ok: true }),
+        validate: () => ({ ok: true, value: prev }),
         isDev,
     });
 
@@ -162,36 +162,25 @@ export const createStoreAdmin = (scope: string) => {
         }
     };
 
-    const clearAllStores = (): void => {
-        let removed = 0;
-        let passes = 0;
-
-        while (Object.keys(stores).length > 0 && passes < 1000) {
-            const names = Object.keys(stores);
-            names.forEach((name) => {
-                if (hasStoreEntry(registry, name)) {
-                    deleteExistingStore(name);
-                    removed += 1;
-                }
-            });
-            passes += 1;
-        }
-
-        if (Object.keys(stores).length > 0) {
-            warn(`clearAllStores() stopped after ${passes} passes with ${Object.keys(stores).length} stores still registered.`);
-            return;
-        }
-
-        warn(`All stores cleared (${removed} stores removed)`);
+    const clearAllStores = (): string[] => {
+        const names = Object.keys(stores);
+        names.forEach((name) => {
+            if (hasStoreEntry(registry, name)) {
+                deleteExistingStore(name);
+            }
+        });
+        warn(`All stores cleared (${names.length} stores removed)`);
+        return names;
     };
 
-    const clearStores = (pattern?: string): void => {
+    const clearStores = (pattern?: string): string[] => {
         const names = Object.keys(stores).filter((n) => {
             if (!pattern) return true;
             if (pattern.endsWith("*")) return n.startsWith(pattern.slice(0, -1));
             return n === pattern;
         });
         names.forEach((name) => deleteExistingStore(name));
+        return names;
     };
 
     return {

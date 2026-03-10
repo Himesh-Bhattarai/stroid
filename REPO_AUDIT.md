@@ -7,18 +7,18 @@ This file answers the outstanding questions from the latest BUG_REPORT items. Ea
 | 1) `refetchStore` with Promise input replays settled Promise | **Fixed** | When `fetchStore` is called with a Promise, we no longer cache that Promise for refetch; `_fetchRegistry` is only populated for URL strings. `refetchStore` now warns and returns instead of replaying stale data (`src/async.ts`). | If you want refetch support for Promise inputs, introduce a `() => Promise` factory API. |
 | 2) Double validation on every write | **Fixed** | Pre‑middleware schema/validator pass was removed; sanitize happens before middleware, full validation only after middleware (`src/store.ts`). | Add a regression test to lock the single‑pass behavior. |
 | 3) Critical events hidden by `warn()` in production | **Partially fixed** | Added `critical` sink that always fires; path safety, store errors, and sync protocol mismatches now use it. Some remaining call sites still use `warn` (e.g., size/clamp advisories). | Sweep remaining critical paths (maxPayloadBytes drop, schema failure in features) to ensure they call `critical`/`onError`. |
-| 4) `subscribeWithSelector` first-call spurious listener | **Fixed** | First notification now just seeds `prevSel`; listener is not called until a real change occurs (`src/selectors.ts`). | Add test to ensure no initial double-fire. |
+| 4) `subscribeWithSelector` first-call spurious/missing listener | **Fixed** | First notification now fires once when the store appears (`next, prev` both initial value) and suppresses only true no-op repeats, preventing both spurious double-fire and missing first value (`src/selectors.ts`). | Keep regression test for first-fire correctness. |
 | 5) Async module state not registry-scoped | **Fixed** | All async metadata is now keyed per store registry scope; dedupe tracking carries raw+transform to prevent cross-scope bleed (`src/async.ts`). | None. |
 | 6) `setStoreBatch` notifies before throwing on async detection | **Fixed** | Pending notifications are cleared if the callback returns a Promise, preventing partial leaks before the throw (`src/store.ts`). | Optional: capture/restore pending set instead of clearing to preserve queued updates. |
 | 7) `enableRevalidateOnFocus("*")` blasts all stores | **Fixed/Configurable** | Added debounce (500 ms default), maxConcurrent (3), and stagger (100 ms) with global config overrides (`src/async.ts`, `src/internals/config.ts`). | Expose per-call overrides if needed; add metrics to tune defaults. |
 | 8) Async-function guard bypassable in `setStoreBatch` | **Not fixed** | The `constructor.name === "AsyncFunction"` pre-check remains. The throw still occurs on returned Promise, but the guard is misleading. | Remove the constructor-name guard and rely solely on the return-value Promise check. |
 | 9) `serializedSelectorEqual` unbounded JSON fallback | **Fixed** | Added cycle-safe stringify with 20k length cap; falls back to “not equal” when over limit (`src/selectors.ts`). | Consider removing fallback entirely if perf remains an issue. |
-| 10) `import.meta.url` registry scoping brittle in bundles | **Not fixed** | Scope still derives from `import.meta.url`. No build-time override is present. | Add `STROID_REGISTRY_ID` (env/build flag) to force a stable scope when bundlers rewrite URLs. |
+| 10) `import.meta.url` registry scoping brittle in bundles | **Fixed** | Added `STROID_REGISTRY_ID` build-time override for stable registry scope when bundlers inline/rename modules (`src/store-registry.ts`). | Document how to set `__STROID_REGISTRY_ID__` in bundlers. |
 
 Other notes
 - Checkbox “on” bug was already correct (`useFormStore` uses `checked` for checkboxes).
 - Sync sanitize/validator parity and locale tiebreaker are still to be hardened; not addressed in this pass.
-- No automated tests were run in this pass (previous `npm test` timed out). Add targeted tests before release. |
+- Targeted node test cases executed (selector first-fire, dotted-path keys); full suite still pending due to prior timeout—run CI once remaining work stabilizes. |
 
 ## Remaining Open Items (not fixed yet)
 

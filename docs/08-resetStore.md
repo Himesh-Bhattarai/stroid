@@ -28,6 +28,12 @@ resetStore("counter") // { count: 0, step: 1 }
 
 ---
 
+## Middleware note
+
+`resetStore` bypasses middleware on purpose to keep resets cheap and predictable. Feature hooks (`persist`, `sync`, `devtools`) still fire. If you need middleware to run on reset-like behavior, perform an explicit `setStore` to the desired initial value instead.
+
+---
+
 ## Common Use Cases
 
 ```js

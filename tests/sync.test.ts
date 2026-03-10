@@ -466,7 +466,7 @@ test("incoming sync state is sanitized and validated before commit", async () =>
   try {
     store.createStore("shared", { when: "seed" }, {
       sync: true,
-      validator: (next: any) => typeof next?.when === "string" && next.when.endsWith("Z"),
+      validate: (next: any) => typeof next?.when === "string" && next.when.endsWith("Z"),
     });
     await wait();
 

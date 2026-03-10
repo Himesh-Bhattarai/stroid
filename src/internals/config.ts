@@ -1,4 +1,5 @@
 export type LogSink = {
+    log?: (msg: string, meta?: Record<string, unknown>) => void;
     warn?: (msg: string, meta?: Record<string, unknown>) => void;
     critical?: (msg: string, meta?: Record<string, unknown>) => void;
 };
@@ -28,6 +29,12 @@ type ResolvedConfig = {
 };
 
 const defaultLogSink: LogSink = {
+    log: (msg: string, meta?: Record<string, unknown>) => {
+        if (typeof console !== "undefined" && typeof console.log === "function") {
+            if (meta) console.log(`[stroid] ${msg}`, meta);
+            else console.log(`[stroid] ${msg}`);
+        }
+    },
     warn: (msg: string, meta?: Record<string, unknown>) => {
         if (typeof console !== "undefined" && typeof console.warn === "function") {
             if (meta) console.warn(`[stroid] ${msg}`, meta);
@@ -67,6 +74,7 @@ export const configureStroid = (next?: StroidConfig): void => {
         _config = {
             ..._config,
             logSink: {
+                log: next.logSink.log ?? _config.logSink.log,
                 warn: next.logSink.warn ?? _config.logSink.warn,
                 critical: next.logSink.critical ?? _config.logSink.critical,
             },
@@ -108,6 +116,9 @@ export const configureStroid = (next?: StroidConfig): void => {
     }
 };
 
-export const _resetConfigForTests = (): void => {
+export const resetConfig = (): void => {
     _config = { ...defaultConfig };
 };
+
+// Back-compat for tests
+export const _resetConfigForTests = (): void => resetConfig();

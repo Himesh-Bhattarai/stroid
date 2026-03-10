@@ -178,7 +178,7 @@ test("persist onMigrationFail can recover data after a schema version change", (
     { fullName: "Initial" },
     {
       version: 2,
-      schema: (value: any) => (typeof value?.fullName === "string" ? value : false),
+      validate: (value: any) => (typeof value?.fullName === "string" ? value : false),
       persist: {
         driver,
         key: "profile-migration",
@@ -214,7 +214,7 @@ test('persist onMigrationFail "keep" still validates partial migration results',
 
   createStore("partialMigration", { fullName: "Initial" }, {
     version: 3,
-    schema: (value: any) => (typeof value?.fullName === "string" ? value : false),
+    validate: (value: any) => (typeof value?.fullName === "string" ? value : false),
     persist: {
       driver,
       key: "partial-migration",
@@ -254,7 +254,7 @@ test("grouped persist options support nested version and migrations", () => {
     "profileGrouped",
     { fullName: "Initial" },
     {
-      schema: (value: any) => (typeof value?.fullName === "string" ? value : false),
+      validate: (value: any) => (typeof value?.fullName === "string" ? value : false),
       persist: {
         driver,
         key: "profile-grouped-migration",

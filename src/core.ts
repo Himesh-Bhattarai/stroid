@@ -9,4 +9,17 @@ export {
     hasStore,
     hydrateStores,
 } from "./store.js";
+export type {
+    Path,
+    PathValue,
+    PartialDeep,
+    StoreDefinition,
+    StoreValue,
+    StoreKey,
+    StoreName,
+    StateFor,
+    StoreStateMap,
+    WriteResult,
+} from "./store.js";
 export { configureStroid } from "./config.js";
+export * as queryIntegrations from "./integrations/query.js";
