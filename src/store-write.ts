@@ -1,5 +1,6 @@
 import {
     warn,
+    warnAlways,
     error,
     log,
     isDev,
@@ -71,7 +72,7 @@ export const createStore = <Name extends string, State>(
     name: Name,
     initialData: State,
     option: StoreOptions<State> = {}
-): StoreKey<Name, State> | undefined => {
+): StoreDefinition<Name, State> | undefined => {
     if (!isValidStoreName(name)) return;
     const lazyRequested = option.lazy === true && typeof initialData === "function";
     if (!lazyRequested && !isValidData(initialData)) return;
@@ -88,10 +89,12 @@ export const createStore = <Name extends string, State>(
     const normalizedOptions = resolveFeatureAvailability(name, normalizeStoreOptions(option, name));
 
     if (normalizedOptions.scope === "temp" && option.persist) {
-        warn(
+        const message =
             `Store "${name}" has scope: "temp" but persist is enabled. ` +
-            `Temp stores are intended to be ephemeral.`
-        );
+            `Temp stores are intended to be ephemeral.`;
+        normalizedOptions.onError?.(message);
+        if (!isDev()) warnAlways(message);
+        error(message);
     }
 
     const isServer = typeof window === "undefined";
@@ -111,7 +114,7 @@ export const createStore = <Name extends string, State>(
         const msg = `Store "${name}" already exists. Call setStore("${name}", data) to update instead.`;
         warn(msg);
         meta[name]?.options?.onError?.(msg);
-        return { name } as StoreKey<Name, State>;
+        return { name } as StoreDefinition<Name, State>;
     }
 
     if (isServer && !allowGlobalSSR && !getSsrWarningIssued(name) && isDev()) {
@@ -152,7 +155,7 @@ export const createStore = <Name extends string, State>(
     if (hadPreexistingSubscribers) notify(name);
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
-    return { name } as StoreKey<Name, State>;
+    return { name } as StoreDefinition<Name, State>;
 };
 
 export function setStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P, value: PathValue<State, P>): WriteResult;
@@ -341,7 +344,7 @@ export const _hardResetAllStoresForTest = (): void => {
 
 export const hydrateStores = (
     snapshot: Record<string, any>,
-    options: Record<string, StoreOptions> & { default?: StoreOptions } = {}
+    options: Partial<Record<string, StoreOptions>> & { default?: StoreOptions } = {}
 ): { hydrated: string[]; created: string[]; failed: Record<string, string> } => {
     const result = { hydrated: [] as string[], created: [] as string[], failed: {} as Record<string, string> };
     if (!snapshot || typeof snapshot !== "object") return result;

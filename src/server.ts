@@ -30,8 +30,8 @@ export const createStoreForRequest = (
     if (typeof initializer === "function") initializer(api);
     return {
         snapshot: () => deepClone(buffer),
-        hydrate: (options: Record<string, StoreOptions> & { default?: StoreOptions } = {}) => {
-            const merged: Record<string, StoreOptions> & { default?: StoreOptions } = {
+        hydrate: (options: Partial<Record<string, StoreOptions>> & { default?: StoreOptions } = {}) => {
+            const merged: Partial<Record<string, StoreOptions>> & { default?: StoreOptions } = {
                 ...options,
                 default: options.default,
             };

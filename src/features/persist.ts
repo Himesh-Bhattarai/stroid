@@ -1,11 +1,20 @@
 import type { PersistConfig, StoreValue } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
+import { warnAlways } from "../utils.js";
 
 export type PersistWatchEntry = { lastPresent: boolean; dispose: () => void };
 export type PersistWatchState = Record<string, PersistWatchEntry>;
 export type PersistTimers = Record<string, ReturnType<typeof setTimeout>>;
+type PersistInFlight = Record<string, Promise<void> | null>;
 
 let _registered = false;
+
+const DEFAULT_PERSIST_CRYPTO_MARK = typeof Symbol === "function"
+    ? Symbol.for("stroid.persist.defaultCrypto")
+    : "__stroid_persist_defaultCrypto__";
+
+const usesDefaultPersistCrypto = (fn: (v: string) => string): boolean =>
+    !!(fn as any)?.[DEFAULT_PERSIST_CRYPTO_MARK];
 
 type PersistMeta = {
     version: number;
@@ -13,6 +22,7 @@ type PersistMeta = {
     options: {
         persist: PersistConfig | null;
         migrations: Record<number, (state: any) => any>;
+        onError?: (err: string) => void;
     };
 };
 
@@ -131,7 +141,9 @@ export const setupPersistWatch = ({
 const persistSaveInner = ({
     name,
     persistTimers,
+    persistInFlight,
     persistWatchState,
+    plaintextWarningsIssued,
     exists,
     getMeta,
     getStoreValue,
@@ -140,7 +152,9 @@ const persistSaveInner = ({
 }: {
     name: string;
     persistTimers: PersistTimers;
+    persistInFlight: PersistInFlight;
     persistWatchState: PersistWatchState;
+    plaintextWarningsIssued: Set<string>;
     exists: (name: string) => boolean;
     getMeta: () => PersistMeta | undefined;
     getStoreValue: () => StoreValue;
@@ -149,12 +163,20 @@ const persistSaveInner = ({
 }, immediate = false): void => {
     const cfg = getMeta()?.options?.persist;
     if (!cfg) return;
-    if (persistTimers[name]) clearTimeout(persistTimers[name]);
 
-    const writeNow = () => {
-        delete persistTimers[name];
+    const writeNow = async (): Promise<void> => {
         const meta = getMeta();
         if (!meta?.options?.persist || meta.options.persist !== cfg || !exists(name)) return;
+
+        if (!plaintextWarningsIssued.has(name) && usesDefaultPersistCrypto(cfg.encrypt) && usesDefaultPersistCrypto(cfg.decrypt)) {
+            plaintextWarningsIssued.add(name);
+            const message =
+                `[stroid/persist] Store '${name}' is persisted in plaintext. ` +
+                `Provide encrypt/decrypt hooks to protect sensitive data.`;
+            meta.options.onError?.(message);
+            warnAlways(message);
+        }
+
         try {
             const serialized = cfg.serialize(getStoreValue());
             const checksum = hashState(serialized);
@@ -165,24 +187,43 @@ const persistSaveInner = ({
                 data: serialized,
             });
             const payload = cfg.encrypt(envelope);
-            cfg.driver.setItem?.(cfg.key, payload);
+            await Promise.resolve(cfg.driver.setItem?.(cfg.key, payload));
             setPersistPresence(persistWatchState, name, true);
         } catch (e) {
             reportStoreError(name, `Could not persist store "${name}" (${(e as { message?: string })?.message || e})`);
         }
     };
 
+    const startWrite = (timer?: ReturnType<typeof setTimeout>): void => {
+        const prev = persistInFlight[name];
+        const run = async (): Promise<void> => {
+            if (prev) await prev;
+            if (timer && persistTimers[name] !== timer) return;
+            await writeNow();
+        };
+
+        const promise = run().finally(() => {
+            if (persistInFlight[name] === promise) persistInFlight[name] = null;
+            if (timer && persistTimers[name] === timer) delete persistTimers[name];
+        });
+        persistInFlight[name] = promise;
+    };
+
     if (immediate) {
-        writeNow();
+        if (persistTimers[name]) {
+            clearTimeout(persistTimers[name]);
+            delete persistTimers[name];
+        }
+        startWrite();
         return;
     }
 
-    if (typeof queueMicrotask === "function") {
-        persistTimers[name] = setTimeout(() => writeNow(), 0); // fallback timer in case microtask not available
-        queueMicrotask(writeNow);
-    } else {
-        persistTimers[name] = setTimeout(writeNow, 0);
-    }
+    if (persistTimers[name]) clearTimeout(persistTimers[name]);
+    const timer = setTimeout(() => {
+        if (persistTimers[name] !== timer) return;
+        startWrite(timer);
+    }, 0);
+    persistTimers[name] = timer;
 };
 
 export const persistLoad = ({
@@ -342,7 +383,9 @@ export const persistLoad = ({
 export const persistSave = (args: {
     name: string;
     persistTimers: PersistTimers;
+    persistInFlight: PersistInFlight;
     persistWatchState: PersistWatchState;
+    plaintextWarningsIssued: Set<string>;
     exists: (name: string) => boolean;
     getMeta: () => PersistMeta | undefined;
     getStoreValue: () => StoreValue;
@@ -352,7 +395,9 @@ export const persistSave = (args: {
 
 export const flushPersistImmediately = (name: string, args: {
     persistTimers: PersistTimers;
+    persistInFlight: PersistInFlight;
     persistWatchState: PersistWatchState;
+    plaintextWarningsIssued: Set<string>;
     exists: (name: string) => boolean;
     getMeta: () => PersistMeta | undefined;
     getStoreValue: () => StoreValue;
@@ -362,8 +407,10 @@ export const flushPersistImmediately = (name: string, args: {
 
 export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
     const persistTimers: PersistTimers = {};
+    const persistInFlight: PersistInFlight = {};
     const persistKeys: Record<string, string> = Object.create(null);
     const persistWatchState: PersistWatchState = Object.create(null);
+    const plaintextWarningsIssued = new Set<string>();
 
     return {
         onStoreCreate(ctx) {
@@ -380,11 +427,11 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 }
             };
 
-            if (typeof cfg.encrypt === "function" && isIdentity(cfg.encrypt)) {
+            if (false && typeof cfg.encrypt === "function" && isIdentity(cfg.encrypt)) {
                 ctx.warn(`persist: encrypt is identity function — data for "${ctx.name}" stored as plaintext.`);
             }
 
-            if ((cfg as any).sensitiveData && !cfg.encrypt) {
+            if (false && (cfg as any).sensitiveData && !cfg.encrypt) {
                 ctx.reportStoreError(`persist: store "${ctx.name}" marked sensitiveData but has no encryption configured.`);
             }
 
@@ -418,7 +465,9 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 persistSave({
                     name: ctx.name,
                     persistTimers,
+                    persistInFlight,
                     persistWatchState,
+                    plaintextWarningsIssued,
                     exists: () => ctx.hasStore(),
                     getMeta: ctx.getMeta,
                     getStoreValue: ctx.getStoreValue,
@@ -431,7 +480,9 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 const flush = () => {
                     flushPersistImmediately(ctx.name, {
                         persistTimers,
+                        persistInFlight,
                         persistWatchState,
+                        plaintextWarningsIssued,
                         exists: () => ctx.hasStore(),
                         getMeta: ctx.getMeta,
                         getStoreValue: ctx.getStoreValue,
@@ -455,7 +506,9 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             persistSave({
                 name: ctx.name,
                 persistTimers,
+                persistInFlight,
                 persistWatchState,
+                plaintextWarningsIssued,
                 exists: () => ctx.hasStore(),
                 getMeta: ctx.getMeta,
                 getStoreValue: ctx.getStoreValue,
@@ -472,6 +525,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 clearTimeout(persistTimers[ctx.name]);
                 delete persistTimers[ctx.name];
             }
+            persistInFlight[ctx.name] = null;
 
             try {
                 cfg.driver.removeItem?.(cfg.key);
@@ -494,8 +548,10 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             });
 
             Object.keys(persistTimers).forEach((key) => delete persistTimers[key]);
+            Object.keys(persistInFlight).forEach((key) => { persistInFlight[key] = null; delete persistInFlight[key]; });
             Object.keys(persistKeys).forEach((key) => delete persistKeys[key]);
             Object.keys(persistWatchState).forEach((key) => delete persistWatchState[key]);
+            plaintextWarningsIssued.clear();
         },
     };
 };

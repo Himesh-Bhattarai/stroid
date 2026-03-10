@@ -47,6 +47,65 @@ test("persist setItem errors surface via onError without throwing", async () => 
   clearAllStores();
 });
 
+test("persist sensitiveData stores require encrypt hooks at creation time", () => {
+  clearAllStores();
+
+  assert.throws(() => {
+    createStore("sensitivePersist", { token: "secret" }, {
+      persist: {
+        driver: {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        },
+        key: "sensitive-persist",
+        serialize: JSON.stringify,
+        deserialize: JSON.parse,
+        sensitiveData: true,
+      },
+    });
+  }, /sensitiveData/);
+
+  assert.strictEqual(getStore("sensitivePersist"), null);
+});
+
+test("persist warns once per store when defaults persist in plaintext", async () => {
+  clearAllStores();
+  const warned: string[] = [];
+  const onErrorMessages: string[] = [];
+  const originalConsoleWarn = console.warn;
+  console.warn = (message) => {
+    warned.push(String(message ?? ""));
+  };
+
+  try {
+    createStore("plaintextPersistWarning", { value: 0 }, {
+      onError: (msg) => { onErrorMessages.push(msg); },
+      persist: {
+        driver: {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        },
+        key: "plaintext-persist-warning",
+        serialize: JSON.stringify,
+        deserialize: JSON.parse,
+        // omit encrypt/decrypt to use defaults (plaintext)
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    setStore("plaintextPersistWarning", { value: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  } finally {
+    console.warn = originalConsoleWarn;
+  }
+
+  const message = "[stroid/persist] Store 'plaintextPersistWarning' is persisted in plaintext. Provide encrypt/decrypt hooks to protect sensitive data.";
+  assert.strictEqual(onErrorMessages.filter((msg) => msg === message).length, 1);
+  assert.strictEqual(warned.filter((msg) => msg.includes(message)).length, 1);
+});
+
 test("persist critical failures still surface via onError in production", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const storePath = path.join(repoRoot, "src", "store.ts");
@@ -401,6 +460,42 @@ test("resetStore persists the reset state", async () => {
   assert.strictEqual(writes.length, 1);
   const envelope = JSON.parse(writes[0]);
   assert.strictEqual(envelope.data, JSON.stringify({ theme: "dark" }));
+});
+
+test("10 rapid setStore calls produce exactly 1 persist write in the same tick", async () => {
+  clearAllStores();
+  const writes: string[] = [];
+  const driver = {
+    getItem: () => null,
+    setItem: (_key: string, value: string) => {
+      writes.push(value);
+    },
+    removeItem: () => {},
+  };
+
+  createStore("burst", { value: 0 }, {
+    persist: {
+      driver,
+      key: "burst-persist",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  writes.length = 0;
+
+  for (let i = 0; i < 10; i++) {
+    setStore("burst", { value: i + 1 });
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.strictEqual(writes.length, 1);
+  const envelope = JSON.parse(writes[0]);
+  assert.strictEqual(envelope.data, JSON.stringify({ value: 10 }));
 });
 
 test("createStore does not overwrite existing persisted state during init", async () => {

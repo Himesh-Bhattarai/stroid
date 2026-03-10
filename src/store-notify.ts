@@ -82,7 +82,7 @@ const flush = () => {
             return;
         }
 
-        const snapshot = deepClone(stores[name]);
+        const snapshot = getStoreSnapshot(name);
         const start = now();
         const metrics = meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 };
 
@@ -128,9 +128,8 @@ export const setStoreBatch = (fn: () => unknown): void => {
         throw new Error("setStoreBatch requires a synchronous function callback.");
     }
     if ((fn as any)?.constructor?.name === "AsyncFunction") {
-        throw new Error("setStoreBatch does not accept async/await functions. Move async work outside and batch only synchronous mutations.");
+        throw new Error("setStoreBatch does not support async functions. Move async work outside and batch only synchronous mutations.");
     }
-    const savedNotifications = new Set(pendingNotifications);
 
     // A simple mutex to avoid overlapping batch scopes in async edge cases
     if (batchDepth === Number.POSITIVE_INFINITY) {
@@ -138,19 +137,23 @@ export const setStoreBatch = (fn: () => unknown): void => {
     }
 
     batchDepth = Math.max(0, batchDepth + 1);
+    let batchError: unknown;
     try {
         const result = fn();
         if (result && typeof (result as Promise<unknown>).then === "function") {
-            pendingNotifications.clear();
-            savedNotifications.forEach((n) => pendingNotifications.add(n));
-            throw new Error("setStoreBatch detected a promise-returning callback after mutations ran. Perform async work outside the batch and keep the batched section synchronous.");
+            batchError = new Error("setStoreBatch does not support promise-returning callbacks. Move async work outside and batch only synchronous mutations.");
         }
+    } catch (err) {
+        batchError = err;
     } finally {
         batchDepth = Math.max(0, batchDepth - 1);
         if (batchDepth === 0 && pendingNotifications.size > 0) {
-            scheduleFlush();
+            if (batchError) flush();
+            else scheduleFlush();
         }
     }
+
+    if (batchError) throw batchError;
 };
 
 export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {
@@ -173,14 +176,16 @@ export const subscribe = subscribeStore;
 
 export const getStoreSnapshot = (name: string): StoreValue | null => {
     if (!hasStoreEntryInternal(name)) return null;
-    const source = stores[name];
+    const version = meta[name]?.updateCount ?? 0;
     const cached = snapshotCache[name];
-    if (cached && cached.source === source) return cached.snapshot;
+    if (cached && cached.version === version) return cached.snapshot;
+
+    const source = stores[name];
     const snapshot = deepClone(source);
     const safeSnapshot = snapshot && typeof snapshot === "object"
         ? devDeepFreeze(snapshot)
         : snapshot;
-    snapshotCache[name] = { source, snapshot: safeSnapshot };
+    snapshotCache[name] = { version, snapshot: safeSnapshot };
     return safeSnapshot;
 };
 // Backward compat alias

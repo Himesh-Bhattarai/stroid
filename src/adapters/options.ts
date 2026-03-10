@@ -17,8 +17,25 @@ export interface PersistOptions<State = StoreValue> {
     key?: string;
     serialize?: (v: unknown) => string;
     deserialize?: (v: string) => unknown;
+    /**
+     * Optional encryption hook for persisted payloads.
+     *
+     * Default is identity (no encryption). Data is stored in plaintext.
+     */
     encrypt?: (v: string) => string;
+    /**
+     * Optional decryption hook for persisted payloads.
+     *
+     * Default is identity (no encryption). Data is stored in plaintext.
+     */
     decrypt?: (v: string) => string;
+    /**
+     * Marks this store's persisted data as sensitive (secrets/PII).
+     *
+     * When `true`, stroid throws at store creation time unless a non-identity
+     * `encrypt` hook is provided.
+     */
+    sensitiveData?: boolean;
     version?: number;
     migrations?: Record<number, (state: State) => State>;
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
@@ -32,6 +49,7 @@ export interface PersistConfig {
     deserialize: (v: string) => unknown;
     encrypt: (v: string) => string;
     decrypt: (v: string) => string;
+    sensitiveData?: boolean;
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
     onStorageCleared?: (info: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
 }
@@ -72,6 +90,16 @@ export interface LifecycleOptions<State = StoreValue> {
 export interface StoreOptions<State = StoreValue> {
     scope?: StoreScope;
     lazy?: boolean;
+    /**
+     * Allow `setStore(name, path, value)` to create missing **leaf** keys on object nodes.
+     *
+     * Default: `false` (strict path writes).
+     *
+     * Notes:
+     * - Does not expand arrays (out-of-bounds indices are still rejected).
+     * - Does not create missing intermediate objects for deep paths; define the shape up-front.
+     */
+    pathCreate?: boolean;
     validate?: ValidateOption<State>;
     persist?: boolean | string | PersistOptions<State>;
     devtools?: boolean | DevtoolsOptions<State>;
@@ -97,6 +125,7 @@ export interface StoreOptions<State = StoreValue> {
 export interface NormalizedOptions {
     scope: StoreScope;
     lazy: boolean;
+    pathCreate: boolean;
     persist: PersistConfig | null;
     devtools: boolean;
     middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
@@ -149,6 +178,33 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 const hasOwn = (value: object, key: string): boolean =>
     Object.prototype.hasOwnProperty.call(value, key);
 
+const isIdentityStringTransform = (fn: (v: string) => string): boolean => {
+    try {
+        const probe = "__stroid_plaintext_probe__";
+        return fn(probe) === probe;
+    } catch (_) {
+        try {
+            const src = fn.toString().replace(/\s/g, "");
+            return src === "v=>v" || src === "(v)=>v" || src === "function(v){returnv;}";
+        } catch (_) {
+            return false;
+        }
+    }
+};
+
+const DEFAULT_PERSIST_CRYPTO_MARK = typeof Symbol === "function"
+    ? Symbol.for("stroid.persist.defaultCrypto")
+    : "__stroid_persist_defaultCrypto__";
+
+const markDefaultPersistCrypto = (fn: (v: string) => string): ((v: string) => string) => {
+    try {
+        (fn as any)[DEFAULT_PERSIST_CRYPTO_MARK] = true;
+    } catch (_) {
+        // ignore marker failures
+    }
+    return fn;
+};
+
 const legacyOptionReplacementMap: Record<string, string> = {
     allowSSRGlobalStore: `scope: "global"`,
     schema: "validate",
@@ -174,8 +230,9 @@ export const normalizePersistOptions = <State>(
         key: `stroid_${name}`,
         serialize: JSON.stringify,
         deserialize: JSON.parse,
-        encrypt: (v: string) => v,
-        decrypt: (v: string) => v,
+        encrypt: markDefaultPersistCrypto((v: string) => v),
+        decrypt: markDefaultPersistCrypto((v: string) => v),
+        sensitiveData: false,
         onMigrationFail: "reset" as const,
     };
 
@@ -193,13 +250,25 @@ export const normalizePersistOptions = <State>(
         };
     }
 
+    const encrypt = persist.encrypt || base.encrypt;
+    const decrypt = persist.decrypt || base.decrypt;
+    const sensitiveData = persist.sensitiveData === true;
+
+    if (sensitiveData && isIdentityStringTransform(encrypt)) {
+        throw new Error(
+            `[stroid/persist] Store "${name}" is marked sensitiveData but is configured to persist in plaintext. ` +
+            `Provide encrypt/decrypt hooks to protect sensitive data.`,
+        );
+    }
+
     return {
         driver: persist.driver || persist.storage || safeStorage("localStorage"),
         key: persist.key || base.key,
         serialize: persist.serialize || base.serialize,
         deserialize: persist.deserialize || base.deserialize,
-        encrypt: persist.encrypt || base.encrypt,
-        decrypt: persist.decrypt || base.decrypt,
+        encrypt,
+        decrypt,
+        sensitiveData,
         onMigrationFail: persist.onMigrationFail || "reset",
         onStorageCleared: persist.onStorageCleared,
     };
@@ -224,6 +293,7 @@ export const normalizeStoreOptions = <State>(
 ): NormalizedOptions => {
     const normalizedScope: StoreScope = option.scope ?? "request";
     const normalizedLazy = option.lazy === true;
+    const normalizedPathCreate = option.pathCreate === true;
     const lifecycle = isObject(option.lifecycle) ? option.lifecycle as LifecycleOptions<State> : undefined;
     const persistGroup = isObject(option.persist) ? option.persist as PersistOptions<State> : undefined;
     const devtoolsGroup = isObject(option.devtools) ? option.devtools as DevtoolsOptions<State> : undefined;
@@ -245,6 +315,7 @@ export const normalizeStoreOptions = <State>(
     return {
         scope: normalizedScope,
         lazy: normalizedLazy,
+        pathCreate: normalizedPathCreate,
         persist: normalizedScope === "temp" && !explicitPersist
             ? null
             : normalizePersistOptions<State>(persist, name),

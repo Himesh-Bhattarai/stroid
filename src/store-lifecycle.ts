@@ -127,8 +127,9 @@ export let subscribers = _registry.subscribers as Record<string, Subscriber[]>;
 export let initialStates = _registry.initialStates as Record<string, StoreValue>;
 export let initialFactories = Object.create(null) as Record<string, (() => StoreValue) | undefined>;
 export let meta = _registry.metaEntries as Record<string, MetaEntry>;
-export let snapshotCache = _registry.snapshotCache as Record<string, { source: StoreValue; snapshot: StoreValue | null }>;
-export let pathValidationCache = new Map<string, boolean>();
+export let snapshotCache = _registry.snapshotCache as Record<string, { version: number; snapshot: StoreValue | null }>;
+type PathSafetyVerdict = { ok: true } | { ok: false; reason: string };
+export let pathValidationCache = new Map<string, PathSafetyVerdict>();
 export let featureRuntimes = _registry.featureRuntimes as Map<FeatureName, StoreFeatureRuntime>;
 export let storeAdmin = createStoreAdmin(_scope);
 const baseFeatureContexts = new Map<string, BaseFeatureContext | null>();
@@ -149,8 +150,8 @@ export const bindRegistry = (scopeOrRegistry?: string | ReturnType<typeof getSto
     initialStates = _registry.initialStates as Record<string, StoreValue>;
     initialFactories = Object.create(null) as Record<string, (() => StoreValue) | undefined>;
     meta = _registry.metaEntries as Record<string, MetaEntry>;
-    snapshotCache = _registry.snapshotCache as Record<string, { source: StoreValue; snapshot: StoreValue | null }>;
-    pathValidationCache = new Map<string, boolean>();
+    snapshotCache = _registry.snapshotCache as Record<string, { version: number; snapshot: StoreValue | null }>;
+    pathValidationCache = new Map<string, PathSafetyVerdict>();
     featureRuntimes = _registry.featureRuntimes as Map<FeatureName, StoreFeatureRuntime>;
     storeAdmin = createStoreAdmin(_scope);
     clearFeatureContexts();
@@ -199,29 +200,33 @@ export const exists = (name: string): boolean => {
 };
 
 export const validatePathSafety = (storeName: string, base: StoreValue, path: PathInput, nextValue: unknown): { ok: boolean; reason?: string } => {
-    if (!meta[storeName]) return { ok: true };
+    const metaEntry = meta[storeName];
+    if (!metaEntry) return { ok: true };
     const parts = parsePath(path);
     if (parts.length === 0) return { ok: true };
-    const cacheKey = `${storeName}:${parts.join(".")}`;
-    if (pathValidationCache.get(cacheKey)) return { ok: true };
+    const cacheKey = `${storeName}:${JSON.stringify(parts)}`;
+    const cached = pathValidationCache.get(cacheKey);
+    if (cached) return cached;
 
+    const allowCreate = metaEntry.options?.pathCreate === true;
     let cursor: unknown = base;
+    let verdict: PathSafetyVerdict = { ok: true };
     for (let i = 0; i < parts.length; i++) {
         const key = parts[i];
         const isLast = i === parts.length - 1;
 
         if (cursor === null || cursor === undefined) {
-            if (!isLast) {
-                cursor = typeof key === "string" && Number.isInteger(Number(key)) ? [] : {};
-                continue;
-            }
-            return { ok: true };
+            const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - "${parts.slice(0, i).join(".") || "root"}" is ${cursor === null ? "null" : "undefined"}.`;
+            critical(reason);
+            verdict = { ok: false, reason };
+            break;
         }
 
         if (typeof cursor !== "object") {
             const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - "${parts.slice(0, i).join(".") || "root"}" is not an object.`;
             critical(reason);
-            return { ok: false, reason };
+            verdict = { ok: false, reason };
+            break;
         }
 
         if (Array.isArray(cursor)) {
@@ -229,14 +234,16 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
             if (!Number.isInteger(idx) || idx < 0) {
                 const reason = `Path "${parts.join(".")}" targets non-numeric index "${key}" on an array in "${storeName}".`;
                 critical(reason);
-                return { ok: false, reason };
+                verdict = { ok: false, reason };
+                break;
             }
 
             const arr = cursor as unknown[];
             if (idx >= arr.length) {
                 const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - index ${idx} is out of bounds (length ${arr.length}).`;
                 critical(reason);
-                return { ok: false, reason };
+                verdict = { ok: false, reason };
+                break;
             }
 
             if (isLast) {
@@ -247,10 +254,12 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
                     if (expected !== incoming) {
                         const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incoming}.`;
                         critical(reason);
-                        return { ok: false, reason };
+                        verdict = { ok: false, reason };
+                        break;
                     }
                 }
-                return { ok: true };
+                verdict = { ok: true };
+                break;
             }
             cursor = arr[idx];
             continue;
@@ -258,11 +267,14 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
 
         const hasKey = Object.prototype.hasOwnProperty.call(cursor as Record<string, unknown>, key);
         if (!hasKey) {
-            if (!isLast) {
-                cursor = typeof key === "string" && Number.isInteger(Number(key)) ? [] : {};
-                continue;
+            if (allowCreate && isLast) {
+                verdict = { ok: true };
+                break;
             }
-            return { ok: true };
+            const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - unknown key "${key}" at "${parts.slice(0, i).join(".") || "root"}".`;
+            critical(reason);
+            verdict = { ok: false, reason };
+            break;
         }
         if (isLast) {
             const existing = (cursor as Record<string, unknown>)[key];
@@ -272,15 +284,18 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
                 if (expected !== incoming) {
                     const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incoming}.`;
                     critical(reason);
-                    return { ok: false, reason };
+                    verdict = { ok: false, reason };
+                    break;
                 }
             }
-            return { ok: true };
+            verdict = { ok: true };
+            break;
         }
         cursor = (cursor as Record<string, unknown>)[key];
     }
-    pathValidationCache.set(cacheKey, true);
-    return { ok: true };
+
+    pathValidationCache.set(cacheKey, verdict);
+    return verdict;
 };
 
 export const reportStoreError = (name: string, message: string): void => {

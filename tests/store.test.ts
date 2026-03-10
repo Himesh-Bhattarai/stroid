@@ -213,6 +213,35 @@ test("setStore rejects unknown paths", () => {
   assert.deepStrictEqual(getStore("user"), { name: "Alex" });
 });
 
+test("setStore rejects unknown nested paths by default", () => {
+  clearAllStores();
+  createStore("user", { profile: { color: "blue" } });
+  setStore("user", "profile.size", "L");
+  assert.deepStrictEqual(getStore("user"), { profile: { color: "blue" } });
+});
+
+test("setStore pathCreate option allows creating missing leaf keys", () => {
+  clearAllStores();
+  createStore("user", { profile: { color: "blue" } }, { pathCreate: true });
+
+  setStore("user", "nickname", "AJ");
+  setStore("user", "profile.size", "L");
+
+  assert.deepStrictEqual(getStore("user"), { nickname: "AJ", profile: { color: "blue", size: "L" } });
+});
+
+test("setStore pathCreate cannot be enabled after store creation", () => {
+  clearAllStores();
+  createStore("user", { name: "Alex" });
+
+  setStore("user", "age", 25);
+  assert.deepStrictEqual(getStore("user"), { name: "Alex" });
+
+  createStore("user", { name: "Alex" }, { pathCreate: true });
+  setStore("user", "age", 25);
+  assert.deepStrictEqual(getStore("user"), { name: "Alex" });
+});
+
 test("setStore updates existing array indices without changing shape", () => {
   clearAllStores();
   createStore("list", { items: [1, 2, 3] });
@@ -608,6 +637,27 @@ test("_getSnapshot returns stable cloned snapshots", () => {
   const third = _getSnapshot("user") as any;
   assert.notStrictEqual(third, first);
   assert.deepStrictEqual(third, { profile: { color: "green" } });
+});
+
+test("notify flush reuses the snapshot cache for getStoreSnapshot reads", async () => {
+  clearAllStores();
+  createStore("user", { profile: { name: "Alex" } });
+
+  let fromSubscriber: unknown;
+  const unsub = _subscribe("user", (state) => {
+    fromSubscriber = state;
+  });
+
+  setStore("user", "profile.name", "Jordan");
+  await Promise.resolve();
+
+  assert.ok(fromSubscriber && typeof fromSubscriber === "object");
+  assert.deepStrictEqual(fromSubscriber, { profile: { name: "Jordan" } });
+
+  const snapshot = _getSnapshot("user");
+  assert.strictEqual(snapshot, fromSubscriber);
+
+  unsub();
 });
 
 test("resetStore resets back to initial value", () => {
@@ -1308,6 +1358,27 @@ test("setStoreBatch flushes queued notifications before rejecting promise-return
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.deepStrictEqual(getStore("batchPromiseGuard"), { value: 1 });
+  assert.deepStrictEqual(seen, [1]);
+});
+
+test("setStoreBatch flushes queued notifications before rethrowing callback errors", () => {
+  clearAllStores();
+  createStore("batchThrowFlush", { value: 0 });
+  const seen: number[] = [];
+
+  _subscribe("batchThrowFlush", (value) => {
+    if (!value) return;
+    seen.push((value as { value: number }).value);
+  });
+
+  assert.throws(() => {
+    setStoreBatch(() => {
+      setStore("batchThrowFlush", { value: 1 });
+      throw new Error("boom");
+    });
+  }, /boom/);
+
+  assert.deepStrictEqual(getStore("batchThrowFlush"), { value: 1 });
   assert.deepStrictEqual(seen, [1]);
 });
 

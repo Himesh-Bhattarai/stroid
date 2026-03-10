@@ -18,7 +18,7 @@ export const createStoreAdmin = (scope: string) => {
     const subscribers = registry.subscribers as Record<string, Array<(value: unknown | null) => void>>;
     const initialStates = registry.initialStates as Record<string, unknown>;
     const metaEntries = registry.metaEntries as Record<string, MetaEntry>;
-    const snapshotCache = registry.snapshotCache as Record<string, { source: unknown; snapshot: unknown | null }>;
+    const snapshotCache = registry.snapshotCache as Record<string, { version: number; snapshot: unknown | null }>;
     const featureRuntimes = registry.featureRuntimes;
     const deletingStores = registry.deletingStores;
 

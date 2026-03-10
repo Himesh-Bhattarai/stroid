@@ -3,7 +3,7 @@ import type { FeatureName, StoreFeatureMeta, StoreFeatureRuntime } from "./featu
 export type RegistryStoreValue = unknown;
 export type RegistrySubscriber = (value: RegistryStoreValue | null) => void;
 export type RegistrySnapshotEntry = {
-    source: RegistryStoreValue;
+    version: number;
     snapshot: RegistryStoreValue | null;
 };
 

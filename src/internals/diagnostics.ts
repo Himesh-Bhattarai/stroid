@@ -49,6 +49,12 @@ export const warn = (msg: string, meta?: Record<string, unknown>): void => {
     sink(msg, meta);
 };
 
+// Used for configuration hazards that must surface in production too.
+export const warnAlways = (msg: string, meta?: Record<string, unknown>): void => {
+    const sink = getConfig().logSink.warn ?? defaultWarn;
+    sink(msg, meta);
+};
+
 export const error = (msg: string, meta?: Record<string, unknown>): void => {
     if (__DEV__) {
         const sink = getConfig().logSink.warn ?? defaultWarn;

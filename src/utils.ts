@@ -2,6 +2,7 @@ export {
     __DEV__,
     isDev,
     warn,
+    warnAlways,
     error,
     log,
     critical,
@@ -24,6 +25,7 @@ import {
     isDev,
     critical,
     warn,
+    warnAlways,
 } from "./internals/diagnostics.js";
 
 // --- hashing / checksum ------------------------------------------------------
