@@ -4,6 +4,7 @@ export {
     warn,
     error,
     log,
+    critical,
     suggestStoreName,
 } from "./internals/diagnostics.js";
 import {
@@ -21,6 +22,7 @@ import {
     getSanitizeSetWarningMessage,
     getStoreNameContainsSpacesMessage,
     isDev,
+    critical,
     warn,
 } from "./internals/diagnostics.js";
 
@@ -353,6 +355,12 @@ export const getByPath = (obj: unknown, path: PathInput): unknown => {
 export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T, path: PathInput, value: unknown): T => {
     const parts = parsePath(path);
     if (parts.length === 0) return obj;
+    for (const segment of parts) {
+        if (FORBIDDEN_OBJECT_KEYS.has(segment)) {
+            critical(`Blocked forbidden path segment "${String(segment)}" in setStore path "${parts.join(".")}".`);
+            return obj;
+        }
+    }
 
     const applyAt = (current: unknown, index: number): unknown => {
         const key = parts[index];
@@ -371,6 +379,10 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
         }
 
         if (current && typeof current === "object") {
+            if (FORBIDDEN_OBJECT_KEYS.has(key)) {
+                critical(`Blocked unsafe path segment "${String(key)}" while setting "${parts.join(".")}".`);
+                return current;
+            }
             const clone: Record<string, unknown> = { ...(current as Record<string, unknown>) };
             if (isLast) {
                 clone[key] = value;
@@ -380,8 +392,21 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
             return clone as unknown;
         }
 
-        // Path validation should prevent reaching primitives/null; return current to avoid creating new branches.
-        return current;
+        if ((current === null || current === undefined) && !isLast) {
+            const isIndex = Number.isInteger(Number(key));
+            const container: Record<string, unknown> | unknown[] = isIndex ? [] : {};
+            if (isIndex) {
+                const arr = container as unknown[];
+                const idx = Number(key);
+                arr[idx] = applyAt(undefined, index + 1);
+                return arr;
+            }
+            (container as Record<string, unknown>)[key] = applyAt(undefined, index + 1);
+            return container;
+        }
+
+        // Fallback: leave unchanged when path cannot be extended.
+        return isLast ? value : current;
     };
 
     return applyAt(obj, 0) as T;

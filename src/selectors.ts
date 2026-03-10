@@ -49,14 +49,7 @@ const trackSelectorDependencies = <TState, TResult>(
 const selectorDepsChanged = <TState>(prev: TState, next: TState, deps: SelectorDependency[]): boolean =>
     deps.some((path) => !Object.is(getByPath(prev, path), getByPath(next, path)));
 
-const serializedSelectorEqual = (next: unknown, prev: unknown): boolean => {
-    try {
-        return JSON.stringify(next) === JSON.stringify(prev);
-    } catch (_) {
-        return false;
-    }
-};
-
+const MAX_SERIALIZED_LENGTH = 20_000;
 export const createSelector = <TState, TResult>(storeName: string, selectorFn: (state: TState) => TResult) => {
     let lastRef: TState | undefined;
     let lastResult: TResult | undefined;
@@ -108,15 +101,7 @@ export const subscribeWithSelector = <R>(
             listener(deepClone(nextSel), deepClone(nextSel));
             return;
         }
-        const matches = equality(nextSel, prevSel)
-            || (
-                equality === Object.is
-                && nextSel !== null
-                && prevSel !== null
-                && typeof nextSel === "object"
-                && typeof prevSel === "object"
-                && serializedSelectorEqual(nextSel, prevSel)
-            );
+        const matches = equality(nextSel, prevSel);
         if (!matches) {
             const last = prevSel;
             prevSel = nextSel;

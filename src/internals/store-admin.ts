@@ -185,9 +185,19 @@ export const createStoreAdmin = (scope: string) => {
         warn(`All stores cleared (${removed} stores removed)`);
     };
 
+    const clearStores = (pattern?: string): void => {
+        const names = Object.keys(stores).filter((n) => {
+            if (!pattern) return true;
+            if (pattern.endsWith("*")) return n.startsWith(pattern.slice(0, -1));
+            return n === pattern;
+        });
+        names.forEach((name) => deleteExistingStore(name));
+    };
+
     return {
         deleteExistingStore,
         clearAllStores,
+        clearStores,
         reportStoreError,
     };
 };

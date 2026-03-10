@@ -1,5 +1,7 @@
 import { createStore, setStore, hasStore, _subscribe } from "./store.js";
 import { error, warn, isDev } from "./utils.js";
+import { normalizeStoreRegistryScope } from "./store-registry.js";
+import { getConfig } from "./internals/config.js";
 
 export interface FetchOptions {
     transform?: (result: unknown) => unknown;
@@ -17,6 +19,7 @@ export interface FetchOptions {
     signal?: AbortSignal;
     cacheKey?: string;
 }
+export type FetchInput = string | Promise<unknown> | (() => string | Promise<unknown>);
 
 type AsyncState = {
     data: unknown;
@@ -27,13 +30,69 @@ type AsyncState = {
     revalidating?: boolean;
 };
 
-const _fetchRegistry: Record<string, { url: string | Promise<unknown>; options: FetchOptions }> = {};
-const _inflight: Partial<Record<string, { promise: Promise<unknown>; transform?: FetchOptions["transform"] }>> = {};
-const _requestVersion: Record<string, number> = {};
-const _cacheMeta: Record<string, { timestamp: number; expiresAt: number | null; data: unknown }> = {};
-const _noSignalWarned = new Set<string>();
-const _cleanupSubs: Record<string, () => void> = {};
-const _storeCleanupFns: Record<string, Set<() => void>> = {};
+type InflightEntry = { promise: Promise<unknown>; raw: Promise<unknown>; transform?: FetchOptions["transform"] };
+type AsyncRegistry = {
+    fetchRegistry: Record<string, { kind: "url"; url: string; options: FetchOptions } | { kind: "factory"; factory: () => string | Promise<unknown>; options: FetchOptions }>;
+    inflight: Partial<Record<string, InflightEntry>>;
+    requestVersion: Record<string, number>;
+    cacheMeta: Record<string, { timestamp: number; expiresAt: number | null; data: unknown }>;
+    noSignalWarned: Set<string>;
+    cleanupSubs: Record<string, () => void>;
+    storeCleanupFns: Record<string, Set<() => void>>;
+    revalidateKeys: Set<string>;
+    revalidateHandlers: Record<string, () => void>;
+    asyncMetrics: {
+        cacheHits: number;
+        cacheMisses: number;
+        dedupes: number;
+        requests: number;
+        failures: number;
+        avgMs: number;
+        lastMs: number;
+    };
+};
+
+const _asyncRegistries = new Map<string, AsyncRegistry>();
+const _scope = normalizeStoreRegistryScope(new URL("./store.js", import.meta.url).href);
+
+const getAsyncRegistry = (scope: string): AsyncRegistry => {
+    const existing = _asyncRegistries.get(scope);
+    if (existing) return existing;
+    const created: AsyncRegistry = {
+        fetchRegistry: Object.create(null),
+        inflight: Object.create(null),
+        requestVersion: Object.create(null),
+        cacheMeta: Object.create(null),
+        noSignalWarned: new Set<string>(),
+        cleanupSubs: Object.create(null),
+        storeCleanupFns: Object.create(null),
+        revalidateKeys: new Set<string>(),
+        revalidateHandlers: Object.create(null),
+        asyncMetrics: {
+            cacheHits: 0,
+            cacheMisses: 0,
+            dedupes: 0,
+            requests: 0,
+            failures: 0,
+            avgMs: 0,
+            lastMs: 0,
+        },
+    };
+    _asyncRegistries.set(scope, created);
+    return created;
+};
+
+const _asyncRegistry = getAsyncRegistry(_scope);
+const _fetchRegistry = _asyncRegistry.fetchRegistry;
+const _inflight = _asyncRegistry.inflight;
+const _requestVersion = _asyncRegistry.requestVersion;
+const _cacheMeta = _asyncRegistry.cacheMeta;
+const _noSignalWarned = _asyncRegistry.noSignalWarned;
+const _cleanupSubs = _asyncRegistry.cleanupSubs;
+const _storeCleanupFns = _asyncRegistry.storeCleanupFns;
+const _revalidateKeys = _asyncRegistry.revalidateKeys;
+const _revalidateHandlers = _asyncRegistry.revalidateHandlers;
+const _asyncMetrics = _asyncRegistry.asyncMetrics;
 const MAX_RETRY_ATTEMPTS = 10;
 const MIN_RETRY_DELAY_MS = 10;
 const MAX_RETRY_DELAY_MS = 30_000;
@@ -168,16 +227,6 @@ const shouldUseCache = (name: string, ttl?: number): boolean => {
     return Date.now() - meta.timestamp < ttl;
 };
 
-const _asyncMetrics = {
-    cacheHits: 0,
-    cacheMisses: 0,
-    dedupes: 0,
-    requests: 0,
-    failures: 0,
-    avgMs: 0,
-    lastMs: 0,
-};
-
 const _clearAsyncMeta = (name: string): void => {
     delete _fetchRegistry[name];
     _noSignalWarned.delete(name);
@@ -252,7 +301,7 @@ const _ensureCleanupSubscription = (name: string): void => {
 
 export const fetchStore = async (
     name: string,
-    urlOrPromise: string | Promise<unknown>,
+    urlOrRequest: FetchInput,
     options: FetchOptions = {}
 ): Promise<unknown> => {
     if (!name || typeof name !== "string") {
@@ -260,8 +309,8 @@ export const fetchStore = async (
         return;
     }
 
-    if (!urlOrPromise) {
-        error(`fetchStore("${name}") requires a URL or Promise as second argument`);
+    if (!urlOrRequest) {
+        error(`fetchStore("${name}") requires a URL, Promise, or Promise factory as second argument`);
         return;
     }
 
@@ -290,15 +339,8 @@ export const fetchStore = async (
     }
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
-    const isPromiseInput = typeof urlOrPromise !== "string" && typeof (urlOrPromise as any).then === "function";
     const retryPolicy = _normalizeRetryOptions(name, retry, retryDelay, retryBackoff);
-    const effectiveRetryPolicy = isPromiseInput
-        ? { ...retryPolicy, retry: 0 }
-        : retryPolicy;
-
-    if (isPromiseInput && retryPolicy.retry > 0) {
-        warn(`fetchStore("${name}") ignores retry settings for direct Promise inputs; pass a URL string to use retries.`);
-    }
+    let promiseRetryNoticeIssued = false;
 
     const isProdServer = typeof window === "undefined"
         && (typeof process !== "undefined" ? process.env?.NODE_ENV : undefined) === "production";
@@ -353,15 +395,9 @@ export const fetchStore = async (
 
     if (dedupe && _inflight[cacheSlot]) {
         const active = _inflight[cacheSlot]!;
-        if (active.transform !== transform) {
-            return _reportAsyncUsageError(
-                name,
-                `fetchStore("${name}") cannot dedupe callers that use different transform functions for the same cache slot. Use a distinct cacheKey or set dedupe: false.`,
-                onError
-            );
-        }
         _asyncMetrics.dedupes += 1;
-        return active.promise;
+        if (!transform || active.transform === transform) return active.promise;
+        return active.raw.then((raw) => transform(raw));
     }
 
     if (!_inflight[cacheSlot] && _countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
@@ -402,17 +438,26 @@ export const fetchStore = async (
         _registerStoreCleanup(name, abortOnCleanup);
     }
 
-    const runFetch = async (): Promise<unknown> => {
+    const executeFetch = async (): Promise<{ raw: unknown; transformed: unknown } | null> => {
         let attempts = 0;
         let delayMs = retryPolicy.retryDelay;
         while (true) {
             if (mergedSignal?.aborted) {
                 return _settleAbort(name, cacheSlot, currentVersion);
             }
+
+            const currentRequest = typeof urlOrRequest === "function" ? urlOrRequest() : urlOrRequest;
+            const isPromiseRequest = typeof currentRequest !== "string" && typeof (currentRequest as any)?.then === "function";
+            const effectiveRetryPolicy = isPromiseRequest ? { ...retryPolicy, retry: 0 } : retryPolicy;
+            if (isPromiseRequest && retryPolicy.retry > 0 && !promiseRetryNoticeIssued) {
+                warn(`fetchStore("${name}") ignores retry settings for direct Promise inputs; pass a URL string or factory to use retries.`);
+                promiseRetryNoticeIssued = true;
+            }
+
             try {
                 let result: unknown;
 
-                if (typeof urlOrPromise === "string") {
+                if (typeof currentRequest === "string") {
                     const fetchOptions = _buildFetchOptions({
                         method,
                         headers,
@@ -420,7 +465,7 @@ export const fetchStore = async (
                         signal: mergedSignal,
                         ...options,
                     });
-                    const response = await fetch(urlOrPromise, fetchOptions);
+                    const response = await fetch(currentRequest, fetchOptions);
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
@@ -430,14 +475,14 @@ export const fetchStore = async (
                     } else {
                         result = await response.text();
                     }
-                } else if (typeof (urlOrPromise as any).then === "function") {
-                    result = await urlOrPromise;
+                } else if (typeof (currentRequest as any).then === "function") {
+                    result = await currentRequest;
                 } else {
                     error(
-                        `fetchStore("${name}") - second argument must be a URL string or Promise.\n` +
+                        `fetchStore("${name}") - second argument must be a URL string, Promise, or Promise factory.\n` +
                         `Examples:\n` +
                         `  fetchStore("users", "https://api.example.com/users")\n` +
-                        `  fetchStore("users", axios.get("/users"))`
+                        `  fetchStore("users", () => fetch("https://api.example.com/users"))`
                     );
                     return null;
                 }
@@ -478,7 +523,7 @@ export const fetchStore = async (
                 const elapsed = Date.now() - startedAt;
                 _asyncMetrics.lastMs = elapsed;
                 _asyncMetrics.avgMs = ((_asyncMetrics.avgMs * (_asyncMetrics.requests - 1)) + elapsed) / _asyncMetrics.requests;
-                return transformed;
+                return { raw: result, transformed };
             } catch (err) {
                 attempts += 1;
                 const isAbort = (err as any)?.name === "AbortError";
@@ -516,16 +561,24 @@ export const fetchStore = async (
         }
     };
 
-    const promise = runFetch().finally(() => {
+    const execution = executeFetch();
+    const promise = execution.then((res) => res?.transformed ?? null).finally(() => {
         delete _inflight[cacheSlot];
         if (_requestVersion[cacheSlot] === currentVersion) {
             delete _requestVersion[cacheSlot];
         }
         if (abortOnCleanup) _unregisterStoreCleanup(name, abortOnCleanup);
     });
+    const rawPromise = execution.then((res) => res?.raw);
 
-    _inflight[cacheSlot] = { promise, transform };
-    _fetchRegistry[name] = { url: urlOrPromise, options: { ...options, cacheKey } };
+    _inflight[cacheSlot] = { promise, raw: rawPromise, transform };
+    if (typeof urlOrRequest === "function") {
+        _fetchRegistry[name] = { kind: "factory", factory: urlOrRequest, options: { ...options, cacheKey } };
+    } else if (typeof urlOrRequest === "string") {
+        _fetchRegistry[name] = { kind: "url", url: urlOrRequest, options: { ...options, cacheKey } };
+    } else {
+        delete _fetchRegistry[name];
+    }
 
     return promise;
 };
@@ -541,29 +594,63 @@ export const refetchStore = async (name: string): Promise<unknown> => {
         }
         return;
     }
+    if (last.kind === "factory") {
+        return fetchStore(name, last.factory, last.options);
+    }
     return fetchStore(name, last.url, last.options);
 };
 
-const _revalidateKeys = new Set<string>();
-const _revalidateHandlers: Record<string, () => void> = {};
-
-export const enableRevalidateOnFocus = (name?: string): (() => void) => {
+export const enableRevalidateOnFocus = (name?: string, overrides?: Partial<FetchOptions> & { debounceMs?: number; maxConcurrent?: number; staggerMs?: number; priority?: "high" | "normal" }): (() => void) => {
     if (typeof window === "undefined" || typeof window.addEventListener !== "function") return () => {};
     const key = name ?? "*";
     if (_revalidateKeys.has(key)) return _revalidateHandlers[key] ?? (() => {});
-    const handler = () => {
-        if (key === "*") {
-            Object.keys(_fetchRegistry).forEach((k) => { void refetchStore(k); });
-        } else {
-            void refetchStore(key);
+    const focusConfig = getConfig().revalidateOnFocus;
+    const debounceMs = Math.max(0, overrides?.debounceMs ?? focusConfig.debounceMs);
+    const maxConcurrent = Math.max(1, overrides?.maxConcurrent ?? focusConfig.maxConcurrent);
+    const staggerMs = Math.max(0, overrides?.staggerMs ?? focusConfig.staggerMs);
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const runRefetch = () => {
+        let targets = key === "*" ? Object.keys(_fetchRegistry) : [key];
+        if (overrides?.priority === "high" && key !== "*") {
+            targets = [key, ...targets.filter((t) => t !== key)];
         }
+        if (targets.length === 0) return;
+        let index = 0;
+        const launchNext = () => {
+            const batch = targets.slice(index, index + maxConcurrent);
+            batch.forEach((storeName, offset) => {
+                const fire = () => { void refetchStore(storeName); };
+                if (staggerMs > 0) {
+                    setTimeout(fire, offset * staggerMs);
+                } else {
+                    fire();
+                }
+            });
+            index += batch.length;
+            if (index < targets.length) {
+                const delay = staggerMs > 0 ? staggerMs * Math.max(1, batch.length) : 0;
+                setTimeout(launchNext, delay);
+            }
+        };
+        launchNext();
     };
+
+    const handler = () => {
+        if (debounceTimer !== null) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(runRefetch, debounceMs);
+    };
+
     window.addEventListener("focus", handler);
     window.addEventListener("online", handler);
     _revalidateKeys.add(key);
     const cleanup = () => {
         window.removeEventListener("focus", handler);
         window.removeEventListener("online", handler);
+        if (debounceTimer !== null) {
+            clearTimeout(debounceTimer);
+            debounceTimer = null;
+        }
         _revalidateKeys.delete(key);
         delete _revalidateHandlers[key];
         if (key !== "*") _unregisterStoreCleanup(key, cleanup);

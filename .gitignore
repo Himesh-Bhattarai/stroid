@@ -1,5 +1,6 @@
 # dependencies
 node_modules/
+docs/
 
 # silent
 stroid-website/
@@ -8,6 +9,7 @@ stroid-website/
 dist/
 .next/
 .vercel/
+index.d.ts
 
 # logs
 npm-debug.log*

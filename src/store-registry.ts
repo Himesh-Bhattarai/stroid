@@ -19,8 +19,16 @@ export type StoreRegistry = {
 
 const _registries = new Map<string, StoreRegistry>();
 
-export const normalizeStoreRegistryScope = (scope: string): string =>
-    scope.replace(/\.ts(\?|$)/, ".js$1");
+declare const __STROID_REGISTRY_ID__: string | undefined;
+const _registryOverride =
+    (typeof __STROID_REGISTRY_ID__ !== "undefined" && __STROID_REGISTRY_ID__)
+    || (typeof process !== "undefined" && process.env?.STROID_REGISTRY_ID)
+    || undefined;
+
+export const normalizeStoreRegistryScope = (scope: string): string => {
+    const resolved = _registryOverride || scope;
+    return resolved.replace(/\.ts(\?|$)/, ".js$1");
+};
 
 export const getStoreRegistry = (scope: string): StoreRegistry => {
     const normalizedScope = normalizeStoreRegistryScope(scope);

@@ -2,6 +2,7 @@ import {
     warn,
     error,
     log,
+    critical,
     isDev,
     isValidData,
     isValidStoreName,
@@ -50,6 +51,7 @@ import {
     normalizeStoreRegistryScope,
 } from "./store-registry.js";
 import { createStoreAdmin } from "./internals/store-admin.js";
+import { getConfig } from "./internals/config.js";
 
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -86,6 +88,9 @@ export interface StoreDefinition<Name extends string = string, State = StoreValu
     // marker for inference only, not used at runtime
     state?: State;
 }
+export type WriteResult =
+    | { ok: true }
+    | { ok: false; reason: "not-found" | "schema" | "validator" | "path" | "middleware" | "ssr" | "invalid-args" };
 export type { PersistConfig, MiddlewareCtx, StoreOptions } from "./adapters/options.js";
 
 interface MetaEntry extends StoreFeatureMeta {}
@@ -96,8 +101,10 @@ const _registry = getStoreRegistry(normalizeStoreRegistryScope(import.meta.url))
 const _stores = _registry.stores as Record<string, StoreValue>;
 const _subscribers = _registry.subscribers as Record<string, Subscriber[]>;
 const _initial = _registry.initialStates as Record<string, StoreValue>;
+const _initialFactories = Object.create(null) as Record<string, (() => StoreValue) | undefined>;
 const _meta = _registry.metaEntries as Record<string, MetaEntry>;
 const _snapshotCache = _registry.snapshotCache as Record<string, { source: StoreValue; snapshot: StoreValue | null }>;
+const _pathValidationCache = new Map<string, boolean>();
 
 const _pendingNotifications = new Set<string>();
 let _notifyScheduled = false;
@@ -111,28 +118,79 @@ const _nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
 const _scheduleFlush = (): void => {
     if (_notifyScheduled) return;
     _notifyScheduled = true;
+
+    const scheduleChunk = (fn: () => void, delayMs: number): void => {
+        if (delayMs > 0 && typeof setTimeout === "function") {
+            setTimeout(fn, delayMs);
+            return;
+        }
+        if (typeof queueMicrotask === "function") {
+            queueMicrotask(fn);
+            return;
+        }
+        Promise.resolve().then(fn);
+    };
+
     const run = () => {
-        _notifyScheduled = false;
-        const names = Array.from(_pendingNotifications);
+        const pending = Array.from(_pendingNotifications);
         _pendingNotifications.clear();
-        names.forEach((name) => {
+        const priority = getConfig().flush.priorityStores || [];
+        const names = [
+            ...priority.filter((n) => pending.includes(n)),
+            ...pending.filter((n) => !priority.includes(n)),
+        ];
+        const { chunkSize, chunkDelayMs } = getConfig().flush;
+        const sliceSize = Number.isFinite(chunkSize) && (chunkSize as number) > 0
+            ? (chunkSize as number)
+            : Number.POSITIVE_INFINITY;
+        const runInline = sliceSize === Number.POSITIVE_INFINITY && chunkDelayMs === 0;
+        const now = () => (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+
+        const finish = () => {
+            _notifyScheduled = false;
+            if (_pendingNotifications.size > 0) _scheduleFlush();
+        };
+
+        let nameIndex = 0;
+        const processStore = (): void => {
+            if (nameIndex >= names.length) {
+                finish();
+                return;
+            }
+            const name = names[nameIndex++];
             const subs = _subscribers[name];
-            if (!subs || subs.length === 0) return;
-            const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+            if (!subs || subs.length === 0) {
+                processStore();
+                return;
+            }
+
             const snapshot = deepClone(_stores[name]);
-            subs.forEach((fn) => {
-                try { fn(snapshot); }
-                catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
-            });
-            const end = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-            const delta = end - start;
+            const start = now();
             const metrics = _meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 };
-            metrics.notifyCount += 1;
-            metrics.totalNotifyMs += delta;
-            metrics.lastNotifyMs = delta;
-            if (_meta[name]) _meta[name].metrics = metrics;
-        });
-        if (_pendingNotifications.size > 0) _scheduleFlush();
+
+            const flushChunk = (offset: number): void => {
+                const endIndex = Math.min(offset + sliceSize, subs.length);
+                for (let i = offset; i < endIndex; i++) {
+                    try { subs[i](snapshot); }
+                    catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
+                }
+                if (endIndex < subs.length) {
+                    scheduleChunk(() => flushChunk(endIndex), chunkDelayMs);
+                    return;
+                }
+                const delta = now() - start;
+                metrics.notifyCount += 1;
+                metrics.totalNotifyMs += delta;
+                metrics.lastNotifyMs = delta;
+                if (_meta[name]) _meta[name].metrics = metrics;
+                if (runInline) processStore();
+                else scheduleChunk(processStore, chunkDelayMs);
+            };
+
+            flushChunk(0);
+        };
+
+        processStore();
     };
     if (typeof queueMicrotask === "function") queueMicrotask(run);
     else Promise.resolve().then(run);
@@ -150,23 +208,28 @@ const _exists = (name: string): boolean => {
 };
 
 const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInput, nextValue: unknown): { ok: boolean; reason?: string } => {
+    if (!_meta[storeName]) return { ok: true };
     const parts = parsePath(path);
     if (parts.length === 0) return { ok: true };
-
-    if (base === null || base === undefined) {
-        const reason = `Cannot set "${parts.join(".")}" on "${storeName}" because the store value is ${base === null ? "null" : "undefined"}.`;
-        warn(reason);
-        return { ok: false, reason };
-    }
+    const cacheKey = `${storeName}:${parts.join(".")}`;
+    if (_pathValidationCache.get(cacheKey)) return { ok: true };
 
     let cursor: unknown = base;
     for (let i = 0; i < parts.length; i++) {
         const key = parts[i];
         const isLast = i === parts.length - 1;
 
-        if (cursor === null || cursor === undefined || typeof cursor !== "object") {
+        if (cursor === null || cursor === undefined) {
+            if (!isLast) {
+                cursor = typeof key === "string" && Number.isInteger(Number(key)) ? [] : {};
+                continue;
+            }
+            return { ok: true };
+        }
+
+        if (typeof cursor !== "object") {
             const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - "${parts.slice(0, i).join(".") || "root"}" is not an object.`;
-            warn(reason);
+            critical(reason);
             return { ok: false, reason };
         }
 
@@ -174,14 +237,14 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
             const idx = Number(key);
             if (!Number.isInteger(idx) || idx < 0) {
                 const reason = `Path "${parts.join(".")}" targets non-numeric index "${key}" on an array in "${storeName}".`;
-                warn(reason);
+                critical(reason);
                 return { ok: false, reason };
             }
 
             const arr = cursor as unknown[];
             if (idx >= arr.length) {
                 const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - index ${idx} is out of bounds (length ${arr.length}).`;
-                warn(reason);
+                critical(reason);
                 return { ok: false, reason };
             }
 
@@ -192,7 +255,7 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
                     const incoming = getType(nextValue);
                     if (expected !== incoming) {
                         const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incoming}.`;
-                        warn(reason);
+                        critical(reason);
                         return { ok: false, reason };
                     }
                 }
@@ -205,7 +268,7 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
         const hasKey = Object.prototype.hasOwnProperty.call(cursor as Record<string, unknown>, key);
         if (!hasKey) {
             const reason = `Path "${parts.join(".")}" does not exist on store "${storeName}" (missing "${key}").`;
-            warn(reason);
+            critical(reason);
             return { ok: false, reason };
         }
         if (isLast) {
@@ -215,7 +278,7 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
                 const incoming = getType(nextValue);
                 if (expected !== incoming) {
                     const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incoming}.`;
-                    warn(reason);
+                    critical(reason);
                     return { ok: false, reason };
                 }
             }
@@ -223,23 +286,18 @@ const _validatePathSafety = (storeName: string, base: StoreValue, path: PathInpu
         }
         cursor = (cursor as Record<string, unknown>)[key];
     }
+    _pathValidationCache.set(cacheKey, true);
     return { ok: true };
 };
 
 const _reportStoreError = (name: string, message: string): void => {
     _meta[name]?.options?.onError?.(message);
-    warn(message);
+    critical(message);
 };
 
 const _reportStoreCreationError = (message: string, onError?: (message: string) => void): void => {
     onError?.(message);
-    if (isDev()) {
-        error(message);
-        return;
-    }
-    if (typeof console !== "undefined" && typeof console.error === "function") {
-        console.error(`[stroid] ${message}`);
-    }
+    error(message);
 };
 
 const _runMiddleware = (
@@ -256,6 +314,13 @@ const _runMiddleware = (
 
 const _validateSchema = (name: string, next: StoreValue): { ok: boolean } => {
     const schema = _meta[name]?.options?.schema;
+    if (schema
+        && typeof schema !== "function"
+        && typeof (schema as any).parse !== "function"
+        && typeof (schema as any).validate !== "function") {
+        _reportStoreError(name, `Schema for "${name}" is not a valid validator object.`);
+        return { ok: false };
+    }
     if (!schema) return { ok: true };
     const res = runSchemaValidation(schema, next);
     if (!res.ok) {
@@ -270,14 +335,14 @@ const _runValidator = (
     validator?: (next: StoreValue) => boolean,
     onError?: (message: string) => void
 ): boolean => {
-    const report = (message: string, shouldWarn = true): void => {
+    const report = (message: string, shouldReportCritical = true): void => {
         const handlers = new Set<((message: string) => void)>();
         const metaHandler = _meta[name]?.options?.onError;
         if (typeof metaHandler === "function") handlers.add(metaHandler);
         if (typeof onError === "function") handlers.add(onError);
         handlers.forEach((handler) => handler(message));
-        if (shouldWarn) {
-            warn(message);
+        if (shouldReportCritical) {
+            critical(message);
         }
     };
     if (typeof validator !== "function") return true;
@@ -347,6 +412,32 @@ const _normalizeCommittedState = (
 
 const _setStoreValueInternal = (name: string, value: StoreValue): void => {
     _stores[name] = isDev() ? devDeepFreeze(value) : value;
+};
+
+const _invalidatePathCache = (name: string): void => {
+    for (const key of Array.from(_pathValidationCache.keys())) {
+        if (key.startsWith(`${name}:`)) _pathValidationCache.delete(key);
+    }
+};
+
+const _materializeInitial = (name: string): boolean => {
+    if (_stores[name] !== undefined) return true;
+    const factory = _initialFactories[name];
+    if (!factory) return true;
+    try {
+        const produced = factory();
+        const cleanResult = _sanitizeValue(name, produced, _meta[name]?.options?.onError);
+        if (!cleanResult.ok) return false;
+        const validator = _meta[name]?.options?.validator;
+        const normalized = _normalizeCommittedState(name, cleanResult.value, validator, _meta[name]?.options?.onError);
+        if (!normalized.ok) return false;
+        _setStoreValueInternal(name, normalized.value);
+        _initial[name] = deepClone(normalized.value);
+        return true;
+    } catch (err) {
+        _reportStoreError(name, `Lazy initializer for "${name}" failed: ${(err as { message?: string })?.message ?? err}`);
+        return false;
+    }
 };
 
 const _applyFeatureState = (name: string, value: StoreValue, updatedAtMs = Date.now()): void => {
@@ -516,21 +607,25 @@ export const createStore = <Name extends string, State>(
     const cleanResult = _sanitizeValue(name, initialData, normalizedOptions.onError);
     if (!cleanResult.ok) return;
     const clean = cleanResult.value;
-
-    const initialSchemaResult = normalizedOptions.schema ? runSchemaValidation(normalizedOptions.schema, clean) : { ok: true };
-    if (!initialSchemaResult.ok) {
-        const msg = `Schema validation failed for "${name}": ${initialSchemaResult.error}`;
-        normalizedOptions.onError?.(msg);
-        warn(msg);
-        return;
-    }
-
-    if (!_runValidator(name, clean as StoreValue, normalizedOptions.validator, normalizedOptions.onError)) return;
+    const isLazy = normalizedOptions.lazy === true && typeof initialData === "function";
 
     const hadPreexistingSubscribers = !!_subscribers[name]?.length;
-    _stores[name] = clean;
+    if (isLazy) {
+        _stores[name] = undefined;
+        _initialFactories[name] = initialData as () => StoreValue;
+    } else {
+        const initialSchemaResult = normalizedOptions.schema ? runSchemaValidation(normalizedOptions.schema, clean) : { ok: true };
+        if (!initialSchemaResult.ok) {
+            const msg = `Schema validation failed for "${name}": ${initialSchemaResult.error}`;
+            normalizedOptions.onError?.(msg);
+            warn(msg);
+            return;
+        }
+        if (!_runValidator(name, clean as StoreValue, normalizedOptions.validator, normalizedOptions.onError)) return;
+        _stores[name] = clean;
+        _initial[name] = deepClone(clean);
+    }
     _subscribers[name] = _subscribers[name] || [];
-    _initial[name] = deepClone(clean);
     _meta[name] = {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -556,9 +651,10 @@ export function setStore<Name extends string, State>(name: StoreDefinition<Name,
 export function setStore(name: string, data: Record<string, unknown>): void;
 export function setStore(name: string, path: string | string[], value: unknown): void;
 export function setStore(name: string, mutator: (draft: any) => void): void;
-export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): void {
+export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
     const storeName = _nameOf(name);
-    if (!_exists(storeName)) return;
+    if (!_exists(storeName)) return { ok: false, reason: "not-found" };
+    if (!_materializeInitial(storeName)) return { ok: false, reason: "schema" };
     let updated: StoreValue;
     const prev = _stores[storeName];
 
@@ -567,7 +663,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
             updated = produceClone(prev, keyOrData as (draft: any) => void);
         } catch (err) {
             _reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
-            return;
+            return { ok: false, reason: "middleware" };
         }
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) return;
@@ -576,20 +672,20 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
                 `setStore("${storeName}", data) only merges into object stores.\n` +
                 `Use setStore("${storeName}", "path", value) or recreate the store with an object shape.`
             );
-            return;
+            return { ok: false, reason: "schema" };
         }
         const partialResult = _sanitizeValue(storeName, keyOrData);
-        if (!partialResult.ok) return;
+        if (!partialResult.ok) return { ok: false, reason: "schema" };
         updated = { ...(prev as Record<string, unknown>), ...partialResult.value as Record<string, unknown> };
     } else if (typeof keyOrData === "string" || Array.isArray(keyOrData)) {
         if (!validateDepth(keyOrData as PathInput)) return;
         const valueResult = _sanitizeValue(storeName, value);
-        if (!valueResult.ok) return;
+        if (!valueResult.ok) return { ok: false, reason: "schema" };
         const sanitizedValue = valueResult.value;
         const safePath = _validatePathSafety(storeName, prev, keyOrData as PathInput, sanitizedValue);
         if (!safePath.ok) {
             _meta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
-            return;
+            return { ok: false, reason: "path" };
         }
         updated = setByPath(prev as Record<string, unknown>, keyOrData as PathInput, sanitizedValue);
     } else {
@@ -600,20 +696,18 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
             `  setStore("${storeName}", "nested.field", value)\n` +
             `  setStore("${storeName}", { field: value })`
         );
-        return;
+        return { ok: false, reason: "invalid-args" };
     }
 
-    if (!isValidData(updated)) return;
+    if (!isValidData(updated)) return { ok: false, reason: "schema" };
     const validator = _meta[storeName]?.options?.validator;
-    const normalizedUpdate = _normalizeCommittedState(storeName, updated, validator);
-    if (!normalizedUpdate.ok) return;
-    const sanitizedUpdate = normalizedUpdate.value;
 
-    const next = _runMiddleware(storeName, { action: "set", prev, next: sanitizedUpdate, path: keyOrData });
-    if (next === MIDDLEWARE_ABORT) return;
+    const next = _runMiddleware(storeName, { action: "set", prev, next: updated, path: keyOrData });
+    if (next === MIDDLEWARE_ABORT) return { ok: false, reason: "middleware" };
     const committed = _normalizeCommittedState(storeName, next, validator);
-    if (!committed.ok) return;
+    if (!committed.ok) return { ok: false, reason: "validator" };
     _setStoreValueInternal(storeName, committed.value);
+    _invalidatePathCache(storeName);
     _meta[storeName].updatedAt = new Date().toISOString();
     _meta[storeName].updateCount++;
     _runFeatureWriteHooks(storeName, "set", prev, committed.value);
@@ -621,22 +715,20 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     _notify(storeName);
 
     log(`Store "${storeName}" updated`);
+    return { ok: true };
 }
 
 export const setStoreBatch = (fn: () => unknown): void => {
     if (typeof fn !== "function") {
         throw new Error("setStoreBatch requires a synchronous function callback.");
     }
-    if ((fn as Function).constructor?.name === "AsyncFunction") {
-        throw new Error("setStoreBatch does not support async functions.");
-    }
+    const savedNotifications = new Set(_pendingNotifications);
     _batchDepth++;
     try {
         const result = fn();
         if (result && typeof (result as Promise<unknown>).then === "function") {
-            if (_pendingNotifications.size > 0) {
-                _scheduleFlush();
-            }
+            _pendingNotifications.clear();
+            savedNotifications.forEach((n) => _pendingNotifications.add(n));
             throw new Error("setStoreBatch does not support promise-returning callbacks.");
         }
     } finally {
@@ -653,6 +745,7 @@ export function getStore(name: string, path?: PathInput): StoreValue | null;
 export function getStore(name: string | StoreDefinition<string, StoreValue>, path?: PathInput): StoreValue | null {
     const storeName = _nameOf(name);
     if (!_exists(storeName)) return null;
+    if (!_materializeInitial(storeName)) return null;
     const data = _stores[storeName];
     if (path === undefined) {
         return deepClone(data);
@@ -663,15 +756,19 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
 
 export const deleteStore = (name: string): void => {
     if (!_exists(name)) return;
+    if (!_materializeInitial(name)) return;
     _storeAdmin.deleteExistingStore(name);
+    _invalidatePathCache(name);
 };
 
 export const resetStore = (name: string): void => {
     if (!_exists(name)) return;
+    if (!_materializeInitial(name)) return;
     if (!_initial[name]) return;
     const prev = _stores[name];
     const resetValue = deepClone(_initial[name]);
     _setStoreValueInternal(name, resetValue);
+    _invalidatePathCache(name);
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
     _runFeatureWriteHooks(name, "reset", prev, resetValue);
@@ -680,36 +777,37 @@ export const resetStore = (name: string): void => {
     log(`Store "${name}" reset to initial state/value`);
 };
 
-export const mergeStore = (name: string, data: Record<string, unknown>): void => {
-    if (!_exists(name)) return;
-    if (!isValidData(data)) return;
+export const mergeStore = (name: string, data: Record<string, unknown>): WriteResult => {
+    if (!_exists(name)) return { ok: false, reason: "not-found" } as WriteResult;
+    if (!_materializeInitial(name)) return { ok: false, reason: "schema" } as WriteResult;
+    if (!isValidData(data)) return { ok: false, reason: "schema" } as WriteResult;
     const current = _stores[name];
     if (typeof current !== "object" || Array.isArray(current) || current === null) {
         error(
             `mergeStore("${name}") only works on object stores.\n` +
             `Use setStore("${name}", value) instead.`
         );
-        return;
+        return { ok: false, reason: "schema" } as WriteResult;
     }
     const mergeResult = _sanitizeValue(name, data);
-    if (!mergeResult.ok) return;
+    if (!mergeResult.ok) return { ok: false, reason: "schema" } as WriteResult;
     const next = { ...(current as Record<string, unknown>), ...mergeResult.value as Record<string, unknown> };
 
     const validator = _meta[name]?.options?.validator;
-    const normalizedNext = _normalizeCommittedState(name, next, validator);
-    if (!normalizedNext.ok) return;
 
-    const final = _runMiddleware(name, { action: "merge", prev: current, next: normalizedNext.value, path: null });
-    if (final === MIDDLEWARE_ABORT) return;
+    const final = _runMiddleware(name, { action: "merge", prev: current, next, path: null });
+    if (final === MIDDLEWARE_ABORT) return { ok: false, reason: "middleware" } as WriteResult;
     const committed = _normalizeCommittedState(name, final, validator);
-    if (!committed.ok) return;
+    if (!committed.ok) return { ok: false, reason: "validator" } as WriteResult;
     _setStoreValueInternal(name, committed.value);
+    _invalidatePathCache(name);
     _meta[name].updatedAt = new Date().toISOString();
     _meta[name].updateCount++;
     _runFeatureWriteHooks(name, "merge", current, committed.value);
     _runStoreHook(name, "onSet", _meta[name].options.onSet, [current, committed.value]);
     _notify(name);
     log(`Store "${name}" merged with data`);
+    return { ok: true } as WriteResult;
 };
 
 const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): void => {
@@ -726,10 +824,8 @@ const _replaceStoreState = (name: string, data: unknown, action = "hydrate"): vo
     }
 
     const validator = _meta[name]?.options?.validator;
-    const normalizedNext = _normalizeCommittedState(name, nextValue, validator);
-    if (!normalizedNext.ok) return;
 
-    const final = _runMiddleware(name, { action, prev, next: normalizedNext.value, path: null });
+    const final = _runMiddleware(name, { action, prev, next: nextValue, path: null });
     if (final === MIDDLEWARE_ABORT) return;
     const committed = _normalizeCommittedState(name, final, validator);
     if (!committed.ok) return;

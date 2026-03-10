@@ -9,3 +9,4 @@ export {
     hasStore,
     hydrateStores,
 } from "./store.js";
+export { configureStroid } from "./config.js";

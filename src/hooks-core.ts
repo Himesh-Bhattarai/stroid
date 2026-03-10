@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { _subscribe, _getSnapshot, hasStore } from "./store.js";
 import { subscribeWithSelector } from "./selectors.js";
-import { getByPath, warn, isDev } from "./utils.js";
+import { getByPath, warn, isDev, shallowEqual } from "./utils.js";
 
 const pickPath = (data: any, path?: string) => {
     if (!path) return data;
@@ -10,19 +10,6 @@ const pickPath = (data: any, path?: string) => {
 };
 
 const _broadUseStoreWarnings = new Set<string>();
-
-const shallowEqual = (a: any, b: any): boolean => {
-    if (Object.is(a, b)) return true;
-    if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    if (keysA.length !== keysB.length) return false;
-    for (const key of keysA) {
-        if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
-        if (!Object.is(a[key], (b as Record<string, unknown>)[key])) return false;
-    }
-    return true;
-};
 
 type SelectorCache<R> = {
     hasValue: boolean;

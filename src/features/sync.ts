@@ -9,6 +9,10 @@ export type SyncWindowCleanup = Record<string, () => void>;
 
 let _registered = false;
 const SYNC_PROTOCOL_VERSION = 1;
+const resolveProtocolVersion = (msg: { v?: unknown; protocol?: unknown }): number | undefined =>
+    typeof msg?.v === "number"
+        ? msg.v as number
+        : (typeof msg?.protocol === "number" ? msg.protocol as number : undefined);
 
 type SyncMeta = {
     updatedAt: string;
@@ -42,7 +46,29 @@ const compareSyncOrder = ({
     const incomingSource = incoming.source ?? "";
     const localSource = accepted?.source ?? "";
     if (incomingSource === localSource) return 0;
-    return incomingSource < localSource ? -1 : 1;
+    return incomingSource.localeCompare(localSource, "en", { sensitivity: "variant" });
+};
+
+const isValidSyncMessage = (msg: unknown): msg is {
+    v: number;
+    protocol: number;
+    type: string;
+    name: string;
+    clock: number;
+    source: string;
+    data?: unknown;
+    updatedAt?: number;
+} => {
+    if (typeof msg !== "object" || msg === null) return false;
+    const m = msg as Record<string, unknown>;
+    return (
+        m.v === SYNC_PROTOCOL_VERSION &&
+        typeof m.protocol === "number" &&
+        typeof m.type === "string" &&
+        typeof m.name === "string" &&
+        typeof m.clock === "number" &&
+        typeof m.source === "string"
+    );
 };
 
 const requestSyncSnapshot = ({
@@ -60,6 +86,7 @@ const requestSyncSnapshot = ({
     if (!channel) return;
     try {
         channel.postMessage({
+            v: SYNC_PROTOCOL_VERSION,
             protocol: SYNC_PROTOCOL_VERSION,
             type: "sync-request",
             source: instanceId,
@@ -180,8 +207,18 @@ export const setupSync = ({
             if (!msg || msg.source === instanceId) return;
             if (msg.name !== name) return;
             if (syncChannels[name] !== channel || !hasStoreEntry(name) || !getMeta(name)) return;
-            if (msg.protocol !== SYNC_PROTOCOL_VERSION) {
-                reportStoreError(name, `Sync protocol mismatch for "${name}". Expected v${SYNC_PROTOCOL_VERSION} but received ${String(msg.protocol ?? "unknown")}. Ignoring message.`);
+            if (!isValidSyncMessage(msg)) {
+                reportStoreError(name, `Sync message for "${name}" is malformed; ignoring.`);
+                return;
+            }
+            const incomingVersion = resolveProtocolVersion(msg);
+            if (incomingVersion !== SYNC_PROTOCOL_VERSION) {
+                reportStoreError(name, `Sync protocol mismatch for "${name}". Expected v${SYNC_PROTOCOL_VERSION} but received ${String(incomingVersion ?? "unknown")}. Ignoring message.`);
+                return;
+            }
+            const isSyncState = msg.type === "sync-state";
+            if (isSyncState && (typeof msg.data === "undefined" || typeof msg.clock !== "number")) {
+                reportStoreError(name, `Sync message for "${name}" is malformed; ignoring.`);
                 return;
             }
             if (msg.type === "sync-request") {
@@ -287,6 +324,7 @@ export const broadcastSync = ({
     if (!channel) return;
     try {
         const payload = {
+            v: SYNC_PROTOCOL_VERSION,
             protocol: SYNC_PROTOCOL_VERSION,
             type: "sync-state",
             source: instanceId,

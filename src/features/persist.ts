@@ -188,11 +188,11 @@ export const persistLoad = ({
     name: string;
     silent?: boolean;
     getMeta: () => PersistMeta | undefined;
-    getInitialState: () => StoreValue;
-    applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
-    reportStoreError: (name: string, message: string) => void;
-    validateSchema: (next: StoreValue) => { ok: boolean };
-    log: (message: string) => void;
+        getInitialState: () => StoreValue;
+        applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
+        reportStoreError: (name: string, message: string) => void;
+        validateSchema: (next: StoreValue) => { ok: boolean };
+        log: (message: string) => void;
     hashState: (value: unknown) => number;
     deepClone: <T>(value: T) => T;
     sanitize: (value: unknown) => unknown;
@@ -330,6 +330,19 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
         onStoreCreate(ctx) {
             const cfg = ctx.options.persist;
             if (!cfg) return;
+
+            const isIdentity = (fn: Function): boolean => {
+                const src = fn.toString().replace(/\s/g, "");
+                return src === "v=>v" || src === "(v)=>v" || src === "function(v){returnv;}";
+            };
+
+            if (typeof cfg.encrypt === "function" && isIdentity(cfg.encrypt)) {
+                ctx.warn(`persist: encrypt is identity function — data for "${ctx.name}" stored as plaintext.`);
+            }
+
+            if ((cfg as any).sensitiveData && !cfg.encrypt) {
+                ctx.reportStoreError(`persist: store "${ctx.name}" marked sensitiveData but has no encryption configured.`);
+            }
 
             if (cfg.key) {
                 const existing = persistKeys[cfg.key];

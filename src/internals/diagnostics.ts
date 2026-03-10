@@ -1,3 +1,4 @@
+import { getConfig } from "./config.js";
 const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NODE_ENV === "string"
     ? process.env.NODE_ENV
     : undefined;
@@ -7,7 +8,6 @@ const _envFromImportMeta = typeof import.meta !== "undefined" && (import.meta as
 const _devFlag = typeof globalThis !== "undefined" && typeof (globalThis as any).__STROID_DEV__ === "boolean"
     ? (globalThis as any).__STROID_DEV__
     : undefined;
-
 const _fallbackEnv = "production";
 const _resolvedEnv = _envFromProcess ?? _envFromImportMeta ?? _fallbackEnv;
 
@@ -17,17 +17,51 @@ export const __DEV__ = typeof _devFlag === "boolean"
 
 export const isDev = (): boolean => __DEV__;
 
-export const warn: (msg: string) => void = __DEV__
-    ? (msg: string) => { console.warn(`[stroid] ${msg}`); }
-    : () => { };
+const defaultWarn = (msg: string, meta?: Record<string, unknown>): void => {
+    if (typeof console !== "undefined" && typeof console.warn === "function") {
+        if (meta) console.warn(`[stroid] ${msg}`, meta);
+        else console.warn(`[stroid] ${msg}`);
+    }
+};
 
-export const error: (msg: string) => void = __DEV__
-    ? (msg: string) => { console.error(`[stroid] ${msg}`); }
-    : () => { };
+const defaultCritical = (msg: string, meta?: Record<string, unknown>): void => {
+    if (typeof console !== "undefined" && typeof console.error === "function") {
+        if (meta) console.error(`[stroid] ${msg}`, meta);
+        else console.error(`[stroid] ${msg}`);
+    }
+};
 
-export const log: (msg: string) => void = __DEV__
-    ? (msg: string) => { console.log(`[stroid] ${msg}`); }
-    : () => { };
+const defaultLog = (msg: string, meta?: Record<string, unknown>): void => {
+    if (typeof console !== "undefined" && typeof console.log === "function") {
+        if (meta) console.log(`[stroid] ${msg}`, meta);
+        else console.log(`[stroid] ${msg}`);
+    }
+};
+
+export const critical = (msg: string, meta?: Record<string, unknown>): void => {
+    const sink = getConfig().logSink.critical ?? defaultCritical;
+    sink(msg, meta);
+};
+
+export const warn = (msg: string, meta?: Record<string, unknown>): void => {
+    if (!__DEV__) return;
+    const sink = getConfig().logSink.warn ?? defaultWarn;
+    sink(msg, meta);
+};
+
+export const error = (msg: string, meta?: Record<string, unknown>): void => {
+    if (__DEV__) {
+        const sink = getConfig().logSink.warn ?? defaultWarn;
+        sink(msg, meta);
+    }
+    critical(msg, meta);
+};
+
+export const log = (msg: string, meta?: Record<string, unknown>): void => {
+    if (!__DEV__) return;
+    const sink = getConfig().logSink.warn ?? defaultLog;
+    sink(msg, meta);
+};
 
 export const getInvalidFunctionStoreValueMessage = (): string =>
     `Functions cannot be stored in stroid.\n` +

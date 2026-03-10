@@ -17,7 +17,17 @@ const exists = (name: string): boolean => {
     return false;
 };
 
-export const listStores = (): string[] => Object.keys(stores);
+const matchesPattern = (name: string, pattern?: string): boolean => {
+    if (!pattern) return true;
+    if (pattern.endsWith("*")) {
+        const prefix = pattern.slice(0, -1);
+        return name.startsWith(prefix);
+    }
+    return name === pattern;
+};
+
+export const listStores = (pattern?: string): string[] =>
+    Object.keys(stores).filter((name) => matchesPattern(name, pattern));
 
 export const getStoreMeta = (name: string): StoreFeatureMeta | null =>
     (exists(name) ? deepClone(metaEntries[name]) : null) as StoreFeatureMeta | null;
