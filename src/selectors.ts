@@ -98,7 +98,6 @@ export const subscribeWithSelector = <R>(
         if (!hasPrev) {
             hasPrev = true;
             prevSel = nextSel;
-            listener(nextSel, nextSel);
             return;
         }
         const matches = equality(nextSel, prevSel);

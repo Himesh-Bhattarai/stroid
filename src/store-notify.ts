@@ -153,7 +153,7 @@ export const setStoreBatch = (fn: () => unknown): void => {
     }
 };
 
-export const subscribeInternal = (name: string, fn: Subscriber): (() => void) => {
+export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {
     if (!subscribers[name]) subscribers[name] = [];
     subscribers[name].push(fn);
     return () => {
@@ -167,9 +167,11 @@ export const subscribeInternal = (name: string, fn: Subscriber): (() => void) =>
     };
 };
 
-export const subscribe = subscribeInternal;
+// Backward compat alias
+export const subscribeInternal = subscribeStore;
+export const subscribe = subscribeStore;
 
-export const getSnapshot = (name: string): StoreValue | null => {
+export const getStoreSnapshot = (name: string): StoreValue | null => {
     if (!hasStoreEntryInternal(name)) return null;
     const source = stores[name];
     const cached = snapshotCache[name];
@@ -181,6 +183,8 @@ export const getSnapshot = (name: string): StoreValue | null => {
     snapshotCache[name] = { source, snapshot: safeSnapshot };
     return safeSnapshot;
 };
+// Backward compat alias
+export const getSnapshot = getStoreSnapshot;
 
 export const resetNotifyStateForTests = (): void => {
     pendingNotifications.clear();

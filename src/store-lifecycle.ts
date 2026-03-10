@@ -38,8 +38,11 @@ import {
     isStoreDeleting,
     clearStoreRegistries,
     normalizeStoreRegistryScope,
+    defaultRegistryScope,
 } from "./store-registry.js";
+export { defaultRegistryScope } from "./store-registry.js";
 import { createStoreAdmin } from "./internals/store-admin.js";
+import { getNamespace } from "./internals/config.js";
 
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -117,19 +120,44 @@ type BaseFeatureContext = {
     isDev: typeof isDev;
 };
 
-const _scope = normalizeStoreRegistryScope(new URL("./store.js", import.meta.url).href);
-const _registry = getStoreRegistry(_scope);
-export const stores = _registry.stores as Record<string, StoreValue>;
-export const subscribers = _registry.subscribers as Record<string, Subscriber[]>;
-export const initialStates = _registry.initialStates as Record<string, StoreValue>;
-export const initialFactories = Object.create(null) as Record<string, (() => StoreValue) | undefined>;
-export const meta = _registry.metaEntries as Record<string, MetaEntry>;
-export const snapshotCache = _registry.snapshotCache as Record<string, { source: StoreValue; snapshot: StoreValue | null }>;
-export const pathValidationCache = new Map<string, boolean>();
-export const featureRuntimes = _registry.featureRuntimes as Map<FeatureName, StoreFeatureRuntime>;
-export const storeAdmin = createStoreAdmin(_scope);
+let _scope = defaultRegistryScope;
+let _registry = getStoreRegistry(_scope);
+export let stores = _registry.stores as Record<string, StoreValue>;
+export let subscribers = _registry.subscribers as Record<string, Subscriber[]>;
+export let initialStates = _registry.initialStates as Record<string, StoreValue>;
+export let initialFactories = Object.create(null) as Record<string, (() => StoreValue) | undefined>;
+export let meta = _registry.metaEntries as Record<string, MetaEntry>;
+export let snapshotCache = _registry.snapshotCache as Record<string, { source: StoreValue; snapshot: StoreValue | null }>;
+export let pathValidationCache = new Map<string, boolean>();
+export let featureRuntimes = _registry.featureRuntimes as Map<FeatureName, StoreFeatureRuntime>;
+export let storeAdmin = createStoreAdmin(_scope);
 const baseFeatureContexts = new Map<string, BaseFeatureContext | null>();
 export const clearFeatureContexts = (): void => baseFeatureContexts.clear();
+
+export const bindRegistry = (scopeOrRegistry?: string | ReturnType<typeof getStoreRegistry>): void => {
+    const resolvedScope = typeof scopeOrRegistry === "string"
+        ? normalizeStoreRegistryScope(scopeOrRegistry)
+        : _scope;
+    const registry = typeof scopeOrRegistry === "string"
+        ? getStoreRegistry(resolvedScope)
+        : scopeOrRegistry ?? getStoreRegistry(_scope);
+
+    _scope = resolvedScope;
+    _registry = registry;
+    stores = _registry.stores as Record<string, StoreValue>;
+    subscribers = _registry.subscribers as Record<string, Subscriber[]>;
+    initialStates = _registry.initialStates as Record<string, StoreValue>;
+    initialFactories = Object.create(null) as Record<string, (() => StoreValue) | undefined>;
+    meta = _registry.metaEntries as Record<string, MetaEntry>;
+    snapshotCache = _registry.snapshotCache as Record<string, { source: StoreValue; snapshot: StoreValue | null }>;
+    pathValidationCache = new Map<string, boolean>();
+    featureRuntimes = _registry.featureRuntimes as Map<FeatureName, StoreFeatureRuntime>;
+    storeAdmin = createStoreAdmin(_scope);
+    clearFeatureContexts();
+    resetSsrWarningFlag();
+};
+
+export const useRegistry = (scopeId: string): void => bindRegistry(scopeId);
 
 const _ssrWarningsIssued = new Set<string>();
 export const getSsrWarningIssued = (name?: string): boolean =>
@@ -142,8 +170,23 @@ export const resetSsrWarningFlag = (): void => {
     _ssrWarningsIssued.clear();
 };
 
+const _namespaceWarnings = new Set<string>();
+export const qualifyName = (raw: string): string => {
+    const ns = getNamespace();
+    if (!ns) return raw;
+    if (raw.includes("::")) return raw;
+    if (isDev() && !_namespaceWarnings.has(raw)) {
+        _namespaceWarnings.add(raw);
+        warn(
+            `Namespace "${ns}" is active; treating store "${raw}" as "${ns}::${raw}". ` +
+            `Consider using namespace("${ns}").create("...") to be explicit.`
+        );
+    }
+    return `${ns}::${raw}`;
+};
+
 export const nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
-    typeof name === "string" ? name : name.name;
+    qualifyName(typeof name === "string" ? name : name.name);
 
 export const hasStoreEntryInternal = (name: string): boolean => _hasStoreEntry(_registry, name);
 export const getStoreValueRef = (name: string): StoreValue | undefined => stores[name];
@@ -215,9 +258,11 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
 
         const hasKey = Object.prototype.hasOwnProperty.call(cursor as Record<string, unknown>, key);
         if (!hasKey) {
-            const reason = `Path "${parts.join(".")}" does not exist on store "${storeName}" (missing "${key}").`;
-            critical(reason);
-            return { ok: false, reason };
+            if (!isLast) {
+                cursor = typeof key === "string" && Number.isInteger(Number(key)) ? [] : {};
+                continue;
+            }
+            return { ok: true };
         }
         if (isLast) {
             const existing = (cursor as Record<string, unknown>)[key];

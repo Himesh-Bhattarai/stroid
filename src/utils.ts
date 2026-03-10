@@ -170,8 +170,14 @@ export const runSchemaValidation = (schema: unknown, value: unknown): { ok: bool
             if (res === true) return { ok: true, data: value };
             if (res === false) return { ok: false, error: (schema as any).errors || "Schema validation failed" };
             if (res && typeof res === "object") {
-                const message = (res as any).error?.message || (res as any).message || (schema as any).errors;
+                const joiError = (res as any).error;
+                const message =
+                    joiError?.details?.[0]?.message ||
+                    joiError?.message ||
+                    (res as any).message ||
+                    (schema as any).errors;
                 if (message) return { ok: false, error: message };
+                if (joiError) return { ok: false, error: joiError };
             }
             const errMsg = (schema as any).errors || "Schema validation failed";
             return { ok: false, error: errMsg };

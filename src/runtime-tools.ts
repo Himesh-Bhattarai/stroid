@@ -3,10 +3,11 @@ import {
     getStoreRegistry,
     hasStoreEntry,
     normalizeStoreRegistryScope,
+    defaultRegistryScope,
 } from "./store-registry.js";
 import type { StoreFeatureMeta } from "./feature-registry.js";
 
-const _registry = getStoreRegistry(normalizeStoreRegistryScope(new URL("./store.js", import.meta.url).href));
+const _registry = getStoreRegistry(defaultRegistryScope);
 const stores = _registry.stores;
 const metaEntries = _registry.metaEntries;
 const initialStates = _registry.initialStates;

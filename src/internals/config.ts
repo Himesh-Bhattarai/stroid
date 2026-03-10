@@ -20,12 +20,14 @@ export type StroidConfig = {
     logSink?: LogSink;
     flush?: FlushConfig;
     revalidateOnFocus?: RevalidateOnFocusConfig;
+    namespace?: string;
 };
 
 type ResolvedConfig = {
     logSink: LogSink;
     flush: Required<FlushConfig>;
     revalidateOnFocus: Required<RevalidateOnFocusConfig>;
+    namespace: string;
 };
 
 const defaultLogSink: LogSink = {
@@ -61,6 +63,7 @@ const defaultConfig: ResolvedConfig = {
         maxConcurrent: 3,
         staggerMs: 100,
     },
+    namespace: "",
 };
 
 let _config: ResolvedConfig = { ...defaultConfig };
@@ -114,6 +117,13 @@ export const configureStroid = (next?: StroidConfig): void => {
             },
         };
     }
+
+    if (typeof next.namespace === "string") {
+        _config = {
+            ..._config,
+            namespace: next.namespace.trim(),
+        };
+    }
 };
 
 export const resetConfig = (): void => {
@@ -122,3 +132,8 @@ export const resetConfig = (): void => {
 
 // Back-compat for tests
 export const _resetConfigForTests = (): void => resetConfig();
+
+export const getNamespace = (): string => _config.namespace;
+export const setNamespace = (ns: string): void => {
+    _config = { ..._config, namespace: ns.trim() };
+};

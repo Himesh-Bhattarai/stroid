@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
-import { _subscribe, _getSnapshot, hasStore } from "./store.js";
+import { subscribeStore, getStoreSnapshot, hasStore } from "./store.js";
 import { subscribeWithSelector } from "./selectors.js";
 import { getByPath, warn, isDev, shallowEqual } from "./utils.js";
 import {
@@ -101,12 +101,12 @@ export function useStore<T = any, R = any>(
                     (a, b) => equalityRef.current(a, b),
                     fn
                 )
-                : _subscribe(name, () => fn()),
+                : subscribeStore(name, () => fn()),
         [name, hasSelector]
     );
 
     const getSnapshot = useCallback(() => {
-        const snap = _getSnapshot(name);
+        const snap = getStoreSnapshot(name);
         if (hasSelector) {
             return readSelectedSnapshot(snap as T | null);
         }
@@ -192,7 +192,7 @@ export const useSelector = <T = any, R = any>(
     }, [storeName]);
 
     const getSnap = useCallback(() => {
-        const data = _getSnapshot(storeName) as T | null;
+        const data = getStoreSnapshot(storeName) as T | null;
         return selectValue(data);
     }, [storeName, selectValue]);
 
@@ -210,7 +210,7 @@ export const useSelector = <T = any, R = any>(
 };
 
 export const useStoreStatic = <T = any>(name: string, path?: string): T | null => {
-    const data = _getSnapshot(name);
+    const data = getStoreSnapshot(name);
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
 };

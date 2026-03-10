@@ -1,5 +1,5 @@
 import { subscribe } from "./store.js";
-import { normalizeStoreRegistryScope } from "./store-registry.js";
+import { defaultRegistryScope, normalizeStoreRegistryScope } from "./store-registry.js";
 
 export interface FetchOptions {
     transform?: (result: unknown) => unknown;
@@ -45,7 +45,7 @@ export type AsyncRegistry = {
 };
 
 const _asyncRegistries = new Map<string, AsyncRegistry>();
-const _scope = normalizeStoreRegistryScope(new URL("./store.js", import.meta.url).href);
+const _scope = defaultRegistryScope;
 
 export const MAX_CACHE_SLOTS_PER_STORE = 100;
 export const MAX_INFLIGHT_SLOTS_PER_STORE = 100;

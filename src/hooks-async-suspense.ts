@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { _subscribe } from "./store.js";
+import { subscribeStore } from "./store.js";
 import { useAsyncStore } from "./hooks-async.js";
 
 const _waitForStore = (name: string): Promise<void> =>
     new Promise((resolve) => {
-        const unsub = _subscribe(name, (state) => {
+        const unsub = subscribeStore(name, (state) => {
             if (state && typeof state === "object" && !(state as any).loading) {
                 unsub();
                 resolve();

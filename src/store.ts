@@ -20,9 +20,17 @@ export {
     resetStore,
     hydrateStores,
     _hardResetAllStoresForTest,
+    useRegistry,
 } from "./store-write.js";
 
-export { setStoreBatch, subscribeInternal as _subscribe, subscribe, getSnapshot as _getSnapshot } from "./store-notify.js";
+export {
+    setStoreBatch,
+    subscribeStore,
+    subscribeInternal as _subscribe,
+    subscribe,
+    getStoreSnapshot,
+    getSnapshot as _getSnapshot,
+} from "./store-notify.js";
 
 export {
     getStore,
@@ -36,4 +44,4 @@ export {
 
 export { clearAllStores, clearStores } from "./runtime-admin.js";
 
-export { store } from "./store-name.js";
+export { store, namespace } from "./store-name.js";

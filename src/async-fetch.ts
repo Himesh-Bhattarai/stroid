@@ -301,6 +301,13 @@ export const fetchStore = async (
                 }
 
                 const transformed = transform ? transform(result) : result;
+                if (transformed && typeof (transformed as any).then === "function") {
+                    return _reportAsyncUsageError(
+                        name,
+                        `fetchStore("${name}") transform must be synchronous. Return the transformed value directly instead of a Promise.`,
+                        onError
+                    );
+                }
 
                 if (mergedSignal?.aborted) {
                     return _settleAbort(name, cacheSlot, currentVersion);

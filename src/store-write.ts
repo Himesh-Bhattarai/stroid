@@ -56,6 +56,8 @@ import {
     subscribers,
     clearFeatureContexts,
     validatePathSafety,
+    bindRegistry,
+    defaultRegistryScope,
 } from "./store-lifecycle.js";
 import { resetBroadUseStoreWarnings } from "./internals/hooks-warnings.js";
 import { resetConfig } from "./internals/config.js";
@@ -73,6 +75,11 @@ export const createStore = <Name extends string, State>(
     if (!isValidStoreName(name)) return;
     const lazyRequested = option.lazy === true && typeof initialData === "function";
     if (!lazyRequested && !isValidData(initialData)) return;
+    if (initialData === undefined && isDev()) {
+        warn(
+            `createStore("${name}") received an undefined initial value. This can be indistinguishable from a missing store in some consumers; consider null or an explicit shape if that is intentional.`
+        );
+    }
 
     collectLegacyOptionDeprecationWarnings(option).forEach((message) => {
         warn(message);
@@ -285,25 +292,25 @@ export const mergeStore = (name: string, data: Record<string, unknown>): WriteRe
     return { ok: true } as WriteResult;
 };
 
-const replaceStoreState = (name: string, data: unknown, action = "hydrate"): void => {
-    if (!exists(name)) return;
+const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { ok: boolean; reason?: string } => {
+    if (!exists(name)) return { ok: false, reason: "not-found" };
     const prev = stores[name];
     const nextResult = sanitizeValue(name, data);
-    if (!nextResult.ok) return;
+    if (!nextResult.ok) return { ok: false, reason: "sanitize" };
     const nextValue = nextResult.value;
     if (nextValue === undefined) {
         const message = `Whole-store undefined replacement is blocked for "${name}". Use null for intentional empty state.`;
         meta[name]?.options?.onError?.(message);
         warn(message);
-        return;
+        return { ok: false, reason: "undefined" };
     }
 
     const validateRule = meta[name]?.options?.validate;
 
     const final = runMiddlewareForStore(name, { action, prev, next: nextValue, path: null });
-    if (final === MIDDLEWARE_ABORT) return;
+    if (final === MIDDLEWARE_ABORT) return { ok: false, reason: "middleware" };
     const committed = normalizeCommittedState(name, final, validateRule);
-    if (!committed.ok) return;
+    if (!committed.ok) return { ok: false, reason: "validate" };
     setStoreValueInternal(name, committed.value);
     meta[name].updatedAt = new Date().toISOString();
     meta[name].updateCount++;
@@ -311,6 +318,7 @@ const replaceStoreState = (name: string, data: unknown, action = "hydrate"): voi
     runStoreHookSafe(name, "onSet", meta[name].options.onSet, [prev, committed.value]);
     notify(name);
     log(`Store "${name}" hydrated`);
+    return { ok: true };
 };
 
 export const clearAllStores = (): void => {
@@ -328,15 +336,27 @@ export const _hardResetAllStoresForTest = (): void => {
     resetConfig();
     clearFeatureContexts();
     setRegistryScope(new URL("./store.js", import.meta.url).href);
+    bindRegistry(defaultRegistryScope);
 };
 
-export const hydrateStores = (snapshot: Record<string, any>, options: Record<string, StoreOptions> & { default?: StoreOptions } = {}): void => {
-    if (!snapshot || typeof snapshot !== "object") return;
+export const hydrateStores = (
+    snapshot: Record<string, any>,
+    options: Record<string, StoreOptions> & { default?: StoreOptions } = {}
+): { hydrated: string[]; created: string[]; failed: Record<string, string> } => {
+    const result = { hydrated: [] as string[], created: [] as string[], failed: {} as Record<string, string> };
+    if (!snapshot || typeof snapshot !== "object") return result;
     Object.entries(snapshot).forEach(([storeName, data]) => {
         if (hasStoreEntryInternal(storeName)) {
-            replaceStoreState(storeName, data, "hydrate");
+            const res = replaceStoreState(storeName, data, "hydrate");
+            if (!res.ok) result.failed[storeName] = res.reason ?? "hydrate-failed";
+            else result.hydrated.push(storeName);
         } else {
-            createStore(storeName, data, options[storeName] || options.default || {});
+            const created = createStore(storeName, data, options[storeName] || options.default || {});
+            if (created) result.created.push(storeName);
+            else result.failed[storeName] = "create-failed";
         }
     });
+    return result;
 };
+
+export { useRegistry } from "./store-lifecycle.js";

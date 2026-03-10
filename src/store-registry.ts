@@ -32,6 +32,9 @@ export const normalizeStoreRegistryScope = (scope: string): string => {
     return resolved.replace(/\.ts(\?|$)/, ".js$1");
 };
 
+export const defaultRegistryScope = normalizeStoreRegistryScope(new URL("./store.js", import.meta.url).href);
+export const getDefaultStoreRegistry = (): StoreRegistry => getStoreRegistry(defaultRegistryScope);
+
 export const setRegistryScope = (scope: string): void => {
     _registryOverrideRuntime = scope;
     _registries.clear();

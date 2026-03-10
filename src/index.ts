@@ -9,6 +9,7 @@ export {
     hasStore,
     hydrateStores,
 } from "./store.js";
+export { namespace, store } from "./store.js";
 export type {
     Path,
     PathValue,
