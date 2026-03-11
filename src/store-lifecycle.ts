@@ -1,3 +1,17 @@
+/**
+ * @module store-lifecycle
+ *
+ * LAYER: Core Engine
+ * OWNS:  Registry state variables (stores, meta, subscribers, …) and all
+ *        pure primitives that operate on them (sanitize, validate, path-safety,
+ *        feature hook dispatch).
+ *
+ * DOES NOT KNOW about: createStore(), setStore(), React hooks,
+ *        or any specific feature plugin by name.
+ *
+ * Consumers: store-write (write API), store-read, store-notify,
+ *            hooks-core, store-engine (re-export barrel).
+ */
 import {
     warn,
     error,
@@ -11,6 +25,7 @@ import {
     hashState,
     runSchemaValidation,
     getType,
+    type SupportedType,
     PathInput,
 } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
@@ -39,6 +54,7 @@ import {
     clearStoreRegistries,
     normalizeStoreRegistryScope,
     defaultRegistryScope,
+    getRequestCarrier,
 } from "./store-registry.js";
 export { defaultRegistryScope } from "./store-registry.js";
 import { createStoreAdmin } from "./internals/store-admin.js";
@@ -125,11 +141,15 @@ let _registry = getStoreRegistry(_scope);
 export let stores = _registry.stores as Record<string, StoreValue>;
 export let subscribers = _registry.subscribers as Record<string, Subscriber[]>;
 export let initialStates = _registry.initialStates as Record<string, StoreValue>;
-export let initialFactories = Object.create(null) as Record<string, (() => StoreValue) | undefined>;
+export let initialFactories = _registry.initialFactories as Record<string, (() => StoreValue) | undefined>;
 export let meta = _registry.metaEntries as Record<string, MetaEntry>;
 export let snapshotCache = _registry.snapshotCache as Record<string, { version: number; snapshot: StoreValue | null }>;
 type PathSafetyVerdict = { ok: true } | { ok: false; reason: string };
-export let pathValidationCache = new Map<string, PathSafetyVerdict>();
+type PathValidationCacheNode = {
+    children: Map<string, PathValidationCacheNode>;
+    verdicts?: Map<SupportedType, PathSafetyVerdict>;
+};
+export let pathValidationCache = new Map<string, PathValidationCacheNode>();
 export let featureRuntimes = _registry.featureRuntimes as Map<FeatureName, StoreFeatureRuntime>;
 export let storeAdmin = createStoreAdmin(_scope);
 const baseFeatureContexts = new Map<string, BaseFeatureContext | null>();
@@ -148,10 +168,10 @@ export const bindRegistry = (scopeOrRegistry?: string | ReturnType<typeof getSto
     stores = _registry.stores as Record<string, StoreValue>;
     subscribers = _registry.subscribers as Record<string, Subscriber[]>;
     initialStates = _registry.initialStates as Record<string, StoreValue>;
-    initialFactories = Object.create(null) as Record<string, (() => StoreValue) | undefined>;
+    initialFactories = _registry.initialFactories as Record<string, (() => StoreValue) | undefined>;
     meta = _registry.metaEntries as Record<string, MetaEntry>;
     snapshotCache = _registry.snapshotCache as Record<string, { version: number; snapshot: StoreValue | null }>;
-    pathValidationCache = new Map<string, PathSafetyVerdict>();
+    pathValidationCache = new Map<string, PathValidationCacheNode>();
     featureRuntimes = _registry.featureRuntimes as Map<FeatureName, StoreFeatureRuntime>;
     storeAdmin = createStoreAdmin(_scope);
     clearFeatureContexts();
@@ -190,7 +210,13 @@ export const nameOf = (name: string | StoreDefinition<string, StoreValue>): stri
     qualifyName(typeof name === "string" ? name : name.name);
 
 export const hasStoreEntryInternal = (name: string): boolean => _hasStoreEntry(_registry, name);
-export const getStoreValueRef = (name: string): StoreValue | undefined => stores[name];
+export const getStoreValueRef = (name: string): StoreValue | undefined => {
+    const carrier = getRequestCarrier();
+    if (carrier && Object.prototype.hasOwnProperty.call(carrier, name)) {
+        return carrier[name] as StoreValue;
+    }
+    return stores[name];
+};
 export const getFeatureApi = (name: FeatureName) => featureRuntimes.get(name)?.api;
 
 export const exists = (name: string): boolean => {
@@ -204,8 +230,25 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
     if (!metaEntry) return { ok: true };
     const parts = parsePath(path);
     if (parts.length === 0) return { ok: true };
-    const cacheKey = `${storeName}:${JSON.stringify(parts)}`;
-    const cached = pathValidationCache.get(cacheKey);
+    const incomingType = getType(nextValue);
+    let root = pathValidationCache.get(storeName);
+    if (!root) {
+        if (pathValidationCache.size > 1000) pathValidationCache.clear();
+        root = { children: new Map() };
+        pathValidationCache.set(storeName, root);
+    }
+
+    let node = root;
+    for (const segment of parts) {
+        let child = node.children.get(segment);
+        if (!child) {
+            child = { children: new Map() };
+            node.children.set(segment, child);
+        }
+        node = child;
+    }
+
+    const cached = node.verdicts?.get(incomingType);
     if (cached) return cached;
 
     const allowCreate = metaEntry.options?.pathCreate === true;
@@ -248,16 +291,15 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
 
             if (isLast) {
                 const existing = arr[idx];
-                if (existing !== undefined && existing !== null) {
-                    const expected = getType(existing);
-                    const incoming = getType(nextValue);
-                    if (expected !== incoming) {
-                        const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incoming}.`;
-                        critical(reason);
-                        verdict = { ok: false, reason };
-                        break;
-                    }
-                }
+                 if (existing !== undefined && existing !== null) {
+                     const expected = getType(existing);
+                     if (expected !== incomingType) {
+                         const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incomingType}.`;
+                         critical(reason);
+                         verdict = { ok: false, reason };
+                         break;
+                     }
+                 }
                 verdict = { ok: true };
                 break;
             }
@@ -277,24 +319,24 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
             break;
         }
         if (isLast) {
-            const existing = (cursor as Record<string, unknown>)[key];
-            if (existing !== undefined && existing !== null) {
-                const expected = getType(existing);
-                const incoming = getType(nextValue);
-                if (expected !== incoming) {
-                    const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incoming}.`;
-                    critical(reason);
-                    verdict = { ok: false, reason };
-                    break;
-                }
-            }
-            verdict = { ok: true };
+             const existing = (cursor as Record<string, unknown>)[key];
+             if (existing !== undefined && existing !== null) {
+                 const expected = getType(existing);
+                 if (expected !== incomingType) {
+                     const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incomingType}.`;
+                     critical(reason);
+                     verdict = { ok: false, reason };
+                     break;
+                 }
+             }
+             verdict = { ok: true };
             break;
         }
         cursor = (cursor as Record<string, unknown>)[key];
     }
 
-    pathValidationCache.set(cacheKey, verdict);
+    if (!node.verdicts) node.verdicts = new Map();
+    node.verdicts.set(incomingType, verdict);
     return verdict;
 };
 
@@ -348,7 +390,7 @@ export const runValidation = (
 
     if (typeof validate === "function") {
         try {
-            const result = (validate as (next: StoreValue) => boolean | StoreValue)(value);
+            const result = validate(value);
             if (result === false) {
                 report(`Validation blocked update for "${name}"`, "warn");
                 return { ok: false };
@@ -384,13 +426,21 @@ export const normalizeCommittedState = (
 };
 
 export const setStoreValueInternal = (name: string, value: StoreValue): void => {
-    stores[name] = isDev() ? devDeepFreeze(value) : value;
+    const carrier = getRequestCarrier();
+    const frozen = isDev() ? devDeepFreeze(value) : value;
+    if (carrier) {
+        carrier[name] = frozen;
+        // Keep the global registry aware that this store exists, but do not leak data
+        if (!Object.prototype.hasOwnProperty.call(stores, name)) {
+            stores[name] = undefined;
+        }
+    } else {
+        stores[name] = frozen;
+    }
 };
 
 export const invalidatePathCache = (name: string): void => {
-    for (const key of Array.from(pathValidationCache.keys())) {
-        if (key.startsWith(`${name}:`)) pathValidationCache.delete(key);
-    }
+    pathValidationCache.delete(name);
 };
 
 export const materializeInitial = (name: string): boolean => {
@@ -406,9 +456,11 @@ export const materializeInitial = (name: string): boolean => {
         if (!normalized.ok) return false;
         setStoreValueInternal(name, normalized.value);
         initialStates[name] = deepClone(normalized.value);
+        delete initialFactories[name]; // Only remove the factory upon success
         return true;
     } catch (err) {
         reportStoreError(name, `Lazy initializer for "${name}" failed: ${(err as { message?: string })?.message ?? err}`);
+        // Keep the factory around so a future access can retry it
         return false;
     }
 };
@@ -507,9 +559,8 @@ export const runFeatureCreateHooks = (name: string, notify: (name: string) => vo
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     baseContext.notify = () => notify(name);
-    (["persist", "devtools", "sync"] as FeatureName[]).forEach((featureName) => {
-        const runtime = getFeatureRuntime(featureName);
-        runtime?.onStoreCreate?.(baseContext);
+    featureRuntimes.forEach((runtime) => {
+        runtime.onStoreCreate?.(baseContext);
     });
 };
 
@@ -524,9 +575,8 @@ export const runFeatureWriteHooks = (name: string, action: string, prev: StoreVa
         next,
     };
 
-    (["persist", "devtools", "sync"] as FeatureName[]).forEach((featureName) => {
-        const runtime = getFeatureRuntime(featureName);
-        runtime?.onStoreWrite?.(ctx);
+    featureRuntimes.forEach((runtime) => {
+        runtime.onStoreWrite?.(ctx);
     });
 };
 
@@ -538,13 +588,11 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
         ...baseContext,
         prev,
     };
-    (["persist", "devtools", "sync"] as FeatureName[]).forEach((featureName) => {
-        const runtime = getFeatureRuntime(featureName);
-        runtime?.beforeStoreDelete?.(ctx);
+    featureRuntimes.forEach((runtime) => {
+        runtime.beforeStoreDelete?.(ctx);
     });
-    (["persist", "devtools", "sync"] as FeatureName[]).forEach((featureName) => {
-        const runtime = getFeatureRuntime(featureName);
-        runtime?.afterStoreDelete?.(ctx);
+    featureRuntimes.forEach((runtime) => {
+        runtime.afterStoreDelete?.(ctx);
     });
     baseFeatureContexts.delete(name);
 };

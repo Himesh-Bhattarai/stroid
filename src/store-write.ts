@@ -1,3 +1,15 @@
+/**
+ * @module store-write
+ *
+ * LAYER: Public Write API
+ * OWNS:  createStore(), setStore(), deleteStore(), resetStore(),
+ *        mergeStore(), hydrateStores(), clearAllStores().
+ *
+ * DOES NOT KNOW about: React hooks, async caching, or feature internals.
+ * Delegates all engine work to store-engine (which re-exports store-lifecycle).
+ *
+ * Consumers: index.ts, core.ts, testing.ts, server.ts.
+ */
 import {
     warn,
     warnAlways,
@@ -19,47 +31,28 @@ import {
     type StoreOptions,
 } from "./adapters/options.js";
 import {
-    clearAllRegistries,
-    exists,
-    initialFactories,
-    initialStates,
-    invalidatePathCache,
-    materializeInitial,
-    meta,
-    nameOf,
-    normalizeCommittedState,
-    PartialDeep,
-    type Path,
+    // ── Registry state ─────────────────────────────────────────────────────
+    stores, meta, subscribers,
+    initialStates, initialFactories,
     pathValidationCache,
-    type PathValue,
-    type StoreDefinition,
-    type StoreValue,
-    type StoreKey,
-    type StoreName,
-    type StateFor,
-    type WriteResult,
-    reportStoreCreationError,
-    reportStoreError,
-    resolveFeatureAvailability,
-    runFeatureCreateHooks,
-    runFeatureWriteHooks,
-    runMiddlewareForStore,
-    runStoreHookSafe,
-    sanitizeValue,
-    setStoreValueInternal,
-    stores,
-    storeAdmin,
-    getSsrWarningIssued,
-    markSsrWarningIssued,
-    resetSsrWarningFlag,
-    resetFeaturesForTests,
-    hasStoreEntryInternal,
-    subscribers,
-    clearFeatureContexts,
-    validatePathSafety,
-    bindRegistry,
-    defaultRegistryScope,
-} from "./store-lifecycle.js";
+    storeAdmin, bindRegistry, defaultRegistryScope,
+    // ── Validation ─────────────────────────────────────────────────────────
+    sanitizeValue, normalizeCommittedState,
+    validatePathSafety, invalidatePathCache, materializeInitial,
+    // ── Lifecycle hooks ─────────────────────────────────────────────────────
+    runFeatureCreateHooks, runFeatureWriteHooks, runFeatureDeleteHooks,
+    runMiddlewareForStore, runStoreHookSafe,
+    setStoreValueInternal, getStoreValueRef, resolveFeatureAvailability,
+    // ── Identity & existence ────────────────────────────────────────────────
+    nameOf, exists, hasStoreEntryInternal,
+    reportStoreCreationError, reportStoreError,
+    getSsrWarningIssued, markSsrWarningIssued, resetSsrWarningFlag,
+    clearFeatureContexts, clearAllRegistries, resetFeaturesForTests,
+    // ── Types ───────────────────────────────────────────────────────────────
+    type PartialDeep, type Path, type PathValue,
+    type StoreDefinition, type StoreValue, type StoreKey,
+    type StoreName, type StateFor, type WriteResult,
+} from "./store-engine.js";
 import { resetBroadUseStoreWarnings } from "./internals/hooks-warnings.js";
 import { resetConfig } from "./internals/config.js";
 import { setRegistryScope } from "./store-registry.js";
@@ -167,15 +160,14 @@ export function setStore<Name extends string, State>(name: StoreKey<Name, State>
 export function setStore<Name extends StoreName, P extends Path<StateFor<Name>>>(name: Name, path: P, value: PathValue<StateFor<Name>, P>): WriteResult;
 export function setStore<Name extends StoreName>(name: Name, mutator: (draft: StateFor<Name>) => void): WriteResult;
 export function setStore<Name extends StoreName>(name: Name, data: PartialDeep<StateFor<Name>>): WriteResult;
-export function setStore(name: string, data: Record<string, unknown>): WriteResult;
-export function setStore(name: string, path: string | string[], value: unknown): WriteResult;
-export function setStore(name: string, mutator: (draft: any) => void): WriteResult;
+export function setStore<Name extends string>(name: Name extends StoreName ? never : Name, data: Record<string, unknown>): WriteResult;
+export function setStore<Name extends string>(name: Name extends StoreName ? never : Name, path: string | string[], value: unknown): WriteResult;
+export function setStore<Name extends string>(name: Name extends StoreName ? never : Name, mutator: (draft: any) => void): WriteResult;
 export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
     const storeName = nameOf(name);
-    if (!exists(storeName)) return { ok: false, reason: "not-found" };
     if (!materializeInitial(storeName)) return { ok: false, reason: "validate" };
     let updated: StoreValue;
-    const prev = stores[storeName];
+    const prev = getStoreValueRef(storeName);
 
     if (typeof keyOrData === "function" && value === undefined) {
         try {
@@ -242,6 +234,14 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
 export const deleteStore = (name: string): void => {
     if (!exists(name)) return;
     if (!materializeInitial(name)) return;
+    
+    // Clear out the value in the active store to avoid React crashing before unmounting
+    const prev = getStoreValueRef(name);
+    setStoreValueInternal(name, null);
+    meta[name].updatedAt = new Date().toISOString();
+    notify(name);
+    runFeatureDeleteHooks(name, prev, notify);
+    
     storeAdmin.deleteExistingStore(name);
     invalidatePathCache(name);
 };

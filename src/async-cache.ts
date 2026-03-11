@@ -1,4 +1,4 @@
-import { subscribe } from "./store.js";
+import { subscribe } from "./store-notify.js";
 import { defaultRegistryScope, normalizeStoreRegistryScope } from "./store-registry.js";
 
 export interface FetchOptions {

@@ -4,7 +4,7 @@ import {
     subscribeSelectorStore,
     type SelectorStoreValue as StoreValue,
 } from "./internals/selector-store.js";
-import { deepClone, getByPath, warn } from "./utils.js";
+import { deepClone, getByPath, isDev, warn } from "./utils.js";
 
 type SelectorDependency = string[];
 
@@ -83,8 +83,14 @@ export const subscribeWithSelector = <R>(
     let hasPrev = false;
     let prevSel = undefined as R;
 
+    const getSafeSelectorState = (): unknown => {
+        const ref = getSelectorStoreValueRef(name);
+        if (!isDev() || ref === null || typeof ref !== "object") return ref;
+        return deepClone(ref);
+    };
+
     if (hasSelectorStoreEntry(name)) {
-        prevSel = selector(getSelectorStoreValueRef(name));
+        prevSel = selector(getSafeSelectorState());
         hasPrev = true;
     }
 
@@ -94,10 +100,11 @@ export const subscribeWithSelector = <R>(
             prevSel = undefined as R;
             return;
         }
-        const nextSel = selector(getSelectorStoreValueRef(name));
+        const nextSel = selector(getSafeSelectorState());
         if (!hasPrev) {
             hasPrev = true;
             prevSel = nextSel;
+            listener(nextSel, nextSel);
             return;
         }
         const matches = equality(nextSel, prevSel);

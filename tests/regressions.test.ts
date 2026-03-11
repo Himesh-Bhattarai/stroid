@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert";
-import { configureStroid } from "../src/config.js";
+import { configureStroid, resetConfig } from "../src/config.js";
 import { clearAllStores } from "../src/runtime-admin.js";
-import { createStore, setStore } from "../src/store.js";
+import { createStore, getStore, hasStore, hydrateStores, setStore, setStoreBatch, subscribe, useRegistry } from "../src/store.js";
 import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
 import { hashState } from "../src/utils.js";
+import { defaultRegistryScope } from "../src/store-registry.js";
+import { stores, validatePathSafety } from "../src/store-lifecycle.js";
 
 test("validator with side effects runs once per write", () => {
   clearAllStores();
@@ -40,6 +42,112 @@ test("subscribeWithSelector does not fire on first notification", async () => {
   await Promise.resolve();
   assert.strictEqual(calls.length, 1);
   assert.deepStrictEqual(calls[0], [1, 0]);
+});
+
+test("validatePathSafety cache does not bypass type mismatch", () => {
+  clearAllStores();
+  createStore("x", { count: 0 });
+
+  const base = stores["x"];
+  const okNumber = validatePathSafety("x", base, "count", 1);
+  assert.deepStrictEqual(okNumber, { ok: true });
+
+  const badString = validatePathSafety("x", base, "count", "nope");
+  assert.strictEqual(badString.ok, false);
+});
+
+test("hydrateStores does not materialize lazy stores", () => {
+  clearAllStores();
+  let calls = 0;
+  createStore("lazyHydrate", () => {
+    calls += 1;
+    return { count: 0 };
+  }, { lazy: true });
+
+  hydrateStores({ lazyHydrate: { count: 5 } });
+  assert.strictEqual(calls, 0);
+  assert.deepStrictEqual(getStore("lazyHydrate"), { count: 5 });
+});
+
+test("bindRegistry preserves lazy factories across scope switches", () => {
+  const scopeA = "test-scope-a";
+  const scopeB = "test-scope-b";
+
+  useRegistry(scopeA);
+  clearAllStores();
+
+  let calls = 0;
+  createStore("lazy", () => {
+    calls += 1;
+    return { count: 1 };
+  }, { lazy: true });
+
+  useRegistry(scopeB);
+  clearAllStores();
+  createStore("other", { ok: true });
+
+  useRegistry(scopeA);
+  assert.deepStrictEqual(getStore("lazy"), { count: 1 });
+  assert.strictEqual(calls, 1);
+
+  useRegistry(defaultRegistryScope);
+});
+
+test("runtime-admin clearAllStores clears the current registry scope", () => {
+  const scope = "test-admin-scope";
+  useRegistry(scope);
+  clearAllStores();
+
+  createStore("scoped", { value: 1 });
+  assert.strictEqual(hasStore("scoped"), true);
+
+  clearAllStores();
+  assert.strictEqual(hasStore("scoped"), false);
+
+  useRegistry(defaultRegistryScope);
+});
+
+test("setStore rejects path writes to primitive stores", () => {
+  clearAllStores();
+  createStore("count", 0);
+
+  const res = setStore("count", "value", 1);
+  assert.strictEqual(res.ok, false);
+  assert.strictEqual((res as any).reason, "path");
+});
+
+test("chunked flush snapshots ordered names (orderedNames race)", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkDelayMs: 30 } });
+
+  try {
+    createStore("a", { value: 0 });
+    createStore("b", { value: 0 });
+    createStore("x", { value: 0 });
+
+    const calls: string[] = [];
+    subscribe("a", () => calls.push("a"));
+    subscribe("b", () => calls.push("b"));
+
+    setStore("a", "value", 1);
+    setStore("b", "value", 1);
+
+    // Let the initial microtask flush run the first store and schedule the next store via setTimeout.
+    await Promise.resolve();
+    assert.deepStrictEqual(calls, ["a"]);
+
+    assert.throws(() => {
+      setStoreBatch(() => {
+        setStore("x", "value", 1);
+        throw new Error("boom");
+      });
+    }, /boom/);
+
+    await new Promise((r) => setTimeout(r, 120));
+    assert.deepStrictEqual(calls, ["a", "b"]);
+  } finally {
+    resetConfig();
+  }
 });
 
 test("critical fires when sync payload is dropped", () => {

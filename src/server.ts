@@ -1,6 +1,15 @@
 import { hydrateStores } from "./store.js";
 import { deepClone, produceClone } from "./utils.js";
 import type { StoreOptions } from "./store.js";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { injectCarrierRunner, type CarrierContext } from "./store-registry.js";
+
+const serverAsyncContext = new AsyncLocalStorage<CarrierContext>();
+
+injectCarrierRunner({
+    run: (carrier, fn) => serverAsyncContext.run(carrier, fn),
+    get: () => serverAsyncContext.getStore() || null,
+});
 
 export const createStoreForRequest = (
     initializer?: (api: {
@@ -30,7 +39,10 @@ export const createStoreForRequest = (
     if (typeof initializer === "function") initializer(api);
     return {
         snapshot: () => deepClone(buffer),
-        hydrate: (options: Partial<Record<string, StoreOptions>> & { default?: StoreOptions } = {}) => {
+        hydrate: <T>(
+            renderFn: () => T,
+            options: Partial<Record<string, StoreOptions>> & { default?: StoreOptions } = {}
+        ): T => {
             const merged: Partial<Record<string, StoreOptions>> & { default?: StoreOptions } = {
                 ...options,
                 default: options.default,
@@ -44,7 +56,10 @@ export const createStoreForRequest = (
                 };
             });
 
-            hydrateStores(buffer, merged);
+            return serverAsyncContext.run(deepClone(buffer), () => {
+                hydrateStores(buffer, merged);
+                return renderFn();
+            });
         },
     };
 };

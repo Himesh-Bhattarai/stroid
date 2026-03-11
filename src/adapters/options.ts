@@ -9,7 +9,16 @@ export interface PersistDriver {
 
 export type StoreScope = "request" | "global" | "temp";
 
-export type ValidateOption<State = StoreValue> = unknown | ((next: State) => boolean | State);
+export type ValidateFn<State = StoreValue> = (next: State) => boolean | State;
+
+export type SchemaValidateOption =
+    | { safeParse: (value: unknown) => { success: true; data: unknown } | { success: false; error?: unknown } }
+    | { parse: (value: unknown) => unknown }
+    | { validateSync: (value: unknown) => unknown }
+    | { isValidSync: (value: unknown) => boolean }
+    | { validate: (value: unknown) => unknown };
+
+export type ValidateOption<State = StoreValue> = ValidateFn<State> | SchemaValidateOption;
 
 export interface PersistOptions<State = StoreValue> {
     driver?: PersistDriver;

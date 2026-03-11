@@ -29,12 +29,12 @@ export function getStore<Name extends string, State, P extends Path<State>>(name
 export function getStore<Name extends string, State>(name: StoreKey<Name, State>, path?: undefined): State | null;
 export function getStore<Name extends StoreName, P extends Path<StateFor<Name>>>(name: Name, path: P): PathValue<StateFor<Name>, P> | null;
 export function getStore<Name extends StoreName>(name: Name, path?: undefined): StateFor<Name> | null;
-export function getStore(name: string, path?: PathInput): StoreValue | null;
+export function getStore<Name extends string>(name: Name extends StoreName ? never : Name, path?: PathInput): StoreValue | null;
 export function getStore(name: string | StoreDefinition<string, StoreValue>, path?: PathInput): StoreValue | null {
     const storeName = nameOf(name);
     if (!exists(storeName)) return null;
     if (!materializeInitial(storeName)) return null;
-    const data = stores[storeName];
+    const data = getStoreValueRef(storeName);
     if (path === undefined) {
         if (data === null || typeof data !== "object") return data as StoreValue;
         return deepClone(data);

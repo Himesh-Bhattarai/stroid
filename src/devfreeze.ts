@@ -1,5 +1,13 @@
 export const devDeepFreeze = <T>(value: T): T => {
     if (typeof value !== "object" || value === null) return value;
+    // Skip React elements, DOM nodes, and complex instances (Maps, Sets, third-party classes, etc.)
+    if (
+        (value as any).$$typeof || 
+        (typeof window !== "undefined" && value instanceof Element) ||
+        (value.constructor && value.constructor.name !== "Object" && value.constructor.name !== "Array")
+    ) {
+        return value;
+    }
     const stack: object[] = [value as object];
     const seen = new WeakSet<object>();
 

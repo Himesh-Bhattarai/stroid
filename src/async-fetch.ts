@@ -377,7 +377,30 @@ export const fetchStore = async (
         }
     };
 
-    const execution = executeFetch();
+    const execution = Promise.race([
+        executeFetch(),
+        new Promise<{ raw: unknown; transformed: unknown } | null>((_, reject) => {
+            if (mergedSignal) return;
+            setTimeout(() => reject(new Error("Timeout: async request hung for 60 seconds without an AbortSignal")), 60000);
+        })
+    ]).catch((err) => {
+        const errorMessage = (err as any)?.message || "Request timed out";
+        if (hasStore(name)) {
+            setStore(name, {
+                data: backgroundRevalidate ? cachedData : null,
+                loading: false,
+                error: errorMessage,
+                status: "error",
+                cached: backgroundRevalidate,
+                revalidating: false,
+            });
+        }
+        _runAsyncHook(name, "onError", onError, errorMessage);
+        asyncMetrics.failures += 1;
+        warn(`fetchStore("${name}") failed: ${errorMessage}`);
+        return null;
+    });
+
     const promise = execution.then((res) => res?.transformed ?? null).finally(() => {
         delete inflight[cacheSlot];
         if (requestVersion[cacheSlot] === currentVersion) {

@@ -1,3 +1,14 @@
+/**
+ * @module store-notify
+ *
+ * LAYER: Subscriber Notification Engine
+ * OWNS:  PubSub flushing, batching, chunked delivery, and snapshot caching.
+ *
+ * DOES NOT KNOW about: createStore(), features (persist/sync/devtools),
+ *        validation logic, or path parsing.
+ *
+ * Consumers: store-write (calls notify()), hooks-core (calls subscribe/getSnapshot).
+ */
 import { deepClone } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import { getConfig } from "./internals/config.js";
@@ -57,7 +68,8 @@ const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs
         : Number.POSITIVE_INFINITY;
     const chunkDelayMs = cfg.chunkDelayMs;
     const runInline = sliceSize === Number.POSITIVE_INFINITY && chunkDelayMs === 0;
-    return { names: orderedNames, sliceSize, chunkDelayMs, runInline };
+    const names = orderedNames.slice();
+    return { names, sliceSize, chunkDelayMs, runInline };
 };
 
 const flush = () => {
@@ -82,7 +94,15 @@ const flush = () => {
             return;
         }
 
-        const snapshot = getStoreSnapshot(name);
+        const version = meta[name]?.updateCount ?? 0;
+        const cached = snapshotCache[name];
+        const snapshot = (cached && cached.version === version)
+            ? cached.snapshot
+            : (() => {
+                const nextSnapshot = deepClone(stores[name]);
+                snapshotCache[name] = { version, snapshot: nextSnapshot };
+                return nextSnapshot;
+            })();
         const start = now();
         const metrics = meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 };
 
@@ -178,15 +198,17 @@ export const getStoreSnapshot = (name: string): StoreValue | null => {
     if (!hasStoreEntryInternal(name)) return null;
     const version = meta[name]?.updateCount ?? 0;
     const cached = snapshotCache[name];
-    if (cached && cached.version === version) return cached.snapshot;
+    if (cached && cached.version === version) {
+        const snap = cached.snapshot;
+        if (snap && typeof snap === "object") devDeepFreeze(snap);
+        return snap;
+    }
 
     const source = stores[name];
     const snapshot = deepClone(source);
-    const safeSnapshot = snapshot && typeof snapshot === "object"
-        ? devDeepFreeze(snapshot)
-        : snapshot;
-    snapshotCache[name] = { version, snapshot: safeSnapshot };
-    return safeSnapshot;
+    if (snapshot && typeof snapshot === "object") devDeepFreeze(snapshot);
+    snapshotCache[name] = { version, snapshot };
+    return snapshot;
 };
 // Backward compat alias
 export const getSnapshot = getStoreSnapshot;

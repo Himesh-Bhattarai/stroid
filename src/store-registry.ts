@@ -1,3 +1,15 @@
+/**
+ * @module store-registry
+ *
+ * LAYER: Dumb Data Container
+ * OWNS:  The shape of a StoreRegistry, the global map of all scoped registries,
+ *        and the SSR carrier-context injection point.
+ *
+ * DOES NOT KNOW about: validation, features, hooks, React, or any write logic.
+ * It is a plain key-value store factory — nothing more.
+ *
+ * Consumers: store-lifecycle (binds a registry scope on startup / SSR switch).
+ */
 import type { FeatureName, StoreFeatureMeta, StoreFeatureRuntime } from "./feature-registry.js";
 
 export type RegistryStoreValue = unknown;
@@ -11,6 +23,7 @@ export type StoreRegistry = {
     stores: Record<string, RegistryStoreValue>;
     subscribers: Record<string, RegistrySubscriber[]>;
     initialStates: Record<string, RegistryStoreValue>;
+    initialFactories: Record<string, (() => RegistryStoreValue) | undefined>;
     metaEntries: Record<string, StoreFeatureMeta>;
     snapshotCache: Record<string, RegistrySnapshotEntry>;
     featureRuntimes: Map<FeatureName, StoreFeatureRuntime>;
@@ -49,6 +62,7 @@ export const getStoreRegistry = (scope: string): StoreRegistry => {
         stores: Object.create(null),
         subscribers: Object.create(null),
         initialStates: Object.create(null),
+        initialFactories: Object.create(null),
         metaEntries: Object.create(null),
         snapshotCache: Object.create(null),
         featureRuntimes: new Map(),
@@ -65,7 +79,7 @@ export const isStoreDeleting = (registry: StoreRegistry, name: string): boolean 
     registry.deletingStores.has(name);
 
 export const clearStoreRegistries = (registry: StoreRegistry): void => {
-    [registry.stores, registry.subscribers, registry.initialStates, registry.metaEntries, registry.snapshotCache].forEach((registryPart) => {
+    [registry.stores, registry.subscribers, registry.initialStates, registry.initialFactories, registry.metaEntries, registry.snapshotCache].forEach((registryPart) => {
         Object.keys(registryPart).forEach((key) => {
             delete registryPart[key];
         });
@@ -75,7 +89,7 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
 
 export const resetAllStoreRegistriesForTests = (): void => {
     _registries.forEach((registry) => {
-        [registry.stores, registry.subscribers, registry.initialStates, registry.metaEntries, registry.snapshotCache].forEach((registryPart) => {
+        [registry.stores, registry.subscribers, registry.initialStates, registry.initialFactories, registry.metaEntries, registry.snapshotCache].forEach((registryPart) => {
             Object.keys(registryPart).forEach((key) => {
                 delete registryPart[key];
             });
@@ -83,4 +97,20 @@ export const resetAllStoreRegistriesForTests = (): void => {
         registry.deletingStores.clear();
     });
     _registries.clear();
+};
+
+export type CarrierContext = Record<string, unknown>;
+export interface CarrierRunner {
+    run<T>(carrier: CarrierContext, fn: () => T): T;
+    get(): CarrierContext | null;
+}
+
+let currentCarrierRunner: CarrierRunner | null = null;
+
+export const injectCarrierRunner = (runner: CarrierRunner): void => {
+    currentCarrierRunner = runner;
+};
+
+export const getRequestCarrier = (): CarrierContext | null => {
+    return currentCarrierRunner?.get() || null;
 };
