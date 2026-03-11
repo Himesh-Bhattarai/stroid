@@ -11,6 +11,7 @@ test("fetchStore metadata is cleared when store is deleted", async () => {
   assert.deepStrictEqual(beforeDelete, { value: 1 });
 
   deleteStore("asyncStore");
+  await new Promise(resolve => setTimeout(resolve, 10));
   const afterDelete = await refetchStore("asyncStore");
   assert.strictEqual(afterDelete, undefined);
 

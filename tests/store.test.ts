@@ -29,6 +29,7 @@ import {
   setStoreBatch,
 } from "../src/store.js";
 import { createCounterStore, createListStore, createEntityStore } from "../src/helpers.js";
+import { fetchStore, refetchStore } from "../src/async.js";
 import { subscribeWithSelector, createSelector } from "../src/selectors.js";
 import { createStoreForRequest } from "../src/server.js";
 
@@ -160,6 +161,27 @@ test("hydrateStores surfaces blocked production SSR store creation", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("fetchStore metadata is cleared when store is deleted", async () => {
+  clearAllStores();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => ({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    headers: { get: () => "application/json" },
+    json: async () => ({ value: 1 }),
+    text: async () => JSON.stringify({ value: 1 }),
+  })) as typeof fetch;
+
+  try {
+    await fetchStore("fetchDelete", "https://api.example.com/data");
+    deleteStore("fetchDelete");
+    const history = await refetchStore("fetchDelete");
+    assert.strictEqual(history, undefined);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
 test("unknown Node env falls back to production mode", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const utilsPath = path.join(repoRoot, "src", "utils.ts");

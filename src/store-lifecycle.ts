@@ -28,6 +28,7 @@ import {
     type SupportedType,
     PathInput,
 } from "./utils.js";
+import { bindAsyncRegistry } from "./async-cache.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import {
     type NormalizedOptions,
@@ -560,6 +561,11 @@ export const runFeatureCreateHooks = (name: string, notify: (name: string) => vo
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     baseContext.notify = () => notify(name);
+    // Lazily initialize runtimes for all registered features so their
+    // onStoreCreate hooks can run for eligible stores.
+    (["persist", "sync", "devtools"] as const).forEach((featureName) => {
+        getFeatureRuntime(featureName);
+    });
     featureRuntimes.forEach((runtime) => {
         runtime.onStoreCreate?.(baseContext);
     });
@@ -569,6 +575,9 @@ export const runFeatureWriteHooks = (name: string, action: string, prev: StoreVa
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     baseContext.notify = () => notify(name);
+    (["persist", "sync", "devtools"] as const).forEach((featureName) => {
+        getFeatureRuntime(featureName);
+    });
     const ctx: FeatureWriteContext = {
         ...baseContext,
         action,
@@ -585,6 +594,9 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     baseContext.notify = () => notify(name);
+    (["persist", "sync", "devtools"] as const).forEach((featureName) => {
+        getFeatureRuntime(featureName);
+    });
     const ctx: FeatureDeleteContext = {
         ...baseContext,
         prev,

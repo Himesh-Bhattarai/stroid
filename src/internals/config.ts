@@ -59,7 +59,7 @@ const defaultConfig: ResolvedConfig = {
         priorityStores: [],
     },
     revalidateOnFocus: {
-        debounceMs: 500,
+        debounceMs: 0,
         maxConcurrent: 3,
         staggerMs: 100,
     },

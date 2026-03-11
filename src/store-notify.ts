@@ -149,7 +149,7 @@ export const setStoreBatch = (fn: () => unknown): void => {
     if (typeof fn !== "function") {
         throw new Error("setStoreBatch requires a synchronous function callback.");
     }
-    if ((fn as any)?.constructor?.name === "AsyncFunction") {
+    if (Object.prototype.toString.call(fn) === "[object AsyncFunction]") {
         throw new Error("setStoreBatch does not support async functions. Move async work outside and batch only synchronous mutations.");
     }
 
@@ -170,8 +170,7 @@ export const setStoreBatch = (fn: () => unknown): void => {
     } finally {
         batchDepth = Math.max(0, batchDepth - 1);
         if (batchDepth === 0 && pendingNotifications.size > 0) {
-            if (batchError) flush();
-            else scheduleFlush();
+            scheduleFlush();
         }
     }
 

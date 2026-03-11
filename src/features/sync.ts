@@ -377,8 +377,6 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
         onStoreCreate(ctx) {
             if (!ctx.options.sync) return;
 
-            recordLocalVersion(ctx.name, ctx.getMeta()?.updatedAt || new Date().toISOString());
-
             setupSync({
                 name: ctx.name,
                 syncOption: ctx.options.sync,
@@ -444,6 +442,10 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                     });
                 },
             });
+
+            if (syncChannels[ctx.name]) {
+                recordLocalVersion(ctx.name, ctx.getMeta()?.updatedAt || new Date().toISOString());
+            }
         },
 
         onStoreWrite(ctx) {

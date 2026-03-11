@@ -79,19 +79,38 @@ export const getAsyncRegistry = (scope: string): AsyncRegistry => {
     return created;
 };
 
-const _asyncRegistry = getAsyncRegistry(_scope);
-export const fetchRegistry = _asyncRegistry.fetchRegistry;
-export const inflight = _asyncRegistry.inflight;
-export const requestVersion = _asyncRegistry.requestVersion;
-export const cacheMeta = _asyncRegistry.cacheMeta;
-export const rateWindowStart = _asyncRegistry.rateWindowStart;
-export const rateCount = _asyncRegistry.rateCount;
-export const noSignalWarned = _asyncRegistry.noSignalWarned;
-export const cleanupSubs = _asyncRegistry.cleanupSubs;
-export const storeCleanupFns = _asyncRegistry.storeCleanupFns;
-export const revalidateKeys = _asyncRegistry.revalidateKeys;
-export const revalidateHandlers = _asyncRegistry.revalidateHandlers;
-export const asyncMetrics = _asyncRegistry.asyncMetrics;
+
+let _asyncRegistry = getAsyncRegistry(_scope);
+export let fetchRegistry = _asyncRegistry.fetchRegistry;
+export let inflight = _asyncRegistry.inflight;
+export let requestVersion = _asyncRegistry.requestVersion;
+export let cacheMeta = _asyncRegistry.cacheMeta;
+export let rateWindowStart = _asyncRegistry.rateWindowStart;
+export let rateCount = _asyncRegistry.rateCount;
+export let noSignalWarned = _asyncRegistry.noSignalWarned;
+export let cleanupSubs = _asyncRegistry.cleanupSubs;
+export let storeCleanupFns = _asyncRegistry.storeCleanupFns;
+export let revalidateKeys = _asyncRegistry.revalidateKeys;
+export let revalidateHandlers = _asyncRegistry.revalidateHandlers;
+export let asyncMetrics = _asyncRegistry.asyncMetrics;
+
+export const bindAsyncRegistry = (scope: string): void => {
+    const registry = getAsyncRegistry(scope);
+    _asyncRegistry = registry;
+    fetchRegistry = registry.fetchRegistry;
+    inflight = registry.inflight;
+    requestVersion = registry.requestVersion;
+    cacheMeta = registry.cacheMeta;
+    rateWindowStart = registry.rateWindowStart;
+    rateCount = registry.rateCount;
+    noSignalWarned = registry.noSignalWarned;
+    cleanupSubs = registry.cleanupSubs;
+    storeCleanupFns = registry.storeCleanupFns;
+    revalidateKeys = registry.revalidateKeys;
+    revalidateHandlers = registry.revalidateHandlers;
+    asyncMetrics = registry.asyncMetrics;
+};
+
 
 export const resetAsyncState = (): void => {
     Object.values(revalidateHandlers).forEach((cleanup) => {

@@ -426,13 +426,28 @@ export const refetchStore = async (name: string): Promise<unknown> => {
     if (!hasStore(name)) return undefined;
     const last = fetchRegistry[name];
     if (!last) {
+        // Fallback: if we don't have a replayable fetch recipe (e.g. direct Promise input),
+        // return the most recent cached value for this store when available.
+        const prefix = `${name}:`;
+        const slots = Object.entries(cacheMeta).filter(([key]) =>
+            key === name || key.startsWith(prefix)
+        );
+
+        if (slots.length > 0) {
+            const [, meta] = slots.reduce(
+                (latest, entry) =>
+                    entry[1].timestamp >= latest[1].timestamp ? entry : latest
+            );
+            return meta.data;
+        }
+
         if (isDev()) {
             warn(
                 `refetchStore("${name}") - no previous fetch found.\n` +
                 `Call fetchStore("${name}", url) first.`
             );
         }
-        return;
+        return undefined;
     }
     if (last.kind === "factory") {
         return fetchStore(name, last.factory, last.options);
@@ -460,7 +475,18 @@ export const enableRevalidateOnFocus = (name?: string, overrides?: Partial<Fetch
         const launchNext = () => {
             const batch = targets.slice(index, index + maxConcurrent);
             batch.forEach((storeName, offset) => {
-                const fire = () => { void refetchStore(storeName); };
+                const fire = () => {
+                    const last = fetchRegistry[storeName];
+                    if (!last) {
+                        void refetchStore(storeName);
+                        return;
+                    }
+                    if (last.kind === "factory") {
+                        void fetchStore(storeName, last.factory, last.options);
+                    } else {
+                        void fetchStore(storeName, last.url, last.options);
+                    }
+                };
                 if (staggerMs > 0) {
                     setTimeout(fire, offset * staggerMs);
                 } else {
@@ -477,6 +503,12 @@ export const enableRevalidateOnFocus = (name?: string, overrides?: Partial<Fetch
     };
 
     const handler = () => {
+        // For zero-debounce configs, run immediately to avoid relying on timers
+        // (helps test environments and keeps default behaviour snappy).
+        if (debounceMs === 0) {
+            runRefetch();
+            return;
+        }
         if (debounceTimer !== null) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(runRefetch, debounceMs);
     };
