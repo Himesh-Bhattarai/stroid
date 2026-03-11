@@ -89,7 +89,7 @@ const flush = () => {
         }
         const name = names[nameIndex++];
         const subs = subscribers[name];
-        if (!subs || subs.length === 0) {
+        if (!subs || subs.size === 0) {
             processStore();
             return;
         }
@@ -107,12 +107,12 @@ const flush = () => {
         const metrics = meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 };
 
         const flushChunk = (offset: number): void => {
-            const endIndex = Math.min(offset + sliceSize, subs.length);
+            const endIndex = Math.min(offset + sliceSize, subsArray.length);
             for (let i = offset; i < endIndex; i++) {
-                try { subs[i](snapshot); }
+                try { subsArray[i](snapshot); }
                 catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
             }
-            if (endIndex < subs.length) {
+            if (endIndex < subsArray.length) {
                 scheduleChunk(() => flushChunk(endIndex), chunkDelayMs);
                 return;
             }
@@ -124,6 +124,8 @@ const flush = () => {
             if (runInline) processStore();
             else scheduleChunk(processStore, chunkDelayMs);
         };
+
+        const subsArray = Array.from(subs);
 
         flushChunk(0);
     };
@@ -177,16 +179,11 @@ export const setStoreBatch = (fn: () => unknown): void => {
 };
 
 export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {
-    if (!subscribers[name]) subscribers[name] = [];
-    subscribers[name].push(fn);
+    if (!subscribers[name]) subscribers[name] = new Set();
+    subscribers[name].add(fn);
     return () => {
-        const current = subscribers[name];
-        if (!current || current.length === 0) return;
-        const index = current.indexOf(fn);
-        if (index < 0) return;
-        const next = current.slice();
-        next.splice(index, 1);
-        subscribers[name] = next;
+        subscribers[name]?.delete(fn); // O(1)
+        if (subscribers[name]?.size === 0) delete subscribers[name];
     };
 };
 

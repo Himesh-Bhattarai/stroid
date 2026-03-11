@@ -21,7 +21,7 @@ export type RegistrySnapshotEntry = {
 
 export type StoreRegistry = {
     stores: Record<string, RegistryStoreValue>;
-    subscribers: Record<string, RegistrySubscriber[]>;
+    subscribers: Record<string, Set<RegistrySubscriber>>;
     initialStates: Record<string, RegistryStoreValue>;
     initialFactories: Record<string, (() => RegistryStoreValue) | undefined>;
     metaEntries: Record<string, StoreFeatureMeta>;

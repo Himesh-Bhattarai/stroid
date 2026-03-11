@@ -68,7 +68,7 @@ export function useStore<T = any, R = any>(
             cache.hasValue
             && cache.storeName === name
             && cache.snapshot === snapshot
-            && cache.selector === currentSelector
+            
         ) {
             return cache.value;
         }

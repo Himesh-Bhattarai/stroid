@@ -139,7 +139,7 @@ type BaseFeatureContext = {
 let _scope = defaultRegistryScope;
 let _registry = getStoreRegistry(_scope);
 export let stores = _registry.stores as Record<string, StoreValue>;
-export let subscribers = _registry.subscribers as Record<string, Subscriber[]>;
+export let subscribers = _registry.subscribers as Record<string, Set<Subscriber>>;
 export let initialStates = _registry.initialStates as Record<string, StoreValue>;
 export let initialFactories = _registry.initialFactories as Record<string, (() => StoreValue) | undefined>;
 export let meta = _registry.metaEntries as Record<string, MetaEntry>;
@@ -166,7 +166,7 @@ export const bindRegistry = (scopeOrRegistry?: string | ReturnType<typeof getSto
     _scope = resolvedScope;
     _registry = registry;
     stores = _registry.stores as Record<string, StoreValue>;
-    subscribers = _registry.subscribers as Record<string, Subscriber[]>;
+    subscribers = _registry.subscribers as Record<string, Set<Subscriber>>;
     initialStates = _registry.initialStates as Record<string, StoreValue>;
     initialFactories = _registry.initialFactories as Record<string, (() => StoreValue) | undefined>;
     meta = _registry.metaEntries as Record<string, MetaEntry>;
@@ -176,6 +176,7 @@ export const bindRegistry = (scopeOrRegistry?: string | ReturnType<typeof getSto
     storeAdmin = createStoreAdmin(_scope);
     clearFeatureContexts();
     resetSsrWarningFlag();
+    bindAsyncRegistry(resolvedScope);
 };
 
 export const useRegistry = (scopeId: string): void => bindRegistry(scopeId);

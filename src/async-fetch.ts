@@ -26,7 +26,7 @@ import {
 } from "./async-cache.js";
 import { resetAsyncState } from "./async-cache.js";
 import { delay, normalizeRetryOptions, MAX_RETRY_DELAY_MS } from "./async-retry.js";
-
+const _wildcardCleanups: Array<() => void> = [];
 type AsyncState = {
     data: unknown;
     loading: boolean;
@@ -493,10 +493,19 @@ export const enableRevalidateOnFocus = (name?: string, overrides?: Partial<Fetch
         }
         revalidateKeys.delete(key);
         delete revalidateHandlers[key];
-        if (key !== "*") unregisterStoreCleanup(key, cleanup);
+        if (key !== "*") {
+            unregisterStoreCleanup(key, cleanup);
+        } else {
+            const idx = _wildcardCleanups.indexOf(cleanup);
+            if (idx !== -1) _wildcardCleanups.splice(idx, 1);
+        }
     };
     revalidateHandlers[key] = cleanup;
-    if (key !== "*") registerStoreCleanup(key, cleanup);
+    if (key !== "*") {
+        registerStoreCleanup(key, cleanup);
+    } else {
+        _wildcardCleanups.push(cleanup);
+    }
     return cleanup;
 };
 
@@ -549,3 +558,7 @@ const _parseResponseBody = async (response: Response, responseType: FetchOptions
 export const getAsyncMetrics = () => ({ ...asyncMetrics });
 
 export const _resetAsyncStateForTests = (): void => resetAsyncState();
+export const cleanupAllRevalidateHandlers = (): void => {
+    _wildcardCleanups.forEach(fn => fn());
+    _wildcardCleanups.length = 0;
+};

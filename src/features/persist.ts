@@ -270,7 +270,10 @@ export const persistLoad = ({
             typeof updatedAt === "string" || typeof updatedAt === "number"
                 ? Date.parse(String(updatedAt))
                 : Number.NaN;
-        const safeUpdatedAt = Number.isFinite(restoredUpdatedAt) ? restoredUpdatedAt : 0;
+        const safeUpdatedAt = Number.isFinite(restoredUpdatedAt) ? restoredUpdatedAt : Date.now();
+        if (!Number.isFinite(restoredUpdatedAt)) {
+            log(`persist: corrupt updatedAt in stored data for "${name}". Using current time to prevent sync overwrite.`);
+        }
         if (checksum !== hashState(data)) {
             reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
             applyFeatureState(deepClone(getInitialState()), Date.now());
@@ -427,12 +430,15 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 }
             };
 
-            if (false && typeof cfg.encrypt === "function" && isIdentity(cfg.encrypt)) {
-                ctx.warn(`persist: encrypt is identity function — data for "${ctx.name}" stored as plaintext.`);
+            if (typeof cfg.encrypt === "function" && isIdentity(cfg.encrypt)) {
+                ctx.warn(`persist: encrypt is identity function for store "${ctx.name}". Data will be stored in plaintext.`);
             }
-
-            if (false && (cfg as any).sensitiveData && !cfg.encrypt) {
-                ctx.reportStoreError(`persist: store "${ctx.name}" marked sensitiveData but has no encryption configured.`);
+            if ((cfg as PersistOptions & { sensitiveData?: boolean }).sensitiveData && !cfg.encrypt) {
+                ctx.reportStoreError(
+                    `persist: store "${ctx.name}" is marked sensitiveData but has no encrypt function. ` +
+                    `Plaintext data will be written to storage.`
+                );
+                return; // block registration — do not persist without encryption on sensitive stores
             }
 
             if (cfg.key) {
