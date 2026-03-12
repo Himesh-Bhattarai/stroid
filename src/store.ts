@@ -9,6 +9,7 @@ export type {
     StoreName,
     StateFor,
     StoreStateMap,
+    StrictStoreMap,
     WriteResult,
 } from "./store-lifecycle.js";
 export type { PersistConfig, MiddlewareCtx, StoreOptions } from "./adapters/options.js";

@@ -25,6 +25,7 @@ export type {
     StoreName,
     StateFor,
     StoreStateMap,
+    StrictStoreMap,
     WriteResult,
 } from "./store.js";
 export { configureStroid } from "./config.js";

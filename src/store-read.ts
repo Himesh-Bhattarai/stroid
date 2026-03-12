@@ -21,6 +21,7 @@ import {
     type StoreKey,
     type StoreName,
     type StateFor,
+    type UnregisteredStoreName,
 } from "./store-lifecycle.js";
 
 export function getStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P): PathValue<State, P> | null;
@@ -29,7 +30,7 @@ export function getStore<Name extends string, State, P extends Path<State>>(name
 export function getStore<Name extends string, State>(name: StoreKey<Name, State>, path?: undefined): State | null;
 export function getStore<Name extends StoreName, P extends Path<StateFor<Name>>>(name: Name, path: P): PathValue<StateFor<Name>, P> | null;
 export function getStore<Name extends StoreName>(name: Name, path?: undefined): StateFor<Name> | null;
-export function getStore<Name extends string>(name: Name extends StoreName ? never : Name, path?: PathInput): StoreValue | null;
+export function getStore<Name extends string>(name: UnregisteredStoreName<Name>, path?: PathInput): StoreValue | null;
 export function getStore(name: string | StoreDefinition<string, StoreValue>, path?: PathInput): StoreValue | null {
     const storeName = nameOf(name);
     if (!exists(storeName)) return null;

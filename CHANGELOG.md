@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - `getComputedGraph()` and `getComputedDeps()` diagnostics in `runtime-tools`.
 - `configureStroid({ strictMutatorReturns: true })` to forbid mutator return values.
 - `useStore`/`useSelector` now warn once when a store is missing (including SSR renders).
+- `StrictStoreMap` opt-in type mode for compile-time enforcement of known store names.
 
 ### Changed
 - Runtime now always surfaces missing feature registrations via warnings (even in production), and can throw when `strictMissingFeatures` is enabled.
@@ -18,6 +19,8 @@ All notable changes to this project will be documented in this file.
 - Removed `mergeStore` and `chain` from the public API; use `setStore(name, partial)` and mutator updates instead.
 - `setStoreBatch` is now transactional: batched writes are staged and only committed if the batch completes successfully. `createStore`, `deleteStore`, and `hydrateStores` are disallowed inside a batch.
 - `setStoreBatch` now warns and no-ops when called with a non-function instead of throwing synchronously.
+- `resetStore` and `deleteStore` now accept `StoreKey`/`StoreDefinition` handles in addition to string names.
+- `useStore` overloads now return non-nullable values when called with `StoreKey`/`StoreDefinition` handles.
 - `fetchStore` now hard-fails when the per-store inflight slot limit is exceeded (throws instead of returning `null`).
 - Selector cache logic in React hooks is shared between `useStore` and `useSelector` to avoid duplicate implementations and ensure consistent selector identity checks.
 - Feature hook context creation now avoids full object spread copies on every write/delete to reduce overhead.

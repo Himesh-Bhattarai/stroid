@@ -2,6 +2,7 @@ import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { subscribeStore, getStoreSnapshot, hasStore } from "./store.js";
 import { subscribeWithSelector } from "./selectors.js";
 import { getByPath, warn, isDev, shallowEqual } from "./utils.js";
+import type { Path, PathValue, StoreDefinition, StoreKey } from "./store-lifecycle.js";
 import {
     hasBroadUseStoreWarning,
     markBroadUseStoreWarning,
@@ -89,6 +90,20 @@ const warnMissingStoreOnce = (name: string): void => {
     );
 };
 
+export function useStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P): PathValue<State, P>;
+export function useStore<Name extends string, State>(name: StoreDefinition<Name, State>, path?: undefined): State;
+export function useStore<Name extends string, State, R = any>(
+    name: StoreDefinition<Name, State>,
+    selector: (state: State) => R,
+    equalityFn?: (a: R, b: R) => boolean
+): R;
+export function useStore<Name extends string, State, P extends Path<State>>(name: StoreKey<Name, State>, path: P): PathValue<State, P>;
+export function useStore<Name extends string, State>(name: StoreKey<Name, State>, path?: undefined): State;
+export function useStore<Name extends string, State, R = any>(
+    name: StoreKey<Name, State>,
+    selector: (state: State) => R,
+    equalityFn?: (a: R, b: R) => boolean
+): R;
 export function useStore<T = any>(name: string, path?: string): T | null;
 export function useStore<T = any, R = any>(
     name: string,
@@ -96,10 +111,11 @@ export function useStore<T = any, R = any>(
     equalityFn?: (a: R, b: R) => boolean
 ): R | null;
 export function useStore<T = any, R = any>(
-    name: string,
+    name: string | StoreDefinition<string, T> | StoreKey<string, T>,
     pathOrSelector?: string | ((state: T) => R),
     equalityFn: (a: R, b: R) => boolean = Object.is
 ): T | R | null {
+    const storeName = typeof name === "string" ? name : name.name;
     const hasSelector = typeof pathOrSelector === "function";
     const path = typeof pathOrSelector === "string" ? pathOrSelector : undefined;
     const selector = hasSelector ? (pathOrSelector as (state: T) => R) : undefined;
@@ -112,43 +128,43 @@ export function useStore<T = any, R = any>(
 
     const readSelectedSnapshot = useCallback(
         (snapshot: T | null): R | null =>
-            readSelectorCache(name, snapshot, selectorRef, equalityRef, selectorCache),
-        [name]
+            readSelectorCache(storeName, snapshot, selectorRef, equalityRef, selectorCache),
+        [storeName]
     );
 
     const subscribe = useCallback(
         (fn: () => void) =>
             hasSelector
                 ? subscribeWithSelector(
-                    name,
+                    storeName,
                     (state) => selectorRef.current!(state as T),
                     (a, b) => equalityRef.current(a, b),
                     fn
                 )
-                : subscribeStore(name, () => fn()),
-        [name, hasSelector]
+                : subscribeStore(storeName, () => fn()),
+        [storeName, hasSelector]
     );
 
     const getSnapshot = useCallback(() => {
-        const snap = getStoreSnapshot(name);
-        warnMissingStoreOnce(name);
+        const snap = getStoreSnapshot(storeName);
+        warnMissingStoreOnce(storeName);
         if (hasSelector) {
             return readSelectedSnapshot(snap as T | null);
         }
         return pickPath(snap, path);
-    }, [name, hasSelector, path, readSelectedSnapshot]);
+    }, [storeName, hasSelector, path, readSelectedSnapshot]);
 
     const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     useEffect(() => {
-        if (isDev() && !hasSelector && !path && !hasBroadUseStoreWarning(name)) {
-            markBroadUseStoreWarning(name);
+        if (isDev() && !hasSelector && !path && !hasBroadUseStoreWarning(storeName)) {
+            markBroadUseStoreWarning(storeName);
             warn(
-                `useStore("${name}") without a selector/path subscribes to the entire store and may re-render on every change.\n` +
+                `useStore("${storeName}") without a selector/path subscribes to the entire store and may re-render on every change.\n` +
                 `Prefer useSelector/useStoreField for better performance.`
             );
         }
-    }, [name, hasSelector, path]);
+    }, [storeName, hasSelector, path]);
 
     return state as T | R | null;
 }

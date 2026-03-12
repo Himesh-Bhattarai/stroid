@@ -33,8 +33,19 @@ export type StoreValue = unknown;
 // Example:
 //   declare module "stroid" { interface StoreStateMap { user: UserState } }
 export interface StoreStateMap {}
-export type StoreName = [keyof StoreStateMap] extends [never] ? string : keyof StoreStateMap & string;
-export type StateFor<Name extends string> = Name extends keyof StoreStateMap ? StoreStateMap[Name] : StoreValue;
+// Optional strict map users can augment to disallow unknown store names.
+// Example:
+//   declare module "stroid" { interface StrictStoreMap { user: UserState } }
+export interface StrictStoreMap {}
+type StrictStoreEnabled = [keyof StrictStoreMap] extends [never] ? false : true;
+type StrictStoreName = keyof StrictStoreMap & string;
+type LooseStoreName = [keyof StoreStateMap] extends [never] ? string : keyof StoreStateMap & string;
+export type StoreName = StrictStoreEnabled extends true ? StrictStoreName : LooseStoreName;
+export type StateFor<Name extends string> = StrictStoreEnabled extends true
+    ? (Name extends keyof StrictStoreMap ? StrictStoreMap[Name] : never)
+    : (Name extends keyof StoreStateMap ? StoreStateMap[Name] : StoreValue);
+export type UnregisteredStoreName<Name extends string> =
+    StrictStoreEnabled extends true ? never : (Name extends StoreName ? never : Name);
 
 // A typed store handle that still matches the runtime StoreDefinition shape.
 export type StoreKey<Name extends string = string, State = StoreValue> =

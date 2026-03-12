@@ -26,6 +26,8 @@ export type {
     WriteResult,
     Subscriber,
     StoreStateMap,
+    StrictStoreMap,
+    UnregisteredStoreName,
 } from "./store-lifecycle/types.js";
 
 export {
