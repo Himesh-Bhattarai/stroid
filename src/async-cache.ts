@@ -112,6 +112,7 @@ export const bindAsyncRegistry = (scope: string): void => {
 };
 
 
+
 export const resetAsyncState = (): void => {
     Object.values(revalidateHandlers).forEach((cleanup) => {
         try { cleanup(); } catch (_) { /* ignore cleanup errors */ }
@@ -169,6 +170,8 @@ export const clearAsyncMeta = (name: string): void => {
     Object.keys(inflight).forEach((k) => { if (startsWithName(k)) delete inflight[k]; });
     Object.keys(requestVersion).forEach((k) => { if (startsWithName(k)) delete requestVersion[k]; });
     Object.keys(cacheMeta).forEach((k) => { if (startsWithName(k)) delete cacheMeta[k]; });
+    Object.keys(rateWindowStart).forEach((k) => { if (startsWithName(k)) delete rateWindowStart[k]; });
+    Object.keys(rateCount).forEach((k) => { if (startsWithName(k)) delete rateCount[k]; });
 };
 
 export const pruneAsyncCache = (name: string): void => {

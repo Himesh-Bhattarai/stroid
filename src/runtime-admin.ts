@@ -1,13 +1,13 @@
 import { resetAsyncState } from "./async-cache.js";
-import { pathValidationCache, storeAdmin } from "./store-lifecycle.js";
+import { clearPathValidationCache, getStoreAdmin } from "./store-lifecycle.js";
 
 export const clearAllStores = (): void => {
-    storeAdmin.clearAllStores();
+    getStoreAdmin().clearAllStores();
     resetAsyncState();
-    pathValidationCache.clear();
+    clearPathValidationCache();
 };
 
 export const clearStores = (pattern?: string): void => {
-    storeAdmin.clearStores(pattern);
-    pathValidationCache.clear();
+    getStoreAdmin().clearStores(pattern);
+    clearPathValidationCache();
 };

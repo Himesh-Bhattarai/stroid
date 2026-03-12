@@ -83,6 +83,8 @@ import "stroid/devtools";
 
 If you prefer explicit paths, you can also import from subpaths (`stroid/core`, `stroid/runtime-tools`, etc.), but remember to include the feature side-effect imports when you need them.
 
+> Important: If you forget these side-effect imports, the features are silently disabled (only a dev-mode warning is emitted). This is the #1 onboarding footgun—add the imports near your app entry point.
+
 ## Persistence and encryption
 
 The default `encrypt`/`decrypt` functions are identity (no encryption). If you store sensitive data, provide real encryption functions:
@@ -101,6 +103,16 @@ The persist feature warns in dev if your `encrypt` is identity, but the default 
 ## SSR warning
 
 In production server environments (`NODE_ENV=production` and no `allowSSRGlobalStore`/`scope:"global"`), `createStore` returns `undefined` to prevent cross-request leaks. Handle this case or use `createStoreForRequest` inside each request scope.
+
+## Validation option behavior
+
+`validate` accepts:
+
+- A function: `(next) => boolean | nextValue`
+- A schema-like object (Zod/Yup/Joi/etc.)
+- A boolean (legacy): `true` is a no-op, `false` blocks all writes
+
+The boolean case exists for backward compatibility and is **not recommended**. Prefer a function or schema for explicit behavior.
 
 ## Docs
 

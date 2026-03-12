@@ -178,3 +178,14 @@ test("critical fires when sync payload is dropped", () => {
     },
   });
 });
+
+test("assertRuntime throws on warnings to hard-fail tests", () => {
+  configureStroid({ assertRuntime: true });
+  try {
+    assert.throws(() => {
+      createStore("", { value: 1 });
+    }, /Store name must be a non-empty string/);
+  } finally {
+    resetConfig();
+  }
+});

@@ -416,6 +416,12 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
     const plaintextWarningsIssued = new Set<string>();
 
     return {
+        api: {
+            getPersistQueueDepth(name: string) {
+                return persistTimers[name] ? 1 : 0;
+            },
+        },
+
         onStoreCreate(ctx) {
             const cfg = ctx.options.persist;
             if (!cfg) return;
@@ -439,6 +445,39 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                     `Plaintext data will be written to storage.`
                 );
                 return; // block registration — do not persist without encryption on sensitive stores
+            }
+
+            const validateCryptoPair = (encrypt: (v: string) => string, decrypt: (v: string) => string): { ok: boolean; reason?: string } => {
+                const probe = "__stroid_persist_roundtrip_probe__";
+                let encrypted: string;
+                try {
+                    encrypted = encrypt(probe);
+                } catch (err) {
+                    return { ok: false, reason: `persist: encrypt failed for store "${ctx.name}" (${(err as { message?: string })?.message ?? err})` };
+                }
+                if (typeof encrypted !== "string") {
+                    return { ok: false, reason: `persist: encrypt must return a string for store "${ctx.name}".` };
+                }
+                let decrypted: string;
+                try {
+                    decrypted = decrypt(encrypted);
+                } catch (err) {
+                    return { ok: false, reason: `persist: decrypt failed for store "${ctx.name}" (${(err as { message?: string })?.message ?? err})` };
+                }
+                if (typeof decrypted !== "string") {
+                    return { ok: false, reason: `persist: decrypt must return a string for store "${ctx.name}".` };
+                }
+                if (decrypted !== probe) {
+                    return { ok: false, reason: `persist: encrypt/decrypt must round-trip for store "${ctx.name}".` };
+                }
+                return { ok: true };
+            };
+
+            const cryptoValidation = validateCryptoPair(cfg.encrypt, cfg.decrypt);
+            if (!cryptoValidation.ok) {
+                ctx.reportStoreError(cryptoValidation.reason ?? `persist: encrypt/decrypt validation failed for store "${ctx.name}".`);
+                ctx.options.persist = null;
+                return; // block registration — do not persist when crypto hooks are misconfigured
             }
 
             if (cfg.key) {

@@ -53,6 +53,7 @@ export interface FeatureDeleteContext extends BaseFeatureContext {
 export interface DevtoolsFeatureApi {
     getHistory?: (name: string, limit?: number) => unknown[];
     clearHistory?: (name?: string) => void;
+    getPersistQueueDepth?: (name: string) => number;
 }
 
 export interface StoreFeatureRuntime {
@@ -67,9 +68,11 @@ export interface StoreFeatureRuntime {
 export type StoreFeatureFactory = () => StoreFeatureRuntime;
 
 const _featureFactories = new Map<FeatureName, StoreFeatureFactory>();
+let _onFeatureRegistered: ((name: FeatureName, factory: StoreFeatureFactory) => void) | null = null;
 
 export const registerStoreFeature = (name: FeatureName, factory: StoreFeatureFactory): void => {
     _featureFactories.set(name, factory);
+    _onFeatureRegistered?.(name, factory);
 };
 
 export const hasRegisteredStoreFeature = (name: FeatureName): boolean =>
@@ -78,6 +81,14 @@ export const hasRegisteredStoreFeature = (name: FeatureName): boolean =>
 export const getStoreFeatureFactory = (name: FeatureName): StoreFeatureFactory | undefined =>
     _featureFactories.get(name);
 
+export const getRegisteredFeatureNames = (): FeatureName[] =>
+    Array.from(_featureFactories.keys());
+
+export const setFeatureRegistrationHook = (hook: ((name: FeatureName, factory: StoreFeatureFactory) => void) | null): void => {
+    _onFeatureRegistered = hook;
+};
+
 export const resetRegisteredStoreFeaturesForTests = (): void => {
     _featureFactories.clear();
+    _onFeatureRegistered = null;
 };

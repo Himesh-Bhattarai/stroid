@@ -41,18 +41,21 @@ const defaultLog = (msg: string, meta?: Record<string, unknown>): void => {
 export const critical = (msg: string, meta?: Record<string, unknown>): void => {
     const sink = getConfig().logSink.critical ?? defaultCritical;
     sink(msg, meta);
+    if (getConfig().assertRuntime) throw new Error(msg);
 };
 
 export const warn = (msg: string, meta?: Record<string, unknown>): void => {
     if (!__DEV__) return;
     const sink = getConfig().logSink.warn ?? defaultWarn;
     sink(msg, meta);
+    if (getConfig().assertRuntime) throw new Error(msg);
 };
 
 // Used for configuration hazards that must surface in production too.
 export const warnAlways = (msg: string, meta?: Record<string, unknown>): void => {
     const sink = getConfig().logSink.warn ?? defaultWarn;
     sink(msg, meta);
+    if (getConfig().assertRuntime) throw new Error(msg);
 };
 
 export const error = (msg: string, meta?: Record<string, unknown>): void => {
@@ -61,6 +64,7 @@ export const error = (msg: string, meta?: Record<string, unknown>): void => {
         sink(msg, meta);
     }
     critical(msg, meta);
+    if (getConfig().assertRuntime) throw new Error(msg);
 };
 
 export const log = (msg: string, meta?: Record<string, unknown>): void => {
@@ -112,6 +116,10 @@ export const getInvalidStoreNameMessage = (name: string): string =>
 export const getStoreNameContainsSpacesMessage = (name: string): string =>
     `Store name "${name}" contains spaces.\n` +
     `Use camelCase or kebab-case: "userName" or "user-name"`;
+
+export const getForbiddenStoreNameMessage = (name: string): string =>
+    `Store name "${name}" is not allowed.\n` +
+    `Reserved names: "__proto__", "constructor", "prototype".`;
 
 const MAX_LEVENSHTEIN_INPUT_LENGTH = 128;
 

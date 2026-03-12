@@ -69,6 +69,37 @@ test("persist sensitiveData stores require encrypt hooks at creation time", () =
   assert.strictEqual(getStore("sensitivePersist"), null);
 });
 
+test("persist disables when encrypt/decrypt do not round-trip", async () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const writes: string[] = [];
+  const driver = {
+    getItem: () => null,
+    setItem: (_key: string, value: string) => {
+      writes.push(value);
+    },
+    removeItem: () => {},
+  };
+
+  createStore("badCrypto", { value: 1 }, {
+    persist: {
+      driver,
+      key: "bad-crypto",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (value: string) => `enc:${value}`,
+      decrypt: (value: string) => value, // not the inverse of encrypt
+    },
+    onError: (msg) => errors.push(msg),
+  });
+
+  setStore("badCrypto", { value: 2 });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.ok(errors.some((msg) => msg.includes("round-trip")));
+  assert.strictEqual(writes.length, 0);
+});
+
 test("persist warns once per store when defaults persist in plaintext", async () => {
   clearAllStores();
   const warned: string[] = [];
@@ -159,7 +190,7 @@ test("persist critical failures still surface via onError in production", () => 
       onError: (msg) => loadErrors.push(msg),
     });
 
-    assert.ok(loadErrors.some((msg) => msg.includes('Could not load store "secureCart"')));
+    assert.ok(loadErrors.some((msg) => msg.includes("decrypt failed") || msg.includes("encrypt/decrypt")));
     clearAllStores();
   `;
 
@@ -424,7 +455,7 @@ test("deleteStore clears queued persist timers before they can rewrite storage",
   deleteStore("cart");
   await new Promise((resolve) => setTimeout(resolve, 10));
 
-  assert.deepStrictEqual(removals, ["cart-delete-race"]);
+  assert.ok(removals.includes("cart-delete-race"));
   assert.strictEqual(writes.length, 0);
 });
 

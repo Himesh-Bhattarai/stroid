@@ -34,7 +34,7 @@ import {
     // ── Registry state ─────────────────────────────────────────────────────
     stores, meta, subscribers,
     initialStates, initialFactories,
-    pathValidationCache,
+    clearPathValidationCache,
     storeAdmin, bindRegistry, defaultRegistryScope,
     // ── Validation ─────────────────────────────────────────────────────────
     sanitizeValue, normalizeCommittedState,
@@ -55,7 +55,7 @@ import {
 } from "./store-engine.js";
 import { resetBroadUseStoreWarnings } from "./internals/hooks-warnings.js";
 import { resetConfig } from "./internals/config.js";
-import { setRegistryScope } from "./store-registry.js";
+import { clearRegistryScopeOverrideForTests } from "./store-registry.js";
 import { notify, resetNotifyStateForTests } from "./store-notify.js";
 import { MIDDLEWARE_ABORT } from "./features/lifecycle.js";
 
@@ -124,7 +124,7 @@ export const createStore = <Name extends string, State>(
     const clean = cleanResult.value;
     const isLazy = normalizedOptions.lazy === true && typeof initialData === "function";
 
-    const hadPreexistingSubscribers = !!subscribers[name]?.length;
+    const hadPreexistingSubscribers = (subscribers[name]?.size ?? 0) > 0;
     if (isLazy) {
         stores[name] = undefined;
         initialFactories[name] = initialData as () => unknown;
@@ -143,6 +143,7 @@ export const createStore = <Name extends string, State>(
         options: normalizedOptions,
     };
 
+    invalidatePathCache(name);
     runFeatureCreateHooks(name, notify);
     runStoreHookSafe(name, "onCreate", meta[name].options.onCreate, [clean]);
     if (hadPreexistingSubscribers) notify(name);
@@ -171,7 +172,9 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
 
     if (typeof keyOrData === "function" && value === undefined) {
         try {
-            updated = produceClone(prev, keyOrData as (draft: any) => void);
+            const draft = deepClone(prev);
+            const result = (keyOrData as (draft: any) => unknown)(draft);
+            updated = result !== undefined ? result as StoreValue : draft as StoreValue;
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
             return { ok: false, reason: "middleware" };
@@ -234,14 +237,6 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
 export const deleteStore = (name: string): void => {
     if (!exists(name)) return;
     if (!materializeInitial(name)) return;
-    
-    // Clear out the value in the active store to avoid React crashing before unmounting
-    const prev = getStoreValueRef(name);
-    setStoreValueInternal(name, null);
-    meta[name].updatedAt = new Date().toISOString();
-    notify(name);
-    runFeatureDeleteHooks(name, prev, notify);
-    
     storeAdmin.deleteExistingStore(name);
     invalidatePathCache(name);
 };
@@ -263,27 +258,27 @@ export const resetStore = (name: string): void => {
 };
 
 export const mergeStore = (name: string, data: Record<string, unknown>): WriteResult => {
-    if (!exists(name)) return { ok: false, reason: "not-found" } as WriteResult;
-    if (!materializeInitial(name)) return { ok: false, reason: "validate" } as WriteResult;
-    if (!isValidData(data)) return { ok: false, reason: "validate" } as WriteResult;
+    if (!exists(name)) return { ok: false, reason: "not-found" };
+    if (!materializeInitial(name)) return { ok: false, reason: "validate" };
+    if (!isValidData(data)) return { ok: false, reason: "validate" };
     const current = stores[name];
     if (typeof current !== "object" || Array.isArray(current) || current === null) {
         error(
             `mergeStore("${name}") only works on object stores.\n` +
             `Use setStore("${name}", value) instead.`
         );
-        return { ok: false, reason: "validate" } as WriteResult;
+        return { ok: false, reason: "validate" };
     }
     const mergeResult = sanitizeValue(name, data);
-    if (!mergeResult.ok) return { ok: false, reason: "validate" } as WriteResult;
+    if (!mergeResult.ok) return { ok: false, reason: "validate" };
     const next = { ...(current as Record<string, unknown>), ...mergeResult.value as Record<string, unknown> };
 
     const validateRule = meta[name]?.options?.validate;
 
     const final = runMiddlewareForStore(name, { action: "merge", prev: current, next, path: null });
-    if (final === MIDDLEWARE_ABORT) return { ok: false, reason: "middleware" } as WriteResult;
+    if (final === MIDDLEWARE_ABORT) return { ok: false, reason: "middleware" };
     const committed = normalizeCommittedState(name, final, validateRule);
-    if (!committed.ok) return { ok: false, reason: "validate" } as WriteResult;
+    if (!committed.ok) return { ok: false, reason: "validate" };
     setStoreValueInternal(name, committed.value);
     invalidatePathCache(name);
     meta[name].updatedAt = new Date().toISOString();
@@ -292,7 +287,7 @@ export const mergeStore = (name: string, data: Record<string, unknown>): WriteRe
     runStoreHookSafe(name, "onSet", meta[name].options.onSet, [current, committed.value]);
     notify(name);
     log(`Store "${name}" merged with data`);
-    return { ok: true } as WriteResult;
+    return { ok: true };
 };
 
 const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { ok: boolean; reason?: string } => {
@@ -333,12 +328,12 @@ export const _hardResetAllStoresForTest = (): void => {
     clearAllRegistries();
     resetLegacyOptionDeprecationWarningsForTests();
     resetNotifyStateForTests();
-    pathValidationCache.clear();
+    clearPathValidationCache();
     resetSsrWarningFlag();
     resetBroadUseStoreWarnings();
     resetConfig();
     clearFeatureContexts();
-    setRegistryScope(new URL("./store.js", import.meta.url).href);
+    clearRegistryScopeOverrideForTests();
     bindRegistry(defaultRegistryScope);
 };
 
@@ -346,9 +341,17 @@ export const hydrateStores = (
     snapshot: Record<string, any>,
     options: Partial<Record<string, StoreOptions>> & { default?: StoreOptions } = {}
 ): { hydrated: string[]; created: string[]; failed: Record<string, string> } => {
-    const result = { hydrated: [] as string[], created: [] as string[], failed: {} as Record<string, string> };
+    const result = {
+        hydrated: [] as string[],
+        created: [] as string[],
+        failed: Object.create(null) as Record<string, string>,
+    };
     if (!snapshot || typeof snapshot !== "object") return result;
     Object.entries(snapshot).forEach(([storeName, data]) => {
+        if (!isValidStoreName(storeName)) {
+            result.failed[storeName] = "invalid-name";
+            return;
+        }
         if (hasStoreEntryInternal(storeName)) {
             const res = replaceStoreState(storeName, data, "hydrate");
             if (!res.ok) result.failed[storeName] = res.reason ?? "hydrate-failed";

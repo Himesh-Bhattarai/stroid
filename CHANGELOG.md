@@ -3,6 +3,30 @@
 All notable changes to this project will be documented in this file.
 
 ## Unreleased
+### Added
+- `configureStroid({ strictMissingFeatures: true })` option to hard-fail when a feature is requested without its side-effect registration import.
+- `getSubscriberCount`, `getAsyncInflightCount`, and `getPersistQueueDepth` observability helpers in `runtime-tools`.
+- `configureStroid({ assertRuntime: true })` option to throw on warnings/errors for test-time assertions.
+
+### Changed
+- Runtime now always surfaces missing feature registrations via warnings (even in production), and can throw when `strictMissingFeatures` is enabled.
+- Selector cache logic in React hooks is shared between `useStore` and `useSelector` to avoid duplicate implementations and ensure consistent selector identity checks.
+- Feature hook context creation now avoids full object spread copies on every write/delete to reduce overhead.
+- Path validation cache is capped per-store (no global cache thrash); per-store cache entries are cleared on store invalidation/reset.
+- Feature runtimes now initialize on registration/bind, removing redundant per-write initialization checks.
+- `useAsyncStoreSuspense` now triggers/awaits async fetches and reuses inflight promises for React Suspense integration.
+- Mutator-based `setStore` now honors non-undefined return values to replace draft updates.
+
+### Fixed
+- `deleteStore` no longer emits an intermediate null notification before deletion, preventing double-render transitions.
+- Async fetch 60s timeout now clears on completion to avoid late error handling after a successful request.
+- Async rate limiter metadata now clears on store deletion to prevent leakage across request scopes.
+- Subscriber storage uses `Set` consistently across `subscribeStore` and `subscribeWithSelector`, preventing type mismatches.
+- Registry bindings no longer go stale after scope rebinds; registry exports proxy to the active scope (SSR safe).
+- Store names now reject `__proto__`, `constructor`, and `prototype`, and `hydrateStores` skips invalid names to prevent registry pollution.
+- Persist now validates encrypt/decrypt round-trips and disables persistence when crypto hooks are misconfigured.
+- `mergeStore` returns typed `WriteResult` objects without casting.
+- `subscribeWithSelector` now uses store snapshots so selectors never receive mutable live references.
 ### Testing
 - `patch0/test` completed the `P0` stabilization pass for core state safety and production failure handling.
 - Core testing now covers immutable reads/snapshots/history, guarded validator and lifecycle failures, delete/persist races, reset persistence, sanitize rejection for hostile payloads, SSR async fail-fast behavior, hydration replacement semantics, and stale sync messages after delete.

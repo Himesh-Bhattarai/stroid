@@ -377,12 +377,23 @@ export const fetchStore = async (
         }
     };
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<{ raw: unknown; transformed: unknown } | null>((_, reject) => {
+        if (mergedSignal) return;
+        timeoutId = setTimeout(() => {
+            timeoutId = null;
+            reject(new Error("Timeout: async request hung for 60 seconds without an AbortSignal"));
+        }, 60000);
+    });
+
     const execution = Promise.race([
-        executeFetch(),
-        new Promise<{ raw: unknown; transformed: unknown } | null>((_, reject) => {
-            if (mergedSignal) return;
-            setTimeout(() => reject(new Error("Timeout: async request hung for 60 seconds without an AbortSignal")), 60000);
-        })
+        executeFetch().finally(() => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+        }),
+        timeoutPromise,
     ]).catch((err) => {
         const errorMessage = (err as any)?.message || "Request timed out";
         if (hasStore(name)) {

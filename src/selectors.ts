@@ -4,7 +4,8 @@ import {
     subscribeSelectorStore,
     type SelectorStoreValue as StoreValue,
 } from "./internals/selector-store.js";
-import { deepClone, getByPath, isDev, warn } from "./utils.js";
+import { deepClone, getByPath, warn } from "./utils.js";
+import { getStoreSnapshot } from "./store-notify.js";
 
 type SelectorDependency = string[];
 
@@ -83,9 +84,9 @@ export const subscribeWithSelector = <R>(
     let hasPrev = false;
     let prevSel = undefined as R;
 
-    const getSafeSelectorState = (): unknown => {
-        const ref = getSelectorStoreValueRef(name);
-        if (!isDev() || ref === null || typeof ref !== "object") return ref;
+    const getSafeSelectorState = (snapshot?: StoreValue | null): unknown => {
+        const ref = snapshot !== undefined ? snapshot : getStoreSnapshot(name);
+        if (ref === null || typeof ref !== "object") return ref;
         return deepClone(ref);
     };
 
@@ -100,7 +101,7 @@ export const subscribeWithSelector = <R>(
             prevSel = undefined as R;
             return;
         }
-        const nextSel = selector(getSafeSelectorState());
+        const nextSel = selector(getSafeSelectorState(_state));
         if (!hasPrev) {
             hasPrev = true;
             prevSel = nextSel;

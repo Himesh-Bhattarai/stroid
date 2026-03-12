@@ -53,6 +53,11 @@ export const setRegistryScope = (scope: string): void => {
     _registries.clear();
 };
 
+export const clearRegistryScopeOverrideForTests = (): void => {
+    _registryOverrideRuntime = undefined;
+    _registries.clear();
+};
+
 export const getStoreRegistry = (scope: string): StoreRegistry => {
     const normalizedScope = normalizeStoreRegistryScope(scope);
     const existing = _registries.get(normalizedScope);

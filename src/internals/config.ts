@@ -21,6 +21,8 @@ export type StroidConfig = {
     flush?: FlushConfig;
     revalidateOnFocus?: RevalidateOnFocusConfig;
     namespace?: string;
+    strictMissingFeatures?: boolean;
+    assertRuntime?: boolean;
 };
 
 type ResolvedConfig = {
@@ -28,6 +30,8 @@ type ResolvedConfig = {
     flush: Required<FlushConfig>;
     revalidateOnFocus: Required<RevalidateOnFocusConfig>;
     namespace: string;
+    strictMissingFeatures: boolean;
+    assertRuntime: boolean;
 };
 
 const defaultLogSink: LogSink = {
@@ -64,6 +68,8 @@ const defaultConfig: ResolvedConfig = {
         staggerMs: 100,
     },
     namespace: "",
+    strictMissingFeatures: false,
+    assertRuntime: false,
 };
 
 let _config: ResolvedConfig = { ...defaultConfig };
@@ -122,6 +128,20 @@ export const configureStroid = (next?: StroidConfig): void => {
         _config = {
             ..._config,
             namespace: next.namespace.trim(),
+        };
+    }
+
+    if (typeof next.strictMissingFeatures === "boolean") {
+        _config = {
+            ..._config,
+            strictMissingFeatures: next.strictMissingFeatures,
+        };
+    }
+
+    if (typeof next.assertRuntime === "boolean") {
+        _config = {
+            ..._config,
+            assertRuntime: next.assertRuntime,
         };
     }
 };

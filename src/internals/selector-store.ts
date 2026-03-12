@@ -15,15 +15,10 @@ export const getSelectorStoreValueRef = (name: string): SelectorStoreValue | und
     _stores[name];
 
 export const subscribeSelectorStore = (name: string, fn: SelectorSubscriber): (() => void) => {
-    if (!_subscribers[name]) _subscribers[name] = [];
-    _subscribers[name].push(fn);
+    if (!_subscribers[name]) _subscribers[name] = new Set();
+    _subscribers[name].add(fn);
     return () => {
-        const current = _subscribers[name];
-        if (!current || current.length === 0) return;
-        const index = current.indexOf(fn);
-        if (index < 0) return;
-        const next = current.slice();
-        next.splice(index, 1);
-        _subscribers[name] = next;
+        _subscribers[name]?.delete(fn);
+        if (_subscribers[name]?.size === 0) delete _subscribers[name];
     };
 };

@@ -15,7 +15,7 @@ const FEATURE_NAMES: FeatureName[] = ["persist", "devtools", "sync"];
 export const createStoreAdmin = (scope: string) => {
     const registry = getStoreRegistry(normalizeStoreRegistryScope(scope));
     const stores = registry.stores as Record<string, unknown>;
-    const subscribers = registry.subscribers as Record<string, Array<(value: unknown | null) => void>>;
+    const subscribers = registry.subscribers as Record<string, Set<(value: unknown | null) => void>>;
     const initialStates = registry.initialStates as Record<string, unknown>;
     const initialFactories = registry.initialFactories as Record<string, (() => unknown) | undefined>;
     const metaEntries = registry.metaEntries as Record<string, MetaEntry>;

@@ -14,6 +14,7 @@ import {
     getDeepNestingWarningMessage,
     getInvalidFunctionStoreValueMessage,
     getInvalidStoreNameMessage,
+    getForbiddenStoreNameMessage,
     getMapSetStoreWarningMessage,
     getPathDepthExceededMessage,
     getPathNotObjectMessage,
@@ -435,6 +436,10 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
 export const isValidStoreName = (name: string): boolean => {
     if (typeof name !== "string" || name.trim() === "") {
         error(getInvalidStoreNameMessage(name));
+        return false;
+    }
+    if (FORBIDDEN_OBJECT_KEYS.has(name)) {
+        error(getForbiddenStoreNameMessage(name));
         return false;
     }
     if (name.includes(" ")) {

@@ -34,6 +34,7 @@ export {
     runValidation,
     validatePathSafety,
     invalidatePathCache,
+    clearPathValidationCache,
     materializeInitial,
 } from "./store-lifecycle.js";
 

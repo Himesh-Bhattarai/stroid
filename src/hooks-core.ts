@@ -29,6 +29,54 @@ const createSelectorCache = <R,>(): SelectorCache<R> => ({
     value: null,
 });
 
+const readSelectorCache = <T, R>(
+    storeName: string,
+    snapshot: T | null,
+    selectorRef: React.MutableRefObject<((state: T) => R) | undefined>,
+    equalityRef: React.MutableRefObject<(a: R, b: R) => boolean>,
+    cacheRef: React.MutableRefObject<SelectorCache<R>>
+): R | null => {
+    if (snapshot === null || snapshot === undefined || !selectorRef.current) {
+        cacheRef.current = {
+            hasValue: true,
+            storeName,
+            snapshot,
+            selector: selectorRef.current,
+            value: null,
+        };
+        return null;
+    }
+
+    const currentSelector = selectorRef.current;
+    const cache = cacheRef.current;
+    if (
+        cache.hasValue
+        && cache.storeName === storeName
+        && cache.snapshot === snapshot
+        && cache.selector === currentSelector
+    ) {
+        return cache.value;
+    }
+
+    const next = currentSelector(snapshot);
+    if (
+        cache.hasValue
+        && cache.storeName === storeName
+        && equalityRef.current(next, cache.value as R)
+    ) {
+        cache.snapshot = snapshot;
+        cache.selector = currentSelector;
+        return cache.value;
+    }
+
+    cache.hasValue = true;
+    cache.storeName = storeName;
+    cache.snapshot = snapshot;
+    cache.selector = currentSelector;
+    cache.value = next;
+    return next;
+};
+
 export function useStore<T = any>(name: string, path?: string): T | null;
 export function useStore<T = any, R = any>(
     name: string,
@@ -50,47 +98,11 @@ export function useStore<T = any, R = any>(
     selectorRef.current = selector;
     equalityRef.current = equalityFn;
 
-    const readSelectedSnapshot = useCallback((snapshot: T | null): R | null => {
-        if (snapshot === null || snapshot === undefined || !selectorRef.current) {
-            selectorCache.current = {
-                hasValue: true,
-                storeName: name,
-                snapshot,
-                selector: selectorRef.current,
-                value: null,
-            };
-            return null;
-        }
-
-        const currentSelector = selectorRef.current;
-        const cache = selectorCache.current;
-        if (
-            cache.hasValue
-            && cache.storeName === name
-            && cache.snapshot === snapshot
-            
-        ) {
-            return cache.value;
-        }
-
-        const next = currentSelector(snapshot);
-        if (
-            cache.hasValue
-            && cache.storeName === name
-            && equalityRef.current(next, cache.value as R)
-        ) {
-            cache.snapshot = snapshot;
-            cache.selector = currentSelector;
-            return cache.value;
-        }
-
-        cache.hasValue = true;
-        cache.storeName = name;
-        cache.snapshot = snapshot;
-        cache.selector = currentSelector;
-        cache.value = next;
-        return next;
-    }, [name]);
+    const readSelectedSnapshot = useCallback(
+        (snapshot: T | null): R | null =>
+            readSelectorCache(name, snapshot, selectorRef, equalityRef, selectorCache),
+        [name]
+    );
 
     const subscribe = useCallback(
         (fn: () => void) =>
@@ -149,47 +161,11 @@ export const useSelector = <T = any, R = any>(
     selectorRef.current = selectorFn;
     equalityRef.current = equalityFn;
 
-    const selectValue = useCallback((data: T | null): R | null => {
-        if (data === null || data === undefined) {
-            selectorCache.current = {
-                hasValue: true,
-                storeName,
-                snapshot: data,
-                selector: selectorRef.current,
-                value: null,
-            };
-            return null;
-        }
-
-        const currentSelector = selectorRef.current;
-        const cache = selectorCache.current;
-        if (
-            cache.hasValue
-            && cache.storeName === storeName
-            && cache.snapshot === data
-            && cache.selector === currentSelector
-        ) {
-            return cache.value;
-        }
-
-        const next = currentSelector(data);
-        if (
-            cache.hasValue
-            && cache.storeName === storeName
-            && equalityRef.current(next, cache.value as R)
-        ) {
-            cache.snapshot = data;
-            cache.selector = currentSelector;
-            return cache.value;
-        }
-
-        cache.hasValue = true;
-        cache.storeName = storeName;
-        cache.snapshot = data;
-        cache.selector = currentSelector;
-        cache.value = next;
-        return next;
-    }, [storeName]);
+    const selectValue = useCallback(
+        (data: T | null): R | null =>
+            readSelectorCache(storeName, data, selectorRef, equalityRef, selectorCache),
+        [storeName]
+    );
 
     const getSnap = useCallback(() => {
         const data = getStoreSnapshot(storeName) as T | null;
