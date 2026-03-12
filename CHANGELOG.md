@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - `createComputed(...)` for reactive derived stores.
 - `getComputedGraph()` and `getComputedDeps()` diagnostics in `runtime-tools`.
 - `configureStroid({ strictMutatorReturns: true })` to forbid mutator return values.
+- `useStore`/`useSelector` now warn once when a store is missing (including SSR renders).
 
 ### Changed
 - Runtime now always surfaces missing feature registrations via warnings (even in production), and can throw when `strictMissingFeatures` is enabled.

@@ -5,6 +5,8 @@ import { getByPath, warn, isDev, shallowEqual } from "./utils.js";
 import {
     hasBroadUseStoreWarning,
     markBroadUseStoreWarning,
+    hasMissingUseStoreWarning,
+    markMissingUseStoreWarning,
 } from "./internals/hooks-warnings.js";
 
 const pickPath = (data: any, path?: string) => {
@@ -77,6 +79,16 @@ const readSelectorCache = <T, R>(
     return next;
 };
 
+const warnMissingStoreOnce = (name: string): void => {
+    if (hasStore(name)) return;
+    if (hasMissingUseStoreWarning(name)) return;
+    markMissingUseStoreWarning(name);
+    warn(
+        `useStore("${name}") - store not found yet.\n` +
+        `Component will update automatically when createStore("${name}") is called.`
+    );
+};
+
 export function useStore<T = any>(name: string, path?: string): T | null;
 export function useStore<T = any, R = any>(
     name: string,
@@ -119,6 +131,7 @@ export function useStore<T = any, R = any>(
 
     const getSnapshot = useCallback(() => {
         const snap = getStoreSnapshot(name);
+        warnMissingStoreOnce(name);
         if (hasSelector) {
             return readSelectedSnapshot(snap as T | null);
         }
@@ -128,12 +141,6 @@ export function useStore<T = any, R = any>(
     const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     useEffect(() => {
-        if (!hasStore(name)) {
-            warn(
-                `useStore("${name}") - store not found yet.\n` +
-                `Component will update automatically when createStore("${name}") is called.`
-            );
-        }
         if (isDev() && !hasSelector && !path && !hasBroadUseStoreWarning(name)) {
             markBroadUseStoreWarning(name);
             warn(
@@ -169,6 +176,7 @@ export const useSelector = <T = any, R = any>(
 
     const getSnap = useCallback(() => {
         const data = getStoreSnapshot(storeName) as T | null;
+        warnMissingStoreOnce(storeName);
         return selectValue(data);
     }, [storeName, selectValue]);
 
@@ -187,6 +195,7 @@ export const useSelector = <T = any, R = any>(
 
 export const useStoreStatic = <T = any>(name: string, path?: string): T | null => {
     const data = getStoreSnapshot(name);
+    warnMissingStoreOnce(name);
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
 };

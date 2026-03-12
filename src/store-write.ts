@@ -53,7 +53,7 @@ import {
     type StoreDefinition, type StoreValue, type StoreKey,
     type StoreName, type StateFor, type WriteResult,
 } from "./store-lifecycle.js";
-import { resetBroadUseStoreWarnings } from "./internals/hooks-warnings.js";
+import { resetBroadUseStoreWarnings, resetMissingUseStoreWarnings } from "./internals/hooks-warnings.js";
 import { getConfig, resetConfig } from "./internals/config.js";
 import { clearRegistryScopeOverrideForTests } from "./store-registry.js";
 import { notify, resetNotifyStateForTests } from "./store-notify.js";
@@ -414,6 +414,7 @@ export const _hardResetAllStoresForTest = (): void => {
     clearPathValidationCache();
     resetSsrWarningFlag();
     resetBroadUseStoreWarnings();
+    resetMissingUseStoreWarnings();
     resetConfig();
     clearFeatureContexts();
     clearRegistryScopeOverrideForTests();
