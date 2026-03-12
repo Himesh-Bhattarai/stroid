@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - `setStoreBatch` now warns and no-ops when called with a non-function instead of throwing synchronously.
 - `resetStore` and `deleteStore` now accept `StoreKey`/`StoreDefinition` handles in addition to string names.
 - `useStore` overloads now return non-nullable values when called with `StoreKey`/`StoreDefinition` handles.
+- Persist internals split into `features/persist/*` (crypto/load/save/watch/types) to keep responsibilities isolated.
 - `fetchStore` now hard-fails when the per-store inflight slot limit is exceeded (throws instead of returning `null`).
 - Selector cache logic in React hooks is shared between `useStore` and `useSelector` to avoid duplicate implementations and ensure consistent selector identity checks.
 - Feature hook context creation now avoids full object spread copies on every write/delete to reduce overhead.
