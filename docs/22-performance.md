@@ -45,6 +45,19 @@ const total = useSelector(
 
 ---
 
+## Mutator Clone Cost
+
+```js
+setStore("profile", draft => {
+  draft.name = "Jordan"
+})
+```
+
+Mutator writes deep-clone the entire store before applying the recipe. For large trees, prefer
+`setStore(name, path, value)` or `setStore(name, partialObject)` so only the touched branch is cloned.
+
+---
+
 ## Avoid Oversized Trees
 
 - Split deep objects into multiple stores when paths exceed about 5 or 6 segments.

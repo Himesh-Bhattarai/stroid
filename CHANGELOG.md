@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file.
 - `setStore` returns typed `WriteResult` objects without casting.
 - `subscribeWithSelector` now uses store snapshots so selectors never receive mutable live references.
 - `deepClone` fallback now preserves Dates consistently (no JSON stringify fallback).
+- `hashState` now handles circular structures and uses a stronger 53-bit hash for non-string inputs while preserving legacy checksums for strings.
 ### Testing
 - `patch0/test` completed the `P0` stabilization pass for core state safety and production failure handling.
 - Core testing now covers immutable reads/snapshots/history, guarded validator and lifecycle failures, delete/persist races, reset persistence, sanitize rejection for hostile payloads, SSR async fail-fast behavior, hydration replacement semantics, and stale sync messages after delete.
