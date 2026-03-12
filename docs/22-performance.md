@@ -28,7 +28,7 @@ setStoreBatch(() => {
 })
 ```
 
-`setStoreBatch` defers subscriber flush until the callback completes, reducing render churn.
+`setStoreBatch` defers subscriber flush until the callback completes and commits writes atomically, reducing render churn and preventing intermediate state visibility.
 
 ---
 

@@ -22,6 +22,7 @@ import {
 } from "../feature-registry.js";
 import { createStoreAdmin } from "../internals/store-admin.js";
 import type { StoreValue, Subscriber } from "./types.js";
+import { getStagedTransactionValue, isTransactionActive } from "../store-transaction.js";
 
 export { defaultRegistryScope } from "../store-registry.js";
 
@@ -147,6 +148,10 @@ initializeRegisteredFeatureRuntimes();
 export const hasStoreEntryInternal = (name: string): boolean => _hasStoreEntry(getActiveRegistry(), name);
 
 export const getStoreValueRef = (name: string): StoreValue | undefined => {
+    if (isTransactionActive()) {
+        const staged = getStagedTransactionValue(name);
+        if (staged.has) return staged.value;
+    }
     const carrier = getRequestCarrier();
     if (carrier && Object.prototype.hasOwnProperty.call(carrier, name)) {
         return carrier[name] as StoreValue;

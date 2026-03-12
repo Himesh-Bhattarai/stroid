@@ -12,6 +12,12 @@ import {
 import { type ValidateOption } from "../adapters/options.js";
 import { meta, stores, initialFactories, initialStates, setStoreValueInternal, getRegistry } from "./registry.js";
 import { reportStoreError } from "./identity.js";
+import {
+    isTransactionActive,
+    stageTransactionValue,
+    registerTransactionCommit,
+    getStagedTransactionValue,
+} from "../store-transaction.js";
 import type { StoreValue } from "./types.js";
 
 type PathSafetyVerdict = { ok: true } | { ok: false; reason: string };
@@ -272,6 +278,8 @@ export const clearPathValidationCache = (): void => {
 };
 
 export const materializeInitial = (name: string): boolean => {
+    const staged = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
+    if (staged.has) return true;
     if (stores[name] !== undefined) return true;
     const factory = initialFactories[name];
     if (!factory) return true;
@@ -282,9 +290,19 @@ export const materializeInitial = (name: string): boolean => {
         const validate = meta[name]?.options?.validate;
         const normalized = normalizeCommittedState(name, cleanResult.value, validate, meta[name]?.options?.onError);
         if (!normalized.ok) return false;
-        setStoreValueInternal(name, normalized.value);
-        initialStates[name] = deepClone(normalized.value);
-        delete initialFactories[name];
+        if (isTransactionActive()) {
+            const value = normalized.value;
+            stageTransactionValue(name, value);
+            registerTransactionCommit(() => {
+                setStoreValueInternal(name, value);
+                initialStates[name] = deepClone(value);
+                delete initialFactories[name];
+            });
+        } else {
+            setStoreValueInternal(name, normalized.value);
+            initialStates[name] = deepClone(normalized.value);
+            delete initialFactories[name];
+        }
         return true;
     } catch (err) {
         reportStoreError(name, `Lazy initializer for "${name}" failed: ${(err as { message?: string })?.message ?? err}`);

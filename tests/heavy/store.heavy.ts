@@ -1320,8 +1320,8 @@ test("setStoreBatch flushes queued notifications before rejecting promise-return
 
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.deepStrictEqual(getStore("batchPromiseGuard"), { value: 1 });
-  assert.deepStrictEqual(seen, [1]);
+  assert.deepStrictEqual(getStore("batchPromiseGuard"), { value: 0 });
+  assert.deepStrictEqual(seen, []);
 });
 
 test("setStoreBatch flushes queued notifications before rethrowing callback errors", async () => {
@@ -1342,8 +1342,8 @@ test("setStoreBatch flushes queued notifications before rethrowing callback erro
   }, /boom/);
 
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.deepStrictEqual(getStore("batchThrowFlush"), { value: 1 });
-  assert.deepStrictEqual(seen, [1]);
+  assert.deepStrictEqual(getStore("batchThrowFlush"), { value: 0 });
+  assert.deepStrictEqual(seen, []);
 });
 
 test("lifecycle hook errors do not leave partial commits", () => {

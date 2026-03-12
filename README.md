@@ -45,6 +45,7 @@ The core path API uses `storeName` and `path` separately:
 - Utility helpers: selectors, metrics, testing helpers, entity/list/counter presets, SSR hydrate helpers
 - Lazy stores for expensive initial state (see below)
 - Store handles with autocomplete: `store("user")` returns `{ name: "user" }` for strongly typed calls
+- Store handles work across core and async APIs (for example, `fetchStore(store("user"), ...)`)
 - `createStore` returns `undefined` on failure; prefer passing literal names or `store("name")` into setters, or null‑check the return value first
 
 ## Highlights
@@ -55,6 +56,22 @@ The core path API uses `storeName` and `path` separately:
 - Async caching with TTL, dedupe, retries, and focus/online revalidation
 - BroadcastChannel sync with conflict resolution and payload size guardrails
 - No Provider required for React usage
+
+## Store handles and namespaces
+
+`store(name)` and `namespace(ns)` are small helpers that return typed handles for safer calls:
+
+```ts
+import { store, namespace, setStore } from "stroid/core"
+import { fetchStore } from "stroid/async"
+
+const user = store("user")
+setStore(user, "name", "Ava")
+await fetchStore(user, "https://api.example.com/user")
+
+const admin = namespace("admin")
+admin.create("session", { token: null })
+```
 
 ## Lazy stores
 
@@ -140,7 +157,8 @@ The boolean case exists for backward compatibility and is **not recommended**. P
 - Node `>=18` is required
 - `v0.0.5` is the active development branch; `dist/` is release-managed and may be absent here or lag behind in-progress source changes until the next release build
 - Planned or not-yet-implemented ideas belong in the roadmap, not the API docs
+- The feature plugin API (persist/sync/devtools registration) is internal and subject to change; third-party plugins are not supported yet(will be support maybe in future releases).
 
 ## License
 
-MIT
+MIT @Himesh-Bhattarai

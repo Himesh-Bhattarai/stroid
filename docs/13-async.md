@@ -29,6 +29,20 @@ If the store does not exist, it is created automatically with the async shape.
 
 ---
 
+## Inflight Limits
+
+Each store enforces a hard limit of 100 concurrent inflight requests (across unique cache keys). If you exceed the limit, `fetchStore` throws and triggers `onError`:
+
+```js
+try {
+  await fetchStore("burst", "/api/burst", { cacheKey: "slot-101" })
+} catch (err) {
+  // handle overload
+}
+```
+
+---
+
 ## React Consumption
 
 ```js

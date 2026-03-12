@@ -13,6 +13,7 @@ import { deepClone } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import { getConfig } from "./internals/config.js";
 import { warn } from "./utils.js";
+import { beginTransaction, endTransaction } from "./store-transaction.js";
 import {
     meta,
     subscribers,
@@ -42,7 +43,7 @@ const scheduleChunk = (fn: () => void, delayMs: number): void => {
     Promise.resolve().then(fn);
 };
 
-const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs: number; runInline: boolean } => {
+const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs: number; runInline: boolean; prioritySet: Set<string> | null } => {
     pendingBuffer.length = 0;
     for (const name of pendingNotifications) pendingBuffer.push(name);
     pendingNotifications.clear();
@@ -77,11 +78,11 @@ const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs
     const chunkDelayMs = cfg.chunkDelayMs;
     const runInline = sliceSize === Number.POSITIVE_INFINITY && chunkDelayMs === 0;
     const names = orderedNames.slice();
-    return { names, sliceSize, chunkDelayMs, runInline };
+    return { names, sliceSize, chunkDelayMs, runInline, prioritySet };
 };
 
 const flush = () => {
-    const { names, sliceSize, chunkDelayMs, runInline } = buildPendingOrder();
+    const { names, sliceSize, chunkDelayMs, runInline, prioritySet } = buildPendingOrder();
     const now = () => (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
 
     const finish = () => {
@@ -89,56 +90,86 @@ const flush = () => {
         if (pendingNotifications.size > 0) scheduleFlush();
     };
 
-    let nameIndex = 0;
-    const processStore = (): void => {
-        if (nameIndex >= names.length) {
-            finish();
-            return;
-        }
-        const name = names[nameIndex++];
-        const subs = subscribers[name];
-        if (!subs || subs.size === 0) {
-            processStore();
-            return;
-        }
-
-        const version = meta[name]?.updateCount ?? 0;
-        const cached = snapshotCache[name];
-        const snapshot = (cached && cached.version === version)
-            ? cached.snapshot
-            : (() => {
-                const nextSnapshot = deepClone(stores[name]);
-                snapshotCache[name] = { version, snapshot: nextSnapshot };
-                return nextSnapshot;
-            })();
-        const start = now();
-        const metrics = meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 };
-
-        const flushChunk = (offset: number): void => {
-            const endIndex = Math.min(offset + sliceSize, subsArray.length);
-            for (let i = offset; i < endIndex; i++) {
-                try { subsArray[i](snapshot); }
-                catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
-            }
-            if (endIndex < subsArray.length) {
-                scheduleChunk(() => flushChunk(endIndex), chunkDelayMs);
-                return;
-            }
-            const delta = now() - start;
-            metrics.notifyCount += 1;
-            metrics.totalNotifyMs += delta;
-            metrics.lastNotifyMs = delta;
-            if (meta[name]) meta[name].metrics = metrics;
-            if (runInline) processStore();
-            else scheduleChunk(processStore, chunkDelayMs);
-        };
-
-        const subsArray = Array.from(subs);
-
-        flushChunk(0);
+    type StoreTask = {
+        name: string;
+        subsArray: Subscriber[];
+        index: number;
+        snapshot: StoreValue | null;
+        metrics: { notifyCount: number; totalNotifyMs: number; lastNotifyMs: number };
+        totalMs: number;
     };
 
-    processStore();
+    const buildQueue = (filter?: (name: string) => boolean): StoreTask[] => {
+        const tasks: StoreTask[] = [];
+        for (const name of names) {
+            if (filter && !filter(name)) continue;
+            const subs = subscribers[name];
+            if (!subs || subs.size === 0) continue;
+            const version = meta[name]?.updateCount ?? 0;
+            const cached = snapshotCache[name];
+            const snapshot = (cached && cached.version === version)
+                ? cached.snapshot
+                : (() => {
+                    const nextSnapshot = deepClone(stores[name]);
+                    snapshotCache[name] = { version, snapshot: nextSnapshot };
+                    return nextSnapshot;
+                })();
+            tasks.push({
+                name,
+                subsArray: Array.from(subs),
+                index: 0,
+                snapshot,
+                metrics: meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
+                totalMs: 0,
+            });
+        }
+        return tasks;
+    };
+
+    const priorityQueue = prioritySet ? buildQueue((name) => prioritySet.has(name)) : [];
+    const regularQueue = buildQueue((name) => !prioritySet || !prioritySet.has(name));
+
+    const runQueue = (queue: StoreTask[], done: () => void): void => {
+        const processNext = (): void => {
+            if (queue.length === 0) {
+                done();
+                return;
+            }
+            const task = queue.shift()!;
+            const start = now();
+            const endIndex = Math.min(task.index + sliceSize, task.subsArray.length);
+            for (let i = task.index; i < endIndex; i++) {
+                try { task.subsArray[i](task.snapshot); }
+                catch (err) { warn(`Subscriber for "${task.name}" threw: ${(err as { message?: string })?.message ?? err}`); }
+            }
+            task.totalMs += now() - start;
+            task.index = endIndex;
+
+            if (task.index < task.subsArray.length) {
+                queue.push(task);
+            } else {
+                task.metrics.notifyCount += 1;
+                task.metrics.totalNotifyMs += task.totalMs;
+                task.metrics.lastNotifyMs = task.totalMs;
+                if (meta[task.name]) meta[task.name].metrics = task.metrics;
+            }
+
+            if (queue.length === 0) {
+                done();
+                return;
+            }
+            if (runInline) processNext();
+            else scheduleChunk(processNext, chunkDelayMs);
+        };
+
+        processNext();
+    };
+
+    if (priorityQueue.length > 0) {
+        runQueue(priorityQueue, () => runQueue(regularQueue, finish));
+    } else {
+        runQueue(regularQueue, finish);
+    }
 };
 
 const scheduleFlush = (): void => {
@@ -167,6 +198,7 @@ export const setStoreBatch = (fn: () => unknown): void => {
     }
 
     batchDepth = Math.max(0, batchDepth + 1);
+    beginTransaction();
     let batchError: unknown;
     try {
         const result = fn();
@@ -176,9 +208,17 @@ export const setStoreBatch = (fn: () => unknown): void => {
     } catch (err) {
         batchError = err;
     } finally {
+        const txError = endTransaction(batchError);
         batchDepth = Math.max(0, batchDepth - 1);
+        if (batchError || txError) {
+            pendingNotifications.clear();
+            notifyScheduled = false;
+        }
         if (batchDepth === 0 && pendingNotifications.size > 0) {
             scheduleFlush();
+        }
+        if (txError && !batchError) {
+            batchError = txError;
         }
     }
 

@@ -58,6 +58,13 @@ import { getConfig, resetConfig } from "./internals/config.js";
 import { clearRegistryScopeOverrideForTests } from "./store-registry.js";
 import { notify, resetNotifyStateForTests } from "./store-notify.js";
 import { MIDDLEWARE_ABORT } from "./features/lifecycle.js";
+import {
+    isTransactionActive,
+    getStagedTransactionValue,
+    stageTransactionValue,
+    registerTransactionCommit,
+    markTransactionFailed,
+} from "./store-transaction.js";
 
 type KeyOrData = string | string[] | Record<string, unknown> | ((draft: any) => void);
 
@@ -66,6 +73,14 @@ export const createStore = <Name extends string, State>(
     initialData: State,
     option: StoreOptions<State> = {}
 ): StoreDefinition<Name, State> | undefined => {
+    if (isTransactionActive()) {
+        const message =
+            `createStore("${String(name)}") cannot be called inside setStoreBatch. ` +
+            `Move createStore outside the batch to preserve transaction semantics.`;
+        reportStoreCreationError(message, option.onError as ((message: string) => void) | undefined);
+        markTransactionFailed(message);
+        return;
+    }
     if (!isValidStoreName(name)) {
         reportStoreCreationError(`createStore("${String(name)}") is not a valid store name.`, option.onError as ((message: string) => void) | undefined);
         return;
@@ -174,7 +189,8 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     const storeName = nameOf(name);
     if (!materializeInitial(storeName)) return { ok: false, reason: "validate" };
     let updated: StoreValue;
-    const prev = getStoreValueRef(storeName);
+    const stagedPrev = isTransactionActive() ? getStagedTransactionValue(storeName) : { has: false, value: undefined };
+    const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(storeName);
 
     if (typeof keyOrData === "function" && value === undefined) {
         try {
@@ -185,33 +201,49 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
                     `setStore("${storeName}", mutator) returned a value. ` +
                     `Strict mutator mode forbids return values; mutate the draft instead.`;
                 reportStoreError(storeName, message);
+                if (isTransactionActive()) markTransactionFailed(message);
                 return { ok: false, reason: "validate" };
             }
             updated = result !== undefined ? result as StoreValue : draft as StoreValue;
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
+            if (isTransactionActive()) markTransactionFailed(err);
             return { ok: false, reason: "validate" };
         }
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
-        if (!isValidData(keyOrData)) return { ok: false, reason: "invalid-args" };
+        if (!isValidData(keyOrData)) {
+            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") received invalid data`);
+            return { ok: false, reason: "invalid-args" };
+        }
         if (typeof prev !== "object" || prev === null || Array.isArray(prev)) {
             error(
                 `setStore("${storeName}", data) only merges into object stores.\n` +
                 `Use setStore("${storeName}", "path", value) or recreate the store with an object shape.`
             );
+            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") attempted object merge on non-object store`);
             return { ok: false, reason: "validate" };
         }
         const partialResult = sanitizeValue(storeName, keyOrData);
-        if (!partialResult.ok) return { ok: false, reason: "validate" };
+        if (!partialResult.ok) {
+            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") failed sanitize`);
+            return { ok: false, reason: "validate" };
+        }
         updated = { ...(prev as Record<string, unknown>), ...partialResult.value as Record<string, unknown> };
     } else if (typeof keyOrData === "string" || Array.isArray(keyOrData)) {
-        if (!validateDepth(keyOrData as PathInput)) return { ok: false, reason: "invalid-args" };
+        if (!validateDepth(keyOrData as PathInput)) {
+            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") received invalid path`);
+            return { ok: false, reason: "invalid-args" };
+        }
         const valueResult = sanitizeValue(storeName, value);
-        if (!valueResult.ok) return { ok: false, reason: "validate" };
+        if (!valueResult.ok) {
+            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") failed sanitize`);
+            return { ok: false, reason: "validate" };
+        }
         const sanitizedValue = valueResult.value;
         const safePath = validatePathSafety(storeName, prev, keyOrData as PathInput, sanitizedValue);
         if (!safePath.ok) {
             meta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
+            if (isTransactionActive()) markTransactionFailed(safePath.reason);
             return { ok: false, reason: "path" };
         }
         updated = setByPath(prev as Record<string, unknown>, keyOrData as PathInput, sanitizedValue);
@@ -225,31 +257,69 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
             `  setStore(storeDef, draft => { draft.field = value })`;
         error(message);
         meta[storeName]?.options?.onError?.(message);
+        if (isTransactionActive()) markTransactionFailed(message);
         return { ok: false, reason: "invalid-args" };
     }
 
-    if (!isValidData(updated)) return { ok: false, reason: "validate" };
+    if (!isValidData(updated)) {
+        if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") produced invalid data`);
+        return { ok: false, reason: "validate" };
+    }
     const validateRule = meta[storeName]?.options?.validate;
 
     const next = runMiddlewareForStore(storeName, { action: "set", prev, next: updated, path: keyOrData });
-    if (next === MIDDLEWARE_ABORT) return { ok: false, reason: "middleware" };
+    if (next === MIDDLEWARE_ABORT) {
+        if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") aborted by middleware`);
+        return { ok: false, reason: "middleware" };
+    }
     const committed = normalizeCommittedState(storeName, next, validateRule);
-    if (!committed.ok) return { ok: false, reason: "validate" };
-    setStoreValueInternal(storeName, committed.value);
-    invalidatePathCache(storeName);
-    meta[storeName].updatedAt = new Date().toISOString();
-    meta[storeName].updateCount++;
-    runFeatureWriteHooks(storeName, "set", prev, committed.value, notify);
-    runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prev, committed.value]);
-    notify(storeName);
+    if (!committed.ok) {
+        if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") failed validation`);
+        return { ok: false, reason: "validate" };
+    }
 
-    log(`Store "${storeName}" updated`);
+    if (isTransactionActive()) {
+        const nextValue = committed.value;
+        const prevValue = prev;
+        stageTransactionValue(storeName, nextValue);
+        registerTransactionCommit(() => {
+            setStoreValueInternal(storeName, nextValue);
+            invalidatePathCache(storeName);
+            meta[storeName].updatedAt = new Date().toISOString();
+            meta[storeName].updateCount++;
+            runFeatureWriteHooks(storeName, "set", prevValue, nextValue, notify);
+            runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prevValue, nextValue]);
+            log(`Store "${storeName}" updated`);
+        });
+        notify(storeName);
+    } else {
+        setStoreValueInternal(storeName, committed.value);
+        invalidatePathCache(storeName);
+        meta[storeName].updatedAt = new Date().toISOString();
+        meta[storeName].updateCount++;
+        runFeatureWriteHooks(storeName, "set", prev, committed.value, notify);
+        runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prev, committed.value]);
+        notify(storeName);
+    }
+
+    if (!isTransactionActive()) {
+        log(`Store "${storeName}" updated`);
+    }
     return { ok: true };
 }
 
 export const deleteStore = (name: string): void => {
     if (!exists(name)) return;
     if (!materializeInitial(name)) return;
+    if (isTransactionActive()) {
+        const message =
+            `deleteStore("${name}") cannot be called inside setStoreBatch. ` +
+            `Move deleteStore outside the batch to preserve transaction semantics.`;
+        meta[name]?.options?.onError?.(message);
+        warn(message);
+        markTransactionFailed(message);
+        return;
+    }
     storeAdmin.deleteExistingStore(name);
     invalidatePathCache(name);
 };
@@ -263,10 +333,30 @@ export const resetStore = (name: string): void => {
             `If this is a lazy store, ensure it has been initialized before calling resetStore.`;
         meta[name]?.options?.onError?.(message);
         warn(message);
+        if (isTransactionActive()) {
+            markTransactionFailed(message);
+        }
         return;
     }
-    const prev = stores[name];
+    const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
+    const prev = stagedPrev.has ? stagedPrev.value : stores[name];
     const resetValue = deepClone(initialStates[name]);
+
+    if (isTransactionActive()) {
+        stageTransactionValue(name, resetValue);
+        registerTransactionCommit(() => {
+            setStoreValueInternal(name, resetValue);
+            invalidatePathCache(name);
+            meta[name].updatedAt = new Date().toISOString();
+            meta[name].updateCount++;
+            runFeatureWriteHooks(name, "reset", prev, resetValue, notify);
+            runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
+            log(`Store "${name}" reset to initial state/value`);
+        });
+        notify(name);
+        return;
+    }
+
     setStoreValueInternal(name, resetValue);
     invalidatePathCache(name);
     meta[name].updatedAt = new Date().toISOString();
@@ -307,6 +397,12 @@ const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { o
 };
 
 export const clearAllStores = (): void => {
+    if (isTransactionActive()) {
+        const message = `clearAllStores() cannot be called inside setStoreBatch.`;
+        warn(message);
+        markTransactionFailed(message);
+        return;
+    }
     storeAdmin.clearAllStores();
 };
 
@@ -328,6 +424,16 @@ export const hydrateStores = (
     snapshot: Record<string, any>,
     options: Partial<Record<string, StoreOptions>> & { default?: StoreOptions } = {}
 ): { hydrated: string[]; created: string[]; failed: Record<string, string> } => {
+    if (isTransactionActive()) {
+        const message = `hydrateStores(...) cannot be called inside setStoreBatch.`;
+        warn(message);
+        markTransactionFailed(message);
+        return {
+            hydrated: [],
+            created: [],
+            failed: { _batch: "transaction" },
+        };
+    }
     const result = {
         hydrated: [] as string[],
         created: [] as string[],

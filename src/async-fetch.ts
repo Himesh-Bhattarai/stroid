@@ -1,6 +1,7 @@
 import { createStore, setStore, hasStore } from "./store.js";
 import { error, warn, isDev } from "./utils.js";
 import { getConfig } from "./internals/config.js";
+import { nameOf, type StoreDefinition, type StoreKey, type StoreName } from "./store-lifecycle.js";
 import {
     asyncMetrics,
     cacheMeta,
@@ -71,6 +72,20 @@ const _reportAsyncUsageError = (
     return null;
 };
 
+const _throwAsyncUsageError = (
+    name: string,
+    message: string,
+    onError?: (message: string) => void
+): never => {
+    _runAsyncHook(name, "onError", onError, message);
+    if (isDev()) {
+        error(message);
+    } else if (typeof console !== "undefined" && typeof console.error === "function") {
+        console.error(`[stroid] ${message}`);
+    }
+    throw new Error(message);
+};
+
 const _isCurrentRequest = (cacheSlot: string, version: number): boolean =>
     (requestVersion[cacheSlot] ?? 0) === version;
 
@@ -87,11 +102,27 @@ const _settleAbort = (name: string, cacheSlot: string, version: number): null =>
     return null;
 };
 
-export const fetchStore = async (
-    name: string,
+export function fetchStore<Name extends string, State>(
+    name: StoreDefinition<Name, State>,
+    urlOrRequest: FetchInput,
+    options?: FetchOptions
+): Promise<unknown>;
+export function fetchStore<Name extends string, State>(
+    name: StoreKey<Name, State>,
+    urlOrRequest: FetchInput,
+    options?: FetchOptions
+): Promise<unknown>;
+export function fetchStore<Name extends StoreName>(
+    name: Name,
+    urlOrRequest: FetchInput,
+    options?: FetchOptions
+): Promise<unknown>;
+export async function fetchStore(
+    nameInput: string | StoreDefinition<string, unknown>,
     urlOrRequest: FetchInput,
     options: FetchOptions = {}
-): Promise<unknown> => {
+): Promise<unknown> {
+    const name = nameOf(nameInput as StoreDefinition<string, unknown>);
     if (!name || typeof name !== "string") {
         error(`fetchStore requires a store name as first argument`);
         return;
@@ -220,7 +251,7 @@ export const fetchStore = async (
     }
 
     if (!inflight[cacheSlot] && countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
-        return _reportAsyncUsageError(
+        return _throwAsyncUsageError(
             name,
             `fetchStore("${name}") exceeded ${MAX_INFLIGHT_SLOTS_PER_STORE} concurrent request slots. Reuse cacheKey values, wait for pending requests, or delete the store to clear async state.`,
             onError
@@ -437,9 +468,13 @@ export const fetchStore = async (
     }
 
     return promise;
-};
+}
 
-export const refetchStore = async (name: string): Promise<unknown> => {
+export function refetchStore<Name extends string, State>(name: StoreDefinition<Name, State>): Promise<unknown>;
+export function refetchStore<Name extends string, State>(name: StoreKey<Name, State>): Promise<unknown>;
+export function refetchStore<Name extends StoreName>(name: Name): Promise<unknown>;
+export async function refetchStore(nameInput: string | StoreDefinition<string, unknown>): Promise<unknown> {
+    const name = nameOf(nameInput as StoreDefinition<string, unknown>);
     if (!hasStore(name)) return undefined;
     const last = fetchRegistry[name];
     if (!last) {
@@ -470,11 +505,27 @@ export const refetchStore = async (name: string): Promise<unknown> => {
         return fetchStore(name, last.factory, last.options);
     }
     return fetchStore(name, last.url, last.options);
-};
+}
 
-export const enableRevalidateOnFocus = (name?: string, overrides?: Partial<FetchOptions> & { debounceMs?: number; maxConcurrent?: number; staggerMs?: number; priority?: "high" | "normal" }): (() => void) => {
+export function enableRevalidateOnFocus<Name extends string, State>(
+    name: StoreDefinition<Name, State>,
+    overrides?: Partial<FetchOptions> & { debounceMs?: number; maxConcurrent?: number; staggerMs?: number; priority?: "high" | "normal" }
+): (() => void);
+export function enableRevalidateOnFocus<Name extends string, State>(
+    name: StoreKey<Name, State>,
+    overrides?: Partial<FetchOptions> & { debounceMs?: number; maxConcurrent?: number; staggerMs?: number; priority?: "high" | "normal" }
+): (() => void);
+export function enableRevalidateOnFocus<Name extends StoreName>(
+    name?: Name | "*",
+    overrides?: Partial<FetchOptions> & { debounceMs?: number; maxConcurrent?: number; staggerMs?: number; priority?: "high" | "normal" }
+): (() => void);
+export function enableRevalidateOnFocus(
+    nameInput?: string | StoreDefinition<string, unknown>,
+    overrides?: Partial<FetchOptions> & { debounceMs?: number; maxConcurrent?: number; staggerMs?: number; priority?: "high" | "normal" }
+): (() => void) {
     if (typeof window === "undefined" || typeof window.addEventListener !== "function") return () => {};
-    const key = name ?? "*";
+    const resolvedName = nameInput === "*" ? "*" : (nameInput ? nameOf(nameInput as StoreDefinition<string, unknown>) : undefined);
+    const key = resolvedName ?? "*";
     if (revalidateKeys.has(key)) return revalidateHandlers[key] ?? (() => {});
     const focusConfig = getConfig().revalidateOnFocus;
     const debounceMs = Math.max(0, overrides?.debounceMs ?? focusConfig.debounceMs);
@@ -556,7 +607,7 @@ export const enableRevalidateOnFocus = (name?: string, overrides?: Partial<Fetch
         _wildcardCleanups.push(cleanup);
     }
     return cleanup;
-};
+}
 
 const _buildFetchOptions = (options: FetchOptions): RequestInit => {
     const fetchOpts: RequestInit = {};

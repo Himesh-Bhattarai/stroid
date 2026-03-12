@@ -16,7 +16,7 @@ setStoreBatch(() => {
 })
 ```
 
-`setStoreBatch` suspends subscriber notifications until the callback finishes, then flushes once. There is no array/tuple overload in v0.0.4.
+`setStoreBatch` suspends subscriber notifications until the callback finishes, then flushes once. In `v0.0.5`, the batch is **transactional**: writes are staged and only committed if the entire callback succeeds. There is no array/tuple overload in v0.0.4.
 
 ---
 
@@ -30,8 +30,9 @@ setStoreBatch(() => {
 
 ## Notes
 
-- If your callback throws, the batch flag is cleared in `finally`, and pending notifications still flush.
-- `setStoreBatch` does not start a transaction; each `setStore` still runs validation, middleware, schema, and history.
+- The batch is transactional: if any write fails or the callback throws, **nothing commits** and **no notifications** are flushed.
+- `setStoreBatch` still runs validation/middleware per `setStore` call while staging.
+- `createStore`, `deleteStore`, and `hydrateStores` are not allowed inside `setStoreBatch` (they break transaction semantics). Move them outside the batch.
 
 ---
 

@@ -117,10 +117,10 @@ const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()):
 export const deepClone = <T>(value: T): T => {
     try {
         if (hasStructuredClone) return (structuredClone as <X>(v: X) => X)(value);
-        return JSON.parse(JSON.stringify(value)) as T;
     } catch (_) {
-        return _deepCloneFallback(value);
+        // Fall through to the manual clone path below.
     }
+    return _deepCloneFallback(value);
 };
 
 export const shallowEqual = (a: unknown, b: unknown): boolean => {
