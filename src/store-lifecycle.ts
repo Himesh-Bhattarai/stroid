@@ -2,7 +2,7 @@
  * @module store-lifecycle
  *
  * LAYER: Core Engine
- * OWNS:  Registry state variables (stores, meta, subscribers, …) and all
+ * OWNS:  Registry state variables (stores, meta, subscribers, ...) and all
  *        pure primitives that operate on them (sanitize, validate, path-safety,
  *        feature hook dispatch).
  *
@@ -12,777 +12,77 @@
  * Consumers: store-write (write API), store-read, store-notify,
  *            hooks-core, store-engine (re-export barrel).
  */
-import {
-    warn,
-    warnAlways,
-    error,
-    log,
-    critical,
-    isDev,
-    sanitize,
-    parsePath,
-    suggestStoreName,
-    deepClone,
-    hashState,
-    runSchemaValidation,
-    getType,
-    type SupportedType,
-    PathInput,
-} from "./utils.js";
-import { devDeepFreeze } from "./devfreeze.js";
-import {
-    type NormalizedOptions,
-    type ValidateOption,
-} from "./adapters/options.js";
-import { getConfig } from "./internals/config.js";
-import {
-    runMiddleware,
-    runStoreHook,
-    MIDDLEWARE_ABORT,
-} from "./features/lifecycle.js";
-import {
-    getStoreFeatureFactory,
-    getRegisteredFeatureNames,
-    hasRegisteredStoreFeature,
-    setFeatureRegistrationHook,
-    type FeatureDeleteContext,
-    type FeatureName,
-    type FeatureWriteContext,
-    type StoreFeatureMeta,
-    type StoreFeatureRuntime,
-} from "./feature-registry.js";
-import {
-    getStoreRegistry,
-    hasStoreEntry as _hasStoreEntry,
-    isStoreDeleting,
-    clearStoreRegistries,
-    normalizeStoreRegistryScope,
+
+export type {
+    Path,
+    PathDepth,
+    PathValue,
+    PartialDeep,
+    StoreValue,
+    StoreKey,
+    StoreDefinition,
+    StoreName,
+    StateFor,
+    WriteResult,
+    Subscriber,
+    StoreStateMap,
+} from "./store-lifecycle/types.js";
+
+export {
+    stores,
+    meta,
+    subscribers,
+    initialStates,
+    initialFactories,
+    snapshotCache,
+    featureRuntimes,
+    storeAdmin,
+    getStoreAdmin,
+    getFeatureRuntime,
+    hasStoreEntryInternal,
+    getStoreValueRef,
+    setStoreValueInternal,
+    applyFeatureState,
+    clearAllRegistries,
+    resetFeaturesForTests,
+    getMetaEntry,
+    getRegistry,
     defaultRegistryScope,
-    getRequestCarrier,
-    getActiveStoreRegistry,
-    enterRegistry,
-    type StoreRegistry,
-} from "./store-registry.js";
-import { bindAsyncRegistry } from "./async-cache.js";
-export { defaultRegistryScope } from "./store-registry.js";
-import { createStoreAdmin } from "./internals/store-admin.js";
-import { getNamespace } from "./internals/config.js";
-
-type Primitive = string | number | boolean | bigint | symbol | null | undefined;
-type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-type PathInternal<T, Depth extends number> = Depth extends 0
-    ? never
-    : T extends Primitive
-        ? never
-        : {
-            [K in keyof T & (string | number)]: T[K] extends Primitive | Array<unknown>
-                ? `${K}`
-                : `${K}` | `${K}.${PathInternal<T[K], PrevDepth[Depth]>}`
-        }[keyof T & (string | number)];
-
-export type PathDepth<T, Depth extends number> = PathInternal<T, Depth>;
-export type Path<T, Depth extends number = 10> = PathInternal<T, Depth>;
-
-export type PathValue<T, P extends Path<T>> = P extends `${infer K}.${infer Rest}`
-    ? K extends keyof T
-        ? Rest extends Path<T[K]>
-            ? PathValue<T[K], Rest>
-            : never
-        : never
-    : P extends keyof T
-        ? T[P]
-        : never;
-
-export type PartialDeep<T> = T extends Primitive
-    ? T
-    : { [K in keyof T]?: PartialDeep<T[K]> };
-
-export type StoreValue = unknown;
-
-// Ambient map users can augment to get typed string access to stores.
-// Example:
-//   declare module "stroid" { interface StoreStateMap { user: UserState } }
-export interface StoreStateMap {}
-export type StoreName = [keyof StoreStateMap] extends [never] ? string : keyof StoreStateMap & string;
-export type StateFor<Name extends string> = Name extends keyof StoreStateMap ? StoreStateMap[Name] : StoreValue;
-
-// A typed store handle that still matches the runtime StoreDefinition shape.
-export type StoreKey<Name extends string = string, State = StoreValue> =
-    StoreDefinition<Name, State> & { __store?: true };
-
-export interface StoreDefinition<Name extends string = string, State = StoreValue> {
-    name: Name;
-    // marker for inference only, not used at runtime
-    state?: State;
-}
-
-export type WriteResult =
-    | { ok: true }
-    | { ok: false; reason: "not-found" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" };
-
-interface MetaEntry extends StoreFeatureMeta {}
-
-export type Subscriber = (value: StoreValue | null) => void;
-
-type BaseFeatureContext = {
-    name: string;
-    options: MetaEntry["options"];
-    getMeta: () => MetaEntry | undefined;
-    getStoreValue: () => StoreValue;
-    getAllStores: () => Record<string, StoreValue>;
-    getInitialState: () => StoreValue | undefined;
-    hasStore: () => boolean;
-    setStoreValue: (value: StoreValue) => void;
-    applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
-    notify: () => void;
-    reportStoreError: (message: string) => void;
-    warn: typeof warn;
-    log: typeof log;
-    hashState: typeof hashState;
-    deepClone: typeof deepClone;
-    sanitize: typeof sanitize;
-    validate: (next: StoreValue) => { ok: true; value: StoreValue } | { ok: false };
-    isDev: typeof isDev;
-};
-
-let _scope = defaultRegistryScope;
-let _defaultRegistry = getStoreRegistry(_scope);
-const initializedRegistries = new WeakSet<StoreRegistry>();
-const initializeRegistryFeatureRuntimes = (registry: StoreRegistry): void => {
-    if (initializedRegistries.has(registry)) return;
-    initializedRegistries.add(registry);
-    getRegisteredFeatureNames().forEach((name) => {
-        if (!registry.featureRuntimes.get(name)) {
-            const factory = getStoreFeatureFactory(name);
-            if (factory) registry.featureRuntimes.set(name, factory());
-        }
-    });
-};
-
-const getActiveRegistry = (): StoreRegistry => {
-    const registry = getActiveStoreRegistry(_defaultRegistry);
-    initializeRegistryFeatureRuntimes(registry);
-    return registry;
-};
-
-const createRegistryObjectProxy = <T extends object>(getter: () => T): T =>
-    new Proxy(Object.create(null), {
-        get: (_target, prop) => (getter() as any)[prop],
-        set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
-            return true;
-        },
-        deleteProperty: (_target, prop) => {
-            delete (getter() as any)[prop];
-            return true;
-        },
-        has: (_target, prop) => prop in (getter() as any),
-        ownKeys: () => Reflect.ownKeys(getter()),
-        getOwnPropertyDescriptor: (_target, prop) => {
-            const desc = Object.getOwnPropertyDescriptor(getter(), prop);
-            if (!desc) return undefined;
-            return { ...desc, configurable: true };
-        },
-    }) as T;
-
-const createRegistryMapProxy = <T extends Map<any, any>>(getter: () => T): T =>
-    new Proxy(new Map(), {
-        get: (_target, prop) => {
-            const target = getter() as any;
-            if (prop === "size") return target.size;
-            if (prop === Symbol.iterator) return target[Symbol.iterator].bind(target);
-            const value = target[prop];
-            return typeof value === "function" ? value.bind(target) : value;
-        },
-        set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
-            return true;
-        },
-    }) as T;
-
-const createRegistryValueProxy = <T extends object>(getter: () => T): T =>
-    new Proxy({} as T, {
-        get: (_target, prop) => {
-            const target = getter() as any;
-            const value = target[prop];
-            return typeof value === "function" ? value.bind(target) : value;
-        },
-        set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
-            return true;
-        },
-    });
-
-export const stores = createRegistryObjectProxy(() => getActiveRegistry().stores as Record<string, StoreValue>);
-export const subscribers = createRegistryObjectProxy(() => getActiveRegistry().subscribers as Record<string, Set<Subscriber>>);
-export const initialStates = createRegistryObjectProxy(() => getActiveRegistry().initialStates as Record<string, StoreValue>);
-export const initialFactories = createRegistryObjectProxy(() => getActiveRegistry().initialFactories as Record<string, (() => StoreValue) | undefined>);
-export const meta = createRegistryObjectProxy(() => getActiveRegistry().metaEntries as Record<string, MetaEntry>);
-export const snapshotCache = createRegistryObjectProxy(() => getActiveRegistry().snapshotCache as Record<string, { version: number; snapshot: StoreValue | null }>);
-
-type PathSafetyVerdict = { ok: true } | { ok: false; reason: string };
-type PathValidationCacheNode = {
-    children: Map<string, PathValidationCacheNode>;
-    verdicts?: Map<SupportedType, PathSafetyVerdict>;
-};
-const _pathValidationCacheByRegistry = new WeakMap<StoreRegistry, Map<string, PathValidationCacheNode>>();
-const _pathValidationCountsByRegistry = new WeakMap<StoreRegistry, Map<string, number>>();
-const MAX_PATH_CACHE_ENTRIES_PER_STORE = 500;
-const getPathValidationCache = (registry: StoreRegistry): Map<string, PathValidationCacheNode> => {
-    let cache = _pathValidationCacheByRegistry.get(registry);
-    if (!cache) {
-        cache = new Map();
-        _pathValidationCacheByRegistry.set(registry, cache);
-    }
-    return cache;
-};
-const getPathValidationCounts = (registry: StoreRegistry): Map<string, number> => {
-    let counts = _pathValidationCountsByRegistry.get(registry);
-    if (!counts) {
-        counts = new Map();
-        _pathValidationCountsByRegistry.set(registry, counts);
-    }
-    return counts;
-};
-export const pathValidationCache = createRegistryMapProxy(() => getPathValidationCache(getActiveRegistry()));
-
-export const featureRuntimes = createRegistryMapProxy(() => getActiveRegistry().featureRuntimes as Map<FeatureName, StoreFeatureRuntime>);
-
-const storeAdminByRegistry = new WeakMap<StoreRegistry, ReturnType<typeof createStoreAdmin>>();
-const getStoreAdminForRegistry = (registry: StoreRegistry): ReturnType<typeof createStoreAdmin> => {
-    let admin = storeAdminByRegistry.get(registry);
-    if (!admin) {
-        admin = createStoreAdmin(registry);
-        storeAdminByRegistry.set(registry, admin);
-    }
-    return admin;
-};
-export const storeAdmin = createRegistryValueProxy(() => getStoreAdminForRegistry(getActiveRegistry()));
-export const getStoreAdmin = (): typeof storeAdmin => storeAdmin;
-const baseFeatureContextsByRegistry = new WeakMap<StoreRegistry, Map<string, BaseFeatureContext | null>>();
-const getBaseFeatureContexts = (registry: StoreRegistry): Map<string, BaseFeatureContext | null> => {
-    let contexts = baseFeatureContextsByRegistry.get(registry);
-    if (!contexts) {
-        contexts = new Map();
-        baseFeatureContextsByRegistry.set(registry, contexts);
-    }
-    return contexts;
-};
-export const clearFeatureContexts = (): void => {
-    getBaseFeatureContexts(getActiveRegistry()).clear();
-};
-
-export const bindRegistry = (scopeOrRegistry?: string | ReturnType<typeof getStoreRegistry>): void => {
-    const resolvedScope = typeof scopeOrRegistry === "string"
-        ? normalizeStoreRegistryScope(scopeOrRegistry)
-        : _scope;
-    const registry = typeof scopeOrRegistry === "string"
-        ? getStoreRegistry(resolvedScope)
-        : scopeOrRegistry ?? getStoreRegistry(_scope);
-
-    _scope = resolvedScope;
-    _defaultRegistry = registry;
-    enterRegistry(registry);
-    _pathValidationCacheByRegistry.set(registry, new Map<string, PathValidationCacheNode>());
-    _pathValidationCountsByRegistry.set(registry, new Map<string, number>());
-    clearFeatureContexts();
-    resetSsrWarningFlag();
-    bindAsyncRegistry(resolvedScope);
-    initializeRegisteredFeatureRuntimes();
-};
-
-export const useRegistry = (scopeId: string): void => bindRegistry(scopeId);
-
-const _ssrWarningsIssued = new Set<string>();
-export const getSsrWarningIssued = (name?: string): boolean =>
-    name ? _ssrWarningsIssued.has(name) : _ssrWarningsIssued.size > 0;
-export const markSsrWarningIssued = (name: string): void => {
-    if (!name) return;
-    _ssrWarningsIssued.add(name);
-};
-export const resetSsrWarningFlag = (): void => {
-    _ssrWarningsIssued.clear();
-};
-
-const _namespaceWarnings = new Set<string>();
-export const qualifyName = (raw: string): string => {
-    const ns = getNamespace();
-    if (!ns) return raw;
-    if (raw.includes("::")) return raw;
-    if (isDev() && !_namespaceWarnings.has(raw)) {
-        _namespaceWarnings.add(raw);
-        warn(
-            `Namespace "${ns}" is active; treating store "${raw}" as "${ns}::${raw}". ` +
-            `Consider using namespace("${ns}").create("...") to be explicit.`
-        );
-    }
-    return `${ns}::${raw}`;
-};
-
-export const nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
-    qualifyName(typeof name === "string" ? name : name.name);
-
-export const hasStoreEntryInternal = (name: string): boolean => _hasStoreEntry(getActiveRegistry(), name);
-export const getStoreValueRef = (name: string): StoreValue | undefined => {
-    const carrier = getRequestCarrier();
-    if (carrier && Object.prototype.hasOwnProperty.call(carrier, name)) {
-        return carrier[name] as StoreValue;
-    }
-    return stores[name];
-};
-export const getFeatureApi = (name: FeatureName) => featureRuntimes.get(name)?.api;
-
-export const exists = (name: string): boolean => {
-    const registry = getActiveRegistry();
-    if (_hasStoreEntry(registry, name) && !isStoreDeleting(registry, name)) return true;
-    suggestStoreName(name, Object.keys(stores));
-    return false;
-};
-
-export const validatePathSafety = (storeName: string, base: StoreValue, path: PathInput, nextValue: unknown): { ok: boolean; reason?: string } => {
-    const metaEntry = meta[storeName];
-    if (!metaEntry) return { ok: true };
-    const parts = parsePath(path);
-    if (parts.length === 0) return { ok: true };
-    const incomingType = getType(nextValue);
-    const registry = getActiveRegistry();
-    const pathCache = getPathValidationCache(registry);
-    const pathCounts = getPathValidationCounts(registry);
-    let root = pathCache.get(storeName);
-    if (!root) {
-        root = { children: new Map() };
-        pathCache.set(storeName, root);
-    }
-
-    let node = root;
-    for (const segment of parts) {
-        let child = node.children.get(segment);
-        if (!child) {
-            child = { children: new Map() };
-            node.children.set(segment, child);
-        }
-        node = child;
-    }
-
-    const cached = node.verdicts?.get(incomingType);
-    if (cached) return cached;
-
-    const allowCreate = metaEntry.options?.pathCreate === true;
-    let cursor: unknown = base;
-    let verdict: PathSafetyVerdict = { ok: true };
-    for (let i = 0; i < parts.length; i++) {
-        const key = parts[i];
-        const isLast = i === parts.length - 1;
-
-        if (cursor === null || cursor === undefined) {
-            const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - "${parts.slice(0, i).join(".") || "root"}" is ${cursor === null ? "null" : "undefined"}.`;
-            critical(reason);
-            verdict = { ok: false, reason };
-            break;
-        }
-
-        if (typeof cursor !== "object") {
-            const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - "${parts.slice(0, i).join(".") || "root"}" is not an object.`;
-            critical(reason);
-            verdict = { ok: false, reason };
-            break;
-        }
-
-        if (Array.isArray(cursor)) {
-            const idx = Number(key);
-            if (!Number.isInteger(idx) || idx < 0) {
-                const reason = `Path "${parts.join(".")}" targets non-numeric index "${key}" on an array in "${storeName}".`;
-                critical(reason);
-                verdict = { ok: false, reason };
-                break;
-            }
-
-            const arr = cursor as unknown[];
-            if (idx >= arr.length) {
-                const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - index ${idx} is out of bounds (length ${arr.length}).`;
-                critical(reason);
-                verdict = { ok: false, reason };
-                break;
-            }
-
-            if (isLast) {
-                const existing = arr[idx];
-                 if (existing !== undefined && existing !== null) {
-                     const expected = getType(existing);
-                     if (expected !== incomingType) {
-                         const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incomingType}.`;
-                         critical(reason);
-                         verdict = { ok: false, reason };
-                         break;
-                     }
-                 }
-                verdict = { ok: true };
-                break;
-            }
-            cursor = arr[idx];
-            continue;
-        }
-
-        const hasKey = Object.prototype.hasOwnProperty.call(cursor as Record<string, unknown>, key);
-        if (!hasKey) {
-            if (allowCreate && isLast) {
-                verdict = { ok: true };
-                break;
-            }
-            const reason = `Path "${parts.join(".")}" is invalid for "${storeName}" - unknown key "${key}" at "${parts.slice(0, i).join(".") || "root"}".`;
-            critical(reason);
-            verdict = { ok: false, reason };
-            break;
-        }
-        if (isLast) {
-             const existing = (cursor as Record<string, unknown>)[key];
-             if (existing !== undefined && existing !== null) {
-                 const expected = getType(existing);
-                 if (expected !== incomingType) {
-                     const reason = `Type mismatch setting "${parts.join(".")}" on "${storeName}": expected ${expected}, received ${incomingType}.`;
-                     critical(reason);
-                     verdict = { ok: false, reason };
-                     break;
-                 }
-             }
-             verdict = { ok: true };
-            break;
-        }
-        cursor = (cursor as Record<string, unknown>)[key];
-    }
-
-    if (!node.verdicts) node.verdicts = new Map();
-    const hadVerdict = node.verdicts.has(incomingType);
-    node.verdicts.set(incomingType, verdict);
-    if (!hadVerdict) {
-        const nextCount = (pathCounts.get(storeName) ?? 0) + 1;
-        pathCounts.set(storeName, nextCount);
-        if (nextCount > MAX_PATH_CACHE_ENTRIES_PER_STORE) {
-            pathCache.delete(storeName);
-            pathCounts.delete(storeName);
-        }
-    }
-    return verdict;
-};
-
-export const reportStoreError = (name: string, message: string): void => {
-    meta[name]?.options?.onError?.(message);
-    critical(message);
-};
-
-export const reportStoreCreationError = (message: string, onError?: (message: string) => void): void => {
-    onError?.(message);
-    error(message);
-};
-
-const collectErrorHandlers = (name: string, onError?: (message: string) => void): Set<(message: string) => void> => {
-    const handlers = new Set<((message: string) => void)>();
-    const metaHandler = meta[name]?.options?.onError;
-    if (typeof metaHandler === "function") handlers.add(metaHandler);
-    if (typeof onError === "function") handlers.add(onError);
-    return handlers;
-};
-
-export const sanitizeValue = (
-    name: string,
-    value: unknown,
-    onError?: (message: string) => void
-): { ok: true; value: StoreValue } | { ok: false } => {
-    try {
-        return { ok: true, value: sanitize(value) as StoreValue };
-    } catch (err) {
-        const message = `Sanitize failed for "${name}": ${(err as { message?: string })?.message ?? err}`;
-        meta[name]?.options?.onError?.(message);
-        onError?.(message);
-        warn(message);
-        return { ok: false };
-    }
-};
-
-export const runValidation = (
-    name: string,
-    value: StoreValue,
-    validate: ValidateOption | undefined,
-    onError?: (message: string) => void
-): { ok: true; value: StoreValue } | { ok: false } => {
-    if (!validate) return { ok: true, value };
-    const handlers = collectErrorHandlers(name, onError);
-    const report = (message: string, severity: "warn" | "critical"): void => {
-        handlers.forEach((handler) => handler(message));
-        if (severity === "critical") critical(message);
-        else warn(message);
-    };
-
-    if (typeof validate === "function") {
-        try {
-            const result = validate(value);
-            if (result === false) {
-                report(`Validation blocked update for "${name}"`, "warn");
-                return { ok: false };
-            }
-            return { ok: true, value: result === true ? value : result as StoreValue };
-        } catch (err) {
-            report(`Validation for "${name}" failed: ${(err as { message?: string })?.message ?? err}`, "critical");
-            return { ok: false };
-        }
-    }
-
-    const schemaResult = runSchemaValidation(validate, value);
-    if (!schemaResult.ok) {
-        report(`Validation failed for "${name}": ${schemaResult.error}`, "critical");
-        return { ok: false };
-    }
-    return { ok: true, value: (schemaResult.data ?? value) as StoreValue };
-};
-
-export const normalizeCommittedState = (
-    name: string,
-    value: unknown,
-    validate: ValidateOption | undefined,
-    onError?: (message: string) => void
-): { ok: true; value: StoreValue } | { ok: false } => {
-    const sanitized = sanitizeValue(name, value, onError);
-    if (!sanitized.ok) return { ok: false };
-
-    const validation = runValidation(name, sanitized.value, validate, onError);
-    if (!validation.ok) return { ok: false };
-
-    return { ok: true, value: validation.value };
-};
-
-export const setStoreValueInternal = (name: string, value: StoreValue): void => {
-    const carrier = getRequestCarrier();
-    const frozen = isDev() ? devDeepFreeze(value) : value;
-    if (carrier) {
-        carrier[name] = frozen;
-        // Keep the global registry aware that this store exists, but do not leak data
-        if (!Object.prototype.hasOwnProperty.call(stores, name)) {
-            stores[name] = undefined;
-        }
-    } else {
-        stores[name] = frozen;
-    }
-};
-
-export const invalidatePathCache = (name: string): void => {
-    const registry = getActiveRegistry();
-    getPathValidationCache(registry).delete(name);
-    getPathValidationCounts(registry).delete(name);
-};
-
-export const clearPathValidationCache = (): void => {
-    const registry = getActiveRegistry();
-    getPathValidationCache(registry).clear();
-    getPathValidationCounts(registry).clear();
-};
-
-export const materializeInitial = (name: string): boolean => {
-    if (stores[name] !== undefined) return true;
-    const factory = initialFactories[name];
-    if (!factory) return true;
-    try {
-        const produced = factory();
-        const cleanResult = sanitizeValue(name, produced, meta[name]?.options?.onError);
-        if (!cleanResult.ok) return false;
-        const validate = meta[name]?.options?.validate;
-        const normalized = normalizeCommittedState(name, cleanResult.value, validate, meta[name]?.options?.onError);
-        if (!normalized.ok) return false;
-        setStoreValueInternal(name, normalized.value);
-        initialStates[name] = deepClone(normalized.value);
-        delete initialFactories[name]; // Only remove the factory upon success
-        return true;
-    } catch (err) {
-        reportStoreError(name, `Lazy initializer for "${name}" failed: ${(err as { message?: string })?.message ?? err}`);
-        // Keep the factory around so a future access can retry it
-        return false;
-    }
-};
-
-export const applyFeatureState = (name: string, value: StoreValue, updatedAtMs = Date.now()): void => {
-    setStoreValueInternal(name, value);
-    if (!meta[name]) return;
-    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
-    meta[name].updateCount++;
-};
-
-export const getFeatureRuntime = (name: FeatureName): StoreFeatureRuntime | undefined => {
-    const existing = featureRuntimes.get(name);
-    if (existing) return existing;
-    const factory = getStoreFeatureFactory(name);
-    if (!factory) return undefined;
-    const runtime = factory();
-    featureRuntimes.set(name, runtime);
-    return runtime;
-};
-
-const initializeRegisteredFeatureRuntimes = (): void => {
-    getRegisteredFeatureNames().forEach((name) => {
-        getFeatureRuntime(name);
-    });
-};
-
-setFeatureRegistrationHook((name, factory) => {
-    if (!featureRuntimes.get(name)) {
-        featureRuntimes.set(name, factory());
-    }
-});
-initializeRegisteredFeatureRuntimes();
-
-export const warnMissingFeature = (storeName: string, featureName: FeatureName, onError?: (message: string) => void): void => {
-    const message =
-        `Store "${storeName}" requested ${featureName} support, but "${featureName}" is not registered.\n` +
-        `Import "stroid/${featureName}" before calling createStore("${storeName}", ...).`;
-    onError?.(message);
-    warnAlways(message);
-    if (getConfig().strictMissingFeatures) {
-        throw new Error(message);
-    }
-};
-
-export const resolveFeatureAvailability = (name: string, options: NormalizedOptions): NormalizedOptions => {
-    const next: NormalizedOptions = { ...options };
-
-    if (next.persist && !hasRegisteredStoreFeature("persist")) {
-        if (next.explicitPersist) warnMissingFeature(name, "persist", next.onError);
-        next.persist = null;
-    }
-
-    if (next.sync && !hasRegisteredStoreFeature("sync")) {
-        if (next.explicitSync) warnMissingFeature(name, "sync", next.onError);
-        next.sync = false;
-    }
-
-    if (!hasRegisteredStoreFeature("devtools")) {
-        if (next.explicitDevtools) warnMissingFeature(name, "devtools", next.onError);
-        next.devtools = false;
-        next.historyLimit = 0;
-        next.redactor = undefined;
-    }
-
-    return next;
-};
-
-export const createBaseFeatureContext = (name: string): BaseFeatureContext | null => {
-    const registry = getActiveRegistry();
-    const baseFeatureContexts = getBaseFeatureContexts(registry);
-    const cached = baseFeatureContexts.get(name);
-    if (cached) return cached;
-
-    const metaEntry = meta[name];
-    if (!metaEntry) {
-        warn(`Internal feature context requested for "${name}" after metadata was cleared.`);
-        return null;
-    }
-
-    const ctx: BaseFeatureContext = {
-        name,
-        options: metaEntry.options,
-        getMeta: () => meta[name],
-        getStoreValue: () => stores[name],
-        getAllStores: () => stores,
-        getInitialState: () => initialStates[name],
-        hasStore: () => _hasStoreEntry(registry, name),
-        setStoreValue: (value: StoreValue) => {
-            setStoreValueInternal(name, value);
-        },
-        applyFeatureState: (value: StoreValue, updatedAtMs?: number) => {
-            applyFeatureState(name, value, updatedAtMs);
-        },
-        notify: () => {
-            // noop placeholder to be bound by store-notify
-        },
-        reportStoreError: (message: string) => {
-            reportStoreError(name, message);
-        },
-        warn,
-        log,
-        hashState,
-        deepClone,
-        sanitize,
-        validate: (next: StoreValue) => runValidation(name, next, meta[name]?.options?.validate),
-        isDev,
-    };
-    baseFeatureContexts.set(name, ctx);
-    return ctx;
-};
-
-export const runFeatureCreateHooks = (name: string, notify: (name: string) => void): void => {
-    const baseContext = createBaseFeatureContext(name);
-    if (!baseContext) return;
-    baseContext.notify = () => notify(name);
-    featureRuntimes.forEach((runtime) => {
-        runtime.onStoreCreate?.(baseContext);
-    });
-};
-
-export const runFeatureWriteHooks = (name: string, action: string, prev: StoreValue, next: StoreValue, notify: (name: string) => void): void => {
-    const baseContext = createBaseFeatureContext(name);
-    if (!baseContext) return;
-    baseContext.notify = () => notify(name);
-    const ctx = Object.assign(Object.create(baseContext), {
-        action,
-        prev,
-        next,
-    }) as FeatureWriteContext;
-
-    featureRuntimes.forEach((runtime) => {
-        runtime.onStoreWrite?.(ctx);
-    });
-};
-
-export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (name: string) => void): void => {
-    const baseContext = createBaseFeatureContext(name);
-    if (!baseContext) return;
-    baseContext.notify = () => notify(name);
-    const ctx = Object.assign(Object.create(baseContext), {
-        prev,
-    }) as FeatureDeleteContext;
-    featureRuntimes.forEach((runtime) => {
-        runtime.beforeStoreDelete?.(ctx);
-    });
-    featureRuntimes.forEach((runtime) => {
-        runtime.afterStoreDelete?.(ctx);
-    });
-    getBaseFeatureContexts(getActiveRegistry()).delete(name);
-};
-
-export const runMiddlewareForStore = (
-    name: string,
-    payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; }
-): StoreValue | typeof MIDDLEWARE_ABORT =>
-    runMiddleware({
-        name,
-        payload,
-        middlewares: meta[name]?.options?.middleware || [],
-        onError: meta[name]?.options?.onError,
-        warn,
-    });
-
-export const runStoreHookSafe = (
-    name: string,
-    label: "onCreate" | "onSet" | "onReset" | "onDelete",
-    fn: ((...args: any[]) => void) | undefined,
-    args: any[]
-): void =>
-    runStoreHook({
-        name,
-        label,
-        fn,
-        args,
-        onError: meta[name]?.options?.onError,
-        warn,
-    });
-
-export const clearAllRegistries = (): void => {
-    clearStoreRegistries(getActiveRegistry());
-};
-
-export const resetFeaturesForTests = (): void => {
-    featureRuntimes.forEach((runtime) => {
-        try { runtime.resetAll?.(); } catch (_) { /* ignore cleanup errors */ }
-    });
-    featureRuntimes.clear();
-};
-
-export const getMetaEntry = (name: string): MetaEntry | undefined => meta[name];
-export const getRegistry = () => getActiveRegistry();
+} from "./store-lifecycle/registry.js";
+
+export {
+    sanitizeValue,
+    normalizeCommittedState,
+    runValidation,
+    validatePathSafety,
+    invalidatePathCache,
+    clearPathValidationCache,
+    materializeInitial,
+    pathValidationCache,
+} from "./store-lifecycle/validation.js";
+
+export {
+    runFeatureCreateHooks,
+    runFeatureWriteHooks,
+    runFeatureDeleteHooks,
+    runMiddlewareForStore,
+    runStoreHookSafe,
+    resolveFeatureAvailability,
+    clearFeatureContexts,
+    createBaseFeatureContext,
+} from "./store-lifecycle/hooks.js";
+
+export {
+    nameOf,
+    qualifyName,
+    exists,
+    getFeatureApi,
+    reportStoreCreationError,
+    reportStoreError,
+    getSsrWarningIssued,
+    markSsrWarningIssued,
+    resetSsrWarningFlag,
+    warnMissingFeature,
+} from "./store-lifecycle/identity.js";
+
+export { bindRegistry, useRegistry } from "./store-lifecycle/bind.js";

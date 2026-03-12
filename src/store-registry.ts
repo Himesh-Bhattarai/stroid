@@ -11,6 +11,8 @@
  * Consumers: store-lifecycle (binds a registry scope on startup / SSR switch).
  */
 import type { FeatureName, StoreFeatureMeta, StoreFeatureRuntime } from "./feature-registry.js";
+import type { AsyncRegistry } from "./async-registry.js";
+import { createAsyncRegistry, resetAsyncRegistry } from "./async-registry.js";
 
 export type RegistryStoreValue = unknown;
 export type RegistrySubscriber = (value: RegistryStoreValue | null) => void;
@@ -36,6 +38,7 @@ export type StoreRegistry = {
     deletingStores: Set<string>;
     computedEntries: Record<string, ComputedEntry>;
     computedDependents: Record<string, string[]>;
+    async: AsyncRegistry;
 };
 
 const _registries = new Map<string, StoreRegistry>();
@@ -77,6 +80,7 @@ export const createStoreRegistry = (): StoreRegistry => ({
     deletingStores: new Set(),
     computedEntries: Object.create(null),
     computedDependents: Object.create(null),
+    async: createAsyncRegistry(),
 });
 
 export const getStoreRegistry = (scope: string): StoreRegistry => {
@@ -110,6 +114,7 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
         });
     });
     registry.deletingStores.clear();
+    resetAsyncRegistry(registry.async);
 };
 
 export const resetAllStoreRegistriesForTests = (): void => {
@@ -129,6 +134,7 @@ export const resetAllStoreRegistriesForTests = (): void => {
             });
         });
         registry.deletingStores.clear();
+        resetAsyncRegistry(registry.async);
     });
     _registries.clear();
 };

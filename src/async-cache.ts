@@ -1,153 +1,73 @@
 import { subscribe } from "./store-notify.js";
-import { defaultRegistryScope, normalizeStoreRegistryScope } from "./store-registry.js";
+import { getRegistry } from "./store-lifecycle/registry.js";
+import type { FetchOptions } from "./async-registry.js";
+import { resetAsyncRegistry } from "./async-registry.js";
+export type { FetchOptions } from "./async-registry.js";
 
-export interface FetchOptions {
-    transform?: (result: unknown) => unknown;
-    onSuccess?: (data: unknown) => void;
-    onError?: (message: string) => void;
-    method?: string;
-    headers?: Record<string, string>;
-    body?: unknown;
-    ttl?: number; // ms
-    staleWhileRevalidate?: boolean;
-    dedupe?: boolean;
-    retry?: number;
-    retryDelay?: number;
-    retryBackoff?: number;
-    signal?: AbortSignal;
-    cacheKey?: string;
-    responseType?: "auto" | "json" | "text" | "arrayBuffer" | "blob" | "formData";
-}
 export type FetchInput = string | Promise<unknown> | (() => string | Promise<unknown>);
-
-type InflightEntry = { promise: Promise<unknown>; raw: Promise<unknown>; transform?: FetchOptions["transform"] };
-export type AsyncRegistry = {
-    fetchRegistry: Record<string, { kind: "url"; url: string; options: FetchOptions } | { kind: "factory"; factory: () => string | Promise<unknown>; options: FetchOptions }>;
-    inflight: Partial<Record<string, InflightEntry>>;
-    requestVersion: Record<string, number>;
-    cacheMeta: Record<string, { timestamp: number; expiresAt: number | null; data: unknown }>;
-    rateWindowStart: Record<string, number>;
-    rateCount: Record<string, number>;
-    noSignalWarned: Set<string>;
-    cleanupSubs: Record<string, () => void>;
-    storeCleanupFns: Record<string, Set<() => void>>;
-    revalidateKeys: Set<string>;
-    revalidateHandlers: Record<string, () => void>;
-    asyncMetrics: {
-        cacheHits: number;
-        cacheMisses: number;
-        dedupes: number;
-        requests: number;
-        failures: number;
-        avgMs: number;
-        lastMs: number;
-    };
-};
-
-const _asyncRegistries = new Map<string, AsyncRegistry>();
-const _scope = defaultRegistryScope;
 
 export const MAX_CACHE_SLOTS_PER_STORE = 100;
 export const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
 
-export const getAsyncRegistry = (scope: string): AsyncRegistry => {
-    const existing = _asyncRegistries.get(scope);
-    if (existing) return existing;
-    const created: AsyncRegistry = {
-        fetchRegistry: Object.create(null),
-        inflight: Object.create(null),
-        requestVersion: Object.create(null),
-        cacheMeta: Object.create(null),
-        rateWindowStart: Object.create(null),
-        rateCount: Object.create(null),
-        noSignalWarned: new Set<string>(),
-        cleanupSubs: Object.create(null),
-        storeCleanupFns: Object.create(null),
-        revalidateKeys: new Set<string>(),
-        revalidateHandlers: Object.create(null),
-        asyncMetrics: {
-            cacheHits: 0,
-            cacheMisses: 0,
-            dedupes: 0,
-            requests: 0,
-            failures: 0,
-            avgMs: 0,
-            lastMs: 0,
+const getActiveAsyncRegistry = () => getRegistry().async;
+
+const createAsyncObjectProxy = <T extends object>(getter: () => T): T =>
+    new Proxy(Object.create(null), {
+        get: (_target, prop) => (getter() as any)[prop],
+        set: (_target, prop, value) => {
+            (getter() as any)[prop] = value;
+            return true;
         },
-    };
-    _asyncRegistries.set(scope, created);
-    return created;
-};
+        deleteProperty: (_target, prop) => {
+            delete (getter() as any)[prop];
+            return true;
+        },
+        has: (_target, prop) => prop in (getter() as any),
+        ownKeys: () => Reflect.ownKeys(getter()),
+        getOwnPropertyDescriptor: (_target, prop) => {
+            const desc = Object.getOwnPropertyDescriptor(getter(), prop);
+            if (!desc) return undefined;
+            return { ...desc, configurable: true };
+        },
+    }) as T;
 
+const createAsyncValueProxy = <T extends object>(getter: () => T): T =>
+    new Proxy({} as T, {
+        get: (_target, prop) => {
+            const target = getter() as any;
+            const value = target[prop];
+            return typeof value === "function" ? value.bind(target) : value;
+        },
+        set: (_target, prop, value) => {
+            (getter() as any)[prop] = value;
+            return true;
+        },
+        has: (_target, prop) => prop in (getter() as any),
+        ownKeys: () => Reflect.ownKeys(getter()),
+        getOwnPropertyDescriptor: (_target, prop) => {
+            const desc = Object.getOwnPropertyDescriptor(getter(), prop);
+            if (!desc) return undefined;
+            return { ...desc, configurable: true };
+        },
+    });
 
-let _asyncRegistry = getAsyncRegistry(_scope);
-export let fetchRegistry = _asyncRegistry.fetchRegistry;
-export let inflight = _asyncRegistry.inflight;
-export let requestVersion = _asyncRegistry.requestVersion;
-export let cacheMeta = _asyncRegistry.cacheMeta;
-export let rateWindowStart = _asyncRegistry.rateWindowStart;
-export let rateCount = _asyncRegistry.rateCount;
-export let noSignalWarned = _asyncRegistry.noSignalWarned;
-export let cleanupSubs = _asyncRegistry.cleanupSubs;
-export let storeCleanupFns = _asyncRegistry.storeCleanupFns;
-export let revalidateKeys = _asyncRegistry.revalidateKeys;
-export let revalidateHandlers = _asyncRegistry.revalidateHandlers;
-export let asyncMetrics = _asyncRegistry.asyncMetrics;
-
-export const bindAsyncRegistry = (scope: string): void => {
-    const registry = getAsyncRegistry(scope);
-    _asyncRegistry = registry;
-    fetchRegistry = registry.fetchRegistry;
-    inflight = registry.inflight;
-    requestVersion = registry.requestVersion;
-    cacheMeta = registry.cacheMeta;
-    rateWindowStart = registry.rateWindowStart;
-    rateCount = registry.rateCount;
-    noSignalWarned = registry.noSignalWarned;
-    cleanupSubs = registry.cleanupSubs;
-    storeCleanupFns = registry.storeCleanupFns;
-    revalidateKeys = registry.revalidateKeys;
-    revalidateHandlers = registry.revalidateHandlers;
-    asyncMetrics = registry.asyncMetrics;
-};
+export const fetchRegistry = createAsyncObjectProxy(() => getActiveAsyncRegistry().fetchRegistry);
+export const inflight = createAsyncObjectProxy(() => getActiveAsyncRegistry().inflight);
+export const requestVersion = createAsyncObjectProxy(() => getActiveAsyncRegistry().requestVersion);
+export const cacheMeta = createAsyncObjectProxy(() => getActiveAsyncRegistry().cacheMeta);
+export const rateWindowStart = createAsyncObjectProxy(() => getActiveAsyncRegistry().rateWindowStart);
+export const rateCount = createAsyncObjectProxy(() => getActiveAsyncRegistry().rateCount);
+export const cleanupSubs = createAsyncObjectProxy(() => getActiveAsyncRegistry().cleanupSubs);
+export const storeCleanupFns = createAsyncObjectProxy(() => getActiveAsyncRegistry().storeCleanupFns);
+export const revalidateHandlers = createAsyncObjectProxy(() => getActiveAsyncRegistry().revalidateHandlers);
+export const noSignalWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().noSignalWarned);
+export const revalidateKeys = createAsyncValueProxy(() => getActiveAsyncRegistry().revalidateKeys);
+export const asyncMetrics = createAsyncValueProxy(() => getActiveAsyncRegistry().asyncMetrics);
 
 
 
 export const resetAsyncState = (): void => {
-    Object.values(revalidateHandlers).forEach((cleanup) => {
-        try { cleanup(); } catch (_) { /* ignore cleanup errors */ }
-    });
-
-    Object.values(cleanupSubs).forEach((unsubscribe) => {
-        try { unsubscribe(); } catch (_) { /* ignore cleanup errors */ }
-    });
-
-    Object.values(storeCleanupFns).forEach((fns) => {
-        fns.forEach((fn) => {
-            try { fn(); } catch (_) { /* ignore cleanup errors */ }
-        });
-    });
-
-    Object.keys(fetchRegistry).forEach((key) => delete fetchRegistry[key]);
-    Object.keys(inflight).forEach((key) => delete inflight[key]);
-    Object.keys(requestVersion).forEach((key) => delete requestVersion[key]);
-    Object.keys(cacheMeta).forEach((key) => delete cacheMeta[key]);
-    Object.keys(rateWindowStart).forEach((key) => delete rateWindowStart[key]);
-    Object.keys(rateCount).forEach((key) => delete rateCount[key]);
-    Object.keys(cleanupSubs).forEach((key) => delete cleanupSubs[key]);
-    Object.keys(storeCleanupFns).forEach((key) => delete storeCleanupFns[key]);
-    Object.keys(revalidateHandlers).forEach((key) => delete revalidateHandlers[key]);
-
-    revalidateKeys.clear();
-    noSignalWarned.clear();
-
-    asyncMetrics.cacheHits = 0;
-    asyncMetrics.cacheMisses = 0;
-    asyncMetrics.dedupes = 0;
-    asyncMetrics.requests = 0;
-    asyncMetrics.failures = 0;
-    asyncMetrics.avgMs = 0;
-    asyncMetrics.lastMs = 0;
+    resetAsyncRegistry(getActiveAsyncRegistry());
 };
 
 export const shouldUseCache = (cacheSlot: string, ttl?: number): boolean => {

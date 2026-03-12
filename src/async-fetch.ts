@@ -128,8 +128,13 @@ export const fetchStore = async (
     }
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
+    const isDirectPromiseInput =
+        typeof urlOrRequest !== "string"
+        && typeof urlOrRequest !== "function"
+        && typeof (urlOrRequest as any)?.then === "function";
     const retryPolicy = normalizeRetryOptions(name, retry, retryDelay, retryBackoff);
     let promiseRetryNoticeIssued = false;
+    const shouldWarnPromiseRetry = isDirectPromiseInput && retry > 0;
 
     const isProdServer = typeof window === "undefined"
         && (typeof process !== "undefined" ? process.env?.NODE_ENV : undefined) === "production";
@@ -261,9 +266,10 @@ export const fetchStore = async (
             }
 
             const currentRequest = typeof urlOrRequest === "function" ? urlOrRequest() : urlOrRequest;
-            const isPromiseRequest = typeof currentRequest !== "string" && typeof (currentRequest as any)?.then === "function";
+            const isPromiseRequest = isDirectPromiseInput
+                || (typeof currentRequest !== "string" && typeof (currentRequest as any)?.then === "function");
             const effectiveRetryPolicy = isPromiseRequest ? { ...retryPolicy, retry: 0 } : retryPolicy;
-            if (isPromiseRequest && retryPolicy.retry > 0 && !promiseRetryNoticeIssued) {
+            if (isPromiseRequest && (retry > 0 || shouldWarnPromiseRetry) && !promiseRetryNoticeIssued) {
                 warn(`fetchStore("${name}") ignores retry settings for direct Promise inputs; pass a URL string or factory to use retries.`);
                 promiseRetryNoticeIssued = true;
             }
