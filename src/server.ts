@@ -2,13 +2,20 @@ import { hydrateStores } from "./store.js";
 import { deepClone, produceClone } from "./utils.js";
 import type { StoreOptions } from "./store.js";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { injectCarrierRunner, type CarrierContext } from "./store-registry.js";
+import { createStoreRegistry, injectCarrierRunner, injectRegistryRunner, type CarrierContext } from "./store-registry.js";
 
 const serverAsyncContext = new AsyncLocalStorage<CarrierContext>();
+const serverRegistryContext = new AsyncLocalStorage<ReturnType<typeof createStoreRegistry>>();
 
 injectCarrierRunner({
     run: (carrier, fn) => serverAsyncContext.run(carrier, fn),
     get: () => serverAsyncContext.getStore() || null,
+});
+
+injectRegistryRunner({
+    run: (registry, fn) => serverRegistryContext.run(registry, fn),
+    get: () => serverRegistryContext.getStore() || null,
+    enterWith: (registry) => serverRegistryContext.enterWith(registry),
 });
 
 export const createStoreForRequest = (
@@ -18,6 +25,7 @@ export const createStoreForRequest = (
         get: (name: string) => any;
     }) => void
 ) => {
+    const registry = createStoreRegistry();
     const buffer: Record<string, any> = {};
     const bufferedOptions: Record<string, StoreOptions> = {};
     const hasBuffered = (name: string): boolean => Object.prototype.hasOwnProperty.call(buffer, name);
@@ -56,10 +64,12 @@ export const createStoreForRequest = (
                 };
             });
 
-            return serverAsyncContext.run(deepClone(buffer), () => {
-                hydrateStores(buffer, merged);
-                return renderFn();
-            });
+            return serverRegistryContext.run(registry, () =>
+                serverAsyncContext.run(deepClone(buffer), () => {
+                    hydrateStores(buffer, merged);
+                    return renderFn();
+                })
+            );
         },
     };
 };

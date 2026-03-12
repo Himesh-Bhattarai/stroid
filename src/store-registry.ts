@@ -58,21 +58,22 @@ export const clearRegistryScopeOverrideForTests = (): void => {
     _registries.clear();
 };
 
+export const createStoreRegistry = (): StoreRegistry => ({
+    stores: Object.create(null),
+    subscribers: Object.create(null),
+    initialStates: Object.create(null),
+    initialFactories: Object.create(null),
+    metaEntries: Object.create(null),
+    snapshotCache: Object.create(null),
+    featureRuntimes: new Map(),
+    deletingStores: new Set(),
+});
+
 export const getStoreRegistry = (scope: string): StoreRegistry => {
     const normalizedScope = normalizeStoreRegistryScope(scope);
     const existing = _registries.get(normalizedScope);
     if (existing) return existing;
-
-    const created: StoreRegistry = {
-        stores: Object.create(null),
-        subscribers: Object.create(null),
-        initialStates: Object.create(null),
-        initialFactories: Object.create(null),
-        metaEntries: Object.create(null),
-        snapshotCache: Object.create(null),
-        featureRuntimes: new Map(),
-        deletingStores: new Set(),
-    };
+    const created = createStoreRegistry();
     _registries.set(normalizedScope, created);
     return created;
 };
@@ -118,4 +119,26 @@ export const injectCarrierRunner = (runner: CarrierRunner): void => {
 
 export const getRequestCarrier = (): CarrierContext | null => {
     return currentCarrierRunner?.get() || null;
+};
+
+export interface RegistryRunner {
+    run<T>(registry: StoreRegistry, fn: () => T): T;
+    get(): StoreRegistry | null;
+    enterWith?: (registry: StoreRegistry) => void;
+}
+
+let currentRegistryRunner: RegistryRunner | null = null;
+
+export const injectRegistryRunner = (runner: RegistryRunner): void => {
+    currentRegistryRunner = runner;
+};
+
+export const getActiveStoreRegistry = (fallback?: StoreRegistry): StoreRegistry => {
+    return currentRegistryRunner?.get() || fallback || getStoreRegistry(defaultRegistryScope);
+};
+
+export const enterRegistry = (registry: StoreRegistry): void => {
+    if (currentRegistryRunner?.enterWith) {
+        currentRegistryRunner.enterWith(registry);
+    }
 };

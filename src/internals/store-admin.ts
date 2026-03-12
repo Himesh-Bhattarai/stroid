@@ -1,10 +1,6 @@
 import { runStoreHook } from "../features/lifecycle.js";
 import type { FeatureDeleteContext, FeatureName, StoreFeatureMeta } from "../feature-registry.js";
-import {
-    getStoreRegistry,
-    hasStoreEntry,
-    normalizeStoreRegistryScope,
-} from "../store-registry.js";
+import { hasStoreEntry, type StoreRegistry } from "../store-registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn } from "./diagnostics.js";
 
@@ -12,8 +8,7 @@ type MetaEntry = StoreFeatureMeta;
 
 const FEATURE_NAMES: FeatureName[] = ["persist", "devtools", "sync"];
 
-export const createStoreAdmin = (scope: string) => {
-    const registry = getStoreRegistry(normalizeStoreRegistryScope(scope));
+export const createStoreAdmin = (registry: StoreRegistry) => {
     const stores = registry.stores as Record<string, unknown>;
     const subscribers = registry.subscribers as Record<string, Set<(value: unknown | null) => void>>;
     const initialStates = registry.initialStates as Record<string, unknown>;

@@ -2,14 +2,14 @@ import { deepClone, suggestStoreName } from "./utils.js";
 import {
     getStoreRegistry,
     hasStoreEntry,
-    normalizeStoreRegistryScope,
     defaultRegistryScope,
+    getActiveStoreRegistry,
 } from "./store-registry.js";
 import { subscribers, getFeatureApi } from "./store-lifecycle.js";
 import { countInflightSlots } from "./async-cache.js";
 import type { StoreFeatureMeta } from "./feature-registry.js";
 
-const getRegistry = () => getStoreRegistry(defaultRegistryScope);
+const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
 
 const exists = (name: string): boolean => {
     const registry = getRegistry();

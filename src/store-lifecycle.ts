@@ -59,6 +59,9 @@ import {
     normalizeStoreRegistryScope,
     defaultRegistryScope,
     getRequestCarrier,
+    getActiveStoreRegistry,
+    enterRegistry,
+    type StoreRegistry,
 } from "./store-registry.js";
 import { bindAsyncRegistry } from "./async-cache.js";
 export { defaultRegistryScope } from "./store-registry.js";
@@ -142,7 +145,24 @@ type BaseFeatureContext = {
 };
 
 let _scope = defaultRegistryScope;
-let _registry = getStoreRegistry(_scope);
+let _defaultRegistry = getStoreRegistry(_scope);
+const initializedRegistries = new WeakSet<StoreRegistry>();
+const initializeRegistryFeatureRuntimes = (registry: StoreRegistry): void => {
+    if (initializedRegistries.has(registry)) return;
+    initializedRegistries.add(registry);
+    getRegisteredFeatureNames().forEach((name) => {
+        if (!registry.featureRuntimes.get(name)) {
+            const factory = getStoreFeatureFactory(name);
+            if (factory) registry.featureRuntimes.set(name, factory());
+        }
+    });
+};
+
+const getActiveRegistry = (): StoreRegistry => {
+    const registry = getActiveStoreRegistry(_defaultRegistry);
+    initializeRegistryFeatureRuntimes(registry);
+    return registry;
+};
 
 const createRegistryObjectProxy = <T extends object>(getter: () => T): T =>
     new Proxy(Object.create(null), {
@@ -192,30 +212,64 @@ const createRegistryValueProxy = <T extends object>(getter: () => T): T =>
         },
     });
 
-export const stores = createRegistryObjectProxy(() => _registry.stores as Record<string, StoreValue>);
-export const subscribers = createRegistryObjectProxy(() => _registry.subscribers as Record<string, Set<Subscriber>>);
-export const initialStates = createRegistryObjectProxy(() => _registry.initialStates as Record<string, StoreValue>);
-export const initialFactories = createRegistryObjectProxy(() => _registry.initialFactories as Record<string, (() => StoreValue) | undefined>);
-export const meta = createRegistryObjectProxy(() => _registry.metaEntries as Record<string, MetaEntry>);
-export const snapshotCache = createRegistryObjectProxy(() => _registry.snapshotCache as Record<string, { version: number; snapshot: StoreValue | null }>);
+export const stores = createRegistryObjectProxy(() => getActiveRegistry().stores as Record<string, StoreValue>);
+export const subscribers = createRegistryObjectProxy(() => getActiveRegistry().subscribers as Record<string, Set<Subscriber>>);
+export const initialStates = createRegistryObjectProxy(() => getActiveRegistry().initialStates as Record<string, StoreValue>);
+export const initialFactories = createRegistryObjectProxy(() => getActiveRegistry().initialFactories as Record<string, (() => StoreValue) | undefined>);
+export const meta = createRegistryObjectProxy(() => getActiveRegistry().metaEntries as Record<string, MetaEntry>);
+export const snapshotCache = createRegistryObjectProxy(() => getActiveRegistry().snapshotCache as Record<string, { version: number; snapshot: StoreValue | null }>);
 
 type PathSafetyVerdict = { ok: true } | { ok: false; reason: string };
 type PathValidationCacheNode = {
     children: Map<string, PathValidationCacheNode>;
     verdicts?: Map<SupportedType, PathSafetyVerdict>;
 };
-let _pathValidationCache = new Map<string, PathValidationCacheNode>();
-const _pathValidationCounts = new Map<string, number>();
+const _pathValidationCacheByRegistry = new WeakMap<StoreRegistry, Map<string, PathValidationCacheNode>>();
+const _pathValidationCountsByRegistry = new WeakMap<StoreRegistry, Map<string, number>>();
 const MAX_PATH_CACHE_ENTRIES_PER_STORE = 500;
-export const pathValidationCache = createRegistryMapProxy(() => _pathValidationCache);
+const getPathValidationCache = (registry: StoreRegistry): Map<string, PathValidationCacheNode> => {
+    let cache = _pathValidationCacheByRegistry.get(registry);
+    if (!cache) {
+        cache = new Map();
+        _pathValidationCacheByRegistry.set(registry, cache);
+    }
+    return cache;
+};
+const getPathValidationCounts = (registry: StoreRegistry): Map<string, number> => {
+    let counts = _pathValidationCountsByRegistry.get(registry);
+    if (!counts) {
+        counts = new Map();
+        _pathValidationCountsByRegistry.set(registry, counts);
+    }
+    return counts;
+};
+export const pathValidationCache = createRegistryMapProxy(() => getPathValidationCache(getActiveRegistry()));
 
-export const featureRuntimes = createRegistryMapProxy(() => _registry.featureRuntimes as Map<FeatureName, StoreFeatureRuntime>);
+export const featureRuntimes = createRegistryMapProxy(() => getActiveRegistry().featureRuntimes as Map<FeatureName, StoreFeatureRuntime>);
 
-let _storeAdmin = createStoreAdmin(_scope);
-export const storeAdmin = createRegistryValueProxy(() => _storeAdmin);
+const storeAdminByRegistry = new WeakMap<StoreRegistry, ReturnType<typeof createStoreAdmin>>();
+const getStoreAdminForRegistry = (registry: StoreRegistry): ReturnType<typeof createStoreAdmin> => {
+    let admin = storeAdminByRegistry.get(registry);
+    if (!admin) {
+        admin = createStoreAdmin(registry);
+        storeAdminByRegistry.set(registry, admin);
+    }
+    return admin;
+};
+export const storeAdmin = createRegistryValueProxy(() => getStoreAdminForRegistry(getActiveRegistry()));
 export const getStoreAdmin = (): typeof storeAdmin => storeAdmin;
-const baseFeatureContexts = new Map<string, BaseFeatureContext | null>();
-export const clearFeatureContexts = (): void => baseFeatureContexts.clear();
+const baseFeatureContextsByRegistry = new WeakMap<StoreRegistry, Map<string, BaseFeatureContext | null>>();
+const getBaseFeatureContexts = (registry: StoreRegistry): Map<string, BaseFeatureContext | null> => {
+    let contexts = baseFeatureContextsByRegistry.get(registry);
+    if (!contexts) {
+        contexts = new Map();
+        baseFeatureContextsByRegistry.set(registry, contexts);
+    }
+    return contexts;
+};
+export const clearFeatureContexts = (): void => {
+    getBaseFeatureContexts(getActiveRegistry()).clear();
+};
 
 export const bindRegistry = (scopeOrRegistry?: string | ReturnType<typeof getStoreRegistry>): void => {
     const resolvedScope = typeof scopeOrRegistry === "string"
@@ -226,10 +280,10 @@ export const bindRegistry = (scopeOrRegistry?: string | ReturnType<typeof getSto
         : scopeOrRegistry ?? getStoreRegistry(_scope);
 
     _scope = resolvedScope;
-    _registry = registry;
-    _pathValidationCache = new Map<string, PathValidationCacheNode>();
-    _pathValidationCounts.clear();
-    _storeAdmin = createStoreAdmin(_scope);
+    _defaultRegistry = registry;
+    enterRegistry(registry);
+    _pathValidationCacheByRegistry.set(registry, new Map<string, PathValidationCacheNode>());
+    _pathValidationCountsByRegistry.set(registry, new Map<string, number>());
     clearFeatureContexts();
     resetSsrWarningFlag();
     bindAsyncRegistry(resolvedScope);
@@ -267,7 +321,7 @@ export const qualifyName = (raw: string): string => {
 export const nameOf = (name: string | StoreDefinition<string, StoreValue>): string =>
     qualifyName(typeof name === "string" ? name : name.name);
 
-export const hasStoreEntryInternal = (name: string): boolean => _hasStoreEntry(_registry, name);
+export const hasStoreEntryInternal = (name: string): boolean => _hasStoreEntry(getActiveRegistry(), name);
 export const getStoreValueRef = (name: string): StoreValue | undefined => {
     const carrier = getRequestCarrier();
     if (carrier && Object.prototype.hasOwnProperty.call(carrier, name)) {
@@ -278,7 +332,8 @@ export const getStoreValueRef = (name: string): StoreValue | undefined => {
 export const getFeatureApi = (name: FeatureName) => featureRuntimes.get(name)?.api;
 
 export const exists = (name: string): boolean => {
-    if (_hasStoreEntry(_registry, name) && !isStoreDeleting(_registry, name)) return true;
+    const registry = getActiveRegistry();
+    if (_hasStoreEntry(registry, name) && !isStoreDeleting(registry, name)) return true;
     suggestStoreName(name, Object.keys(stores));
     return false;
 };
@@ -289,10 +344,13 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
     const parts = parsePath(path);
     if (parts.length === 0) return { ok: true };
     const incomingType = getType(nextValue);
-    let root = pathValidationCache.get(storeName);
+    const registry = getActiveRegistry();
+    const pathCache = getPathValidationCache(registry);
+    const pathCounts = getPathValidationCounts(registry);
+    let root = pathCache.get(storeName);
     if (!root) {
         root = { children: new Map() };
-        pathValidationCache.set(storeName, root);
+        pathCache.set(storeName, root);
     }
 
     let node = root;
@@ -396,11 +454,11 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
     const hadVerdict = node.verdicts.has(incomingType);
     node.verdicts.set(incomingType, verdict);
     if (!hadVerdict) {
-        const nextCount = (_pathValidationCounts.get(storeName) ?? 0) + 1;
-        _pathValidationCounts.set(storeName, nextCount);
+        const nextCount = (pathCounts.get(storeName) ?? 0) + 1;
+        pathCounts.set(storeName, nextCount);
         if (nextCount > MAX_PATH_CACHE_ENTRIES_PER_STORE) {
-            pathValidationCache.delete(storeName);
-            _pathValidationCounts.delete(storeName);
+            pathCache.delete(storeName);
+            pathCounts.delete(storeName);
         }
     }
     return verdict;
@@ -506,13 +564,15 @@ export const setStoreValueInternal = (name: string, value: StoreValue): void => 
 };
 
 export const invalidatePathCache = (name: string): void => {
-    pathValidationCache.delete(name);
-    _pathValidationCounts.delete(name);
+    const registry = getActiveRegistry();
+    getPathValidationCache(registry).delete(name);
+    getPathValidationCounts(registry).delete(name);
 };
 
 export const clearPathValidationCache = (): void => {
-    pathValidationCache.clear();
-    _pathValidationCounts.clear();
+    const registry = getActiveRegistry();
+    getPathValidationCache(registry).clear();
+    getPathValidationCounts(registry).clear();
 };
 
 export const materializeInitial = (name: string): boolean => {
@@ -602,6 +662,8 @@ export const resolveFeatureAvailability = (name: string, options: NormalizedOpti
 };
 
 export const createBaseFeatureContext = (name: string): BaseFeatureContext | null => {
+    const registry = getActiveRegistry();
+    const baseFeatureContexts = getBaseFeatureContexts(registry);
     const cached = baseFeatureContexts.get(name);
     if (cached) return cached;
 
@@ -618,7 +680,7 @@ export const createBaseFeatureContext = (name: string): BaseFeatureContext | nul
         getStoreValue: () => stores[name],
         getAllStores: () => stores,
         getInitialState: () => initialStates[name],
-        hasStore: () => _hasStoreEntry(_registry, name),
+        hasStore: () => _hasStoreEntry(registry, name),
         setStoreValue: (value: StoreValue) => {
             setStoreValueInternal(name, value);
         },
@@ -711,7 +773,7 @@ export const runStoreHookSafe = (
     });
 
 export const clearAllRegistries = (): void => {
-    clearStoreRegistries(_registry);
+    clearStoreRegistries(getActiveRegistry());
 };
 
 export const resetFeaturesForTests = (): void => {
@@ -722,4 +784,4 @@ export const resetFeaturesForTests = (): void => {
 };
 
 export const getMetaEntry = (name: string): MetaEntry | undefined => meta[name];
-export const getRegistry = () => _registry;
+export const getRegistry = () => getActiveRegistry();

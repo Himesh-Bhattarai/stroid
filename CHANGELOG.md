@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 - Async rate limiter metadata now clears on store deletion to prevent leakage across request scopes.
 - Subscriber storage uses `Set` consistently across `subscribeStore` and `subscribeWithSelector`, preventing type mismatches.
 - `clearAllStores` now removes stores created during delete hooks.
+- SSR registry isolation now uses AsyncLocalStorage-backed registries to prevent concurrent request scope leakage.
 - Registry bindings no longer go stale after scope rebinds; registry exports proxy to the active scope (SSR safe).
 - Store names now reject `__proto__`, `constructor`, and `prototype`, and `hydrateStores` skips invalid names to prevent registry pollution.
 - Persist now validates encrypt/decrypt round-trips and disables persistence when crypto hooks are misconfigured.
