@@ -87,8 +87,8 @@
     "./dist/devtools.js"
   ],
   "scripts": {
-    "test": "node --import tsx --import ./tests/setup.ts --test \"tests/**/*.test.ts\" \"tests/**/*.test.tsx\"",
-    "test:heavy": "node --import tsx --test \"tests/heavy/**/*.heavy.ts\"",
+    "test": "node --import tsx --import ./tests/setup.ts --test tests",
+    "test:heavy": "node --import tsx --test tests/heavy",
     "test:types": "tsc -p tsconfig.typetests.json",
     "typecheck": "tsc -p tsconfig.types.json",
     "build": "tsup",
