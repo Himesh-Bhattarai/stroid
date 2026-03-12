@@ -20,7 +20,6 @@ export {
     deleteStore,
     resetStore,
     hydrateStores,
-    _hardResetAllStoresForTest,
     useRegistry,
 } from "./store-write.js";
 

@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - `resetStore` and `deleteStore` now accept `StoreKey`/`StoreDefinition` handles in addition to string names.
 - `useStore` overloads now return non-nullable values when called with `StoreKey`/`StoreDefinition` handles.
 - Persist internals split into `features/persist/*` (crypto/load/save/watch/types) to keep responsibilities isolated.
+- `fetchStore` now warns in dev when it auto-creates a missing store (to surface typos early).
 - `fetchStore` now hard-fails when the per-store inflight slot limit is exceeded (throws instead of returning `null`).
 - Selector cache logic in React hooks is shared between `useStore` and `useSelector` to avoid duplicate implementations and ensure consistent selector identity checks.
 - Feature hook context creation now avoids full object spread copies on every write/delete to reduce overhead.
@@ -44,6 +45,8 @@ All notable changes to this project will be documented in this file.
 - `subscribeWithSelector` now uses store snapshots so selectors never receive mutable live references.
 - `deepClone` fallback now preserves Dates consistently (no JSON stringify fallback).
 - `hashState` now handles circular structures and uses a stronger 53-bit hash for non-string inputs while preserving legacy checksums for strings.
+- Chunked notification delivery now defers remaining subscribers if the store updates mid-flush, avoiding mixed snapshots in a single delivery.
+- `_hardResetAllStoresForTest` is no longer exported from the main package entry; it remains in `stroid/testing`.
 ### Testing
 - `patch0/test` completed the `P0` stabilization pass for core state safety and production failure handling.
 - Core testing now covers immutable reads/snapshots/history, guarded validator and lifecycle failures, delete/persist races, reset persistence, sanitize rejection for hostile payloads, SSR async fail-fast behavior, hydration replacement semantics, and stale sync messages after delete.

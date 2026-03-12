@@ -26,6 +26,7 @@ export type AsyncRegistry = {
     rateWindowStart: Record<string, number>;
     rateCount: Record<string, number>;
     noSignalWarned: Set<string>;
+    autoCreateWarned: Set<string>;
     cleanupSubs: Record<string, () => void>;
     storeCleanupFns: Record<string, Set<() => void>>;
     revalidateKeys: Set<string>;
@@ -49,6 +50,7 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     rateWindowStart: Object.create(null),
     rateCount: Object.create(null),
     noSignalWarned: new Set<string>(),
+    autoCreateWarned: new Set<string>(),
     cleanupSubs: Object.create(null),
     storeCleanupFns: Object.create(null),
     revalidateKeys: new Set<string>(),
@@ -91,6 +93,7 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
 
     registry.revalidateKeys.clear();
     registry.noSignalWarned.clear();
+    registry.autoCreateWarned.clear();
 
     registry.asyncMetrics.cacheHits = 0;
     registry.asyncMetrics.cacheMisses = 0;

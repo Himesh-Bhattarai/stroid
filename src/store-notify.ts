@@ -95,6 +95,7 @@ const flush = () => {
         subsArray: Subscriber[];
         index: number;
         snapshot: StoreValue | null;
+        version: number;
         metrics: { notifyCount: number; totalNotifyMs: number; lastNotifyMs: number };
         totalMs: number;
     };
@@ -119,6 +120,7 @@ const flush = () => {
                 subsArray: Array.from(subs),
                 index: 0,
                 snapshot,
+                version,
                 metrics: meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
                 totalMs: 0,
             });
@@ -136,6 +138,17 @@ const flush = () => {
                 return;
             }
             const task = queue.shift()!;
+            const currentVersion = meta[task.name]?.updateCount ?? task.version;
+            if (currentVersion !== task.version) {
+                pendingNotifications.add(task.name);
+                if (queue.length === 0) {
+                    done();
+                    return;
+                }
+                if (runInline) processNext();
+                else scheduleChunk(processNext, chunkDelayMs);
+                return;
+            }
             const start = now();
             const endIndex = Math.min(task.index + sliceSize, task.subsArray.length);
             for (let i = task.index; i < endIndex; i++) {

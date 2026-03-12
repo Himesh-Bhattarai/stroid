@@ -11,6 +11,7 @@ import {
     inflight,
     MAX_INFLIGHT_SLOTS_PER_STORE,
     noSignalWarned,
+    autoCreateWarned,
     ensureCleanupSubscription,
     pruneAsyncCache,
     registerStoreCleanup,
@@ -180,6 +181,14 @@ export async function fetchStore(
     }
 
     if (!hasStore(name)) {
+        if (isDev() && !autoCreateWarned.has(name)) {
+            autoCreateWarned.add(name);
+            const message =
+                `fetchStore("${name}") auto-created its backing store.\n` +
+                `Call createStore("${name}", ...) first to avoid typos creating phantom stores.`;
+            onError?.(message);
+            warn(message);
+        }
         createStore(name, {
             data: null,
             loading: false,

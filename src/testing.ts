@@ -1,5 +1,6 @@
 import { _resetAsyncStateForTests } from "./async.js";
-import { createStore, setStore, resetStore, _hardResetAllStoresForTest } from "./store.js";
+import { createStore, setStore, resetStore } from "./store.js";
+import { _hardResetAllStoresForTest } from "./store-write.js";
 
 export const createMockStore = (name = "mock", initial: Record<string, unknown> = {}) => {
     createStore(name, initial);

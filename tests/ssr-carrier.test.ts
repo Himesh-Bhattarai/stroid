@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert";
-import { createStore, getStore, setStore, _hardResetAllStoresForTest } from "../src/store.js";
+import { createStore, getStore, setStore } from "../src/store.js";
+import { resetAllStoresForTest } from "../src/testing.js";
 import { createStoreForRequest } from "../src/server.js";
 
 test("SSR Carrier perfectly isolates concurrent requests", async () => {
-    _hardResetAllStoresForTest();
+    resetAllStoresForTest();
 
     // The requests will both prepare their buffers then hydrate concurrently.
     const reqA = createStoreForRequest(({ create }) => {
