@@ -80,7 +80,8 @@ type PathInternal<T, Depth extends number> = Depth extends 0
                 : `${K}` | `${K}.${PathInternal<T[K], PrevDepth[Depth]>}`
         }[keyof T & (string | number)];
 
-export type Path<T, Depth extends number = 6> = PathInternal<T, Depth>;
+export type PathDepth<T, Depth extends number> = PathInternal<T, Depth>;
+export type Path<T, Depth extends number = 10> = PathInternal<T, Depth>;
 
 export type PathValue<T, P extends Path<T>> = P extends `${infer K}.${infer Rest}`
     ? K extends keyof T
@@ -742,7 +743,7 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
     featureRuntimes.forEach((runtime) => {
         runtime.afterStoreDelete?.(ctx);
     });
-    baseFeatureContexts.delete(name);
+    getBaseFeatureContexts(getActiveRegistry()).delete(name);
 };
 
 export const runMiddlewareForStore = (

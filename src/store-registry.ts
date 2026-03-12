@@ -19,6 +19,12 @@ export type RegistrySnapshotEntry = {
     snapshot: RegistryStoreValue | null;
 };
 
+export type ComputedEntry = {
+    deps: string[];
+    compute: (...args: unknown[]) => unknown;
+    stale: boolean;
+};
+
 export type StoreRegistry = {
     stores: Record<string, RegistryStoreValue>;
     subscribers: Record<string, Set<RegistrySubscriber>>;
@@ -28,6 +34,8 @@ export type StoreRegistry = {
     snapshotCache: Record<string, RegistrySnapshotEntry>;
     featureRuntimes: Map<FeatureName, StoreFeatureRuntime>;
     deletingStores: Set<string>;
+    computedEntries: Record<string, ComputedEntry>;
+    computedDependents: Record<string, string[]>;
 };
 
 const _registries = new Map<string, StoreRegistry>();
@@ -67,6 +75,8 @@ export const createStoreRegistry = (): StoreRegistry => ({
     snapshotCache: Object.create(null),
     featureRuntimes: new Map(),
     deletingStores: new Set(),
+    computedEntries: Object.create(null),
+    computedDependents: Object.create(null),
 });
 
 export const getStoreRegistry = (scope: string): StoreRegistry => {
@@ -85,7 +95,16 @@ export const isStoreDeleting = (registry: StoreRegistry, name: string): boolean 
     registry.deletingStores.has(name);
 
 export const clearStoreRegistries = (registry: StoreRegistry): void => {
-    [registry.stores, registry.subscribers, registry.initialStates, registry.initialFactories, registry.metaEntries, registry.snapshotCache].forEach((registryPart) => {
+    [
+        registry.stores,
+        registry.subscribers,
+        registry.initialStates,
+        registry.initialFactories,
+        registry.metaEntries,
+        registry.snapshotCache,
+        registry.computedEntries,
+        registry.computedDependents,
+    ].forEach((registryPart) => {
         Object.keys(registryPart).forEach((key) => {
             delete registryPart[key];
         });
@@ -95,7 +114,16 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
 
 export const resetAllStoreRegistriesForTests = (): void => {
     _registries.forEach((registry) => {
-        [registry.stores, registry.subscribers, registry.initialStates, registry.initialFactories, registry.metaEntries, registry.snapshotCache].forEach((registryPart) => {
+        [
+            registry.stores,
+            registry.subscribers,
+            registry.initialStates,
+            registry.initialFactories,
+            registry.metaEntries,
+            registry.snapshotCache,
+            registry.computedEntries,
+            registry.computedDependents,
+        ].forEach((registryPart) => {
             Object.keys(registryPart).forEach((key) => {
                 delete registryPart[key];
             });

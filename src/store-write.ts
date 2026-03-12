@@ -54,7 +54,7 @@ import {
     type StoreName, type StateFor, type WriteResult,
 } from "./store-engine.js";
 import { resetBroadUseStoreWarnings } from "./internals/hooks-warnings.js";
-import { resetConfig } from "./internals/config.js";
+import { getConfig, resetConfig } from "./internals/config.js";
 import { clearRegistryScopeOverrideForTests } from "./store-registry.js";
 import { notify, resetNotifyStateForTests } from "./store-notify.js";
 import { MIDDLEWARE_ABORT } from "./features/lifecycle.js";
@@ -174,6 +174,13 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         try {
             const draft = deepClone(prev);
             const result = (keyOrData as (draft: any) => unknown)(draft);
+            if (result !== undefined && getConfig().strictMutatorReturns) {
+                const message =
+                    `setStore("${storeName}", mutator) returned a value. ` +
+                    `Strict mutator mode forbids return values; mutate the draft instead.`;
+                reportStoreError(storeName, message);
+                return { ok: false, reason: "validate" };
+            }
             updated = result !== undefined ? result as StoreValue : draft as StoreValue;
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);

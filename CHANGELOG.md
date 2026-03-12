@@ -7,9 +7,13 @@ All notable changes to this project will be documented in this file.
 - `configureStroid({ strictMissingFeatures: true })` option to hard-fail when a feature is requested without its side-effect registration import.
 - `getSubscriberCount`, `getAsyncInflightCount`, and `getPersistQueueDepth` observability helpers in `runtime-tools`.
 - `configureStroid({ assertRuntime: true })` option to throw on warnings/errors for test-time assertions.
+- `createComputed(...)` for reactive derived stores.
+- `getComputedGraph()` and `getComputedDeps()` diagnostics in `runtime-tools`.
+- `configureStroid({ strictMutatorReturns: true })` to forbid mutator return values.
 
 ### Changed
 - Runtime now always surfaces missing feature registrations via warnings (even in production), and can throw when `strictMissingFeatures` is enabled.
+- Default `Path<T>` inference depth increased to 10; use `PathDepth<T, N>` for deeper paths.
 - Removed `mergeStore` and `chain` from the public API; use `setStore(name, partial)` and mutator updates instead.
 - Selector cache logic in React hooks is shared between `useStore` and `useSelector` to avoid duplicate implementations and ensure consistent selector identity checks.
 - Feature hook context creation now avoids full object spread copies on every write/delete to reduce overhead.

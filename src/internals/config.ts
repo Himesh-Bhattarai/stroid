@@ -23,6 +23,7 @@ export type StroidConfig = {
     namespace?: string;
     strictMissingFeatures?: boolean;
     assertRuntime?: boolean;
+    strictMutatorReturns?: boolean;
 };
 
 type ResolvedConfig = {
@@ -32,6 +33,7 @@ type ResolvedConfig = {
     namespace: string;
     strictMissingFeatures: boolean;
     assertRuntime: boolean;
+    strictMutatorReturns: boolean;
 };
 
 const defaultLogSink: LogSink = {
@@ -70,6 +72,7 @@ const defaultConfig: ResolvedConfig = {
     namespace: "",
     strictMissingFeatures: false,
     assertRuntime: false,
+    strictMutatorReturns: false,
 };
 
 let _config: ResolvedConfig = { ...defaultConfig };
@@ -142,6 +145,13 @@ export const configureStroid = (next?: StroidConfig): void => {
         _config = {
             ..._config,
             assertRuntime: next.assertRuntime,
+        };
+    }
+
+    if (typeof next.strictMutatorReturns === "boolean") {
+        _config = {
+            ..._config,
+            strictMutatorReturns: next.strictMutatorReturns,
         };
     }
 };

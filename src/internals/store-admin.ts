@@ -3,6 +3,7 @@ import type { FeatureDeleteContext, FeatureName, StoreFeatureMeta } from "../fea
 import { hasStoreEntry, type StoreRegistry } from "../store-registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn } from "./diagnostics.js";
+import { unregisterComputed, isComputed } from "../computed-graph.js";
 
 type MetaEntry = StoreFeatureMeta;
 
@@ -145,6 +146,20 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             delete initialFactories[name];
             delete metaEntries[name];
             delete snapshotCache[name];
+
+            if (isComputed(name)) {
+                unregisterComputed(name);
+            }
+
+            const dependents = registry.computedDependents;
+            const affected = dependents[name] ?? [];
+            for (const computedName of affected) {
+                warn(
+                    `[stroid] source store "${name}" was deleted. ` +
+                    `Computed store "${computedName}" depends on it and will return stale data. ` +
+                    `Call deleteComputed("${computedName}") to clean up.`
+                );
+            }
 
             runFeatureDeleteHooks({
                 name,

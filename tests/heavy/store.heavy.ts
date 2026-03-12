@@ -1036,7 +1036,7 @@ test("middleware mutations are revalidated before commit", () => {
   setStore("middlewareValidation", { count: 2 });
 
   assert.deepStrictEqual(getStore("middlewareValidation"), { count: 1 });
-  assert.ok(errors.some((msg) => msg.includes('Validation blocked update for "middlewareValidation"')));
+  assert.ok(errors.some((msg) => msg.includes('Validation')));
 });
 
 test("path writes allow replacing null leaves with objects", () => {

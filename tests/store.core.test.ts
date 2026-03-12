@@ -12,6 +12,7 @@ import {
 } from "../src/store.js";
 import { clearAllStores } from "../src/runtime-admin.js";
 import { subscribeWithSelector } from "../src/selectors.js";
+import { createComputed } from "../src/computed.js";
 
 test("core create, set, get, merge, reset, delete flow works", async () => {
   clearAllStores();
@@ -112,4 +113,23 @@ test("mutator return values replace draft updates", () => {
   });
 
   assert.deepStrictEqual(getStore("mutatorReturn"), { count: 5 });
+});
+
+test("createComputed derives and updates from dependencies", async () => {
+  clearAllStores();
+  createStore("firstName", "Alex");
+  createStore("lastName", "Stone");
+
+  const fullName = createComputed(
+    "fullName",
+    ["firstName", "lastName"],
+    (first, last) => `${first} ${last}`
+  );
+
+  assert.strictEqual(getStore("fullName"), "Alex Stone");
+
+  setStore("firstName", () => "Jordan");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.strictEqual(getStore("fullName"), "Jordan Stone");
 });

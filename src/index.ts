@@ -8,6 +8,12 @@ export {
     hasStore,
     hydrateStores,
 } from "./store.js";
+export {
+    createComputed,
+    invalidateComputed,
+    deleteComputed,
+    isComputedStore,
+} from "./computed.js";
 export { namespace, store } from "./store.js";
 export type {
     Path,

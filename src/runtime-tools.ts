@@ -8,6 +8,7 @@ import {
 import { subscribers, getFeatureApi } from "./store-lifecycle.js";
 import { countInflightSlots } from "./async-cache.js";
 import type { StoreFeatureMeta } from "./feature-registry.js";
+import { getFullComputedGraph, getComputedDepsFor } from "./computed-graph.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
 
@@ -60,3 +61,7 @@ export const getPersistQueueDepth = (name: string): number => {
     if (!api?.getPersistQueueDepth) return 0;
     return api.getPersistQueueDepth(name) ?? 0;
 };
+
+export const getComputedGraph = () => getFullComputedGraph();
+
+export const getComputedDeps = (name: string) => getComputedDepsFor(name);

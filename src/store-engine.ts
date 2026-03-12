@@ -73,6 +73,7 @@ export {
 // ─── Types ──────────────────────────────────────────────────────────────────
 export type {
     Path,
+    PathDepth,
     PathValue,
     PartialDeep,
     StoreValue,

@@ -7,6 +7,7 @@ export default defineConfig({
         "runtime-tools": "src/runtime-tools.ts",
         "runtime-admin": "src/runtime-admin.ts",
         selectors: "src/selectors-entry.ts",
+        computed: "src/computed-entry.ts",
         helpers: "src/helpers.ts",
         server: "src/server.ts",
         async: "src/async.ts",

@@ -87,6 +87,7 @@ Stroid ships a few helpers for common patterns:
 - `createEntityStore(name, options?)` -> { upsert, remove, all, get, clear }
 - `createSelector(storeName, selectorFn)` from `stroid/selectors` -> memoized selector you can call without React
 - `subscribeWithSelector(name, selector, equalityFn, listener)` from `stroid/selectors` -> watch a derived value outside React
+- `createComputed(name, deps, compute)` from `stroid` -> create reactive derived stores
 
 Factory helpers are exported from `stroid/helpers` and selector helpers from `stroid/selectors`.
 

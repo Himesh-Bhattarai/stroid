@@ -22,6 +22,7 @@ import {
     type StoreValue,
     type Subscriber,
 } from "./store-lifecycle.js";
+import { getTopoOrderedComputeds } from "./computed-graph.js";
 
 const pendingNotifications = new Set<string>();
 const pendingBuffer: string[] = [];
@@ -61,6 +62,13 @@ const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs
         }
     } else {
         orderedNames.push(...pendingBuffer);
+    }
+
+    const computedOrder = getTopoOrderedComputeds(orderedNames);
+    for (const computedName of computedOrder) {
+        if (pendingSet.has(computedName) && !orderedNames.includes(computedName)) {
+            orderedNames.push(computedName);
+        }
     }
 
     const sliceSize = Number.isFinite(cfg.chunkSize) && (cfg.chunkSize as number) > 0

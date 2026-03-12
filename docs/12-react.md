@@ -70,6 +70,9 @@ const expensiveItems = useSelector(
 
 `useSelector` memoizes the result. The selector only re-runs when the underlying state changes.
 
+If you need a reactive derived store that can be read outside React (or shared across tabs via the source stores),
+use `createComputed(...)` from the core API.
+
 ---
 
 ## Reading Multiple Values
