@@ -4,6 +4,7 @@ import "../../src/persist.js";
 import "../../src/sync.js";
 import "../../src/devtools.js";
 import { devDeepFreeze } from "../../src/devfreeze.js";
+import { isDev } from "../../src/utils.js";
 import { getHistory, clearHistory } from "../../src/devtools.js";
 import { clearAllStores } from "../../src/runtime-admin.js";
 import {
@@ -1299,6 +1300,30 @@ test("setStoreBatch rejects async callbacks before they can interleave state", (
   }, /does not support async functions/);
 
   assert.deepStrictEqual(getStore("batchGuard"), { value: 0 });
+});
+
+test("setStoreBatch warns and no-ops when passed a non-function", () => {
+  clearAllStores();
+  createStore("batchNonFunction", { value: 0 });
+
+  const warned: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (message?: unknown) => {
+    warned.push(String(message ?? ""));
+  };
+
+  try {
+    assert.doesNotThrow(() => {
+      setStoreBatch(null as any);
+    });
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.deepStrictEqual(getStore("batchNonFunction"), { value: 0 });
+  if (isDev()) {
+    assert.ok(warned.some((msg) => msg.includes("setStoreBatch requires a synchronous function callback.")));
+  }
 });
 
 test("setStoreBatch flushes queued notifications before rejecting promise-returning callbacks", async () => {
