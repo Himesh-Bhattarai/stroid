@@ -58,8 +58,8 @@ test("SSR Carrier perfectly isolates concurrent requests", async () => {
     
     // We expect the global store to NOT contain 'ModifiedUserA' or any cross-polluted data.
     const globalState = getStore("session");
-    // Actually, because `createStore` puts `deepClone(data)` into `initialStates` and `stores` directly
-    // when initialized, the very first hydration might have placed `UserA` into the global `initialStates`.
-    // Let's print it to see exactly the behavior!
-    console.log("Global State after reqs:", globalState);
+    assert.ok(
+        globalState == null,
+        "expected no global store data after concurrent SSR requests"
+    );
 });

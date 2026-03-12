@@ -49,6 +49,11 @@ All notable changes to this project will be documented in this file.
 - Chunked notification delivery now defers remaining subscribers if the store updates mid-flush, avoiding mixed snapshots in a single delivery.
 - `_hardResetAllStoresForTest` is no longer exported from the main package entry; it remains in `stroid/testing`.
 - Async rate limiter now initializes per-slot windows and prunes stale metadata to avoid unbounded growth.
+- Computed cleanup registrations are now scoped to the active registry, preventing cross-request leaks in SSR.
+- Store delete hooks now iterate the registered feature set (including third-party features).
+- Computed creation logs now use the configured `logSink` instead of raw `console.log`.
+- Async fetch usage errors now route through the configured `logSink.critical` in production.
+- `useAsyncStoreSuspense` no longer allocates a new default options object each render, stabilizing memoization.
 
 ### Docs
 - `subscribeWithSelector` now documents `prev` semantics for batched writes.
@@ -63,6 +68,8 @@ All notable changes to this project will be documented in this file.
 - `debugging/bug` closes the remaining pre-push runtime gaps across React inline selector stability, async stale-request ordering, middleware veto semantics, clone fallback safety, and deep-freeze resilience.
 - Testing now also includes mounted React hook runtime coverage for `useStore()` inline selectors, alongside the branch’s new regressions for stale async ordering, middleware vetoes, exact selector fallback matching, and cycle-safe deep freeze.
 - CI test scripts now run directory-based Node tests and type tests build dist before type-checking package declarations.
+- React Suspense coverage added for `useAsyncStoreSuspense`, including stable memoization under rerender.
+- SSR carrier test now asserts the global store remains unpolluted after concurrent requests.
 
 ### Changed
 - `v0.0.5` is now the active development branch. `main` stays locked on the released `0.0.4` line until the next release is cut.

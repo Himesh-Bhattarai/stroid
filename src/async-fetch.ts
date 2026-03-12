@@ -1,5 +1,5 @@
 import { createStore, setStore, hasStore } from "./store.js";
-import { error, warn, isDev } from "./utils.js";
+import { error, warn, isDev, critical } from "./utils.js";
 import { getConfig } from "./internals/config.js";
 import { nameOf, type StoreDefinition, type StoreKey, type StoreName } from "./store-lifecycle.js";
 import {
@@ -78,9 +78,7 @@ const _reportAsyncUsageError = (
         error(message);
         return null;
     }
-    if (typeof console !== "undefined" && typeof console.error === "function") {
-        console.error(`[stroid] ${message}`);
-    }
+    critical(message);
     return null;
 };
 
@@ -92,8 +90,8 @@ const _throwAsyncUsageError = (
     _runAsyncHook(name, "onError", onError, message);
     if (isDev()) {
         error(message);
-    } else if (typeof console !== "undefined" && typeof console.error === "function") {
-        console.error(`[stroid] ${message}`);
+    } else {
+        critical(message);
     }
     throw new Error(message);
 };

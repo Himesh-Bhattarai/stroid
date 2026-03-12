@@ -17,7 +17,8 @@ import {
     getComputedEntry,
     isComputed,
 } from "./computed-graph.js";
-import { warn, isDev } from "./utils.js";
+import { warn, isDev, log } from "./utils.js";
+import { getRegistry } from "./store-lifecycle/registry.js";
 import type { StoreDefinition } from "./store-lifecycle.js";
 
 export type ComputedOptions = {
@@ -65,19 +66,19 @@ export const createComputed = <TResult = unknown>(
         unsubscribers.push(unsub);
     }
 
-    _computedCleanups.set(name, () => {
+    getComputedCleanups().set(name, () => {
         unsubscribers.forEach((fn) => fn());
         unregisterComputed(name);
     });
 
     if (isDev()) {
-        console.log(`[stroid] computed store "${name}" created, deps: [${deps.join(", ")}]`);
+        log(`computed store "${name}" created, deps: [${deps.join(", ")}]`);
     }
 
     return { name } as StoreDefinition<string, TResult>;
 };
 
-const _computedCleanups = new Map<string, () => void>();
+const getComputedCleanups = (): Map<string, () => void> => getRegistry().computedCleanups;
 
 const _runCompute = (
     name: string,
@@ -124,18 +125,20 @@ export const invalidateComputed = (name: string): void => {
 };
 
 export const deleteComputed = (name: string): void => {
-    const cleanup = _computedCleanups.get(name);
+    const cleanups = getComputedCleanups();
+    const cleanup = cleanups.get(name);
     if (!cleanup) {
         if (isDev()) warn(`deleteComputed("${name}") -- not found`);
         return;
     }
     cleanup();
-    _computedCleanups.delete(name);
+    cleanups.delete(name);
 };
 
 export const isComputedStore = (name: string): boolean => isComputed(name);
 
 export const _resetComputedForTests = (): void => {
-    _computedCleanups.forEach((fn) => fn());
-    _computedCleanups.clear();
+    const cleanups = getComputedCleanups();
+    cleanups.forEach((fn) => fn());
+    cleanups.clear();
 };

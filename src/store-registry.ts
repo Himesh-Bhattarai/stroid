@@ -38,6 +38,7 @@ export type StoreRegistry = {
     deletingStores: Set<string>;
     computedEntries: Record<string, ComputedEntry>;
     computedDependents: Record<string, string[]>;
+    computedCleanups: Map<string, () => void>;
     async: AsyncRegistry;
 };
 
@@ -80,6 +81,7 @@ export const createStoreRegistry = (): StoreRegistry => ({
     deletingStores: new Set(),
     computedEntries: Object.create(null),
     computedDependents: Object.create(null),
+    computedCleanups: new Map(),
     async: createAsyncRegistry(),
 });
 
@@ -99,6 +101,10 @@ export const isStoreDeleting = (registry: StoreRegistry, name: string): boolean 
     registry.deletingStores.has(name);
 
 export const clearStoreRegistries = (registry: StoreRegistry): void => {
+    registry.computedCleanups.forEach((cleanup) => {
+        try { cleanup(); } catch (_) { /* ignore cleanup errors */ }
+    });
+    registry.computedCleanups.clear();
     [
         registry.stores,
         registry.subscribers,
@@ -119,6 +125,10 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
 
 export const resetAllStoreRegistriesForTests = (): void => {
     _registries.forEach((registry) => {
+        registry.computedCleanups.forEach((cleanup) => {
+            try { cleanup(); } catch (_) { /* ignore cleanup errors */ }
+        });
+        registry.computedCleanups.clear();
         [
             registry.stores,
             registry.subscribers,

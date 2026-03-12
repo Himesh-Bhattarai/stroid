@@ -3,8 +3,10 @@ import assert from "node:assert";
 import React from "react";
 import { act, create, ReactTestRenderer } from "react-test-renderer";
 import { fetchStore } from "../src/async.js";
-import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../src/hooks.js";
+import { asyncMetrics } from "../src/async-cache.js";
+import { useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../src/hooks.js";
 import { clearAllStores, createStore, setStore } from "../src/store.js";
+import { resetAllStoresForTest } from "../src/testing.js";
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -215,6 +217,54 @@ test("selector hooks can mount before createStore and update when the store appe
 
   assert.deepStrictEqual(seenUseStore, [null, "Alex", "Jordan"]);
   assert.deepStrictEqual(seenUseSelector, [null, "Alex", "Jordan"]);
+
+  await act(async () => {
+    renderer.unmount();
+  });
+});
+
+test("useAsyncStoreSuspense does not reissue fetches when options are omitted", async () => {
+  resetAllStoresForTest();
+  asyncMetrics.dedupes = 0;
+
+  let resolvePromise!: (value: number) => void;
+  const fetchPromise = new Promise<number>((resolve) => {
+    resolvePromise = resolve;
+  });
+  const fetchFn = () => fetchPromise;
+
+  let bump: (() => void) | null = null;
+
+  const App = () => {
+    const [tick, setTick] = React.useState(0);
+    bump = () => setTick((t) => t + 1);
+    const data = useAsyncStoreSuspense<number>("suspenseStore", fetchFn);
+    return React.createElement("span", null, `${tick}:${String(data)}`);
+  };
+
+  const Root = () => React.createElement(
+    React.Suspense,
+    { fallback: React.createElement("span", null, "loading") },
+    React.createElement(App)
+  );
+
+  let renderer!: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(React.createElement(Root));
+  });
+
+  const dedupesBefore = asyncMetrics.dedupes;
+
+  await act(async () => {
+    bump?.();
+  });
+
+  assert.strictEqual(asyncMetrics.dedupes, dedupesBefore);
+
+  await act(async () => {
+    resolvePromise(123);
+    await fetchPromise;
+  });
 
   await act(async () => {
     renderer.unmount();
