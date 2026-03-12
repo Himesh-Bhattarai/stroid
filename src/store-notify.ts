@@ -186,7 +186,8 @@ export const notify = (name: string): void => {
 
 export const setStoreBatch = (fn: () => unknown): void => {
     if (typeof fn !== "function") {
-        throw new Error("setStoreBatch requires a synchronous function callback.");
+        warn("setStoreBatch requires a synchronous function callback.");
+        return;
     }
     if (Object.prototype.toString.call(fn) === "[object AsyncFunction]") {
         throw new Error("setStoreBatch does not support async functions. Move async work outside and batch only synchronous mutations.");
