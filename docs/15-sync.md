@@ -39,6 +39,7 @@ If the resolver returns `undefined`, the incoming update is ignored.
 - New tabs request the latest snapshot on startup and again on `focus` / `online`.
 - If `BroadcastChannel` is unavailable or the payload exceeds `maxPayloadBytes`, the store reports through `onError`.
 - There is no WebSocket or remote adapter in v0.0.4.
+- Threat model: `BroadcastChannel` has no origin authentication. Any same‑origin tab can post messages and inject state. Treat sync as a trusted‑origin channel only.
 
 ---
 

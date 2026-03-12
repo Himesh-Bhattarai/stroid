@@ -42,6 +42,14 @@ createStore("user", initial, {
 
 ---
 
+## Security Note
+
+The default `encrypt/decrypt` are identity functions. Stroid does **not** encrypt persisted data unless you provide real crypto. The internal marker for default crypto is only used to detect configuration, not to protect data.
+
+If you store secrets or PII, always supply real encryption hooks and manage keys outside of client storage.
+
+---
+
 ## Collisions and Warnings
 
 Stroid warns when two stores share the same persist key, but it does not hard-block the collision. A later store can overwrite the same storage entry.

@@ -116,6 +116,7 @@ createStore("secrets", { token: "..." }, {
 ```
 
 The persist feature warns in dev if your `encrypt` is identity, but the default is also identity—don’t rely on defaults for sensitive data.
+The default crypto marker is only for configuration detection; it does not provide any encryption.
 
 ## SSR warning
 
@@ -157,7 +158,8 @@ The boolean case exists for backward compatibility and is **not recommended**. P
 - Node `>=18` is required
 - `v0.0.5` is the active development branch; `dist/` is release-managed and may be absent here or lag behind in-progress source changes until the next release build
 - Planned or not-yet-implemented ideas belong in the roadmap, not the API docs
-- The feature plugin API (persist/sync/devtools registration) is internal and subject to change; third-party plugins are not supported yet(will be support maybe in future releases).
+- Sync uses `BroadcastChannel` without origin authentication. Any same-origin tab can inject state; treat it as a trusted-origin channel.
+- The feature plugin API (persist/sync/devtools registration) is internal and subject to change; third-party plugins are not supported yet.
 
 ## License
 
