@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file.
 - Store names now reject `__proto__`, `constructor`, and `prototype`, and `hydrateStores` skips invalid names to prevent registry pollution.
 - Persist now validates encrypt/decrypt round-trips and disables persistence when crypto hooks are misconfigured.
 - `mergeStore` returns typed `WriteResult` objects without casting.
+- Chain helpers now use internal untyped accessors to avoid `StoreName` conditional overload conflicts during declaration builds.
 - `subscribeWithSelector` now uses store snapshots so selectors never receive mutable live references.
 ### Testing
 - `patch0/test` completed the `P0` stabilization pass for core state safety and production failure handling.
@@ -36,6 +37,7 @@ All notable changes to this project will be documented in this file.
 - Testing now also covers persisted init load precedence, forbidden prototype keys, forced `deepClone` fallback behavior, request-scope unknown-store failures, promise-input retry bypass, async batch rejection, and fixed-clock fallback entity inserts.
 - `debugging/bug` closes the remaining pre-push runtime gaps across React inline selector stability, async stale-request ordering, middleware veto semantics, clone fallback safety, and deep-freeze resilience.
 - Testing now also includes mounted React hook runtime coverage for `useStore()` inline selectors, alongside the branch’s new regressions for stale async ordering, middleware vetoes, exact selector fallback matching, and cycle-safe deep freeze.
+- CI test scripts now run directory-based Node tests and type tests build dist before type-checking package declarations.
 
 ### Changed
 - `v0.0.5` is now the active development branch. `main` stays locked on the released `0.0.4` line until the next release is cut.

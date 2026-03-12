@@ -16,6 +16,9 @@ const _reportMissingStore = (storeName: string, action: "read" | "write"): void 
     }
 };
 
+const getStoreAny = getStore as (name: string, path?: string | string[]) => unknown;
+const setStoreAny = setStore as (name: string, pathOrData: unknown, value?: unknown) => void;
+
 class StroidChain {
     private _storeName: string;
     private _path: string[];
@@ -47,9 +50,9 @@ class StroidChain {
             return null;
         }
         if (this._path.length === 0) {
-            return getStore(this._storeName);
+            return getStoreAny(this._storeName);
         }
-        return getStore(this._storeName, this._path.join("."));
+        return getStoreAny(this._storeName, this._path.join("."));
     }
 
     set(newValue: unknown): void {
@@ -58,9 +61,9 @@ class StroidChain {
             return;
         }
         if (this._path.length === 0) {
-            setStore(this._storeName, newValue as any);
+            setStoreAny(this._storeName, newValue);
         } else {
-            setStore(this._storeName, this._path.join("."), newValue);
+            setStoreAny(this._storeName, this._path.join("."), newValue);
         }
     }
 }
@@ -89,7 +92,7 @@ class TargetNode {
             _reportMissingStore(this._storeName, "read");
             return null;
         }
-        return getStore(this._storeName, this._fullPath);
+        return getStoreAny(this._storeName, this._fullPath);
     }
 
     set(newValue: unknown): void {
@@ -101,7 +104,7 @@ class TargetNode {
             _reportMissingStore(this._storeName, "write");
             return;
         }
-        setStore(this._storeName, this._fullPath, newValue);
+        setStoreAny(this._storeName, this._fullPath, newValue);
     }
 }
 
