@@ -66,9 +66,15 @@ export const createStore = <Name extends string, State>(
     initialData: State,
     option: StoreOptions<State> = {}
 ): StoreDefinition<Name, State> | undefined => {
-    if (!isValidStoreName(name)) return;
+    if (!isValidStoreName(name)) {
+        reportStoreCreationError(`createStore("${String(name)}") is not a valid store name.`, option.onError as ((message: string) => void) | undefined);
+        return;
+    }
     const lazyRequested = option.lazy === true && typeof initialData === "function";
-    if (!lazyRequested && !isValidData(initialData)) return;
+    if (!lazyRequested && !isValidData(initialData)) {
+        reportStoreCreationError(`createStore("${name}") received invalid initial data.`, option.onError as ((message: string) => void) | undefined);
+        return;
+    }
     if (initialData === undefined && isDev()) {
         warn(
             `createStore("${name}") received an undefined initial value. This can be indistinguishable from a missing store in some consumers; consider null or an explicit shape if that is intentional.`
@@ -184,7 +190,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
             updated = result !== undefined ? result as StoreValue : draft as StoreValue;
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
-            return { ok: false, reason: "middleware" };
+            return { ok: false, reason: "validate" };
         }
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) return { ok: false, reason: "invalid-args" };
@@ -251,7 +257,14 @@ export const deleteStore = (name: string): void => {
 export const resetStore = (name: string): void => {
     if (!exists(name)) return;
     if (!materializeInitial(name)) return;
-    if (!initialStates[name]) return;
+    if (!initialStates[name]) {
+        const message =
+            `resetStore("${name}") has no initial state to reset to. ` +
+            `If this is a lazy store, ensure it has been initialized before calling resetStore.`;
+        meta[name]?.options?.onError?.(message);
+        warn(message);
+        return;
+    }
     const prev = stores[name];
     const resetValue = deepClone(initialStates[name]);
     setStoreValueInternal(name, resetValue);
