@@ -6,7 +6,7 @@
  *        hydrateStores(), clearAllStores().
  *
  * DOES NOT KNOW about: React hooks, async caching, or feature internals.
- * Delegates all engine work to store-engine (which re-exports store-lifecycle).
+ * Delegates all engine work to store-lifecycle.
  *
  * Consumers: index.ts, core.ts, testing.ts, server.ts.
  */
@@ -52,7 +52,7 @@ import {
     type PartialDeep, type Path, type PathValue,
     type StoreDefinition, type StoreValue, type StoreKey,
     type StoreName, type StateFor, type WriteResult,
-} from "./store-engine.js";
+} from "./store-lifecycle.js";
 import { resetBroadUseStoreWarnings } from "./internals/hooks-warnings.js";
 import { getConfig, resetConfig } from "./internals/config.js";
 import { clearRegistryScopeOverrideForTests } from "./store-registry.js";

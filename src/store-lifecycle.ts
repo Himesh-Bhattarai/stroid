@@ -10,7 +10,7 @@
  *        or any specific feature plugin by name.
  *
  * Consumers: store-write (write API), store-read, store-notify,
- *            hooks-core, store-engine (re-export barrel).
+ *            hooks-core.
  */
 
 export type {
