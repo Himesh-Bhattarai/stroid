@@ -15,7 +15,6 @@ export type { PersistConfig, MiddlewareCtx, StoreOptions } from "./adapters/opti
 export {
     createStore,
     setStore,
-    mergeStore,
     deleteStore,
     resetStore,
     hydrateStores,

@@ -38,7 +38,7 @@ The core path API uses `storeName` and `path` separately:
 
 ## What Ships
 
-- Core store primitives: `createStore`, `setStore`, `getStore`, `mergeStore`, `resetStore`
+- Core store primitives: `createStore`, `setStore`, `getStore`, `resetStore`
 - React hooks: `useStore`, `useSelector`, `useStoreStatic`, `useAsyncStore`, `useFormStore`
 - Async helpers: `fetchStore`, `refetchStore`, `enableRevalidateOnFocus`
 - Per-store features: `persist`, `sync`, middleware, validator/schema, devtools, history

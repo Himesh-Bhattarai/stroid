@@ -80,4 +80,4 @@ String-name reads still work at runtime. The typed overloads come from passing t
 
 ---
 
-**[<- Chapter 6 -- mergeStore](./06-mergeStore.md) :: [Chapter 8 -- resetStore ->](./08-resetStore.md)**
+**[<- Chapter 5 -- setStore](./05-setStore.md) :: [Chapter 8 -- resetStore ->](./08-resetStore.md)**

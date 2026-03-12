@@ -165,14 +165,22 @@ export const createStoreAdmin = (scope: string) => {
     };
 
     const clearAllStores = (): string[] => {
-        const names = Object.keys(stores);
-        names.forEach((name) => {
-            if (hasStoreEntry(registry, name)) {
-                deleteExistingStore(name);
-            }
-        });
-        warn(`All stores cleared (${names.length} stores removed)`);
-        return names;
+        const removed: string[] = [];
+        let pass = 0;
+        while (true) {
+            const names = Object.keys(stores);
+            if (names.length === 0) break;
+            names.forEach((name) => {
+                if (hasStoreEntry(registry, name)) {
+                    deleteExistingStore(name);
+                    removed.push(name);
+                }
+            });
+            pass += 1;
+            if (pass > 10_000) break;
+        }
+        warn(`All stores cleared (${removed.length} stores removed)`);
+        return removed;
     };
 
     const clearStores = (pattern?: string): string[] => {

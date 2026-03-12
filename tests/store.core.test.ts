@@ -6,7 +6,6 @@ import {
   getStore,
   resetStore,
   deleteStore,
-  mergeStore,
   hasStore,
   hydrateStores,
   _subscribe,
@@ -20,7 +19,7 @@ test("core create, set, get, merge, reset, delete flow works", async () => {
 
   setStore("user", "name", "Jordan");
   setStore("user", "profile.color", "red");
-  mergeStore("user", { role: "admin" });
+  setStore("user", { role: "admin" });
 
   assert.deepStrictEqual(getStore("user"), {
     name: "Jordan",

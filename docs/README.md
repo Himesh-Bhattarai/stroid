@@ -14,7 +14,6 @@
 ### Part 2 -- Core API
 - [Chapter 4 -- createStore](./04-createStore.md)
 - [Chapter 5 -- setStore](./05-setStore.md)
-- [Chapter 6 -- mergeStore](./06-mergeStore.md)
 - [Chapter 7 -- getStore](./07-getStore.md)
 - [Chapter 8 -- resetStore](./08-resetStore.md)
 - [Chapter 9 -- setStoreBatch](./09-setStoreBatch.md)

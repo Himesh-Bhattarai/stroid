@@ -1,5 +1,5 @@
 import type { StoreKey, StoreValue } from "./store-lifecycle.js";
-import { createStore, setStore, mergeStore, deleteStore, resetStore } from "./store-write.js";
+import { createStore, setStore, deleteStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
 
 /**
@@ -30,7 +30,6 @@ export const namespace = (ns: string) => {
             const restParams = rest as [any?, ...any[]];
             return (getStore as any)(adaptName(name), ...restParams);
         },
-        merge: (name: string, data: Record<string, unknown>) => mergeStore(qualify(name), data),
         delete: (name: string) => deleteStore(qualify(name)),
         reset: (name: string) => resetStore(qualify(name)),
     };

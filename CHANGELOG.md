@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Runtime now always surfaces missing feature registrations via warnings (even in production), and can throw when `strictMissingFeatures` is enabled.
+- Removed `mergeStore` and `chain` from the public API; use `setStore(name, partial)` and mutator updates instead.
 - Selector cache logic in React hooks is shared between `useStore` and `useSelector` to avoid duplicate implementations and ensure consistent selector identity checks.
 - Feature hook context creation now avoids full object spread copies on every write/delete to reduce overhead.
 - Path validation cache is capped per-store (no global cache thrash); per-store cache entries are cleared on store invalidation/reset.
@@ -22,11 +23,11 @@ All notable changes to this project will be documented in this file.
 - Async fetch 60s timeout now clears on completion to avoid late error handling after a successful request.
 - Async rate limiter metadata now clears on store deletion to prevent leakage across request scopes.
 - Subscriber storage uses `Set` consistently across `subscribeStore` and `subscribeWithSelector`, preventing type mismatches.
+- `clearAllStores` now removes stores created during delete hooks.
 - Registry bindings no longer go stale after scope rebinds; registry exports proxy to the active scope (SSR safe).
 - Store names now reject `__proto__`, `constructor`, and `prototype`, and `hydrateStores` skips invalid names to prevent registry pollution.
 - Persist now validates encrypt/decrypt round-trips and disables persistence when crypto hooks are misconfigured.
-- `mergeStore` returns typed `WriteResult` objects without casting.
-- Chain helpers now use internal untyped accessors to avoid `StoreName` conditional overload conflicts during declaration builds.
+- `setStore` returns typed `WriteResult` objects without casting.
 - `subscribeWithSelector` now uses store snapshots so selectors never receive mutable live references.
 ### Testing
 - `patch0/test` completed the `P0` stabilization pass for core state safety and production failure handling.
@@ -64,7 +65,7 @@ All notable changes to this project will be documented in this file.
 - Async fetch metadata (inflight, cache, registry) now cleans up when a store is deleted, avoiding stale entries and refetch surprises.
 - `enableRevalidateOnFocus` now removes its focus/online listeners when the store is deleted, preventing event-listener leaks.
 - React `useSelector` now memoizes selected values with shallow equality, preventing endless re-renders when selectors return new array/object references for unchanged data.
-- Store schemas are now enforced on write (`setStore`/`mergeStore`), blocking invalid shapes at runtime instead of silently accepting them.
+- Store schemas are now enforced on write (`setStore`), blocking invalid shapes at runtime instead of silently accepting them.
 - `createStore` no longer overwrites an existing store name; it warns and keeps the original state.
 - `setStore` path updates now respect existing structure: array paths no longer auto-create missing indices and array shapes are preserved instead of converting to objects.
 - Docs: README updated with the pre-v1 bundle-size promise so the published package README matches the repo.

@@ -68,10 +68,10 @@ type MissingSubscribeWithSelector = PackageApi["subscribeWithSelector"];
 type MissingUseAsyncStore = PackageApi["useAsyncStore"];
 // @ts-expect-error lean root package no longer exports async helpers
 type MissingFetchStore = PackageApi["fetchStore"];
+// @ts-expect-error lean root package no longer exports mergeStore
+type MissingMergeStore = PackageApi["mergeStore"];
 // @ts-expect-error lean root package no longer exports server helpers
 type MissingCreateStoreForRequest = PackageApi["createStoreForRequest"];
-// @ts-expect-error lean root package no longer exports chain
-type MissingChain = PackageApi["chain"];
 // @ts-expect-error lean root package no longer exports devtools history APIs
 type MissingGetHistory = PackageApi["getHistory"];
 // @ts-expect-error lean root package no longer exports devtools history cleanup

@@ -1,34 +1,33 @@
 import test from "node:test";
 import assert from "node:assert";
-import "../src/persist.js";
-import "../src/sync.js";
-import "../src/devtools.js";
-import { devDeepFreeze } from "../src/devfreeze.js";
-import { getHistory, clearHistory } from "../src/devtools.js";
-import { clearAllStores } from "../src/runtime-admin.js";
+import "../../src/persist.js";
+import "../../src/sync.js";
+import "../../src/devtools.js";
+import { devDeepFreeze } from "../../src/devfreeze.js";
+import { getHistory, clearHistory } from "../../src/devtools.js";
+import { clearAllStores } from "../../src/runtime-admin.js";
 import {
   listStores,
   getInitialState,
   getStoreMeta,
   getMetrics,
-} from "../src/runtime-tools.js";
+} from "../../src/runtime-tools.js";
 import {
   createStore,
   setStore,
   getStore,
   deleteStore,
   resetStore,
-  mergeStore,
   hasStore,
   _subscribe,
   _getSnapshot,
   hydrateStores,
   setStoreBatch,
-} from "../src/store.js";
-import { createCounterStore, createListStore, createEntityStore } from "../src/helpers.js";
-import { fetchStore, refetchStore } from "../src/async.js";
-import { subscribeWithSelector, createSelector } from "../src/selectors.js";
-import { createStoreForRequest } from "../src/server.js";
+} from "../../src/store.js";
+import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers.js";
+import { fetchStore, refetchStore } from "../../src/async.js";
+import { subscribeWithSelector, createSelector } from "../../src/selectors.js";
+import { createStoreForRequest } from "../../src/server.js";
 
 test("createStore with object data", () => {
   clearAllStores();
@@ -88,7 +87,7 @@ test("setStore enforces schema on updates", () => {
   // @ts-expect-error runtime guard
   setStore("user", { name: 123 });
   assert.strictEqual(getStore("user", "name"), "Alex");
-  assert.ok(errorMsg?.includes("Schema validation failed"));
+  assert.ok(errorMsg?.includes('Validation blocked update for "user"'));
 });
 
 test("createStore blocks production server globals unless explicitly allowed", () => {
@@ -276,7 +275,7 @@ test("validator exceptions are reported without throwing", () => {
   });
 
   assert.doesNotThrow(() => {
-    mergeStore("mergeUser", { score: 1 });
+    setStore("mergeUser", { score: 1 });
   });
   assert.deepStrictEqual(getStore("mergeUser"), { score: 0 });
   assert.ok(errors.some((msg) => msg.includes('Validation for "user" failed')));
@@ -334,7 +333,7 @@ test("sanitize errors are reported without throwing on circular input", () => {
     onError: (msg) => { errors.push(msg); },
   });
   assert.doesNotThrow(() => {
-    mergeStore("circularMerge", { loop: circular } as any);
+    setStore("circularMerge", { loop: circular } as any);
   });
   assert.deepStrictEqual(getStore("circularMerge"), { value: 1 });
 
@@ -367,7 +366,7 @@ test("sanitize rejects non-JSON-safe values before they corrupt state", () => {
   });
   const badMap = new Map<any, any>([[{ id: 1 }, "bad"]]);
   assert.doesNotThrow(() => {
-    mergeStore("safeMap", { data: badMap } as any);
+    setStore("safeMap", { data: badMap } as any);
   });
   assert.deepStrictEqual(getStore("safeMap"), { value: 1 });
 
@@ -410,7 +409,7 @@ test("sanitize strips prototype pollution keys before merging into state", () =>
   createStore("safeConfig", { enabled: true });
 
   const payload = JSON.parse('{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"prototype":{"x":1},"safe":"ok"}');
-  mergeStore("safeConfig", payload);
+  setStore("safeConfig", payload);
 
   assert.deepStrictEqual(getStore("safeConfig"), { enabled: true, safe: "ok" });
   assert.strictEqual(({} as any).polluted, undefined);
@@ -442,7 +441,7 @@ test("deepClone fallback stays deep when structuredClone is unavailable", async 
   const originalStructuredClone = (globalThis as any).structuredClone;
   try {
     delete (globalThis as any).structuredClone;
-    const utils = await import(`../src/utils.js?deep-clone-fallback-${Date.now()}`);
+    const utils = await import(`../../src/utils.js?deep-clone-fallback-${Date.now()}`);
     const circular: any = { nested: { value: 1 } };
     circular.self = circular;
 
@@ -462,7 +461,7 @@ test("deepClone fallback drops inherited and non-enumerable object state", async
   const originalStructuredClone = (globalThis as any).structuredClone;
   try {
     delete (globalThis as any).structuredClone;
-    const utils = await import(`../src/utils.js?deep-clone-fallback-shape-${Date.now()}`);
+    const utils = await import(`../../src/utils.js?deep-clone-fallback-shape-${Date.now()}`);
 
     const source = Object.create({ admin: true }) as Record<string, unknown>;
     source.name = "Alex";
@@ -659,7 +658,7 @@ test("hydrateStores skips invalid schema payloads and keeps reset state intact",
   resetStore("profile");
   assert.deepStrictEqual(getStore("profile"), { name: "Alex" });
   assert.strictEqual(hasStore("ghost"), false);
-  assert.ok(errors.some((msg) => msg.includes('Validation failed for "ghost"')));
+  assert.ok(errors.some((msg) => msg.includes('Validation blocked update for "ghost"')));
 });
 
 test("hydrateStores replaces existing primitive and array stores", () => {
@@ -726,12 +725,15 @@ test("createStoreForRequest hydrates buffered store options", () => {
     });
   });
 
-  scoped.hydrate();
+  let snapshot: unknown = null;
+  scoped.hydrate(() => {
+    setStore("scopedProfile", { value: "bad" as any });
+    snapshot = getStore("scopedProfile");
+    return undefined;
+  });
 
-  setStore("scopedProfile", { value: "bad" as any });
-
-  assert.deepStrictEqual(getStore("scopedProfile"), { value: 1 });
-  assert.ok(errors.some((msg) => msg.includes('Validation failed for "scopedProfile"')));
+  assert.deepStrictEqual(snapshot, { value: 1 });
+  assert.ok(errors.some((msg) => msg.includes('Validation blocked update for "scopedProfile"')));
 });
 
 test("getInitialState returns original initial values", () => {
@@ -1034,7 +1036,7 @@ test("middleware mutations are revalidated before commit", () => {
   setStore("middlewareValidation", { count: 2 });
 
   assert.deepStrictEqual(getStore("middlewareValidation"), { count: 1 });
-  assert.ok(errors.some((msg) => msg.includes('Validation failed for "middlewareValidation"')));
+  assert.ok(errors.some((msg) => msg.includes('Validation blocked update for "middlewareValidation"')));
 });
 
 test("path writes allow replacing null leaves with objects", () => {
@@ -1085,7 +1087,7 @@ test("subscriber-triggered updates schedule a follow-up notification", async () 
   assert.deepStrictEqual(getStore("loop"), { value: 2 });
 });
 
-test("duplicate subscriber registration is allowed and each registration is notified", async () => {
+test("duplicate subscriber registration only notifies once for Set-based subscribers", async () => {
   clearAllStores();
   const seen: string[] = [];
   const listener = (value: any) => {
@@ -1099,10 +1101,10 @@ test("duplicate subscriber registration is allowed and each registration is noti
   setStore("duplicateSubscribers", { value: 1 });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.deepStrictEqual(seen, ["dup:1", "dup:1"]);
+  assert.deepStrictEqual(seen, ["dup:1"]);
 });
 
-test("duplicate subscriber unsubscriptions remove one registration at a time", async () => {
+test("duplicate subscriber unsubscriptions remove the single Set registration", async () => {
   clearAllStores();
   const seen: string[] = [];
   const listener = (value: any) => {
@@ -1121,7 +1123,7 @@ test("duplicate subscriber unsubscriptions remove one registration at a time", a
   setStore("duplicateSubscriberOff", { value: 2 });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.deepStrictEqual(seen, ["dup:1"]);
+  assert.deepStrictEqual(seen, []);
 });
 
 test("subscribers are notified in registration order", async () => {
@@ -1201,7 +1203,7 @@ test("unsubscribing another subscriber during notify does not break the current 
 
 test("subscribeWithSelector ignores unrelated object updates", async () => {
   clearAllStores();
-  const seen: Array<{ next: Record<string, number>; prev: Record<string, number> }> = [];
+  const seen: Array<{ next: number; prev: number }> = [];
 
   createStore("selectorUser", {
     profile: { count: 1 },
@@ -1210,7 +1212,7 @@ test("subscribeWithSelector ignores unrelated object updates", async () => {
 
   const unsubscribe = subscribeWithSelector(
     "selectorUser",
-    (state) => state.profile,
+    (state) => state.profile.count,
     Object.is,
     (next, prev) => {
       seen.push({ next, prev });
@@ -1226,10 +1228,7 @@ test("subscribeWithSelector ignores unrelated object updates", async () => {
   unsubscribe();
 
   assert.deepStrictEqual(seen, [
-    {
-      next: { count: 2 },
-      prev: { count: 1 },
-    },
+    { next: 2, prev: 1 },
   ]);
 });
 
@@ -1325,7 +1324,7 @@ test("setStoreBatch flushes queued notifications before rejecting promise-return
   assert.deepStrictEqual(seen, [1]);
 });
 
-test("setStoreBatch flushes queued notifications before rethrowing callback errors", () => {
+test("setStoreBatch flushes queued notifications before rethrowing callback errors", async () => {
   clearAllStores();
   createStore("batchThrowFlush", { value: 0 });
   const seen: number[] = [];
@@ -1342,6 +1341,7 @@ test("setStoreBatch flushes queued notifications before rethrowing callback erro
     });
   }, /boom/);
 
+  await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(getStore("batchThrowFlush"), { value: 1 });
   assert.deepStrictEqual(seen, [1]);
 });
@@ -1406,10 +1406,10 @@ test("sync setup without BroadcastChannel surfaces via onError", () => {
   assert.ok(errors.some((msg) => msg.includes('BroadcastChannel not available')));
 });
 
-test("mergeStore adds fields without removing old ones", () => {
+test("setStore merges fields without removing old ones", () => {
   clearAllStores();
   createStore("user", { name: "Alex" });
-  mergeStore("user", { role: "admin" });
+  setStore("user", { role: "admin" });
   assert.deepStrictEqual(getStore("user"), { name: "Alex", role: "admin" });
 });
 

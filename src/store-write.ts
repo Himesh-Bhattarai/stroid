@@ -3,7 +3,7 @@
  *
  * LAYER: Public Write API
  * OWNS:  createStore(), setStore(), deleteStore(), resetStore(),
- *        mergeStore(), hydrateStores(), clearAllStores().
+ *        hydrateStores(), clearAllStores().
  *
  * DOES NOT KNOW about: React hooks, async caching, or feature internals.
  * Delegates all engine work to store-engine (which re-exports store-lifecycle).
@@ -255,39 +255,6 @@ export const resetStore = (name: string): void => {
     runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
     notify(name);
     log(`Store "${name}" reset to initial state/value`);
-};
-
-export const mergeStore = (name: string, data: Record<string, unknown>): WriteResult => {
-    if (!exists(name)) return { ok: false, reason: "not-found" };
-    if (!materializeInitial(name)) return { ok: false, reason: "validate" };
-    if (!isValidData(data)) return { ok: false, reason: "validate" };
-    const current = stores[name];
-    if (typeof current !== "object" || Array.isArray(current) || current === null) {
-        error(
-            `mergeStore("${name}") only works on object stores.\n` +
-            `Use setStore("${name}", value) instead.`
-        );
-        return { ok: false, reason: "validate" };
-    }
-    const mergeResult = sanitizeValue(name, data);
-    if (!mergeResult.ok) return { ok: false, reason: "validate" };
-    const next = { ...(current as Record<string, unknown>), ...mergeResult.value as Record<string, unknown> };
-
-    const validateRule = meta[name]?.options?.validate;
-
-    const final = runMiddlewareForStore(name, { action: "merge", prev: current, next, path: null });
-    if (final === MIDDLEWARE_ABORT) return { ok: false, reason: "middleware" };
-    const committed = normalizeCommittedState(name, final, validateRule);
-    if (!committed.ok) return { ok: false, reason: "validate" };
-    setStoreValueInternal(name, committed.value);
-    invalidatePathCache(name);
-    meta[name].updatedAt = new Date().toISOString();
-    meta[name].updateCount++;
-    runFeatureWriteHooks(name, "merge", current, committed.value, notify);
-    runStoreHookSafe(name, "onSet", meta[name].options.onSet, [current, committed.value]);
-    notify(name);
-    log(`Store "${name}" merged with data`);
-    return { ok: true };
 };
 
 const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { ok: boolean; reason?: string } => {

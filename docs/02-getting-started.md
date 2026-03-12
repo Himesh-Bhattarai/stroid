@@ -92,7 +92,7 @@ function Counter() {
 
 ```js
 // Core (usable in any JS environment)
-import { createStore, setStore, mergeStore, getStore } from "stroid/core"
+import { createStore, setStore, getStore } from "stroid/core"
 
 // React hooks
 import { useStore, useSelector } from "stroid/react"

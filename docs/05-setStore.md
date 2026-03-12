@@ -64,4 +64,4 @@ Path updates take a concrete value, not an updater function. Compute the next va
 
 ---
 
-**[<- Chapter 4 -- createStore](./04-createStore.md) :: [Chapter 6 -- mergeStore ->](./06-mergeStore.md)**
+**[<- Chapter 4 -- createStore](./04-createStore.md) :: [Chapter 7 -- getStore ->](./07-getStore.md)**
