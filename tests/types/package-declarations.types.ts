@@ -1,7 +1,7 @@
 import type { Expect, Equal } from "./assert.js";
-import type { PersistOptions, StoreOptions, SyncOptions } from "../../index.d.ts";
+import type { PersistOptions, StoreOptions, SyncOptions } from "../../dist/index.d.ts";
 
-type PackageApi = typeof import("../../index.d.ts");
+type PackageApi = typeof import("../../dist/index.d.ts");
 type DevtoolsApi = typeof import("../../src/devtools.js");
 type RuntimeToolsApi = typeof import("../../src/runtime-tools.js");
 type RuntimeAdminApi = typeof import("../../src/runtime-admin.js");

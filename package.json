@@ -89,7 +89,7 @@
   "scripts": {
     "test": "node --import tsx --import ./tests/setup.ts --test tests",
     "test:heavy": "node --import tsx --test tests/heavy",
-    "test:types": "tsc -p tsconfig.typetests.json",
+    "test:types": "npm run build && tsc -p tsconfig.typetests.json",
     "typecheck": "tsc -p tsconfig.types.json",
     "build": "tsup",
     "test:all": "npm test && npm run test:types"
