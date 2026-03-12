@@ -57,6 +57,7 @@ export const requestVersion = createAsyncObjectProxy(() => getActiveAsyncRegistr
 export const cacheMeta = createAsyncObjectProxy(() => getActiveAsyncRegistry().cacheMeta);
 export const rateWindowStart = createAsyncObjectProxy(() => getActiveAsyncRegistry().rateWindowStart);
 export const rateCount = createAsyncObjectProxy(() => getActiveAsyncRegistry().rateCount);
+export const ratePruneState = createAsyncValueProxy(() => getActiveAsyncRegistry().ratePruneState);
 export const cleanupSubs = createAsyncObjectProxy(() => getActiveAsyncRegistry().cleanupSubs);
 export const storeCleanupFns = createAsyncObjectProxy(() => getActiveAsyncRegistry().storeCleanupFns);
 export const revalidateHandlers = createAsyncObjectProxy(() => getActiveAsyncRegistry().revalidateHandlers);

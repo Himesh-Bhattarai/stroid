@@ -205,6 +205,12 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
                 if (isTransactionActive()) markTransactionFailed(message);
                 return { ok: false, reason: "validate" };
             }
+            if (result !== undefined && isDev() && !getConfig().strictMutatorReturns) {
+                warn(
+                    `setStore("${storeName}", mutator) returned a value. ` +
+                    `Return values replace the entire store; return void to apply draft mutations instead.`
+                );
+            }
             updated = result !== undefined ? result as StoreValue : draft as StoreValue;
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);

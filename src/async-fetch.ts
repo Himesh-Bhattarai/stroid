@@ -23,6 +23,7 @@ import {
     unregisterStoreCleanup,
     rateWindowStart,
     rateCount,
+    ratePruneState,
     type FetchInput,
     type FetchOptions,
 } from "./async-cache.js";
@@ -42,6 +43,16 @@ type InflightEntry = { promise: Promise<unknown>; raw: Promise<unknown>; transfo
 
 const RATE_WINDOW_MS = 1000;
 const RATE_MAX = 100;
+const _pruneRateCounters = (nowTs: number): void => {
+    if (nowTs - ratePruneState.lastAt < RATE_WINDOW_MS) return;
+    ratePruneState.lastAt = nowTs;
+    Object.keys(rateWindowStart).forEach((key) => {
+        if (nowTs - (rateWindowStart[key] ?? 0) > RATE_WINDOW_MS) {
+            delete rateWindowStart[key];
+            delete rateCount[key];
+        }
+    });
+};
 
 const _runAsyncHook = (
     name: string,
@@ -243,9 +254,10 @@ export async function fetchStore(
     }
 
     const nowTs = Date.now();
-    const windowStart = rateWindowStart[cacheSlot] ?? nowTs;
+    _pruneRateCounters(nowTs);
+    const windowStart = rateWindowStart[cacheSlot];
     const currentCount = rateCount[cacheSlot] ?? 0;
-    if (nowTs - windowStart < RATE_WINDOW_MS) {
+    if (windowStart !== undefined && nowTs - windowStart < RATE_WINDOW_MS) {
         if (currentCount >= RATE_MAX) {
             return _reportAsyncUsageError(
                 name,

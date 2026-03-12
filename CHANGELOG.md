@@ -30,6 +30,7 @@ All notable changes to this project will be documented in this file.
 - Feature runtimes now initialize on registration/bind, removing redundant per-write initialization checks.
 - `useAsyncStoreSuspense` now triggers/awaits async fetches and reuses inflight promises for React Suspense integration.
 - Mutator-based `setStore` now honors non-undefined return values to replace draft updates.
+- Mutator-based `setStore` now warns in dev when a mutator returns a value, since return values replace the entire store.
 
 ### Fixed
 - `deleteStore` no longer emits an intermediate null notification before deletion, preventing double-render transitions.
@@ -47,6 +48,11 @@ All notable changes to this project will be documented in this file.
 - `hashState` now handles circular structures and uses a stronger 53-bit hash for non-string inputs while preserving legacy checksums for strings.
 - Chunked notification delivery now defers remaining subscribers if the store updates mid-flush, avoiding mixed snapshots in a single delivery.
 - `_hardResetAllStoresForTest` is no longer exported from the main package entry; it remains in `stroid/testing`.
+- Async rate limiter now initializes per-slot windows and prunes stale metadata to avoid unbounded growth.
+
+### Docs
+- `subscribeWithSelector` now documents `prev` semantics for batched writes.
+
 ### Testing
 - `patch0/test` completed the `P0` stabilization pass for core state safety and production failure handling.
 - Core testing now covers immutable reads/snapshots/history, guarded validator and lifecycle failures, delete/persist races, reset persistence, sanitize rejection for hostile payloads, SSR async fail-fast behavior, hydration replacement semantics, and stale sync messages after delete.
