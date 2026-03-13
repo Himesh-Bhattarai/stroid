@@ -131,6 +131,36 @@ test("fetchStore aborts lifecycle-owned requests when the store is deleted", asy
   }
 });
 
+test("fetchStore times out when no AbortSignal is provided", async () => {
+  clearAllStores();
+  const realSetTimeout = globalThis.setTimeout;
+  let scheduledMs: number | null = null;
+
+  globalThis.setTimeout = ((handler: (...args: any[]) => void, ms?: number, ...args: any[]) => {
+    scheduledMs = typeof ms === "number" ? ms : 0;
+    return realSetTimeout(handler, 0, ...args) as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout;
+
+  const pending = new Promise<unknown>(() => {});
+
+  try {
+    const result = await Promise.race([
+      fetchStore("timeoutStore", pending, { dedupe: false }),
+      new Promise<"timeout">((resolve) => realSetTimeout(() => resolve("timeout"), 50)),
+    ]);
+
+    assert.notStrictEqual(result, "timeout");
+    assert.strictEqual(result, null);
+    const state = getStore("timeoutStore");
+    assert.strictEqual(state?.status, "error");
+    assert.ok(state?.error?.includes("Timeout: async request hung for 60 seconds"));
+    assert.strictEqual(scheduledMs, 60000);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    clearAllStores();
+  }
+});
+
 test("fetchStore keeps success state when onSuccess throws", async () => {
   clearAllStores();
 
