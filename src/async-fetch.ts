@@ -459,7 +459,7 @@ export async function fetchStore(
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<{ raw: unknown; transformed: unknown } | null>((_, reject) => {
-        if (mergedSignal) return;
+        if (signal) return;
         timeoutId = setTimeout(() => {
             timeoutId = null;
             reject(new Error("Timeout: async request hung for 60 seconds without an AbortSignal"));

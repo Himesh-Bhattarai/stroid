@@ -158,6 +158,7 @@ The boolean case exists for backward compatibility and is **not recommended**. P
 - [Persistence](./docs/14-persist.md)
 - [Sync](./docs/15-sync.md)
 - [Testing](./docs/20-testing.md)
+- [Debugging Guide](./DEBUGGING.md)
 - [Roadmap](./docs/24-roadmap.md)
 
 ## Package Entry Points
