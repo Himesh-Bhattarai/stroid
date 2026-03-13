@@ -1,7 +1,7 @@
 {
   "name": "stroid",
   "version": "0.0.5",
-  "description": "Compact state management library with persistence, async caching, sync, and React hooks.",
+  "description": "Named-store state engine for JavaScript/React with optional persistence, async caching, sync, and devtools.",
   "type": "module",
   "main": "dist/index.js",
   "exports": {

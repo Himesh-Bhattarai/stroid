@@ -1,6 +1,6 @@
 # Stroid
 
-Compact, batteries-included state management for JavaScript and React.
+Named-store state management for JavaScript and React with optional power tools.
 
 > Development branch notice (`v0.0.5`): `main` stays locked on the released `0.0.4` line. This branch tracks upcoming work, and `dist/` is release-managed, so it may be absent here or still reflect the last released `0.0.4` build until the next release is prepared.
 
