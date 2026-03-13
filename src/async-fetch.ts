@@ -1,7 +1,7 @@
 import { createStore, setStore, hasStore } from "./store.js";
 import { error, warn, isDev, critical, deepClone, shallowClone } from "./utils.js";
 import { getConfig } from "./internals/config.js";
-import { nameOf, type StoreDefinition, type StoreKey, type StoreName } from "./store-lifecycle.js";
+import { nameOf, type StoreDefinition, type StoreKey, type StoreName, type UnregisteredStoreName } from "./store-lifecycle.js";
 import {
     asyncMetrics,
     cacheMeta,
@@ -126,6 +126,11 @@ export function fetchStore<Name extends string, State>(
 ): Promise<unknown>;
 export function fetchStore<Name extends string, State>(
     name: StoreKey<Name, State>,
+    urlOrRequest: FetchInput,
+    options?: FetchOptions
+): Promise<unknown>;
+export function fetchStore<Name extends string>(
+    name: UnregisteredStoreName<Name>,
     urlOrRequest: FetchInput,
     options?: FetchOptions
 ): Promise<unknown>;
@@ -510,6 +515,7 @@ export async function fetchStore(
 
 export function refetchStore<Name extends string, State>(name: StoreDefinition<Name, State>): Promise<unknown>;
 export function refetchStore<Name extends string, State>(name: StoreKey<Name, State>): Promise<unknown>;
+export function refetchStore<Name extends string>(name: UnregisteredStoreName<Name>): Promise<unknown>;
 export function refetchStore<Name extends StoreName>(name: Name): Promise<unknown>;
 export async function refetchStore(nameInput: string | StoreDefinition<string, unknown>): Promise<unknown> {
     const name = nameOf(nameInput as StoreDefinition<string, unknown>);

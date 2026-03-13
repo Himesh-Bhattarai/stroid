@@ -27,6 +27,9 @@ export type {
     StoreStateMap,
     StrictStoreMap,
     WriteResult,
+    PersistOptions,
+    StoreOptions,
+    SyncOptions,
 } from "./store.js";
 export { configureStroid } from "./config.js";
 export * as queryIntegrations from "./integrations/query.js";

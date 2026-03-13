@@ -12,7 +12,14 @@ export type {
     StrictStoreMap,
     WriteResult,
 } from "./store-lifecycle.js";
-export type { PersistConfig, MiddlewareCtx, StoreOptions, SnapshotMode } from "./adapters/options.js";
+export type {
+    PersistConfig,
+    PersistOptions,
+    MiddlewareCtx,
+    StoreOptions,
+    SnapshotMode,
+    SyncOptions,
+} from "./adapters/options.js";
 
 export {
     createStore,

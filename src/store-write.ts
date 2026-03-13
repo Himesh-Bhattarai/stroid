@@ -68,6 +68,11 @@ import {
 } from "./store-transaction.js";
 
 type KeyOrData = string | string[] | Record<string, unknown> | ((draft: any) => void);
+type LooseStoreNames = string extends StoreName ? true : false;
+type StorePathFor<Name extends StoreName> =
+    LooseStoreNames extends true ? string | string[] : Path<StateFor<Name>>;
+type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
+    LooseStoreNames extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
 
 export const createStore = <Name extends string, State>(
     name: Name,
@@ -179,7 +184,11 @@ export function setStore<Name extends string, State>(name: StoreDefinition<Name,
 export function setStore<Name extends string, State, P extends Path<State>>(name: StoreKey<Name, State>, path: P, value: PathValue<State, P>): WriteResult;
 export function setStore<Name extends string, State>(name: StoreKey<Name, State>, mutator: (draft: State) => void): WriteResult;
 export function setStore<Name extends string, State>(name: StoreKey<Name, State>, data: PartialDeep<State>): WriteResult;
-export function setStore<Name extends StoreName, P extends Path<StateFor<Name>>>(name: Name, path: P, value: PathValue<StateFor<Name>, P>): WriteResult;
+export function setStore<Name extends StoreName, P extends StorePathFor<Name>>(
+    name: Name,
+    path: P,
+    value: StorePathValueFor<Name, P>
+): WriteResult;
 export function setStore<Name extends StoreName>(name: Name, mutator: (draft: StateFor<Name>) => void): WriteResult;
 export function setStore<Name extends StoreName>(name: Name, data: PartialDeep<StateFor<Name>>): WriteResult;
 export function setStore<Name extends string>(name: UnregisteredStoreName<Name>, data: Record<string, unknown>): WriteResult;
@@ -326,7 +335,7 @@ export function deleteStore<Name extends string, State>(name: StoreDefinition<Na
 export function deleteStore<Name extends string, State>(name: StoreKey<Name, State>): void;
 export function deleteStore<Name extends StoreName>(name: Name): void;
 export function deleteStore<Name extends string>(name: UnregisteredStoreName<Name>): void;
-export const deleteStore = (nameInput: string | StoreDefinition<string, StoreValue>): void => {
+export function deleteStore(nameInput: string | StoreDefinition<string, StoreValue>): void {
     const name = nameOf(nameInput);
     if (!exists(name)) return;
     if (!materializeInitial(name)) return;
@@ -340,13 +349,13 @@ export const deleteStore = (nameInput: string | StoreDefinition<string, StoreVal
     }
     storeAdmin.deleteExistingStore(name);
     invalidatePathCache(name);
-};
+}
 
 export function resetStore<Name extends string, State>(name: StoreDefinition<Name, State>): void;
 export function resetStore<Name extends string, State>(name: StoreKey<Name, State>): void;
 export function resetStore<Name extends StoreName>(name: Name): void;
 export function resetStore<Name extends string>(name: UnregisteredStoreName<Name>): void;
-export const resetStore = (nameInput: string | StoreDefinition<string, StoreValue>): void => {
+export function resetStore(nameInput: string | StoreDefinition<string, StoreValue>): void {
     const name = nameOf(nameInput);
     if (!exists(name)) return;
     if (!materializeInitial(name)) return;
@@ -387,7 +396,7 @@ export const resetStore = (nameInput: string | StoreDefinition<string, StoreValu
     runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
     notify(name);
     log(`Store "${name}" reset to initial state/value`);
-};
+}
 
 const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { ok: boolean; reason?: string } => {
     if (!exists(name)) return { ok: false, reason: "not-found" };
