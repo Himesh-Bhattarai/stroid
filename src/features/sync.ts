@@ -50,8 +50,8 @@ const compareSyncOrder = ({
 };
 
 const isValidSyncMessage = (msg: unknown): msg is {
-    v: number;
-    protocol: number;
+    v?: number;
+    protocol?: number;
     type: string;
     name: string;
     clock: number;
@@ -61,9 +61,9 @@ const isValidSyncMessage = (msg: unknown): msg is {
 } => {
     if (typeof msg !== "object" || msg === null) return false;
     const m = msg as Record<string, unknown>;
+    const hasVersion = typeof m.v === "number" || typeof m.protocol === "number";
     return (
-        m.v === SYNC_PROTOCOL_VERSION &&
-        typeof m.protocol === "number" &&
+        hasVersion &&
         typeof m.type === "string" &&
         typeof m.name === "string" &&
         typeof m.clock === "number" &&
@@ -403,7 +403,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                         return null;
                     }
 
-                    const validation = validate(name, sanitized);
+                    const validation = ctx.validate(sanitized);
                     if (!validation.ok) return null;
                     return validation.value ?? sanitized;
                 },

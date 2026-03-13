@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
 import "../src/sync.js";
-import { createStore, setStore } from "../src/store.js";
+import { createStore, setStore, getStore, deleteStore } from "../src/store.js";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -41,30 +41,33 @@ class MockBroadcastChannel {
   }
 }
 
-test("sync reports missing BroadcastChannel in non-browser environments", () => {
-  const errors: string[] = [];
-  createStore("shared", { value: 1 }, {
-    sync: true,
-    onError: (msg) => { errors.push(msg); },
+test("sync core (serial)", async (t) => {
+  await t.test("sync reports missing BroadcastChannel in non-browser environments", () => {
+    const errors: string[] = [];
+    createStore("syncMissingBC", { value: 1 }, {
+      sync: true,
+      onError: (msg) => { errors.push(msg); },
+    });
+
+    assert.ok(errors.some((msg) => msg.includes("BroadcastChannel not available")));
+    deleteStore("syncMissingBC");
   });
 
-  assert.ok(errors.some((msg) => msg.includes("BroadcastChannel not available")));
-});
+  await t.test("sync option accepts object config without throwing", () => {
+    const errors: string[] = [];
+    createStore("syncConfig", { value: 1 }, {
+      sync: { maxPayloadBytes: 1024 },
+      onError: (msg) => { errors.push(msg); },
+    });
 
-test("sync option accepts object config without throwing", () => {
-  const errors: string[] = [];
-  createStore("syncConfig", { value: 1 }, {
-    sync: { maxPayloadBytes: 1024 },
-    onError: (msg) => { errors.push(msg); },
+    setStore("syncConfig", { value: 2 });
+    assert.strictEqual(errors.length > 0, true);
+    deleteStore("syncConfig");
   });
 
-  setStore("syncConfig", { value: 2 });
-  assert.strictEqual(errors.length > 0, true);
-});
-
-test("sync conflictResolver runs on older incoming versions", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  await t.test("sync conflictResolver runs on older incoming versions", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
 
   (globalThis as any).window = {
     addEventListener: () => {},
@@ -72,11 +75,10 @@ test("sync conflictResolver runs on older incoming versions", async () => {
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const { createStore, getStore, setStore, clearAllStores } = await import(`../src/store.js?sync-conflict-${Date.now()}`);
   const calls: Array<{ local: unknown; incoming: unknown }> = [];
 
   try {
-    createStore("shared", { value: "local" }, {
+    createStore("syncConflict", { value: "local" }, {
       sync: {
         conflictResolver: ({ local, incoming }) => {
           calls.push({ local, incoming });
@@ -85,15 +87,15 @@ test("sync conflictResolver runs on older incoming versions", async () => {
       },
     });
 
-    setStore("shared", { value: "local2" });
+    setStore("syncConflict", { value: "local2" });
     await wait();
 
-    const peer = new MockBroadcastChannel("stroid_sync_shared");
+    const peer = new MockBroadcastChannel("stroid_sync_syncConflict");
     peer.postMessage({
       v: 1,
       protocol: 1,
       type: "sync-state",
-      name: "shared",
+      name: "syncConflict",
       clock: -1,
       source: "peer",
       data: { value: "incoming" },
@@ -103,18 +105,18 @@ test("sync conflictResolver runs on older incoming versions", async () => {
     await wait();
 
     assert.strictEqual(calls.length, 1);
-    assert.deepStrictEqual(getStore("shared"), { value: "resolved" });
+    assert.deepStrictEqual(getStore("syncConflict"), { value: "resolved" });
   } finally {
-    clearAllStores();
-    MockBroadcastChannel.reset();
+    deleteStore("syncConflict");
     (globalThis as any).window = originalWindow;
     (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    MockBroadcastChannel.reset();
   }
-});
+  });
 
-test("sync rejects malformed messages and leaves state unchanged", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  await t.test("sync rejects protocol mismatches and leaves state unchanged", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
 
   (globalThis as any).window = {
     addEventListener: () => {},
@@ -122,21 +124,20 @@ test("sync rejects malformed messages and leaves state unchanged", async () => {
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const { createStore, getStore, clearAllStores } = await import(`../src/store.js?sync-malformed-${Date.now()}`);
   const errors: string[] = [];
 
   try {
-    createStore("shared", { value: "local" }, {
+    createStore("syncProtocolMismatch", { value: "local" }, {
       sync: true,
       onError: (msg) => { errors.push(msg); },
     });
 
-    const peer = new MockBroadcastChannel("stroid_sync_shared");
+    const peer = new MockBroadcastChannel("stroid_sync_syncProtocolMismatch");
     peer.postMessage({
-      v: 1,
+      v: 999,
       protocol: 999,
       type: "sync-state",
-      name: "shared",
+      name: "syncProtocolMismatch",
       clock: 1,
       source: "peer",
       data: { value: "incoming" },
@@ -145,12 +146,13 @@ test("sync rejects malformed messages and leaves state unchanged", async () => {
 
     await wait();
 
-    assert.deepStrictEqual(getStore("shared"), { value: "local" });
+    assert.deepStrictEqual(getStore("syncProtocolMismatch"), { value: "local" });
     assert.ok(errors.some((msg) => msg.includes("Sync protocol mismatch")));
   } finally {
-    clearAllStores();
-    MockBroadcastChannel.reset();
+    deleteStore("syncProtocolMismatch");
     (globalThis as any).window = originalWindow;
     (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    MockBroadcastChannel.reset();
   }
+  });
 });
