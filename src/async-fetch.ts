@@ -1,5 +1,5 @@
 import { createStore, setStore, hasStore } from "./store.js";
-import { error, warn, isDev, critical } from "./utils.js";
+import { error, warn, isDev, critical, deepClone, shallowClone } from "./utils.js";
 import { getConfig } from "./internals/config.js";
 import { nameOf, type StoreDefinition, type StoreKey, type StoreName } from "./store-lifecycle.js";
 import {
@@ -112,6 +112,13 @@ const _settleAbort = (name: string, cacheSlot: string, version: number): null =>
     return null;
 };
 
+const cloneAsyncResult = (value: unknown, mode: FetchOptions["cloneResult"]): unknown => {
+    if (!mode || mode === "none") return value;
+    if (value === null || typeof value !== "object") return value;
+    if (mode === "shallow") return shallowClone(value);
+    return deepClone(value);
+};
+
 export function fetchStore<Name extends string, State>(
     name: StoreDefinition<Name, State>,
     urlOrRequest: FetchInput,
@@ -179,6 +186,8 @@ export async function fetchStore(
 
     const isProdServer = typeof window === "undefined"
         && (typeof process !== "undefined" ? process.env?.NODE_ENV : undefined) === "production";
+    const autoCreate = options.autoCreate ?? getConfig().asyncAutoCreate;
+    const cloneMode = options.cloneResult ?? getConfig().asyncCloneResult;
 
     if (!hasStore(name) && isProdServer) {
         return _reportAsyncUsageError(
@@ -190,6 +199,14 @@ export async function fetchStore(
     }
 
     if (!hasStore(name)) {
+        if (!autoCreate) {
+            return _reportAsyncUsageError(
+                name,
+                `fetchStore("${name}") requires an existing backing store when autoCreate is disabled.\n` +
+                `Call createStore("${name}", ...) first or enable autoCreate.`,
+                onError
+            );
+        }
         if (isDev() && !autoCreateWarned.has(name)) {
             autoCreateWarned.add(name);
             const message =
@@ -365,6 +382,8 @@ export async function fetchStore(
                     );
                 }
 
+                const cloned = cloneAsyncResult(transformed, cloneMode);
+
                 if (mergedSignal?.aborted) {
                     return _settleAbort(name, cacheSlot, currentVersion);
                 }
@@ -376,13 +395,13 @@ export async function fetchStore(
                 cacheMeta[cacheSlot] = {
                     timestamp: Date.now(),
                     expiresAt: ttl ? Date.now() + ttl : null,
-                    data: transformed,
+                    data: cloned,
                 };
                 pruneAsyncCache(name);
 
                 if (hasStore(name)) {
                     setStore(name, {
-                        data: transformed,
+                        data: cloned,
                         loading: false,
                         error: null,
                         status: "success",
@@ -391,11 +410,11 @@ export async function fetchStore(
                     });
                 }
 
-                _runAsyncHook(name, "onSuccess", onSuccess, transformed);
+                _runAsyncHook(name, "onSuccess", onSuccess, cloned);
                 const elapsed = Date.now() - startedAt;
                 asyncMetrics.lastMs = elapsed;
                 asyncMetrics.avgMs = ((asyncMetrics.avgMs * (asyncMetrics.requests - 1)) + elapsed) / asyncMetrics.requests;
-                return { raw: result, transformed };
+                return { raw: result, transformed: cloned };
             } catch (err) {
                 attempts += 1;
                 const isAbort = (err as any)?.name === "AbortError";

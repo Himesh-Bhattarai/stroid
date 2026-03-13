@@ -18,6 +18,14 @@ export { persistLoad } from "./persist/load.js";
 export { persistSave, flushPersistImmediately } from "./persist/save.js";
 
 let _registered = false;
+const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NODE_ENV === "string"
+    ? process.env.NODE_ENV
+    : undefined;
+const _envFromImportMeta = typeof import.meta !== "undefined" && (import.meta as any)?.env?.MODE
+    ? (import.meta as any).env.MODE
+    : undefined;
+const _resolvedEnv = _envFromProcess ?? _envFromImportMeta;
+const isProdEnv = (): boolean => _resolvedEnv === "production";
 
 export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
     const persistTimers: PersistTimers = {};
@@ -37,8 +45,17 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             const cfg = ctx.options.persist;
             if (!cfg) return;
 
-            if (typeof cfg.encrypt === "function" && isIdentityCrypto(cfg.encrypt)) {
-                ctx.warn(`persist: encrypt is identity function for store "${ctx.name}". Data will be stored in plaintext.`);
+            const isPlaintext = isIdentityCrypto(cfg.encrypt) && isIdentityCrypto(cfg.decrypt);
+            if (isPlaintext && !cfg.allowPlaintext) {
+                const message =
+                    `[stroid/persist] Store "${ctx.name}" is configured for plaintext persistence. ` +
+                    `Provide encrypt/decrypt hooks or set persist.allowPlaintext: true to acknowledge.`;
+                if (isProdEnv()) {
+                    ctx.reportStoreError(message);
+                    ctx.options.persist = null;
+                    return;
+                }
+                ctx.warn(message);
             }
             if ((cfg as PersistOptions & { sensitiveData?: boolean }).sensitiveData && !cfg.encrypt) {
                 ctx.reportStoreError(

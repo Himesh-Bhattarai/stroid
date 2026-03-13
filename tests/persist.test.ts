@@ -162,6 +162,7 @@ test("persist critical failures still surface via onError in production", () => 
         deserialize: JSON.parse,
         encrypt: (v) => v,
         decrypt: (v) => v,
+        allowPlaintext: true,
       },
       onError: (msg) => checksumErrors.push(msg),
     });
@@ -186,6 +187,7 @@ test("persist critical failures still surface via onError in production", () => 
         decrypt: () => {
           throw new Error("decrypt failed");
         },
+        allowPlaintext: true,
       },
       onError: (msg) => loadErrors.push(msg),
     });
@@ -228,6 +230,7 @@ test("full package stays lean and requires explicit persist registration in prod
         deserialize: JSON.parse,
         encrypt: (v) => v,
         decrypt: (v) => v,
+        allowPlaintext: true,
       },
       onError: (msg) => errors.push(msg),
     });

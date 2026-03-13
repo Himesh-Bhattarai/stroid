@@ -40,6 +40,12 @@ export interface PersistOptions<State = StoreValue> {
      */
     decrypt?: (v: string) => string;
     /**
+     * Explicitly allow plaintext persistence when encrypt/decrypt are identity.
+     *
+     * In production builds, plaintext persistence is blocked unless this is true.
+     */
+    allowPlaintext?: boolean;
+    /**
      * Marks this store's persisted data as sensitive (secrets/PII).
      *
      * When `true`, stroid throws at store creation time unless a non-identity
@@ -65,6 +71,7 @@ export interface PersistConfig {
     deserialize: (v: string) => unknown;
     encrypt: (v: string) => string;
     decrypt: (v: string) => string;
+    allowPlaintext?: boolean;
     sensitiveData?: boolean;
     checksum: "hash" | "none";
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
@@ -88,7 +95,44 @@ export interface SyncOptions {
         localUpdated: number;
         incomingUpdated: number;
     }) => StoreValue | void;
+    /**
+     * Optional checksum mode for sync payloads.
+     * - "hash" (default): include a checksum of the payload.
+     * - "none": skip checksum generation.
+     */
+    checksum?: "hash" | "none";
+    /**
+     * Optional signer for sync payloads. The returned value is attached to the message as `auth`.
+     */
+    sign?: (payload: SyncMessage) => unknown;
+    /**
+     * Optional verifier for incoming sync payloads.
+     * Return true to accept the message, false to reject it.
+     */
+    verify?: (payload: SyncMessage) => boolean;
+    /**
+     * Optional resolver for updatedAt timestamps when conflicts are resolved.
+     */
+    resolveUpdatedAt?: (args: {
+        localUpdated: number;
+        incomingUpdated: number | undefined;
+        now: number;
+    }) => number;
 }
+
+export type SyncMessage = {
+    v: number;
+    protocol: number;
+    type: "sync-request" | "sync-state";
+    name: string;
+    clock: number;
+    source: string;
+    updatedAt?: number;
+    data?: StoreValue;
+    checksum?: number | null;
+    auth?: unknown;
+    requestedAt?: number;
+};
 
 export interface DevtoolsOptions<State = StoreValue> {
     enabled?: boolean;
@@ -258,6 +302,7 @@ export const normalizePersistOptions = <State>(
         deserialize: JSON.parse,
         encrypt: markDefaultPersistCrypto((v: string) => v),
         decrypt: markDefaultPersistCrypto((v: string) => v),
+        allowPlaintext: false,
         sensitiveData: false,
         onMigrationFail: "reset" as const,
         checksum: "hash" as const,
@@ -280,6 +325,7 @@ export const normalizePersistOptions = <State>(
     const encrypt = persist.encrypt || base.encrypt;
     const decrypt = persist.decrypt || base.decrypt;
     const sensitiveData = persist.sensitiveData === true;
+    const allowPlaintext = persist.allowPlaintext === true;
     const checksum = persist.checksum === "none" ? "none" : "hash";
 
     if (sensitiveData && isIdentityStringTransform(encrypt)) {
@@ -296,6 +342,7 @@ export const normalizePersistOptions = <State>(
         deserialize: persist.deserialize || base.deserialize,
         encrypt,
         decrypt,
+        allowPlaintext,
         sensitiveData,
         checksum,
         onMigrationFail: persist.onMigrationFail || "reset",

@@ -1,8 +1,12 @@
+import type { SnapshotMode } from "../adapters/options.js";
+
 export type LogSink = {
     log?: (msg: string, meta?: Record<string, unknown>) => void;
     warn?: (msg: string, meta?: Record<string, unknown>) => void;
     critical?: (msg: string, meta?: Record<string, unknown>) => void;
 };
+
+export type AsyncCloneMode = "none" | "shallow" | "deep";
 
 export type FlushConfig = {
     chunkSize?: number;
@@ -24,6 +28,9 @@ export type StroidConfig = {
     strictMissingFeatures?: boolean;
     assertRuntime?: boolean;
     strictMutatorReturns?: boolean;
+    asyncAutoCreate?: boolean;
+    asyncCloneResult?: AsyncCloneMode;
+    defaultSnapshotMode?: SnapshotMode;
 };
 
 type ResolvedConfig = {
@@ -34,6 +41,9 @@ type ResolvedConfig = {
     strictMissingFeatures: boolean;
     assertRuntime: boolean;
     strictMutatorReturns: boolean;
+    asyncAutoCreate: boolean;
+    asyncCloneResult: AsyncCloneMode;
+    defaultSnapshotMode: SnapshotMode;
 };
 
 const defaultLogSink: LogSink = {
@@ -73,6 +83,9 @@ const defaultConfig: ResolvedConfig = {
     strictMissingFeatures: false,
     assertRuntime: false,
     strictMutatorReturns: false,
+    asyncAutoCreate: true,
+    asyncCloneResult: "none",
+    defaultSnapshotMode: "deep",
 };
 
 let _config: ResolvedConfig = { ...defaultConfig };
@@ -152,6 +165,27 @@ export const configureStroid = (next?: StroidConfig): void => {
         _config = {
             ..._config,
             strictMutatorReturns: next.strictMutatorReturns,
+        };
+    }
+
+    if (typeof next.asyncAutoCreate === "boolean") {
+        _config = {
+            ..._config,
+            asyncAutoCreate: next.asyncAutoCreate,
+        };
+    }
+
+    if (next.asyncCloneResult === "none" || next.asyncCloneResult === "shallow" || next.asyncCloneResult === "deep") {
+        _config = {
+            ..._config,
+            asyncCloneResult: next.asyncCloneResult,
+        };
+    }
+
+    if (next.defaultSnapshotMode === "shallow" || next.defaultSnapshotMode === "ref" || next.defaultSnapshotMode === "deep") {
+        _config = {
+            ..._config,
+            defaultSnapshotMode: next.defaultSnapshotMode,
         };
     }
 };

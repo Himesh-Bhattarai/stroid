@@ -1,4 +1,4 @@
-import type { StoreValue, SyncOptions } from "../adapters/options.js";
+import type { StoreValue, SyncMessage, SyncOptions } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "./state-helpers.js";
 
@@ -59,6 +59,8 @@ const isValidSyncMessage = (msg: unknown): msg is {
     source: string;
     data?: unknown;
     updatedAt?: number;
+    auth?: unknown;
+    requestedAt?: number;
 } => {
     if (typeof msg !== "object" || msg === null) return false;
     const m = msg as Record<string, unknown>;
@@ -92,6 +94,7 @@ const requestSyncSnapshot = ({
             type: "sync-request",
             source: instanceId,
             name,
+            clock: 0,
             requestedAt: Date.now(),
         });
     } catch (err) {
@@ -222,6 +225,22 @@ export const setupSync = ({
                 reportStoreError(name, `Sync message for "${name}" is malformed; ignoring.`);
                 return;
             }
+            if (typeof syncOption === "object" && typeof syncOption.verify === "function") {
+                let verified = false;
+                try {
+                    verified = !!syncOption.verify(msg as SyncMessage);
+                } catch (err) {
+                    reportStoreError(
+                        name,
+                        `Sync message verification failed for "${name}": ${(err as { message?: string })?.message ?? err}`
+                    );
+                    return;
+                }
+                if (!verified) {
+                    reportStoreError(name, `Sync message for "${name}" failed verification; ignoring.`);
+                    return;
+                }
+            }
             if (msg.type === "sync-request") {
                 broadcastSync(name);
                 return;
@@ -248,7 +267,10 @@ export const setupSync = ({
                         const normalizedResolved = normalizeIncomingState(name, resolved);
                         if (normalizedResolved === null) return;
                         setStoreValue(name, normalizedResolved);
-                        const resolvedUpdatedAt = Math.max(Date.now(), localUpdated, incomingUpdated);
+                        const resolveUpdatedAt = typeof syncOption === "object" ? syncOption.resolveUpdatedAt : null;
+                        const resolvedUpdatedAt = resolveUpdatedAt
+                            ? resolveUpdatedAt({ localUpdated, incomingUpdated, now: Date.now() })
+                            : Math.max(Date.now(), localUpdated, incomingUpdated);
                         resolveSyncVersion(name, resolvedUpdatedAt, typeof msg.clock === "number" ? msg.clock : 0);
                         notify(name);
                         broadcastSync(name);
@@ -324,7 +346,8 @@ export const broadcastSync = ({
     const channel = syncChannels[name];
     if (!channel) return;
     try {
-        const payload = {
+        const checksumMode = typeof syncOption === "object" && syncOption.checksum === "none" ? "none" : "hash";
+        const payload: SyncMessage = {
             v: SYNC_PROTOCOL_VERSION,
             protocol: SYNC_PROTOCOL_VERSION,
             type: "sync-state",
@@ -333,8 +356,20 @@ export const broadcastSync = ({
             clock: syncClocks[name] ?? 0,
             updatedAt: resolveUpdatedAtMs({ value: updatedAt, fallbackMs: Date.now() }),
             data,
-            checksum: hashState(data),
+            checksum: checksumMode === "hash" ? hashState(data) : null,
         };
+        if (typeof syncOption === "object" && typeof syncOption.sign === "function") {
+            try {
+                const auth = syncOption.sign(payload);
+                if (auth !== undefined) payload.auth = auth;
+            } catch (err) {
+                reportStoreError(
+                    name,
+                    `Failed to sign sync payload for "${name}": ${(err as { message?: string })?.message ?? err}`
+                );
+                return;
+            }
+        }
         const maxPayloadBytes = typeof syncOption === "object" && typeof syncOption.maxPayloadBytes === "number"
             ? syncOption.maxPayloadBytes
             : 64 * 1024;

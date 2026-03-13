@@ -33,7 +33,7 @@ let notifyScheduled = false;
 let batchDepth = 0;
 
 const resolveSnapshotMode = (name: string): SnapshotMode => {
-    const mode = meta[name]?.options?.snapshot;
+    const mode = meta[name]?.options?.snapshot ?? getConfig().defaultSnapshotMode;
     return mode === "shallow" || mode === "ref" ? mode : "deep";
 };
 

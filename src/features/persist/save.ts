@@ -40,7 +40,12 @@ const persistSaveInner = ({
         const meta = getMeta();
         if (!meta?.options?.persist || meta.options.persist !== cfg || !exists(name)) return;
 
-        if (!plaintextWarningsIssued.has(name) && usesDefaultPersistCrypto(cfg.encrypt) && usesDefaultPersistCrypto(cfg.decrypt)) {
+        if (
+            !cfg.allowPlaintext
+            && !plaintextWarningsIssued.has(name)
+            && usesDefaultPersistCrypto(cfg.encrypt)
+            && usesDefaultPersistCrypto(cfg.decrypt)
+        ) {
             plaintextWarningsIssued.add(name);
             const message =
                 `[stroid/persist] Store '${name}' is persisted in plaintext. ` +

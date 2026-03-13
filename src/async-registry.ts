@@ -14,6 +14,18 @@ export interface FetchOptions {
     signal?: AbortSignal;
     cacheKey?: string;
     responseType?: "auto" | "json" | "text" | "arrayBuffer" | "blob" | "formData";
+    /**
+     * Auto-create the backing store if missing.
+     * Defaults to the global config setting (true by default).
+     */
+    autoCreate?: boolean;
+    /**
+     * Clone strategy for transformed results.
+     * - "none" (default): store by reference.
+     * - "shallow": shallow clone objects/arrays.
+     * - "deep": deep clone objects/arrays.
+     */
+    cloneResult?: "none" | "shallow" | "deep";
 }
 
 type InflightEntry = { promise: Promise<unknown>; raw: Promise<unknown>; transform?: FetchOptions["transform"] };
