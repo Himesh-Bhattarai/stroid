@@ -25,9 +25,14 @@ type PathValidationCacheNode = {
     children: Map<string, PathValidationCacheNode>;
     verdicts?: Map<SupportedType, PathSafetyVerdict>;
 };
+type PathValidationLruEntry = {
+    node: PathValidationCacheNode;
+    type: SupportedType;
+};
 const _pathValidationCacheByRegistry = new WeakMap<object, Map<string, PathValidationCacheNode>>();
-const _pathValidationCountsByRegistry = new WeakMap<object, Map<string, number>>();
+const _pathValidationLruByRegistry = new WeakMap<object, Map<string, Map<string, PathValidationLruEntry>>>();
 const MAX_PATH_CACHE_ENTRIES_PER_STORE = 500;
+const PATH_CACHE_DELIMITER = "\u001f";
 const getPathValidationCache = (registry: object): Map<string, PathValidationCacheNode> => {
     let cache = _pathValidationCacheByRegistry.get(registry);
     if (!cache) {
@@ -36,13 +41,42 @@ const getPathValidationCache = (registry: object): Map<string, PathValidationCac
     }
     return cache;
 };
-const getPathValidationCounts = (registry: object): Map<string, number> => {
-    let counts = _pathValidationCountsByRegistry.get(registry);
-    if (!counts) {
-        counts = new Map();
-        _pathValidationCountsByRegistry.set(registry, counts);
+const getPathValidationLru = (registry: object): Map<string, Map<string, PathValidationLruEntry>> => {
+    let lru = _pathValidationLruByRegistry.get(registry);
+    if (!lru) {
+        lru = new Map();
+        _pathValidationLruByRegistry.set(registry, lru);
     }
-    return counts;
+    return lru;
+};
+const getStorePathLru = (registry: object, storeName: string): Map<string, PathValidationLruEntry> => {
+    const lruByStore = getPathValidationLru(registry);
+    let storeLru = lruByStore.get(storeName);
+    if (!storeLru) {
+        storeLru = new Map();
+        lruByStore.set(storeName, storeLru);
+    }
+    return storeLru;
+};
+const touchPathLru = (
+    storeLru: Map<string, PathValidationLruEntry>,
+    cacheKey: string,
+    entry: PathValidationLruEntry
+): void => {
+    if (storeLru.has(cacheKey)) storeLru.delete(cacheKey);
+    storeLru.set(cacheKey, entry);
+    while (storeLru.size > MAX_PATH_CACHE_ENTRIES_PER_STORE) {
+        const oldestKey = storeLru.keys().next().value as string | undefined;
+        if (!oldestKey) break;
+        const oldest = storeLru.get(oldestKey);
+        storeLru.delete(oldestKey);
+        if (oldest?.node.verdicts) {
+            oldest.node.verdicts.delete(oldest.type);
+            if (oldest.node.verdicts.size === 0) {
+                delete oldest.node.verdicts;
+            }
+        }
+    }
 };
 
 export const pathValidationCache = new Proxy(new Map(), {
@@ -61,7 +95,7 @@ export const pathValidationCache = new Proxy(new Map(), {
 
 export const resetPathValidationCache = (registry: object): void => {
     _pathValidationCacheByRegistry.set(registry, new Map<string, PathValidationCacheNode>());
-    _pathValidationCountsByRegistry.set(registry, new Map<string, number>());
+    _pathValidationLruByRegistry.set(registry, new Map<string, Map<string, PathValidationLruEntry>>());
 };
 
 export const validatePathSafety = (storeName: string, base: StoreValue, path: PathInput, nextValue: unknown): { ok: boolean; reason?: string } => {
@@ -72,7 +106,8 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
     const incomingType = getType(nextValue);
     const registry = getRegistry();
     const pathCache = getPathValidationCache(registry);
-    const pathCounts = getPathValidationCounts(registry);
+    const storeLru = getStorePathLru(registry, storeName);
+    const pathKey = parts.join(PATH_CACHE_DELIMITER);
     let root = pathCache.get(storeName);
     if (!root) {
         root = { children: new Map() };
@@ -90,7 +125,11 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
     }
 
     const cached = node.verdicts?.get(incomingType);
-    if (cached) return cached;
+    if (cached) {
+        const cacheKey = `${pathKey}|${incomingType}`;
+        touchPathLru(storeLru, cacheKey, { node, type: incomingType });
+        return cached;
+    }
 
     const allowCreate = metaEntry.options?.pathCreate === true;
     let cursor: unknown = base;
@@ -180,12 +219,8 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
     const hadVerdict = node.verdicts.has(incomingType);
     node.verdicts.set(incomingType, verdict);
     if (!hadVerdict) {
-        const nextCount = (pathCounts.get(storeName) ?? 0) + 1;
-        pathCounts.set(storeName, nextCount);
-        if (nextCount > MAX_PATH_CACHE_ENTRIES_PER_STORE) {
-            pathCache.delete(storeName);
-            pathCounts.delete(storeName);
-        }
+        const cacheKey = `${pathKey}|${incomingType}`;
+        touchPathLru(storeLru, cacheKey, { node, type: incomingType });
     }
     return verdict;
 };
@@ -268,13 +303,13 @@ export const normalizeCommittedState = (
 export const invalidatePathCache = (name: string): void => {
     const registry = getRegistry();
     getPathValidationCache(registry).delete(name);
-    getPathValidationCounts(registry).delete(name);
+    getPathValidationLru(registry).delete(name);
 };
 
 export const clearPathValidationCache = (): void => {
     const registry = getRegistry();
     getPathValidationCache(registry).clear();
-    getPathValidationCounts(registry).clear();
+    getPathValidationLru(registry).clear();
 };
 
 export const materializeInitial = (name: string): boolean => {

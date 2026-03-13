@@ -83,9 +83,11 @@ const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs
     }
 
     const computedOrder = getTopoOrderedComputeds(orderedNames);
+    const orderedSet = new Set(orderedNames);
     for (const computedName of computedOrder) {
-        if (pendingSet.has(computedName) && !orderedNames.includes(computedName)) {
+        if (pendingSet.has(computedName) && !orderedSet.has(computedName)) {
             orderedNames.push(computedName);
+            orderedSet.add(computedName);
         }
     }
 

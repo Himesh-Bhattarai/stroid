@@ -187,8 +187,10 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
 
     const clearAllStores = (): string[] => {
         const removed: string[] = [];
+        const maxPasses = 20;
         let pass = 0;
-        while (true) {
+        let previousRemaining = Number.POSITIVE_INFINITY;
+        while (pass < maxPasses) {
             const names = Object.keys(stores);
             if (names.length === 0) break;
             names.forEach((name) => {
@@ -198,9 +200,20 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                 }
             });
             pass += 1;
-            if (pass > 10_000) break;
+            const remaining = Object.keys(stores).length;
+            if (remaining === 0) break;
+            if (remaining >= previousRemaining) break;
+            previousRemaining = remaining;
         }
-        warn(`All stores cleared (${removed.length} stores removed)`);
+        const remaining = Object.keys(stores).length;
+        if (remaining > 0) {
+            warn(
+                `clearAllStores stopped after ${pass} pass${pass === 1 ? "" : "es"}; ` +
+                `${remaining} store(s) still registered (likely recreated during deletion).`
+            );
+        } else {
+            warn(`All stores cleared (${removed.length} stores removed)`);
+        }
         return removed;
     };
 
