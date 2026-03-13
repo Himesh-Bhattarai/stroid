@@ -81,6 +81,8 @@ export {
     getFeatureApi,
     reportStoreCreationError,
     reportStoreError,
+    reportStoreWarning,
+    reportStoreCreationWarning,
     getSsrWarningIssued,
     markSsrWarningIssued,
     resetSsrWarningFlag,

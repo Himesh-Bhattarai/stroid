@@ -20,7 +20,7 @@ import {
     hasStoreEntryInternal,
 } from "./registry.js";
 import { runValidation, invalidatePathCache } from "./validation.js";
-import { reportStoreError, warnMissingFeature } from "./identity.js";
+import { reportStoreError, reportStoreWarning, warnMissingFeature } from "./identity.js";
 
 type BaseFeatureContext = {
     name: string;
@@ -150,7 +150,9 @@ export const runMiddlewareForStore = (
         name,
         payload,
         middlewares: meta[name]?.options?.middleware || [],
-        onError: meta[name]?.options?.onError,
+        reportIssue: (message, visibility) => {
+            reportStoreWarning(name, message, visibility);
+        },
         warn,
     });
 
@@ -165,8 +167,9 @@ export const runStoreHookSafe = (
         label,
         fn,
         args,
-        onError: meta[name]?.options?.onError,
-        warn,
+        reportIssue: (message, visibility) => {
+            reportStoreWarning(name, message, visibility);
+        },
     });
 
 export const resolveFeatureAvailability = (name: string, options: NormalizedOptions): NormalizedOptions => {

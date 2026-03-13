@@ -45,7 +45,7 @@ import {
     setStoreValueInternal, getStoreValueRef, resolveFeatureAvailability,
     // ── Identity & existence ────────────────────────────────────────────────
     nameOf, exists, hasStoreEntryInternal,
-    reportStoreCreationError, reportStoreError,
+    reportStoreCreationError, reportStoreError, reportStoreWarning,
     getSsrWarningIssued, markSsrWarningIssued, resetSsrWarningFlag,
     clearFeatureContexts, clearAllRegistries, resetFeaturesForTests,
     // ── Types ───────────────────────────────────────────────────────────────
@@ -127,8 +127,7 @@ export const createStore = <Name extends string, State>(
 
     if (hasStoreEntryInternal(name)) {
         const msg = `Store "${name}" already exists. Call setStore("${name}", data) to update instead.`;
-        warn(msg);
-        meta[name]?.options?.onError?.(msg);
+        reportStoreWarning(name, msg);
         return { name } as StoreDefinition<Name, State>;
     }
 
@@ -335,8 +334,7 @@ export const deleteStore = (nameInput: string | StoreDefinition<string, StoreVal
         const message =
             `deleteStore("${name}") cannot be called inside setStoreBatch. ` +
             `Move deleteStore outside the batch to preserve transaction semantics.`;
-        meta[name]?.options?.onError?.(message);
-        warn(message);
+        reportStoreWarning(name, message);
         markTransactionFailed(message);
         return;
     }
@@ -356,8 +354,7 @@ export const resetStore = (nameInput: string | StoreDefinition<string, StoreValu
         const message =
             `resetStore("${name}") has no initial state to reset to. ` +
             `If this is a lazy store, ensure it has been initialized before calling resetStore.`;
-        meta[name]?.options?.onError?.(message);
-        warn(message);
+        reportStoreWarning(name, message);
         if (isTransactionActive()) {
             markTransactionFailed(message);
         }
@@ -400,8 +397,7 @@ const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { o
     const nextValue = nextResult.value;
     if (nextValue === undefined) {
         const message = `Whole-store undefined replacement is blocked for "${name}". Use null for intentional empty state.`;
-        meta[name]?.options?.onError?.(message);
-        warn(message);
+        reportStoreWarning(name, message);
         return { ok: false, reason: "undefined" };
     }
 

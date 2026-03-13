@@ -3,6 +3,7 @@ import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeature
 import { hasStoreEntry, type StoreRegistry } from "../store-registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn } from "./diagnostics.js";
+import { reportIssue } from "./reporting.js";
 import { isComputed } from "../computed-graph.js";
 import { deleteComputed } from "../computed.js";
 
@@ -19,8 +20,11 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
     const deletingStores = registry.deletingStores;
 
     const reportStoreError = (name: string, message: string): void => {
-        metaEntries[name]?.options?.onError?.(message);
-        warn(message);
+        reportIssue(message, {
+            onError: metaEntries[name]?.options?.onError,
+            severity: "warn",
+            visibility: "dev",
+        });
     };
 
     const createDeleteContext = ({
@@ -52,8 +56,11 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
         applyFeatureState: () => undefined,
         notify: () => undefined,
         reportStoreError: (message: string) => {
-            options.onError?.(message);
-            warn(message);
+            reportIssue(message, {
+                onError: options.onError,
+                severity: "warn",
+                visibility: "dev",
+            });
         },
         warn,
         log,
@@ -127,8 +134,13 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                 label: "onDelete",
                 fn: options.onDelete,
                 args: [prev],
-                onError: options.onError,
-                warn,
+                reportIssue: (message, visibility) => {
+                    reportIssue(message, {
+                        onError: options.onError,
+                        severity: "warn",
+                        visibility,
+                    });
+                },
             });
 
             runFeatureDeleteHooks({

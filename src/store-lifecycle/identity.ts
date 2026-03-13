@@ -1,5 +1,6 @@
-import { warn, warnAlways, critical, isDev, suggestStoreName } from "../utils.js";
+import { warn, isDev, suggestStoreName } from "../utils.js";
 import { getConfig, getNamespace } from "../internals/config.js";
+import { reportIssue, type IssueSeverity, type IssueVisibility } from "../internals/reporting.js";
 import { hasStoreEntryInternal, stores, isDeleting, meta, featureRuntimes } from "./registry.js";
 import type { FeatureName } from "../feature-registry.js";
 import type { StoreDefinition } from "./types.js";
@@ -39,22 +40,55 @@ export const exists = (name: string): boolean => {
     return false;
 };
 
-export const reportStoreError = (name: string, message: string): void => {
-    meta[name]?.options?.onError?.(message);
-    critical(message);
+export const reportStoreIssue = (
+    name: string,
+    message: string,
+    options: { severity?: IssueSeverity; visibility?: IssueVisibility } = {}
+): void => {
+    reportIssue(message, {
+        ...options,
+        onError: meta[name]?.options?.onError,
+    });
 };
 
-export const reportStoreCreationError = (message: string, onError?: (message: string) => void): void => {
-    onError?.(message);
-    critical(message);
+export const reportStoreCreationIssue = (
+    message: string,
+    onError?: (message: string) => void,
+    options: { severity?: IssueSeverity; visibility?: IssueVisibility } = {}
+): void => {
+    reportIssue(message, {
+        ...options,
+        onError,
+    });
 };
+
+export const reportStoreWarning = (
+    name: string,
+    message: string,
+    visibility: IssueVisibility = "dev"
+): void => {
+    reportStoreIssue(name, message, { severity: "warn", visibility });
+};
+
+export const reportStoreCreationWarning = (
+    message: string,
+    onError?: (message: string) => void,
+    visibility: IssueVisibility = "dev"
+): void => {
+    reportStoreCreationIssue(message, onError, { severity: "warn", visibility });
+};
+
+export const reportStoreError = (name: string, message: string): void =>
+    reportStoreIssue(name, message, { severity: "critical", visibility: "always" });
+
+export const reportStoreCreationError = (message: string, onError?: (message: string) => void): void =>
+    reportStoreCreationIssue(message, onError, { severity: "critical", visibility: "always" });
 
 export const warnMissingFeature = (storeName: string, featureName: FeatureName, onError?: (message: string) => void): void => {
     const message =
         `Store "${storeName}" requested ${featureName} support, but "${featureName}" is not registered.\n` +
         `Import "stroid/${featureName}" before calling createStore("${storeName}", ...).`;
-    onError?.(message);
-    warnAlways(message);
+    reportStoreCreationWarning(message, onError, "always");
     if (getConfig().strictMissingFeatures) {
         throw new Error(message);
     }
