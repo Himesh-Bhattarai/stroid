@@ -1,5 +1,6 @@
 import type { PersistConfig, StoreValue } from "../../adapters/options.js";
 import type { PersistMeta, PersistLoadArgs } from "./types.js";
+import { normalizeFeatureState, resolveUpdatedAtMs } from "../state-helpers.js";
 
 const resolveMigrationFailure = ({
     name,
@@ -58,11 +59,8 @@ export const persistLoad = ({
     const meta: PersistMeta | undefined = getMeta();
     const cfg = meta?.options?.persist;
     if (!cfg) return false;
-    const validateState = (candidate: StoreValue): { ok: boolean; value?: StoreValue } => {
-        const res = validate(candidate);
-        if (!res.ok) return { ok: false };
-        return { ok: true, value: res.value ?? candidate };
-    };
+    const validateState = (candidate: StoreValue): { ok: boolean; value?: StoreValue } =>
+        normalizeFeatureState({ value: candidate, validate });
     try {
         const raw = cfg.driver.getItem?.(cfg.key) ?? null;
         if (!raw) return false;
@@ -70,14 +68,13 @@ export const persistLoad = ({
         const envelope = JSON.parse(decrypted);
         const { v = 1, checksum, data, updatedAt } = envelope || {};
         if (!data) return true;
-        const restoredUpdatedAt =
-            typeof updatedAt === "string" || typeof updatedAt === "number"
-                ? Date.parse(String(updatedAt))
-                : Number.NaN;
-        const safeUpdatedAt = Number.isFinite(restoredUpdatedAt) ? restoredUpdatedAt : Date.now();
-        if (!Number.isFinite(restoredUpdatedAt)) {
-            log(`persist: corrupt updatedAt in stored data for "${name}". Using current time to prevent sync overwrite.`);
-        }
+        const safeUpdatedAt = resolveUpdatedAtMs({
+            value: updatedAt,
+            fallbackMs: Date.now(),
+            onInvalid: () => {
+                log(`persist: corrupt updatedAt in stored data for "${name}". Using current time to prevent sync overwrite.`);
+            },
+        });
         if (cfg.checksum !== "none" && checksum !== hashState(data)) {
             reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
             applyFeatureState(deepClone(getInitialState()), Date.now());

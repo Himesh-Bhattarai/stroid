@@ -1,5 +1,6 @@
 import type { StoreValue, SyncOptions } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
+import { normalizeFeatureState, resolveUpdatedAtMs } from "./state-helpers.js";
 
 export type SyncChannels = Record<string, BroadcastChannel>;
 export type SyncClocks = Record<string, number>;
@@ -330,7 +331,7 @@ export const broadcastSync = ({
             source: instanceId,
             name,
             clock: syncClocks[name] ?? 0,
-            updatedAt: Date.parse(updatedAt || new Date().toISOString()),
+            updatedAt: resolveUpdatedAtMs({ value: updatedAt, fallbackMs: Date.now() }),
             data,
             checksum: hashState(data),
         };
@@ -363,7 +364,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
     const recordLocalVersion = (name: string, updatedAt: string): void => {
         syncVersions[name] = {
             clock: syncClocks[name] ?? 0,
-            updatedAt: Date.parse(updatedAt || new Date().toISOString()),
+            updatedAt: resolveUpdatedAtMs({ value: updatedAt, fallbackMs: Date.now() }),
             source: instanceId,
         };
     };
@@ -395,17 +396,18 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                 warn: ctx.warn,
                 setStoreValue: (name, value) => ctx.setStoreValue(value),
                 normalizeIncomingState: (name, value) => {
-                    let sanitized: StoreValue;
-                    try {
-                        sanitized = ctx.sanitize(value) as StoreValue;
-                    } catch (err) {
-                        ctx.reportStoreError(`Sanitize failed for incoming sync "${name}": ${(err as { message?: string })?.message ?? err}`);
-                        return null;
-                    }
-
-                    const validation = ctx.validate(sanitized);
-                    if (!validation.ok) return null;
-                    return validation.value ?? sanitized;
+                    const normalized = normalizeFeatureState({
+                        value,
+                        sanitize: ctx.sanitize,
+                        validate: ctx.validate,
+                        onSanitizeError: (err) => {
+                            ctx.reportStoreError(
+                                `Sanitize failed for incoming sync "${name}": ${(err as { message?: string })?.message ?? err}`
+                            );
+                        },
+                    });
+                    if (!normalized.ok) return null;
+                    return normalized.value;
                 },
                 acceptIncomingSyncVersion: (name, updatedAtMs, incomingClock, source) => {
                     ctx.applyFeatureState(ctx.getStoreValue(), updatedAtMs);
