@@ -1,20 +1,13 @@
 import type { StoreValue } from "./store-lifecycle/types.js";
+import {
+    getActiveStoreRegistry,
+    runWithRegistry,
+    type StoreRegistry,
+    type TransactionState,
+} from "./store-registry.js";
 
-type TransactionState = {
-    depth: number;
-    pending: Array<() => void>;
-    stagedValues: Map<string, StoreValue>;
-    failed: boolean;
-    error?: Error;
-};
-
-const state: TransactionState = {
-    depth: 0,
-    pending: [],
-    stagedValues: new Map(),
-    failed: false,
-    error: undefined,
-};
+const getTransactionState = (registry?: StoreRegistry): TransactionState =>
+    (registry ?? getActiveStoreRegistry()).transaction;
 
 const coerceError = (err?: unknown): Error => {
     if (err instanceof Error) return err;
@@ -23,7 +16,9 @@ const coerceError = (err?: unknown): Error => {
     return new Error("setStoreBatch aborted");
 };
 
-export const beginTransaction = (): void => {
+export const beginTransaction = (registry?: StoreRegistry): StoreRegistry => {
+    const resolvedRegistry = registry ?? getActiveStoreRegistry();
+    const state = getTransactionState(resolvedRegistry);
     state.depth += 1;
     if (state.depth === 1) {
         state.pending = [];
@@ -31,32 +26,39 @@ export const beginTransaction = (): void => {
         state.failed = false;
         state.error = undefined;
     }
+    return resolvedRegistry;
 };
 
-export const isTransactionActive = (): boolean => state.depth > 0;
+export const isTransactionActive = (): boolean => getTransactionState().depth > 0;
 
-export const markTransactionFailed = (err?: unknown): void => {
+export const markTransactionFailed = (err?: unknown, registry?: StoreRegistry): void => {
+    const state = getTransactionState(registry);
     state.failed = true;
     if (!state.error) state.error = coerceError(err);
 };
 
 export const registerTransactionCommit = (fn: () => void): void => {
-    state.pending.push(fn);
+    const registry = getActiveStoreRegistry();
+    const state = getTransactionState(registry);
+    state.pending.push(() => runWithRegistry(registry, fn));
 };
 
 export const stageTransactionValue = (name: string, value: StoreValue): void => {
+    const state = getTransactionState();
     state.stagedValues.set(name, value);
 };
 
 export const getStagedTransactionValue = (name: string): { has: boolean; value: StoreValue | undefined } => {
+    const state = getTransactionState();
     if (!state.stagedValues.has(name)) return { has: false, value: undefined };
     return { has: true, value: state.stagedValues.get(name) };
 };
 
-export const endTransaction = (err?: unknown): Error | null => {
+export const endTransaction = (err?: unknown, registry?: StoreRegistry): Error | null => {
+    const state = getTransactionState(registry);
     if (state.depth === 0) return null;
     if (err) {
-        markTransactionFailed(err);
+        markTransactionFailed(err, registry);
     }
     state.depth = Math.max(0, state.depth - 1);
     if (state.depth > 0) return null;
@@ -64,9 +66,7 @@ export const endTransaction = (err?: unknown): Error | null => {
     const finalError = state.failed ? (state.error ?? new Error("setStoreBatch aborted")) : null;
 
     if (!finalError) {
-        state.pending.forEach((fn) => {
-            fn();
-        });
+        state.pending.forEach((fn) => fn());
     }
 
     state.pending = [];

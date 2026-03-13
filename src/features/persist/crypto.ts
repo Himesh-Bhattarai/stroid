@@ -10,8 +10,12 @@ export const isIdentityCrypto = (fn: (v: string) => string): boolean => {
         const probe = "__stroid_plaintext_probe__";
         return fn(probe) === probe;
     } catch (_) {
-        const src = fn.toString().replace(/\s/g, "");
-        return src === "v=>v" || src === "(v)=>v" || src === "function(v){returnv;}";
+        try {
+            const src = fn.toString().replace(/\s/g, "");
+            return src === "v=>v" || src === "(v)=>v" || src === "function(v){returnv;}";
+        } catch (_) {
+            return false;
+        }
     }
 };
 

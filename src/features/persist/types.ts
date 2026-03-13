@@ -35,7 +35,7 @@ export type PersistSaveArgs = {
     persistInFlight: PersistInFlight;
     persistWatchState: PersistWatchState;
     plaintextWarningsIssued: Set<string>;
-    exists: (name: string) => boolean;
+    exists: () => boolean;
     getMeta: () => PersistMeta | undefined;
     getStoreValue: () => StoreValue;
     reportStoreError: (name: string, message: string) => void;

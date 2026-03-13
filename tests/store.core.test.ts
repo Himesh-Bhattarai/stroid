@@ -10,6 +10,8 @@ import {
   hasStore,
   hydrateStores,
   _subscribe,
+  _getSnapshot,
+  _getStoreValueRef,
 } from "../src/store.js";
 import { clearAllStores } from "../src/runtime-admin.js";
 import { subscribeWithSelector } from "../src/selectors.js";
@@ -115,6 +117,33 @@ test("mutator return values are rejected in strict mode", () => {
 
   assert.deepStrictEqual(result, { ok: false, reason: "validate" });
   assert.deepStrictEqual(getStore("mutatorReturn"), { count: 1 });
+});
+
+test("mutator draft becomes the committed value", () => {
+  clearAllStores();
+  createStore("draftReuse", { count: 0 });
+
+  let draftRef: any = null;
+  setStore("draftReuse", (draft: any) => {
+    draftRef = draft;
+    draft.count = 1;
+  });
+
+  assert.strictEqual(_getStoreValueRef("draftReuse"), draftRef);
+});
+
+test("ref snapshots are frozen to prevent silent mutation", () => {
+  clearAllStores();
+  createStore("refStore", { profile: { name: "Alex" } }, { snapshot: "ref" });
+
+  const snapshot = _getSnapshot("refStore") as any;
+  assert.ok(Object.isFrozen(snapshot));
+
+  assert.throws(() => {
+    snapshot.profile.name = "Jordan";
+  }, /TypeError/);
+
+  assert.deepStrictEqual(getStore("refStore"), { profile: { name: "Alex" } });
 });
 
 test("createComputed derives and updates from dependencies", async () => {

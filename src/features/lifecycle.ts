@@ -24,7 +24,7 @@ export const runMiddleware = ({
     reportIssue: LifecycleIssueReporter;
     warn: (message: string) => void;
 }): StoreValue | typeof MIDDLEWARE_ABORT => {
-    if (!Array.isArray(middlewares)) return payload.next;
+    if (!Array.isArray(middlewares) || middlewares.length === 0) return payload.next;
     const warnedUndefined = new WeakSet<Function>();
     let nextState = deepClone(payload.next);
     for (const mw of middlewares) {

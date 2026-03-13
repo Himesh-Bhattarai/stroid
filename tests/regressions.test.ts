@@ -2,12 +2,23 @@ import test from "node:test";
 import assert from "node:assert";
 import { configureStroid, resetConfig } from "../src/config.js";
 import { clearAllStores } from "../src/runtime-admin.js";
-import { createStore, getStore, hasStore, hydrateStores, setStore, setStoreBatch, subscribe, useRegistry } from "../src/store.js";
+import {
+  createStore,
+  getStore,
+  hasStore,
+  hydrateStores,
+  setStore,
+  setStoreBatch,
+  subscribe,
+  useRegistry,
+  _getSnapshot,
+} from "../src/store.js";
 import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
 import { hashState } from "../src/utils.js";
 import { defaultRegistryScope } from "../src/store-registry.js";
-import { stores, validatePathSafety } from "../src/store-lifecycle.js";
+import { stores, validatePathSafety, getStoreAdmin } from "../src/store-lifecycle.js";
+import { createStoreForRequest } from "../src/server.js";
 
 test("validator with side effects runs once per write", () => {
   clearAllStores();
@@ -107,6 +118,43 @@ test("runtime-admin clearAllStores clears the current registry scope", () => {
   useRegistry(defaultRegistryScope);
 });
 
+test("getStoreAdmin returns per-registry admin instances", () => {
+  useRegistry("admin-scope-a");
+  const adminA = getStoreAdmin();
+
+  useRegistry("admin-scope-b");
+  const adminB = getStoreAdmin();
+
+  assert.notStrictEqual(adminA, adminB);
+
+  useRegistry(defaultRegistryScope);
+});
+
+test("transaction state is registry-scoped across request registries", () => {
+  const reqA = createStoreForRequest((api) => {
+    api.create("count", { value: 0 });
+  });
+  const reqB = createStoreForRequest((api) => {
+    api.create("count", { value: 100 });
+  });
+
+  let resultB: any = null;
+  const resultA = reqA.hydrate(() => {
+    setStoreBatch(() => {
+      setStore("count", { value: 1 });
+      reqB.hydrate(() => {
+        setStore("count", { value: 200 });
+        resultB = getStore("count");
+        return resultB;
+      });
+    });
+    return getStore("count");
+  });
+
+  assert.deepStrictEqual(resultA, { value: 1 });
+  assert.deepStrictEqual(resultB, { value: 200 });
+});
+
 test("setStore rejects path writes to primitive stores", () => {
   clearAllStores();
   createStore("count", 0);
@@ -148,6 +196,19 @@ test("chunked flush snapshots ordered names (orderedNames race)", async () => {
   } finally {
     resetConfig();
   }
+});
+
+test("getStoreSnapshot reads staged values inside setStoreBatch", () => {
+  clearAllStores();
+  createStore("batched", { value: 0 });
+
+  let stagedSnapshot: any = null;
+  setStoreBatch(() => {
+    setStore("batched", "value", 1);
+    stagedSnapshot = _getSnapshot("batched");
+  });
+
+  assert.deepStrictEqual(stagedSnapshot, { value: 1 });
 });
 
 test("critical fires when sync payload is dropped", () => {

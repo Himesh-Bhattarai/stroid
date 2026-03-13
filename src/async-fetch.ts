@@ -698,7 +698,10 @@ const _parseResponseBody = async (response: Response, responseType: FetchOptions
 
 export const getAsyncMetrics = () => ({ ...asyncMetrics });
 
-export const _resetAsyncStateForTests = (): void => resetAsyncState();
+export const _resetAsyncStateForTests = (): void => {
+    cleanupAllRevalidateHandlers();
+    resetAsyncState();
+};
 export const cleanupAllRevalidateHandlers = (): void => {
     _wildcardCleanups.forEach(fn => fn());
     _wildcardCleanups.length = 0;

@@ -8,6 +8,8 @@ import { clearAllStores } from "../src/runtime-admin.js";
 import { getStoreMeta } from "../src/runtime-tools.js";
 import { createStore, setStore, getStore, deleteStore, resetStore } from "../src/store.js";
 import { resetAllStoresForTest } from "../src/testing.js";
+import { flushPersistImmediately } from "../src/features/persist/save.js";
+import { isIdentityCrypto } from "../src/features/persist/crypto.js";
 import { hashState } from "../src/utils.js";
 
 test("persist setItem errors surface via onError without throwing", async () => {
@@ -98,6 +100,19 @@ test("persist disables when encrypt/decrypt do not round-trip", async () => {
 
   assert.ok(errors.some((msg) => msg.includes("round-trip")));
   assert.strictEqual(writes.length, 0);
+});
+
+test("isIdentityCrypto ignores toString errors", () => {
+  const throwing = ((value: string) => {
+    throw new Error(`fail:${value}`);
+  }) as (value: string) => string;
+  (throwing as any).toString = () => {
+    throw new Error("toString failed");
+  };
+
+  assert.doesNotThrow(() => {
+    assert.strictEqual(isIdentityCrypto(throwing), false);
+  });
 });
 
 test("persist warns once per store when defaults persist in plaintext", async () => {
@@ -720,4 +735,49 @@ test("persist custom serialize deserialize encrypt and decrypt hooks round-trip 
   });
 
   assert.deepStrictEqual(getStore("securePrefs"), { theme: "light" });
+});
+
+test("persistSave uses a zero-argument exists callback", async () => {
+  const calls: number[] = [];
+  const cfg = {
+    driver: {
+      setItem: () => {},
+      getItem: () => null,
+      removeItem: () => {},
+    },
+    key: "persist-exists",
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encrypt: (v: string) => v,
+    decrypt: (v: string) => v,
+    checksum: "none" as const,
+    allowPlaintext: true,
+  };
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    options: {
+      persist: cfg,
+      migrations: {},
+    },
+  };
+
+  flushPersistImmediately("existsStore", {
+    name: "existsStore",
+    persistTimers: {},
+    persistInFlight: {},
+    persistWatchState: {},
+    plaintextWarningsIssued: new Set(),
+    exists: (...args: any[]) => {
+      calls.push(args.length);
+      return true;
+    },
+    getMeta: () => meta,
+    getStoreValue: () => ({ value: 1 }),
+    reportStoreError: () => {},
+    hashState,
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepStrictEqual(calls, [0]);
 });

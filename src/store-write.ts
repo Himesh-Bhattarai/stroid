@@ -208,7 +208,9 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(storeName) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(storeName);
 
-    if (typeof keyOrData === "function" && value === undefined) {
+    const usedMutator = typeof keyOrData === "function" && value === undefined;
+
+    if (usedMutator) {
         try {
             const draft = deepClone(prev);
             const result = (keyOrData as (draft: StoreValue) => void)(draft);
@@ -294,7 +296,8 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") aborted by middleware`);
         return { ok: false, reason: "middleware" };
     }
-    const committed = normalizeCommittedState(storeName, next, validateRule);
+    const reuseInput = usedMutator && next === updated;
+    const committed = normalizeCommittedState(storeName, next, validateRule, undefined, reuseInput ? { reuseInput: true } : undefined);
     if (!committed.ok) {
         if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") failed validation`);
         return { ok: false, reason: "validate" };
@@ -311,9 +314,9 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
             meta[storeName].updateCount++;
             runFeatureWriteHooks(storeName, "set", prevValue, nextValue, notify);
             runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prevValue, nextValue]);
+            notify(storeName);
             log(`Store "${storeName}" updated`);
         });
-        notify(storeName);
     } else {
         setStoreValueInternal(storeName, committed.value);
         invalidatePathCache(storeName);
@@ -401,9 +404,9 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
             meta[name].updateCount++;
             runFeatureWriteHooks(name, "reset", prev, resetValue, notify);
             runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
+            notify(name);
             log(`Store "${name}" reset to initial state/value`);
         });
-        notify(name);
         return;
     }
 

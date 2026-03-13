@@ -27,7 +27,7 @@ const persistSaveInner = ({
     persistInFlight: PersistInFlight;
     persistWatchState: PersistWatchState;
     plaintextWarningsIssued: Set<string>;
-    exists: (name: string) => boolean;
+    exists: () => boolean;
     getMeta: () => PersistMeta | undefined;
     getStoreValue: () => StoreValue;
     reportStoreError: (name: string, message: string) => void;
@@ -38,7 +38,7 @@ const persistSaveInner = ({
 
     const writeNow = async (): Promise<void> => {
         const meta = getMeta();
-        if (!meta?.options?.persist || meta.options.persist !== cfg || !exists(name)) return;
+        if (!meta?.options?.persist || meta.options.persist !== cfg || !exists()) return;
 
         if (
             !cfg.allowPlaintext

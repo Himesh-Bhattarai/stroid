@@ -2,6 +2,7 @@ import {
     warn,
     critical,
     sanitize,
+    canReuseSanitized,
     parsePath,
     deepClone,
     runSchemaValidation,
@@ -236,9 +237,13 @@ export const validatePathSafety = (storeName: string, base: StoreValue, path: Pa
 export const sanitizeValue = (
     name: string,
     value: unknown,
-    onError?: (message: string) => void
+    onError?: (message: string) => void,
+    options?: { reuseInput?: boolean }
 ): { ok: true; value: StoreValue } | { ok: false } => {
     try {
+        if (options?.reuseInput && canReuseSanitized(value)) {
+            return { ok: true, value: value as StoreValue };
+        }
         return { ok: true, value: sanitize(value) as StoreValue };
     } catch (err) {
         const message = `Sanitize failed for "${name}": ${(err as { message?: string })?.message ?? err}`;
@@ -297,9 +302,10 @@ export const normalizeCommittedState = (
     name: string,
     value: unknown,
     validate: ValidateOption | undefined,
-    onError?: (message: string) => void
+    onError?: (message: string) => void,
+    options?: { reuseInput?: boolean }
 ): { ok: true; value: StoreValue } | { ok: false } => {
-    const sanitized = sanitizeValue(name, value, onError);
+    const sanitized = sanitizeValue(name, value, onError, options);
     if (!sanitized.ok) return { ok: false };
 
     const validation = runValidation(name, sanitized.value, validate, onError);

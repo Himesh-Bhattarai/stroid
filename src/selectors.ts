@@ -52,7 +52,6 @@ const trackSelectorDependencies = <TState, TResult>(
 const selectorDepsChanged = <TState>(prev: TState, next: TState, deps: SelectorDependency[]): boolean =>
     deps.some((path) => !Object.is(getByPath(prev, path), getByPath(next, path)));
 
-const MAX_SERIALIZED_LENGTH = 20_000;
 export const createSelector = <TState, TResult>(storeName: string, selectorFn: (state: TState) => TResult) => {
     let lastRef: TState | undefined;
     let lastResult: TResult | undefined;

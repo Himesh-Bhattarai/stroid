@@ -125,7 +125,8 @@ const getStoreAdminForRegistry = (registry: StoreRegistry): ReturnType<typeof cr
     return admin;
 };
 export const storeAdmin = createRegistryValueProxy(() => getStoreAdminForRegistry(getActiveRegistry()));
-export const getStoreAdmin = (): typeof storeAdmin => storeAdmin;
+export const getStoreAdmin = (): ReturnType<typeof createStoreAdmin> =>
+    getStoreAdminForRegistry(getActiveRegistry());
 
 export const getFeatureRuntime = (name: FeatureName): StoreFeatureRuntime | undefined => {
     const existing = featureRuntimes.get(name);

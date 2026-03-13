@@ -21,6 +21,14 @@ export type RegistrySnapshotEntry = {
     snapshot: RegistryStoreValue | null;
 };
 
+export type TransactionState = {
+    depth: number;
+    pending: Array<() => void>;
+    stagedValues: Map<string, RegistryStoreValue>;
+    failed: boolean;
+    error?: Error;
+};
+
 export type ComputedEntry = {
     deps: string[];
     compute: (...args: unknown[]) => unknown;
@@ -39,6 +47,7 @@ export type StoreRegistry = {
     computedEntries: Record<string, ComputedEntry>;
     computedDependents: Record<string, string[]>;
     computedCleanups: Map<string, () => void>;
+    transaction: TransactionState;
     async: AsyncRegistry;
 };
 
@@ -82,6 +91,13 @@ export const createStoreRegistry = (): StoreRegistry => ({
     computedEntries: Object.create(null),
     computedDependents: Object.create(null),
     computedCleanups: new Map(),
+    transaction: {
+        depth: 0,
+        pending: [],
+        stagedValues: new Map(),
+        failed: false,
+        error: undefined,
+    },
     async: createAsyncRegistry(),
 });
 
@@ -120,6 +136,11 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
         });
     });
     registry.deletingStores.clear();
+    registry.transaction.depth = 0;
+    registry.transaction.pending = [];
+    registry.transaction.stagedValues.clear();
+    registry.transaction.failed = false;
+    registry.transaction.error = undefined;
     resetAsyncRegistry(registry.async);
 };
 
@@ -144,6 +165,11 @@ export const resetAllStoreRegistriesForTests = (): void => {
             });
         });
         registry.deletingStores.clear();
+        registry.transaction.depth = 0;
+        registry.transaction.pending = [];
+        registry.transaction.stagedValues.clear();
+        registry.transaction.failed = false;
+        registry.transaction.error = undefined;
         resetAsyncRegistry(registry.async);
     });
     _registries.clear();
@@ -175,6 +201,11 @@ let currentRegistryRunner: RegistryRunner | null = null;
 
 export const injectRegistryRunner = (runner: RegistryRunner): void => {
     currentRegistryRunner = runner;
+};
+
+export const runWithRegistry = <T>(registry: StoreRegistry, fn: () => T): T => {
+    if (currentRegistryRunner?.run) return currentRegistryRunner.run(registry, fn);
+    return fn();
 };
 
 export const getActiveStoreRegistry = (fallback?: StoreRegistry): StoreRegistry => {

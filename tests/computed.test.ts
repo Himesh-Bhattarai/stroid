@@ -136,6 +136,36 @@ test("deleteComputed stops reactivity", async () => {
   assert.strictEqual(getStore("derived"), 10);
 });
 
+test("re-registering computed cleans up prior subscriptions", async () => {
+  createStore("base", 1);
+
+  let firstRuns = 0;
+  let secondRuns = 0;
+
+  createComputed("twice", ["base"], (n) => {
+    firstRuns += 1;
+    return (n as number) * 2;
+  });
+
+  replaceStore("base", 2);
+  await wait();
+
+  assert.strictEqual(firstRuns, 2);
+  assert.strictEqual(getStore("twice"), 4);
+
+  createComputed("twice", ["base"], (n) => {
+    secondRuns += 1;
+    return (n as number) * 3;
+  });
+
+  replaceStore("base", 3);
+  await wait();
+
+  assert.strictEqual(firstRuns, 2);
+  assert.strictEqual(secondRuns, 2);
+  assert.strictEqual(getStore("twice"), 9);
+});
+
 test("compute function throwing does not crash -- returns previous value", async () => {
   createStore("n", 2);
   createComputed("safe", ["n"], (v) => {

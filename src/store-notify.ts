@@ -9,17 +9,18 @@
  *
  * Consumers: store-write (calls notify()), hooks-core (calls subscribe/getSnapshot).
  */
-import { deepClone, shallowClone } from "./utils.js";
+import { deepClone, shallowClone, warn } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import { getConfig } from "./internals/config.js";
-import { warn } from "./utils.js";
-import { beginTransaction, endTransaction } from "./store-transaction.js";
+import { beginTransaction, endTransaction, isTransactionActive } from "./store-transaction.js";
 import {
     meta,
     subscribers,
     stores,
     snapshotCache,
     hasStoreEntryInternal,
+    getStoreValueRef,
+    getRegistry,
     type StoreValue,
     type Subscriber,
 } from "./store-lifecycle.js";
@@ -44,7 +45,7 @@ const cloneSnapshot = (value: StoreValue, mode: SnapshotMode): StoreValue => {
 };
 
 const maybeFreezeSnapshot = (snapshot: StoreValue | null, mode: SnapshotMode): void => {
-    if (mode !== "deep") return;
+    if (mode !== "deep" && mode !== "ref") return;
     if (snapshot && typeof snapshot === "object") devDeepFreeze(snapshot);
 };
 
@@ -269,7 +270,8 @@ export const setStoreBatch = (fn: () => unknown): void => {
     }
 
     batchDepth = Math.max(0, batchDepth + 1);
-    beginTransaction();
+    const registry = getRegistry();
+    beginTransaction(registry);
     let batchError: unknown;
     try {
         const result = fn();
@@ -279,7 +281,7 @@ export const setStoreBatch = (fn: () => unknown): void => {
     } catch (err) {
         batchError = err;
     } finally {
-        const txError = endTransaction(batchError);
+        const txError = endTransaction(batchError, registry);
         batchDepth = Math.max(0, batchDepth - 1);
         if (batchError || txError) {
             pendingNotifications.clear();
@@ -319,8 +321,15 @@ export const getStoreSnapshot = (name: string): StoreValue | null => {
         maybeFreezeSnapshot(snap, snapshotMode);
         return snap;
     }
+    if (isTransactionActive()) {
+        const source = getStoreValueRef(name);
+        if (source === undefined) return null;
+        const snapshot = cloneSnapshot(source, snapshotMode);
+        maybeFreezeSnapshot(snapshot, snapshotMode);
+        return snapshot;
+    }
 
-    const source = stores[name];
+    const source = getStoreValueRef(name);
     const snapshot = cloneSnapshot(source, snapshotMode);
     maybeFreezeSnapshot(snapshot, snapshotMode);
     snapshotCache[name] = { version, snapshot };

@@ -431,6 +431,61 @@ export const isValidData = (value: unknown): boolean => {
     return true;
 };
 
+const _canReuseSanitized = (value: unknown, seen: WeakSet<object>): boolean => {
+    const type = getType(value);
+    if (type === "number") {
+        if (!Number.isFinite(value as number)) {
+            throw new Error("Non-finite numbers are not supported");
+        }
+        return true;
+    }
+    if (type === "bigint") {
+        throw new Error("BigInt values are not supported");
+    }
+    if (type === "symbol") {
+        throw new Error("Symbol values are not supported");
+    }
+    if (type === "date" || type === "map" || type === "set") {
+        return false;
+    }
+    if (type === "array") {
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
+        const keys = Object.keys(value as unknown[]);
+        for (const key of keys) {
+            const idx = Number(key);
+            if (!Number.isInteger(idx)) return false;
+        }
+        for (let i = 0; i < (value as unknown[]).length; i += 1) {
+            if (!(i in (value as unknown[]))) continue;
+            if (!_canReuseSanitized((value as unknown[])[i], seen)) return false;
+        }
+        return true;
+    }
+    if (type === "object") {
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
+        if (Object.getOwnPropertySymbols(value as object).length > 0) return false;
+        const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+        for (const [key, descriptor] of Object.entries(descriptors)) {
+            if (!descriptor.enumerable) return false;
+            if (FORBIDDEN_OBJECT_KEYS.has(key)) return false;
+            if ("get" in descriptor || "set" in descriptor) {
+                throw new Error(`Accessor properties are not supported during sanitize ("${key}")`);
+            }
+            if (!_canReuseSanitized(descriptor.value, seen)) return false;
+        }
+        return true;
+    }
+    return true;
+};
+
+export const canReuseSanitized = (value: unknown): boolean => _canReuseSanitized(value, new WeakSet<object>());
+
 const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
     const type = getType(value);
     if (type === "number") {

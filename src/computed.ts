@@ -26,6 +26,8 @@ export type ComputedOptions = {
     onError?: (err: unknown) => void;
 };
 
+const getComputedCleanups = (): Map<string, () => void> => getRegistry().computedCleanups;
+
 export const createComputed = <TResult = unknown>(
     name: string,
     deps: string[],
@@ -45,6 +47,13 @@ export const createComputed = <TResult = unknown>(
     if (typeof compute !== "function") {
         warn(`createComputed("${name}") requires a compute function as third argument`);
         return undefined;
+    }
+
+    const cleanups = getComputedCleanups();
+    const existingCleanup = cleanups.get(name);
+    if (existingCleanup) {
+        existingCleanup();
+        cleanups.delete(name);
     }
 
     const registered = registerComputed(name, deps, compute as (...args: unknown[]) => unknown);
@@ -78,8 +87,6 @@ export const createComputed = <TResult = unknown>(
 
     return handle as StoreDefinition<string, TResult>;
 };
-
-const getComputedCleanups = (): Map<string, () => void> => getRegistry().computedCleanups;
 
 const _runCompute = (
     name: string,
