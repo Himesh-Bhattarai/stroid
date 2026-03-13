@@ -8,7 +8,9 @@
  *
  * Consumers: index.ts, computed-entry.ts
  */
-import { createStore, replaceStore, getStore, hasStore, store } from "./store.js";
+import { createStore, replaceStore } from "./store-write.js";
+import { getStore, hasStore } from "./store-read.js";
+import { store } from "./store-name.js";
 import { subscribeStore } from "./store-notify.js";
 import {
     registerComputed,

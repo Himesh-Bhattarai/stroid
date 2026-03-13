@@ -361,6 +361,13 @@ export const broadcastSync = ({
         if (typeof syncOption === "object" && typeof syncOption.sign === "function") {
             try {
                 const auth = syncOption.sign(payload);
+                if (auth && typeof (auth as { then?: unknown }).then === "function") {
+                    reportStoreError(
+                        name,
+                        `Sync signer for "${name}" returned a Promise. "sign" must be synchronous.`
+                    );
+                    return;
+                }
                 if (auth !== undefined) payload.auth = auth;
             } catch (err) {
                 reportStoreError(

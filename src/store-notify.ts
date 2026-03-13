@@ -264,11 +264,6 @@ export const setStoreBatch = (fn: () => unknown): void => {
         throw new Error("setStoreBatch does not support async functions. Move async work outside and batch only synchronous mutations.");
     }
 
-    // A simple mutex to avoid overlapping batch scopes in async edge cases
-    if (batchDepth === Number.POSITIVE_INFINITY) {
-        throw new Error("setStoreBatch cannot reenter while another async batch is unwinding.");
-    }
-
     batchDepth = Math.max(0, batchDepth + 1);
     const registry = getRegistry();
     beginTransaction(registry);

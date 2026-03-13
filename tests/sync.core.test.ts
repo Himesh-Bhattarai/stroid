@@ -65,6 +65,39 @@ test("sync core (serial)", async (t) => {
     deleteStore("syncConfig");
   });
 
+  await t.test("sync sign rejects promise-returning signers", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+    (globalThis as any).window = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncSignPromise", { value: 1 }, {
+        sync: {
+          sign: () => Promise.resolve("token") as any,
+        },
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      setStore("syncSignPromise", { value: 2 });
+      await wait();
+
+      assert.deepStrictEqual(getStore("syncSignPromise"), { value: 2 });
+      assert.ok(errors.some((msg) => msg.includes("signer") && msg.includes("Promise")));
+    } finally {
+      deleteStore("syncSignPromise");
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
   await t.test("sync conflictResolver runs on older incoming versions", async () => {
     const originalWindow = (globalThis as any).window;
     const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
