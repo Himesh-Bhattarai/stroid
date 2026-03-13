@@ -226,6 +226,7 @@ test("selector hooks can mount before createStore and update when the store appe
 test("useAsyncStoreSuspense does not reissue fetches when options are omitted", async () => {
   resetAllStoresForTest();
   asyncMetrics.dedupes = 0;
+  createStore("suspenseStore", { data: null, loading: false, error: null });
 
   let resolvePromise!: (value: number) => void;
   const fetchPromise = new Promise<number>((resolve) => {
@@ -304,6 +305,12 @@ test("useStoreStatic returns a snapshot without subscribing to later updates", a
 
 test("useAsyncStore reflects fetchStore loading and success state", async () => {
   clearAllStores();
+  createStore("asyncHookStore", {
+    data: null,
+    loading: false,
+    error: null,
+    status: "idle",
+  });
   const realFetch = globalThis.fetch;
   let resolveFetch!: (value: unknown) => void;
 

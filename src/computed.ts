@@ -8,7 +8,7 @@
  *
  * Consumers: index.ts, computed-entry.ts
  */
-import { createStore, setStore, getStore, hasStore } from "./store.js";
+import { createStore, replaceStore, getStore, hasStore, store } from "./store.js";
 import { subscribeStore } from "./store-notify.js";
 import {
     registerComputed,
@@ -52,10 +52,11 @@ export const createComputed = <TResult = unknown>(
 
     const initial = _runCompute(name, deps, compute as (...args: unknown[]) => unknown, options.onError);
 
+    const handle = store<string, TResult>(name);
     if (!hasStore(name)) {
         createStore(name, initial as TResult);
     } else {
-        setStore(name, () => initial);
+        replaceStore(handle, initial as TResult);
     }
 
     const unsubscribers: Array<() => void> = [];
@@ -75,7 +76,7 @@ export const createComputed = <TResult = unknown>(
         log(`computed store "${name}" created, deps: [${deps.join(", ")}]`);
     }
 
-    return { name } as StoreDefinition<string, TResult>;
+    return handle as StoreDefinition<string, TResult>;
 };
 
 const getComputedCleanups = (): Map<string, () => void> => getRegistry().computedCleanups;
@@ -86,14 +87,15 @@ const _runCompute = (
     compute: (...args: unknown[]) => unknown,
     onError?: (err: unknown) => void
 ): unknown => {
-    const args = deps.map((dep) => getStore(dep));
+    const args = deps.map((dep) => getStore(store(dep)));
 
     try {
         return compute(...args);
     } catch (err) {
         warn(`createComputed("${name}") compute function threw: ${(err as { message?: string })?.message ?? err}`);
         onError?.(err);
-        return hasStore(name) ? getStore(name) : null;
+        const handle = store(name);
+        return hasStore(name) ? getStore(handle) : null;
     }
 };
 
@@ -107,10 +109,11 @@ const _recomputeAndFlush = (
     if (!entry) return;
 
     const next = _runCompute(name, deps, compute, onError);
-    const current = getStore(name);
+    const handle = store(name);
+    const current = getStore(handle);
     if (Object.is(next, current)) return;
 
-    setStore(name, () => next);
+    replaceStore(handle, next);
     markStale(name);
 };
 

@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { enableRevalidateOnFocus, fetchStore, getAsyncMetrics, refetchStore } from "../src/async.js";
-import { getStore, clearAllStores, deleteStore } from "../src/store.js";
+import { getStore, clearAllStores, deleteStore, createStore } from "../src/store.js";
 
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
 const deferred = <T,>() => {
@@ -17,8 +17,18 @@ const deferred = <T,>() => {
   return { promise, resolve, reject };
 };
 
+const ensureAsyncStore = (name: string) => {
+  createStore(name, {
+    data: null,
+    loading: false,
+    error: null,
+    status: "idle",
+  });
+};
+
 test("fetchStore dedupes inflight requests", async () => {
   clearAllStores();
+  ensureAsyncStore("dedupeStore");
   const realFetch = globalThis.fetch;
   let callCount = 0;
 
@@ -51,6 +61,7 @@ test("fetchStore dedupes inflight requests", async () => {
 
 test("fetchStore uses last-write-wins for racing promises", async () => {
   clearAllStores();
+  ensureAsyncStore("raceStore");
 
   const slow = new Promise((res) => setTimeout(() => res({ result: "slow" }), 30));
   const fast = new Promise((res) => setTimeout(() => res({ result: "fast" }), 5));
@@ -67,6 +78,7 @@ test("fetchStore uses last-write-wins for racing promises", async () => {
 
 test("fetchStore keeps the latest concurrent result when earlier requests settle first", async () => {
   clearAllStores();
+  ensureAsyncStore("raceStoreOrdered");
   const first = deferred<{ result: string }>();
   const second = deferred<{ result: string }>();
 
@@ -89,6 +101,7 @@ test("fetchStore keeps the latest concurrent result when earlier requests settle
 
 test("fetchStore aborts lifecycle-owned requests when the store is deleted", async () => {
   clearAllStores();
+  ensureAsyncStore("lifecycledStore");
   const realFetch = globalThis.fetch;
   let aborted = false;
   let seenSignal: AbortSignal | undefined;
@@ -133,6 +146,7 @@ test("fetchStore aborts lifecycle-owned requests when the store is deleted", asy
 
 test("fetchStore times out when no AbortSignal is provided", async () => {
   clearAllStores();
+  ensureAsyncStore("timeoutStore");
   const realSetTimeout = globalThis.setTimeout;
   let scheduledMs: number | null = null;
 
@@ -163,6 +177,7 @@ test("fetchStore times out when no AbortSignal is provided", async () => {
 
 test("fetchStore keeps success state when onSuccess throws", async () => {
   clearAllStores();
+  ensureAsyncStore("callbackSuccessStore");
 
   const result = await fetchStore("callbackSuccessStore", Promise.resolve({ value: "ok" }), {
     dedupe: false,
@@ -179,6 +194,7 @@ test("fetchStore keeps success state when onSuccess throws", async () => {
 
 test("fetchStore swallows onError callback throws and returns null", async () => {
   clearAllStores();
+  ensureAsyncStore("callbackErrorStore");
 
   const result = await fetchStore("callbackErrorStore", Promise.reject(new Error("network boom")), {
     dedupe: false,
@@ -251,6 +267,7 @@ test("fetchStore bails out cleanly when production SSR store creation is blocked
 
 test("fetchStore stops retrying after abort during backoff", async () => {
   clearAllStores();
+  ensureAsyncStore("retryAbortStore");
   const realFetch = globalThis.fetch;
   const controller = new AbortController();
   let calls = 0;
@@ -285,6 +302,7 @@ test("fetchStore stops retrying after abort during backoff", async () => {
 
 test("fetchStore clamps unbounded retry storms to a finite policy", async () => {
   clearAllStores();
+  ensureAsyncStore("retryStormStore");
   const realFetch = globalThis.fetch;
   let calls = 0;
 
@@ -312,6 +330,7 @@ test("fetchStore clamps unbounded retry storms to a finite policy", async () => 
 
 test("fetchStore evicts old cache slots under high-cardinality cacheKey usage", async () => {
   clearAllStores();
+  ensureAsyncStore("searchCacheStore");
   const realFetch = globalThis.fetch;
   let calls = 0;
 
@@ -350,6 +369,7 @@ test("fetchStore evicts old cache slots under high-cardinality cacheKey usage", 
 
 test("fetchStore ignores retry delays for direct Promise inputs", async () => {
   clearAllStores();
+  ensureAsyncStore("promiseRetryStore");
   const started = Date.now();
 
   const result = await fetchStore("promiseRetryStore", Promise.reject(new Error("promise boom")), {
@@ -367,6 +387,7 @@ test("fetchStore ignores retry delays for direct Promise inputs", async () => {
 
 test("fetchStore ignores a direct Promise result that resolves after abort", async () => {
   clearAllStores();
+  ensureAsyncStore("promiseAbortStore");
   const controller = new AbortController();
   const pending = deferred<{ value: string }>();
 
@@ -388,6 +409,7 @@ test("fetchStore ignores a direct Promise result that resolves after abort", asy
 
 test("stale abort settlement does not overwrite a newer async success", async () => {
   clearAllStores();
+  ensureAsyncStore("abortRaceStore");
   const first = deferred<{ value: string }>();
   const second = deferred<{ value: string }>();
   const controller = new AbortController();
@@ -416,6 +438,7 @@ test("stale abort settlement does not overwrite a newer async success", async ()
 
 test("fetchStore rejects deduped callers that use different transforms for one cache slot", async () => {
   clearAllStores();
+  ensureAsyncStore("dedupeTransformStore");
   const realFetch = globalThis.fetch;
   const errors: string[] = [];
 
@@ -449,6 +472,7 @@ test("fetchStore rejects deduped callers that use different transforms for one c
 
 test("fetchStore exposes background revalidation while serving cached data", async () => {
   clearAllStores();
+  ensureAsyncStore("swrStore");
   const realFetch = globalThis.fetch;
   const refresh = deferred<{ value: string }>();
   let calls = 0;
@@ -506,6 +530,7 @@ test("fetchStore exposes background revalidation while serving cached data", asy
 
 test("fetchStore preserves stale data when background revalidation fails", async () => {
   clearAllStores();
+  ensureAsyncStore("swrFailStore");
   const realFetch = globalThis.fetch;
   let calls = 0;
 
@@ -546,6 +571,7 @@ test("fetchStore preserves stale data when background revalidation fails", async
 
 test("fetchStore caps per-store inflight request slots under unique cache keys", async () => {
   clearAllStores();
+  ensureAsyncStore("burstStore");
   const realFetch = globalThis.fetch;
   const pending: Array<ReturnType<typeof deferred<{ slot: number }>>> = [];
   const errors: string[] = [];
@@ -605,6 +631,9 @@ test("refetchStore returns undefined when no previous fetch exists", async () =>
 
 test("getAsyncMetrics tracks request, cache, dedupe, and failure counters", async () => {
   clearAllStores();
+  ensureAsyncStore("metricsStore");
+  ensureAsyncStore("metricsDedupeStore");
+  ensureAsyncStore("metricsFailStore");
   const realFetch = globalThis.fetch;
   let calls = 0;
 
@@ -660,6 +689,7 @@ test("getAsyncMetrics tracks request, cache, dedupe, and failure counters", asyn
 
 test("enableRevalidateOnFocus wildcard cleanup removes focus and online listeners", async () => {
   clearAllStores();
+  ensureAsyncStore("focusStore");
   const realWindow = (globalThis as any).window;
   const realFetch = globalThis.fetch;
   const listeners = new Map<string, Set<() => void>>();

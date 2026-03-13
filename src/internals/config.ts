@@ -82,8 +82,8 @@ const defaultConfig: ResolvedConfig = {
     namespace: "",
     strictMissingFeatures: false,
     assertRuntime: false,
-    strictMutatorReturns: false,
-    asyncAutoCreate: true,
+    strictMutatorReturns: true,
+    asyncAutoCreate: false,
     asyncCloneResult: "none",
     defaultSnapshotMode: "deep",
 };

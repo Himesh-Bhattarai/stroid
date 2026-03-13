@@ -24,6 +24,7 @@ export type {
 export {
     createStore,
     setStore,
+    replaceStore,
     deleteStore,
     resetStore,
     hydrateStores,

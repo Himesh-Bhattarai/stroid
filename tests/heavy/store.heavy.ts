@@ -127,6 +127,12 @@ test("createStore blocks production server globals unless explicitly allowed", (
 
 test("fetchStore metadata is cleared when store is deleted", async () => {
   clearAllStores();
+  createStore("fetchDelete", {
+    data: null,
+    loading: false,
+    error: null,
+    status: "idle",
+  });
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async () => ({
     ok: true,

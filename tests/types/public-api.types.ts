@@ -4,11 +4,13 @@ import {
   setStore,
   getStore,
   type StoreDefinition,
+  store,
 } from "../../src/store.js";
 import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers.js";
 import { createSelector } from "../../src/selectors.js";
 import { createStoreForRequest } from "../../src/server.js";
 import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/hooks.js";
+import type { AsyncStoreState } from "../../src/hooks-async.js";
 import { fetchStore, getAsyncMetrics } from "../../src/async.js";
 import { createMockStore, benchmarkStoreSet, withMockedTime } from "../../src/testing.js";
 
@@ -70,7 +72,7 @@ if (userStore) {
   const userName = getStore(userStore, "profile.name");
   const userAge = getStore(userStore, "profile.age");
 
-  type WholeUserType = Expect<Equal<typeof wholeUser, UserState | null>>;
+  type WholeUserType = Expect<Equal<typeof wholeUser, Readonly<UserState> | null>>;
   type UserNameType = Expect<Equal<typeof userName, string | null>>;
   type UserAgeType = Expect<Equal<typeof userAge, number | null>>;
 
@@ -89,19 +91,24 @@ if (userStore) {
   setStore(userStore, { active: "no" });
 }
 
+const typedUserHandle = store<"typedUser", UserState>("typedUser");
+const typedCounterHandle = store<"typedCounter", { value: number }>("typedCounter");
+const typedFormHandle = store<"typedForm", { profile: { name: string } }>("typedForm");
+const typedAsyncHandle = store<"typedAsync", AsyncStoreState<{ ok: boolean }>>("typedAsync");
+
 const selectName = createSelector<UserState, string>("typedUser", (state) => state.profile.name);
 type CreateSelectorReturn = Expect<Equal<typeof selectName, () => string | null>>;
 
-const selectedName = useStore<UserState, string>("typedUser", (state) => state.profile.name);
-const selectedField = useStoreField<number>("typedCounter", "value");
-const selectedStatic = useStoreStatic<UserState>("typedUser");
-const selectedViaSelector = useSelector<UserState, string>("typedUser", (state) => state.profile.name);
-const formStore = useFormStore<string>("typedForm", "profile.name");
-const asyncHook = useAsyncStore("typedAsync");
+const selectedName = useStore(typedUserHandle, (state) => state.profile.name);
+const selectedField = useStoreField(typedCounterHandle, "value");
+const selectedStatic = useStoreStatic(typedUserHandle);
+const selectedViaSelector = useSelector(typedUserHandle, (state) => state.profile.name);
+const formStore = useFormStore(typedFormHandle, "profile.name");
+const asyncHook = useAsyncStore(typedAsyncHandle);
 
 type UseStoreReturn = Expect<Equal<typeof selectedName, string | null>>;
 type UseStoreFieldReturn = Expect<Equal<typeof selectedField, number | null>>;
-type UseStoreStaticReturn = Expect<Equal<typeof selectedStatic, UserState | null>>;
+type UseStoreStaticReturn = Expect<Equal<typeof selectedStatic, Readonly<UserState> | null>>;
 type UseSelectorReturn = Expect<Equal<typeof selectedViaSelector, string | null>>;
 type UseFormStoreValue = Expect<Equal<typeof formStore.value, string | null>>;
 type UseFormStoreOnChange = Expect<Equal<typeof formStore.onChange, (eOrValue: any) => void>>;
@@ -132,7 +139,7 @@ type EntityGetReturn = Expect<Equal<typeof entity, { id: string; name: string } 
 // @ts-expect-error entity payload is missing required fields
 entities.upsert({ id: "2" });
 
-const fetchPromise = fetchStore("typedAsync", Promise.resolve({ ok: true }), {
+const fetchPromise = fetchStore(typedAsyncHandle, Promise.resolve({ ok: true }), {
   retry: 1,
   cacheKey: "typed",
   onSuccess: (data) => {
@@ -158,9 +165,9 @@ mock.set((draft) => {
   draft.value = 3;
 });
 const mockHook = mock.use();
-type MockUseReturn = Expect<Equal<typeof mockHook, { name: string }>>;
+type MockUseReturn = Expect<Equal<typeof mockHook, StoreDefinition<"typedMock", { value: number }>>>;
 
-const benchmark = benchmarkStoreSet("typedBench", 10, (i) => ({ value: i }));
+const benchmark = benchmarkStoreSet(store<"typedBench", { value: number }>("typedBench"), 10, (i) => ({ value: i }));
 type BenchmarkReturn = Expect<Equal<typeof benchmark, {
   iterations: number;
   totalMs: number;

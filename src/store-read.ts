@@ -21,16 +21,16 @@ import {
     type StoreKey,
     type StoreName,
     type StateFor,
-    type UnregisteredStoreName,
 } from "./store-lifecycle.js";
 
-export function getStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P): PathValue<State, P> | null;
-export function getStore<Name extends string, State>(name: StoreDefinition<Name, State>, path?: undefined): State | null;
-export function getStore<Name extends string, State, P extends Path<State>>(name: StoreKey<Name, State>, path: P): PathValue<State, P> | null;
-export function getStore<Name extends string, State>(name: StoreKey<Name, State>, path?: undefined): State | null;
-export function getStore<Name extends StoreName, P extends Path<StateFor<Name>>>(name: Name, path: P): PathValue<StateFor<Name>, P> | null;
-export function getStore<Name extends StoreName>(name: Name, path?: undefined): StateFor<Name> | null;
-export function getStore<Name extends string>(name: UnregisteredStoreName<Name>, path?: PathInput): StoreValue | null;
+type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
+
+export function getStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P): StoreSnapshot<PathValue<State, P>> | null;
+export function getStore<Name extends string, State>(name: StoreDefinition<Name, State>, path?: undefined): StoreSnapshot<State> | null;
+export function getStore<Name extends string, State, P extends Path<State>>(name: StoreKey<Name, State>, path: P): StoreSnapshot<PathValue<State, P>> | null;
+export function getStore<Name extends string, State>(name: StoreKey<Name, State>, path?: undefined): StoreSnapshot<State> | null;
+export function getStore<Name extends StoreName, P extends Path<StateFor<Name>>>(name: Name, path: P): StoreSnapshot<PathValue<StateFor<Name>, P>> | null;
+export function getStore<Name extends StoreName>(name: Name, path?: undefined): StoreSnapshot<StateFor<Name>> | null;
 export function getStore(name: string | StoreDefinition<string, StoreValue>, path?: PathInput): StoreValue | null {
     const storeName = nameOf(name);
     if (!exists(storeName)) return null;

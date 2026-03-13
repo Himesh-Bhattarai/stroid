@@ -25,7 +25,9 @@ export type PathValue<T, P extends Path<T>> = P extends `${infer K}.${infer Rest
 
 export type PartialDeep<T> = T extends Primitive
     ? T
-    : { [K in keyof T]?: PartialDeep<T[K]> };
+    : unknown extends T
+        ? T
+        : { [K in keyof T]?: PartialDeep<T[K]> };
 
 export type StoreValue = unknown;
 
@@ -33,19 +35,17 @@ export type StoreValue = unknown;
 // Example:
 //   declare module "stroid" { interface StoreStateMap { user: UserState } }
 export interface StoreStateMap {}
-// Optional strict map users can augment to disallow unknown store names.
+// Optional strict map users can augment for explicit, locked store names.
 // Example:
 //   declare module "stroid" { interface StrictStoreMap { user: UserState } }
 export interface StrictStoreMap {}
-type StrictStoreEnabled = [keyof StrictStoreMap] extends [never] ? false : true;
-type StrictStoreName = keyof StrictStoreMap & string;
-type LooseStoreName = [keyof StoreStateMap] extends [never] ? string : keyof StoreStateMap & string;
-export type StoreName = StrictStoreEnabled extends true ? StrictStoreName : LooseStoreName;
-export type StateFor<Name extends string> = StrictStoreEnabled extends true
-    ? (Name extends keyof StrictStoreMap ? StrictStoreMap[Name] : never)
-    : (Name extends keyof StoreStateMap ? StoreStateMap[Name] : StoreValue);
-export type UnregisteredStoreName<Name extends string> =
-    StrictStoreEnabled extends true ? never : (Name extends StoreName ? never : Name);
+type RegisteredStoreMap = StoreStateMap & StrictStoreMap;
+declare const storeNameBrand: unique symbol;
+type BrandedStoreName = string & { readonly [storeNameBrand]: true };
+export type StoreName = (keyof RegisteredStoreMap & string) | BrandedStoreName;
+export type StateFor<Name extends string> =
+    Name extends keyof RegisteredStoreMap ? RegisteredStoreMap[Name] : StoreValue;
+export type UnregisteredStoreName<Name extends string> = never;
 
 // A typed store handle that still matches the runtime StoreDefinition shape.
 export type StoreKey<Name extends string = string, State = StoreValue> =

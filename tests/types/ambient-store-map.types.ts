@@ -13,7 +13,7 @@ declare module "../../src/store-lifecycle.js" {
 const whole = getStore("ambientUser");
 const name = getStore("ambientUser", "name");
 
-type WholeReturn = Expect<Equal<typeof whole, { name: string; age: number } | null>>;
+type WholeReturn = Expect<Equal<typeof whole, Readonly<{ name: string; age: number }> | null>>;
 type NameReturn = Expect<Equal<typeof name, string | null>>;
 
 setStore("ambientUser", "age", 42);

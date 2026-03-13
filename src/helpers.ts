@@ -1,36 +1,40 @@
-import { createStore, setStore, resetStore, getStore } from "./store.js";
+import { createStore, setStore, resetStore, getStore, store } from "./store.js";
 import type { StoreOptions } from "./store.js";
 
 let entityIdCounter = 0;
-const setStoreAny = setStore as (name: string, ...rest: any[]) => any;
-const getStoreAny = getStore as (name: string, path?: any) => any;
 
 export const createCounterStore = (name: string, initial = 0, options: StoreOptions = {}) => {
+    const handle = store<string, { value: number }>(name);
     createStore(name, { value: initial }, options);
     return {
-        inc: (n = 1) => setStoreAny(name, (draft: any) => { draft.value += n; }),
-        dec: (n = 1) => setStoreAny(name, (draft: any) => { draft.value -= n; }),
-        set: (v: number) => setStoreAny(name, "value", v),
-        reset: () => resetStore(name),
-        get: (): number | null => getStoreAny(name, "value") as number | null,
+        inc: (n = 1) => setStore(handle, (draft) => { draft.value += n; }),
+        dec: (n = 1) => setStore(handle, (draft) => { draft.value -= n; }),
+        set: (v: number) => setStore(handle, "value", v),
+        reset: () => resetStore(handle),
+        get: (): number | null => getStore(handle, "value"),
     };
 };
 
 export const createListStore = <T>(name: string, initial: T[] = [], options: StoreOptions = {}) => {
+    const handle = store<string, { items: T[] }>(name);
     createStore(name, { items: initial }, options);
     return {
-        push: (item: T) => setStoreAny(name, (draft: any) => { draft.items.push(item); }),
-        removeAt: (index: number) => setStoreAny(name, (draft: any) => { draft.items.splice(index, 1); }),
-        clear: () => setStoreAny(name, { items: [] }),
-        replace: (items: T[]) => setStoreAny(name, { items }),
-        all: () => (getStoreAny(name, "items") as T[] | null) ?? [],
+        push: (item: T) => setStore(handle, (draft) => { draft.items.push(item); }),
+        removeAt: (index: number) => setStore(handle, (draft) => { draft.items.splice(index, 1); }),
+        clear: () => setStore(handle, { items: [] }),
+        replace: (items: T[]) => setStore(handle, { items }),
+        all: () => {
+            const items = getStore(handle, "items");
+            return items ? [...items] : [];
+        },
     };
 };
 
 export const createEntityStore = <T extends { id?: string; _id?: string }>(name: string, options: StoreOptions = {}) => {
+    const handle = store<string, { entities: Record<string, T>; ids: string[] }>(name);
     createStore(name, { entities: {}, ids: [] as string[] }, options);
     return {
-        upsert: (entity: T) => setStoreAny(name, (draft: any) => {
+        upsert: (entity: T) => setStore(handle, (draft) => {
             const id = entity.id
                 ?? entity._id
                 ?? ((typeof crypto !== "undefined" && (crypto as any).randomUUID)
@@ -39,16 +43,17 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
             if (!draft.ids.includes(id)) draft.ids.push(id);
             draft.entities[id] = entity;
         }),
-        remove: (id: string) => setStoreAny(name, (draft: any) => {
+        remove: (id: string) => setStore(handle, (draft) => {
             draft.ids = draft.ids.filter((i: string) => i !== id);
             delete draft.entities[id];
         }),
         all: () => {
-            const store = getStoreAny(name) as { ids: string[]; entities: Record<string, T> } | null;
+            const storeSnapshot = getStore(handle);
+            const store = storeSnapshot as { ids: string[]; entities: Record<string, T> } | null;
             if (!store) return [];
             return store.ids.map((id) => store.entities[id]) as T[];
         },
-        get: (id: string) => getStoreAny(name, ["entities", id]) as T | null,
-        clear: () => resetStore(name),
+        get: (id: string) => getStore(handle, ["entities", id]) as T | null,
+        clear: () => resetStore(handle),
     };
 };

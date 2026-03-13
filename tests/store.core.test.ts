@@ -3,6 +3,7 @@ import assert from "node:assert";
 import {
   createStore,
   setStore,
+  replaceStore,
   getStore,
   resetStore,
   deleteStore,
@@ -103,16 +104,17 @@ test("createStore and hydrateStores reject forbidden store names", () => {
   assert.strictEqual(({} as any).polluted, undefined);
 });
 
-test("mutator return values replace draft updates", () => {
+test("mutator return values are rejected in strict mode", () => {
   clearAllStores();
   createStore("mutatorReturn", { count: 1 });
 
-  setStore("mutatorReturn", (draft: any) => {
+  const result = setStore("mutatorReturn", (draft: any) => {
     draft.count = 2;
     return { count: 5 };
   });
 
-  assert.deepStrictEqual(getStore("mutatorReturn"), { count: 5 });
+  assert.deepStrictEqual(result, { ok: false, reason: "validate" });
+  assert.deepStrictEqual(getStore("mutatorReturn"), { count: 1 });
 });
 
 test("createComputed derives and updates from dependencies", async () => {
@@ -128,7 +130,7 @@ test("createComputed derives and updates from dependencies", async () => {
 
   assert.strictEqual(getStore("fullName"), "Alex Stone");
 
-  setStore("firstName", () => "Jordan");
+  replaceStore("firstName", "Jordan");
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.strictEqual(getStore("fullName"), "Jordan Stone");

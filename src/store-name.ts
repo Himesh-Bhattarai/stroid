@@ -16,7 +16,7 @@ export const namespace = (ns: string) => {
     const prefix = `${ns}::`;
     const qualify = (name: string) => (name.includes("::") ? name : `${prefix}${name}`);
     const adaptName = (name: any) =>
-        typeof name === "string" ? qualify(name) : { ...(name as any), name: qualify((name as any).name) };
+        typeof name === "string" ? store(qualify(name)) : { ...(name as any), name: qualify((name as any).name) };
     return {
         store: <Name extends string, State = StoreValue>(name: Name): StoreKey<Name, State> =>
             ({ name: qualify(name) } as StoreKey<Name, State>),
@@ -30,7 +30,7 @@ export const namespace = (ns: string) => {
             const restParams = rest as [any?, ...any[]];
             return (getStore as any)(adaptName(name), ...restParams);
         },
-        delete: (name: string) => deleteStore(qualify(name)),
-        reset: (name: string) => resetStore(qualify(name)),
+        delete: (name: string) => deleteStore(adaptName(name)),
+        reset: (name: string) => resetStore(adaptName(name)),
     };
 };

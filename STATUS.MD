@@ -35,3 +35,5 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(infinity)`: Gold master / fully trusted.
 - `status(404)`: Human chaos/debugging note (does not imply code quality).
 
+# If you feel Good and useful, Give it what it deserve.
+- `QUICK EXPLORE`: https://github.com/Himesh-Bhattarai/STATUS_COMMIT 

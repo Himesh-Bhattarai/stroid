@@ -52,6 +52,12 @@ test("heavy repeated async fetch delete cycles clear per-store async state", asy
 
   try {
     for (let i = 0; i < 40; i++) {
+      createStore("heavyAsync", {
+        data: null,
+        loading: false,
+        error: null,
+        status: "idle",
+      });
       const result = await fetchStore("heavyAsync", "https://api.example.com/heavy", {
         dedupe: false,
         cacheKey: `slot-${i}`,

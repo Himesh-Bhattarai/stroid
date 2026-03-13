@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import { createStore, getStore, hasStore } from "../src/store.js";
+import { createStore, getStore, hasStore, store } from "../src/store.js";
 import { fetchStore, getAsyncMetrics, refetchStore } from "../src/async.js";
 import { collectLegacyOptionDeprecationWarnings } from "../src/adapters/options.js";
 import { benchmarkStoreSet, createMockStore, resetAllStoresForTest, withMockedTime } from "../src/testing.js";
@@ -56,7 +56,7 @@ test("benchmarkStoreSet returns stable structure and respects iteration count", 
   resetAllStoresForTest();
   createStore("benchStore", { value: 0 });
 
-  const result = benchmarkStoreSet("benchStore", 5, (i) => ({ value: i }));
+  const result = benchmarkStoreSet(store("benchStore"), 5, (i) => ({ value: i }));
 
   assert.strictEqual(result.iterations, 5);
   assert.ok(Number.isFinite(result.totalMs));
@@ -80,6 +80,12 @@ test("resetAllStoresForTest resets async registries and metrics", async () => {
   })) as typeof fetch;
 
   try {
+    createStore("resetAsyncStore", {
+      data: null,
+      loading: false,
+      error: null,
+      status: "idle",
+    });
     await fetchStore("resetAsyncStore", "https://api.example.com/reset");
   } finally {
     globalThis.fetch = realFetch;

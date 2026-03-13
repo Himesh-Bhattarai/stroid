@@ -2,7 +2,14 @@ import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { subscribeStore, getStoreSnapshot, hasStore } from "./store.js";
 import { subscribeWithSelector } from "./selectors.js";
 import { getByPath, warn, isDev, shallowEqual } from "./utils.js";
-import type { Path, PathValue, StoreDefinition, StoreKey } from "./store-lifecycle.js";
+import type {
+    Path,
+    PathValue,
+    StoreDefinition,
+    StoreKey,
+    StoreName,
+    StateFor,
+} from "./store-lifecycle.js";
 import {
     hasBroadUseStoreWarning,
     markBroadUseStoreWarning,
@@ -15,6 +22,8 @@ const pickPath = (data: any, path?: string) => {
     const current = getByPath(data, path);
     return current ?? null;
 };
+
+type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 
 type SelectorCache<R> = {
     hasValue: boolean;
@@ -90,27 +99,46 @@ const warnMissingStoreOnce = (name: string): void => {
     );
 };
 
-export function useStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P): PathValue<State, P>;
-export function useStore<Name extends string, State>(name: StoreDefinition<Name, State>, path?: undefined): State;
-export function useStore<Name extends string, State, R = any>(
+export function useStore<Name extends string, State, P extends Path<State>>(
     name: StoreDefinition<Name, State>,
-    selector: (state: State) => R,
-    equalityFn?: (a: R, b: R) => boolean
-): R;
-export function useStore<Name extends string, State, P extends Path<State>>(name: StoreKey<Name, State>, path: P): PathValue<State, P>;
-export function useStore<Name extends string, State>(name: StoreKey<Name, State>, path?: undefined): State;
-export function useStore<Name extends string, State, R = any>(
-    name: StoreKey<Name, State>,
-    selector: (state: State) => R,
-    equalityFn?: (a: R, b: R) => boolean
-): R;
-export function useStore<T = any>(name: string, path?: string): T | null;
-export function useStore<T = any, R = any>(
-    name: string,
-    selector: (state: T) => R,
+    path: P
+): StoreSnapshot<PathValue<State, P>> | null;
+export function useStore<Name extends string, State>(
+    name: StoreDefinition<Name, State>,
+    path?: undefined
+): StoreSnapshot<State> | null;
+export function useStore<Name extends string, State, R>(
+    name: StoreDefinition<Name, State>,
+    selector: (state: StoreSnapshot<State>) => R,
     equalityFn?: (a: R, b: R) => boolean
 ): R | null;
-export function useStore<T = any, R = any>(
+export function useStore<Name extends string, State, P extends Path<State>>(
+    name: StoreKey<Name, State>,
+    path: P
+): StoreSnapshot<PathValue<State, P>> | null;
+export function useStore<Name extends string, State>(
+    name: StoreKey<Name, State>,
+    path?: undefined
+): StoreSnapshot<State> | null;
+export function useStore<Name extends string, State, R>(
+    name: StoreKey<Name, State>,
+    selector: (state: StoreSnapshot<State>) => R,
+    equalityFn?: (a: R, b: R) => boolean
+): R | null;
+export function useStore<Name extends StoreName, P extends Path<StateFor<Name>>>(
+    name: Name,
+    path: P
+): StoreSnapshot<PathValue<StateFor<Name>, P>> | null;
+export function useStore<Name extends StoreName>(
+    name: Name,
+    path?: undefined
+): StoreSnapshot<StateFor<Name>> | null;
+export function useStore<Name extends StoreName, R>(
+    name: Name,
+    selector: (state: StoreSnapshot<StateFor<Name>>) => R,
+    equalityFn?: (a: R, b: R) => boolean
+): R | null;
+export function useStore<T = unknown, R = unknown>(
     name: string | StoreDefinition<string, T> | StoreKey<string, T>,
     pathOrSelector?: string | ((state: T) => R),
     equalityFn: (a: R, b: R) => boolean = Object.is
@@ -166,17 +194,36 @@ export function useStore<T = any, R = any>(
         }
     }, [storeName, hasSelector, path]);
 
-    return state as T | R | null;
+    return state as StoreSnapshot<T> | R | null;
 }
 
-export const useStoreField = <T = any>(storeName: string, field: string): T | null =>
-    useStore<T>(storeName, field);
+export function useStoreField<Name extends string, State, P extends Path<State>>(
+    storeName: StoreDefinition<Name, State> | StoreKey<Name, State>,
+    field: P
+): StoreSnapshot<PathValue<State, P>> | null;
+export function useStoreField<Name extends StoreName, P extends Path<StateFor<Name>>>(
+    storeName: Name,
+    field: P
+): StoreSnapshot<PathValue<StateFor<Name>, P>> | null;
+export function useStoreField(storeName: any, field: any): unknown {
+    return useStore(storeName, field);
+}
 
-export const useSelector = <T = any, R = any>(
+export function useSelector<Name extends string, State, R>(
+    storeName: StoreDefinition<Name, State> | StoreKey<Name, State>,
+    selectorFn: (state: StoreSnapshot<State>) => R,
+    equalityFn?: (a: R, b: R) => boolean
+): R | null;
+export function useSelector<Name extends StoreName, R>(
+    storeName: Name,
+    selectorFn: (state: StoreSnapshot<StateFor<Name>>) => R,
+    equalityFn?: (a: R, b: R) => boolean
+): R | null;
+export function useSelector<T = unknown, R = unknown>(
     storeName: string,
     selectorFn: (state: T) => R,
     equalityFn: (a: R, b: R) => boolean = shallowEqual
-): R | null => {
+): R | null {
     const selectorRef = useRef(selectorFn);
     const equalityRef = useRef(equalityFn);
     const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
@@ -207,11 +254,27 @@ export const useSelector = <T = any, R = any>(
 
     const selection = useSyncExternalStore(subscribe, getSnap, getSnap);
     return selection as R | null;
-};
+}
 
-export const useStoreStatic = <T = any>(name: string, path?: string): T | null => {
+export function useStoreStatic<Name extends string, State, P extends Path<State>>(
+    name: StoreDefinition<Name, State> | StoreKey<Name, State>,
+    path: P
+): StoreSnapshot<PathValue<State, P>> | null;
+export function useStoreStatic<Name extends string, State>(
+    name: StoreDefinition<Name, State> | StoreKey<Name, State>,
+    path?: undefined
+): StoreSnapshot<State> | null;
+export function useStoreStatic<Name extends StoreName, P extends Path<StateFor<Name>>>(
+    name: Name,
+    path: P
+): StoreSnapshot<PathValue<StateFor<Name>, P>> | null;
+export function useStoreStatic<Name extends StoreName>(
+    name: Name,
+    path?: undefined
+): StoreSnapshot<StateFor<Name>> | null;
+export function useStoreStatic(name: string, path?: string): unknown {
     const data = getStoreSnapshot(name);
     warnMissingStoreOnce(name);
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
-};
+}

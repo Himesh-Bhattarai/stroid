@@ -1,7 +1,7 @@
 import { createStore, setStore, hasStore } from "./store.js";
 import { error, warn, isDev, critical, deepClone, shallowClone } from "./utils.js";
 import { getConfig } from "./internals/config.js";
-import { nameOf, type StoreDefinition, type StoreKey, type StoreName, type UnregisteredStoreName } from "./store-lifecycle.js";
+import { nameOf, type StoreDefinition, type StoreKey, type StoreName } from "./store-lifecycle.js";
 import {
     asyncMetrics,
     cacheMeta,
@@ -102,7 +102,8 @@ const _isCurrentRequest = (cacheSlot: string, version: number): boolean =>
 const _settleAbort = (name: string, cacheSlot: string, version: number): null => {
     warn(`fetchStore("${name}") aborted`);
     if (_isCurrentRequest(cacheSlot, version) && hasStore(name)) {
-        setStore(name, {
+        const handle = { name } as StoreDefinition<string, AsyncState>;
+        setStore(handle, {
             loading: false,
             error: "aborted",
             status: "aborted",
@@ -129,11 +130,6 @@ export function fetchStore<Name extends string, State>(
     urlOrRequest: FetchInput,
     options?: FetchOptions
 ): Promise<unknown>;
-export function fetchStore<Name extends string>(
-    name: UnregisteredStoreName<Name>,
-    urlOrRequest: FetchInput,
-    options?: FetchOptions
-): Promise<unknown>;
 export function fetchStore<Name extends StoreName>(
     name: Name,
     urlOrRequest: FetchInput,
@@ -149,6 +145,7 @@ export async function fetchStore(
         error(`fetchStore requires a store name as first argument`);
         return;
     }
+    const storeHandle = { name } as StoreDefinition<string, AsyncState>;
 
     if (!urlOrRequest) {
         error(`fetchStore("${name}") requires a URL, Promise, or Promise factory as second argument`);
@@ -244,7 +241,7 @@ export async function fetchStore(
     if (shouldUseCache(cacheSlot, ttl)) {
         asyncMetrics.cacheHits += 1;
         cachedData = cacheMeta[cacheSlot].data;
-        setStore(name, {
+        setStore(storeHandle, {
             data: cachedData,
             loading: staleWhileRevalidate,
             error: null,
@@ -303,7 +300,7 @@ export async function fetchStore(
     requestVersion[cacheSlot] = currentVersion;
 
     if (!backgroundRevalidate) {
-        setStore(name, {
+        setStore(storeHandle, {
             loading: true,
             error: null,
             status: "loading",
@@ -405,7 +402,7 @@ export async function fetchStore(
                 pruneAsyncCache(name);
 
                 if (hasStore(name)) {
-                    setStore(name, {
+                    setStore(storeHandle, {
                         data: cloned,
                         loading: false,
                         error: null,
@@ -439,7 +436,7 @@ export async function fetchStore(
 
                 const errorMessage = (err as any)?.message || "Something went wrong";
                 if (hasStore(name)) {
-                    setStore(name, {
+                    setStore(storeHandle, {
                         data: backgroundRevalidate ? cachedData : null,
                         loading: false,
                         error: errorMessage,
@@ -477,7 +474,7 @@ export async function fetchStore(
     ]).catch((err) => {
         const errorMessage = (err as any)?.message || "Request timed out";
         if (hasStore(name)) {
-            setStore(name, {
+            setStore(storeHandle, {
                 data: backgroundRevalidate ? cachedData : null,
                 loading: false,
                 error: errorMessage,
@@ -515,7 +512,6 @@ export async function fetchStore(
 
 export function refetchStore<Name extends string, State>(name: StoreDefinition<Name, State>): Promise<unknown>;
 export function refetchStore<Name extends string, State>(name: StoreKey<Name, State>): Promise<unknown>;
-export function refetchStore<Name extends string>(name: UnregisteredStoreName<Name>): Promise<unknown>;
 export function refetchStore<Name extends StoreName>(name: Name): Promise<unknown>;
 export async function refetchStore(nameInput: string | StoreDefinition<string, unknown>): Promise<unknown> {
     const name = nameOf(nameInput as StoreDefinition<string, unknown>);
@@ -545,10 +541,11 @@ export async function refetchStore(nameInput: string | StoreDefinition<string, u
         }
         return undefined;
     }
+    const handle = { name } as StoreDefinition<string, AsyncState>;
     if (last.kind === "factory") {
-        return fetchStore(name, last.factory, last.options);
+        return fetchStore(handle, last.factory, last.options);
     }
-    return fetchStore(name, last.url, last.options);
+    return fetchStore(handle, last.url, last.options);
 }
 
 export function enableRevalidateOnFocus<Name extends string, State>(
@@ -590,13 +587,13 @@ export function enableRevalidateOnFocus(
                 const fire = () => {
                     const last = fetchRegistry[storeName];
                     if (!last) {
-                        void refetchStore(storeName);
+                        void refetchStore({ name: storeName } as StoreDefinition<string, AsyncState>);
                         return;
                     }
                     if (last.kind === "factory") {
-                        void fetchStore(storeName, last.factory, last.options);
+                        void fetchStore({ name: storeName } as StoreDefinition<string, AsyncState>, last.factory, last.options);
                     } else {
-                        void fetchStore(storeName, last.url, last.options);
+                        void fetchStore({ name: storeName } as StoreDefinition<string, AsyncState>, last.url, last.options);
                     }
                 };
                 if (staggerMs > 0) {

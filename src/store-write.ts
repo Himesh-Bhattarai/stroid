@@ -52,7 +52,6 @@ import {
     type PartialDeep, type Path, type PathValue,
     type StoreDefinition, type StoreValue, type StoreKey,
     type StoreName, type StateFor, type WriteResult,
-    type UnregisteredStoreName,
 } from "./store-lifecycle.js";
 import { resetBroadUseStoreWarnings, resetMissingUseStoreWarnings } from "./internals/hooks-warnings.js";
 import { getConfig, resetConfig } from "./internals/config.js";
@@ -67,12 +66,15 @@ import {
     markTransactionFailed,
 } from "./store-transaction.js";
 
-type KeyOrData = string | string[] | Record<string, unknown> | ((draft: StoreValue) => StoreValue | void);
+type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: any) => void);
 type LooseStoreNames = string extends StoreName ? true : false;
 type StorePathFor<Name extends StoreName> =
     LooseStoreNames extends true ? string | string[] : Path<StateFor<Name>>;
 type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
     LooseStoreNames extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
+type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
+type HydrateOptions<Snapshot extends Record<string, unknown>> =
+    Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
 
 export const createStore = <Name extends string, State>(
     name: Name,
@@ -179,21 +181,18 @@ export const createStore = <Name extends string, State>(
 };
 
 export function setStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P, value: PathValue<State, P>): WriteResult;
-export function setStore<Name extends string, State>(name: StoreDefinition<Name, State>, mutator: (draft: State) => State | void): WriteResult;
+export function setStore<Name extends string, State>(name: StoreDefinition<Name, State>, mutator: (draft: State) => void): WriteResult;
 export function setStore<Name extends string, State>(name: StoreDefinition<Name, State>, data: PartialDeep<State>): WriteResult;
 export function setStore<Name extends string, State, P extends Path<State>>(name: StoreKey<Name, State>, path: P, value: PathValue<State, P>): WriteResult;
-export function setStore<Name extends string, State>(name: StoreKey<Name, State>, mutator: (draft: State) => State | void): WriteResult;
+export function setStore<Name extends string, State>(name: StoreKey<Name, State>, mutator: (draft: State) => void): WriteResult;
 export function setStore<Name extends string, State>(name: StoreKey<Name, State>, data: PartialDeep<State>): WriteResult;
 export function setStore<Name extends StoreName, P extends StorePathFor<Name>>(
     name: Name,
     path: P,
     value: StorePathValueFor<Name, P>
 ): WriteResult;
-export function setStore<Name extends StoreName>(name: Name, mutator: (draft: StateFor<Name>) => StateFor<Name> | void): WriteResult;
+export function setStore<Name extends StoreName>(name: Name, mutator: (draft: StateFor<Name>) => void): WriteResult;
 export function setStore<Name extends StoreName>(name: Name, data: PartialDeep<StateFor<Name>>): WriteResult;
-export function setStore<Name extends string>(name: UnregisteredStoreName<Name>, data: Record<string, unknown>): WriteResult;
-export function setStore<Name extends string>(name: UnregisteredStoreName<Name>, path: string | string[], value: unknown): WriteResult;
-export function setStore<Name extends string, State = StoreValue>(name: UnregisteredStoreName<Name>, mutator: (draft: State) => State | void): WriteResult;
 export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
     const storeName = nameOf(name);
     if (!materializeInitial(storeName)) return { ok: false, reason: "validate" };
@@ -212,7 +211,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     if (typeof keyOrData === "function" && value === undefined) {
         try {
             const draft = deepClone(prev);
-            const result = (keyOrData as (draft: StoreValue) => StoreValue | void)(draft);
+            const result = (keyOrData as (draft: StoreValue) => void)(draft);
             if (result !== undefined && getConfig().strictMutatorReturns) {
                 const message =
                     `setStore("${storeName}", mutator) returned a value. ` +
@@ -227,7 +226,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
                     `Return values replace the entire store; return void to apply draft mutations instead.`
                 );
             }
-            updated = result !== undefined ? result as StoreValue : draft as StoreValue;
+            updated = draft as StoreValue;
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
             if (isTransactionActive()) markTransactionFailed(err);
@@ -331,10 +330,31 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     return { ok: true };
 }
 
+export function replaceStore<Name extends string, State>(name: StoreDefinition<Name, State>, value: State): WriteResult;
+export function replaceStore<Name extends string, State>(name: StoreKey<Name, State>, value: State): WriteResult;
+export function replaceStore<Name extends StoreName>(name: Name, value: StateFor<Name>): WriteResult;
+export function replaceStore(nameInput: string | StoreDefinition<string, StoreValue>, value: unknown): WriteResult {
+    if (isTransactionActive()) {
+        const message = `replaceStore(...) cannot be called inside setStoreBatch.`;
+        warn(message);
+        markTransactionFailed(message);
+        return { ok: false, reason: "invalid-args" };
+    }
+    const storeName = nameOf(nameInput);
+    if (!storeName) return { ok: false, reason: "invalid-args" };
+
+    const result = replaceStoreState(storeName, value, "replace");
+    if (!result.ok) {
+        if (result.reason === "not-found") return { ok: false, reason: "not-found" };
+        if (result.reason === "middleware") return { ok: false, reason: "middleware" };
+        return { ok: false, reason: "validate" };
+    }
+    return { ok: true };
+}
+
 export function deleteStore<Name extends string, State>(name: StoreDefinition<Name, State>): void;
 export function deleteStore<Name extends string, State>(name: StoreKey<Name, State>): void;
 export function deleteStore<Name extends StoreName>(name: Name): void;
-export function deleteStore<Name extends string>(name: UnregisteredStoreName<Name>): void;
 export function deleteStore(nameInput: string | StoreDefinition<string, StoreValue>): void {
     const name = nameOf(nameInput);
     if (!exists(name)) return;
@@ -354,7 +374,6 @@ export function deleteStore(nameInput: string | StoreDefinition<string, StoreVal
 export function resetStore<Name extends string, State>(name: StoreDefinition<Name, State>): void;
 export function resetStore<Name extends string, State>(name: StoreKey<Name, State>): void;
 export function resetStore<Name extends StoreName>(name: Name): void;
-export function resetStore<Name extends string>(name: UnregisteredStoreName<Name>): void;
 export function resetStore(nameInput: string | StoreDefinition<string, StoreValue>): void {
     const name = nameOf(nameInput);
     if (!exists(name)) return;
@@ -417,12 +436,13 @@ const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { o
     const committed = normalizeCommittedState(name, final, validateRule);
     if (!committed.ok) return { ok: false, reason: "validate" };
     setStoreValueInternal(name, committed.value);
+    invalidatePathCache(name);
     meta[name].updatedAt = new Date().toISOString();
     meta[name].updateCount++;
     runFeatureWriteHooks(name, action, prev, committed.value, notify);
     runStoreHookSafe(name, "onSet", meta[name].options.onSet, [prev, committed.value]);
     notify(name);
-    log(`Store "${name}" hydrated`);
+    log(`Store "${name}" ${action === "hydrate" ? "hydrated" : "replaced"}`);
     return { ok: true };
 };
 
@@ -451,9 +471,9 @@ export const _hardResetAllStoresForTest = (): void => {
     bindRegistry(defaultRegistryScope);
 };
 
-export const hydrateStores = (
-    snapshot: Record<string, any>,
-    options: Partial<Record<string, StoreOptions>> & { default?: StoreOptions } = {}
+export const hydrateStores = <Snapshot extends Record<string, unknown> = HydrateSnapshot>(
+    snapshot: Snapshot,
+    options: HydrateOptions<Snapshot> = {}
 ): { hydrated: string[]; created: string[]; failed: Record<string, string> } => {
     if (isTransactionActive()) {
         const message = `hydrateStores(...) cannot be called inside setStoreBatch.`;
@@ -481,7 +501,8 @@ export const hydrateStores = (
             if (!res.ok) result.failed[storeName] = res.reason ?? "hydrate-failed";
             else result.hydrated.push(storeName);
         } else {
-            const created = createStore(storeName, data, options[storeName] || options.default || {});
+            const optionMap = options as Record<string, StoreOptions> & { default?: StoreOptions };
+            const created = createStore(storeName, data, optionMap[storeName] || optionMap.default || {});
             if (created) result.created.push(storeName);
             else result.failed[storeName] = "create-failed";
         }

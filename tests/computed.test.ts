@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import { createStore, setStore, getStore } from "../src/store.js";
+import { createStore, setStore, replaceStore, getStore } from "../src/store.js";
 import { clearAllStores } from "../src/runtime-admin.js";
 import {
   createComputed,
@@ -23,7 +23,7 @@ test("derives value from single source", async () => {
 
   assert.strictEqual(getStore("doubled"), 0);
 
-  setStore("count", () => 5);
+  replaceStore("count", 5);
   await wait();
 
   assert.strictEqual(getStore("doubled"), 10);
@@ -36,7 +36,7 @@ test("derives from multiple sources", async () => {
 
   assert.strictEqual(getStore("fullName"), "John Doe");
 
-  setStore("firstName", () => "Jane");
+  replaceStore("firstName", "Jane");
   await wait();
 
   assert.strictEqual(getStore("fullName"), "Jane Doe");
@@ -50,11 +50,11 @@ test("does not notify if computed value unchanged", async () => {
   const { subscribeStore } = await import("../src/store-notify.js");
   subscribeStore("sign", () => { notifyCount += 1; });
 
-  setStore("x", () => 2);
+  replaceStore("x", 2);
   await wait();
   assert.strictEqual(notifyCount, 0);
 
-  setStore("x", () => -1);
+  replaceStore("x", -1);
   await wait();
   assert.strictEqual(notifyCount, 1);
 });
@@ -125,13 +125,13 @@ test("deleteComputed stops reactivity", async () => {
   createStore("src", 0);
   createComputed("derived", ["src"], (v) => (v as number) * 2);
 
-  setStore("src", () => 5);
+  replaceStore("src", 5);
   await wait();
   assert.strictEqual(getStore("derived"), 10);
 
   deleteComputed("derived");
 
-  setStore("src", () => 99);
+  replaceStore("src", 99);
   await wait();
   assert.strictEqual(getStore("derived"), 10);
 });
@@ -145,7 +145,7 @@ test("compute function throwing does not crash -- returns previous value", async
 
   assert.strictEqual(getStore("safe"), 4);
 
-  setStore("n", () => 10);
+  replaceStore("n", 10);
   await wait();
 
   assert.strictEqual(getStore("safe"), 4);
