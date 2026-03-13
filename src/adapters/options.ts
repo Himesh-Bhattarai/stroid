@@ -8,6 +8,7 @@ export interface PersistDriver {
 }
 
 export type StoreScope = "request" | "global" | "temp";
+export type SnapshotMode = "deep" | "shallow" | "ref";
 
 export type ValidateFn<State = StoreValue> = (next: State) => boolean | State;
 
@@ -45,6 +46,12 @@ export interface PersistOptions<State = StoreValue> {
      * `encrypt` hook is provided.
      */
     sensitiveData?: boolean;
+    /**
+     * Integrity check mode for persisted payloads.
+     * - "hash" (default): store and validate a checksum.
+     * - "none": skip checksum generation/validation.
+     */
+    checksum?: "hash" | "none";
     version?: number;
     migrations?: Record<number, (state: State) => State>;
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
@@ -59,6 +66,7 @@ export interface PersistConfig {
     encrypt: (v: string) => string;
     decrypt: (v: string) => string;
     sensitiveData?: boolean;
+    checksum: "hash" | "none";
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
     onStorageCleared?: (info: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
 }
@@ -129,6 +137,14 @@ export interface StoreOptions<State = StoreValue> {
     historyLimit?: number;
     allowSSRGlobalStore?: boolean;
     sync?: boolean | SyncOptions;
+    /**
+     * Snapshot cloning strategy used by subscriptions and selector snapshots.
+     *
+     * - "deep" (default): deep clone and dev-freeze snapshot values.
+     * - "shallow": shallow clone (top-level) only; nested references are shared.
+     * - "ref": return the live store reference (no cloning).
+     */
+    snapshot?: SnapshotMode;
 }
 
 export interface NormalizedOptions {
@@ -150,6 +166,7 @@ export interface NormalizedOptions {
     historyLimit: number;
     allowSSRGlobalStore?: boolean;
     sync?: boolean | SyncOptions;
+    snapshot: SnapshotMode;
     explicitPersist: boolean;
     explicitSync: boolean;
     explicitDevtools: boolean;
@@ -243,6 +260,7 @@ export const normalizePersistOptions = <State>(
         decrypt: markDefaultPersistCrypto((v: string) => v),
         sensitiveData: false,
         onMigrationFail: "reset" as const,
+        checksum: "hash" as const,
     };
 
     if (persist === true) {
@@ -262,6 +280,7 @@ export const normalizePersistOptions = <State>(
     const encrypt = persist.encrypt || base.encrypt;
     const decrypt = persist.decrypt || base.decrypt;
     const sensitiveData = persist.sensitiveData === true;
+    const checksum = persist.checksum === "none" ? "none" : "hash";
 
     if (sensitiveData && isIdentityStringTransform(encrypt)) {
         throw new Error(
@@ -278,6 +297,7 @@ export const normalizePersistOptions = <State>(
         encrypt,
         decrypt,
         sensitiveData,
+        checksum,
         onMigrationFail: persist.onMigrationFail || "reset",
         onStorageCleared: persist.onStorageCleared,
     };
@@ -307,6 +327,10 @@ export const normalizeStoreOptions = <State>(
     const persistGroup = isObject(option.persist) ? option.persist as PersistOptions<State> : undefined;
     const devtoolsGroup = isObject(option.devtools) ? option.devtools as DevtoolsOptions<State> : undefined;
     const normalizedValidate = option.validate ?? option.validator ?? option.schema;
+    const normalizedSnapshot =
+        option.snapshot === "shallow" || option.snapshot === "ref"
+            ? option.snapshot
+            : "deep";
     const explicitPersist = hasOwn(option, "persist");
     const explicitSync = hasOwn(option, "sync");
     const explicitDevtools = hasOwn(option, "devtools") || hasOwn(option, "historyLimit") || hasOwn(option, "redactor");
@@ -350,6 +374,7 @@ export const normalizeStoreOptions = <State>(
             ? false
             : (sync ?? false),
         allowSSRGlobalStore: normalizedAllowSSRGlobalStore,
+        snapshot: normalizedSnapshot,
         explicitPersist,
         explicitSync,
         explicitDevtools,

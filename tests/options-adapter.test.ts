@@ -88,6 +88,7 @@ test("normalizeStoreOptions defaults scope to request", () => {
   assert.equal(normalized.scope, "request");
   assert.equal(normalized.allowSSRGlobalStore, false);
   assert.equal(normalized.historyLimit, 50);
+  assert.equal(normalized.snapshot, "deep");
 });
 
 test("normalizeStoreOptions gives temp stores lighter defaults", () => {
@@ -101,6 +102,7 @@ test("normalizeStoreOptions gives temp stores lighter defaults", () => {
   assert.equal(normalized.devtools, false);
   assert.equal(normalized.historyLimit, 0);
   assert.equal(normalized.redactor, undefined);
+  assert.equal(normalized.snapshot, "deep");
 });
 
 test("normalizeStoreOptions preserves explicit temp store feature opt-ins", () => {
@@ -114,6 +116,7 @@ test("normalizeStoreOptions preserves explicit temp store feature opt-ins", () =
       enabled: true,
       historyLimit: 12,
     },
+    snapshot: "shallow",
   }, "tempStore");
 
   assert.equal(normalized.scope, "temp");
@@ -123,4 +126,15 @@ test("normalizeStoreOptions preserves explicit temp store feature opt-ins", () =
   });
   assert.equal(normalized.devtools, true);
   assert.equal(normalized.historyLimit, 12);
+  assert.equal(normalized.snapshot, "shallow");
+});
+
+test("normalizeStoreOptions supports persist checksum opt-out", () => {
+  const normalized = normalizeStoreOptions({
+    persist: {
+      checksum: "none",
+    },
+  }, "persistNoChecksum");
+
+  assert.equal(normalized.persist?.checksum, "none");
 });

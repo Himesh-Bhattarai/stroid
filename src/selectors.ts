@@ -4,8 +4,10 @@ import {
     subscribeSelectorStore,
     type SelectorStoreValue as StoreValue,
 } from "./internals/selector-store.js";
-import { deepClone, getByPath, warn } from "./utils.js";
+import { deepClone, shallowClone, getByPath, warn } from "./utils.js";
 import { getStoreSnapshot } from "./store-notify.js";
+import { meta } from "./store-lifecycle.js";
+import type { SnapshotMode } from "./adapters/options.js";
 
 type SelectorDependency = string[];
 
@@ -84,9 +86,17 @@ export const subscribeWithSelector = <R>(
     let hasPrev = false;
     let prevSel = undefined as R;
 
+    const resolveSnapshotMode = (): SnapshotMode => {
+        const mode = meta[name]?.options?.snapshot;
+        return mode === "shallow" || mode === "ref" ? mode : "deep";
+    };
+
     const getSafeSelectorState = (snapshot?: StoreValue | null): unknown => {
         const ref = snapshot !== undefined ? snapshot : getStoreSnapshot(name);
         if (ref === null || typeof ref !== "object") return ref;
+        const mode = resolveSnapshotMode();
+        if (mode === "ref") return ref;
+        if (mode === "shallow") return shallowClone(ref);
         return deepClone(ref);
     };
 

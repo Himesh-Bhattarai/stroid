@@ -88,6 +88,22 @@ createStore(
 
 > Note: lazy factories run only after the store is first read/updated. If you see `undefined` reads, make sure you haven’t disabled validation that would block materialization.
 
+## Performance knobs
+
+For large or frequently updated stores, you can trade some safety for speed:
+
+```ts
+createStore("feed", initialFeed, {
+  snapshot: "shallow", // or "ref"
+  persist: { checksum: "none" },
+});
+```
+
+Notes:
+- `snapshot: "shallow"` only clones the top level; nested objects are shared.
+- `snapshot: "ref"` returns the live store reference (no cloning).
+- `persist.checksum: "none"` skips integrity hashing during save/load.
+
 ## Import paths that enable features
 
 The root import (`import { createStore } from "stroid"`) is side-effect free and does **not** register optional features. To use persistence, sync, or devtools you must import their side-effect modules once in your app:

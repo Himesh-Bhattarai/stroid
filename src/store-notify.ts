@@ -9,7 +9,7 @@
  *
  * Consumers: store-write (calls notify()), hooks-core (calls subscribe/getSnapshot).
  */
-import { deepClone } from "./utils.js";
+import { deepClone, shallowClone } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import { getConfig } from "./internals/config.js";
 import { warn } from "./utils.js";
@@ -24,12 +24,29 @@ import {
     type Subscriber,
 } from "./store-lifecycle.js";
 import { getTopoOrderedComputeds } from "./computed-graph.js";
+import type { SnapshotMode } from "./adapters/options.js";
 
 const pendingNotifications = new Set<string>();
 const pendingBuffer: string[] = [];
 const orderedNames: string[] = [];
 let notifyScheduled = false;
 let batchDepth = 0;
+
+const resolveSnapshotMode = (name: string): SnapshotMode => {
+    const mode = meta[name]?.options?.snapshot;
+    return mode === "shallow" || mode === "ref" ? mode : "deep";
+};
+
+const cloneSnapshot = (value: StoreValue, mode: SnapshotMode): StoreValue => {
+    if (mode === "ref") return value;
+    if (mode === "shallow") return shallowClone(value);
+    return deepClone(value);
+};
+
+const maybeFreezeSnapshot = (snapshot: StoreValue | null, mode: SnapshotMode): void => {
+    if (mode !== "deep") return;
+    if (snapshot && typeof snapshot === "object") devDeepFreeze(snapshot);
+};
 
 const scheduleChunk = (fn: () => void, delayMs: number): void => {
     if (delayMs > 0 && typeof setTimeout === "function") {
@@ -107,11 +124,12 @@ const flush = () => {
             const subs = subscribers[name];
             if (!subs || subs.size === 0) continue;
             const version = meta[name]?.updateCount ?? 0;
+            const snapshotMode = resolveSnapshotMode(name);
             const cached = snapshotCache[name];
             const snapshot = (cached && cached.version === version)
                 ? cached.snapshot
                 : (() => {
-                    const nextSnapshot = deepClone(stores[name]);
+                    const nextSnapshot = cloneSnapshot(stores[name], snapshotMode);
                     snapshotCache[name] = { version, snapshot: nextSnapshot };
                     return nextSnapshot;
                 })();
@@ -255,16 +273,17 @@ export const subscribe = subscribeStore;
 export const getStoreSnapshot = (name: string): StoreValue | null => {
     if (!hasStoreEntryInternal(name)) return null;
     const version = meta[name]?.updateCount ?? 0;
+    const snapshotMode = resolveSnapshotMode(name);
     const cached = snapshotCache[name];
     if (cached && cached.version === version) {
         const snap = cached.snapshot;
-        if (snap && typeof snap === "object") devDeepFreeze(snap);
+        maybeFreezeSnapshot(snap, snapshotMode);
         return snap;
     }
 
     const source = stores[name];
-    const snapshot = deepClone(source);
-    if (snapshot && typeof snapshot === "object") devDeepFreeze(snapshot);
+    const snapshot = cloneSnapshot(source, snapshotMode);
+    maybeFreezeSnapshot(snapshot, snapshotMode);
     snapshotCache[name] = { version, snapshot };
     return snapshot;
 };

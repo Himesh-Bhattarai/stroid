@@ -78,7 +78,7 @@ export const persistLoad = ({
         if (!Number.isFinite(restoredUpdatedAt)) {
             log(`persist: corrupt updatedAt in stored data for "${name}". Using current time to prevent sync overwrite.`);
         }
-        if (checksum !== hashState(data)) {
+        if (cfg.checksum !== "none" && checksum !== hashState(data)) {
             reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
             applyFeatureState(deepClone(getInitialState()), Date.now());
             return true;

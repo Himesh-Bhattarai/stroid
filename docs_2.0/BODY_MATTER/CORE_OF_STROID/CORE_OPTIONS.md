@@ -32,6 +32,7 @@ The core option surface is centered around:
 - `schema`
 - `lifecycle`
 - `onError`
+- `snapshot`
 
 These are part of Stroid's identity because they define what the store is allowed to do and how it should react when things go wrong.
 
@@ -89,6 +90,25 @@ If middleware returns a `Promise`, Stroid rejects that update instead of committ
 Another important note:
 Middleware is not a secret tunnel around validation.
 If middleware changes the next value, Stroid still sanitizes and validates the final result before commit.
+
+### Snapshot Strategy (Performance vs Safety)
+
+Snapshots are used by subscriptions and selectors. By default, Stroid deep-clones snapshots for safety.
+You can trade some safety for speed on large or frequently updated stores:
+
+```ts
+createStore("feed", initialFeed, {
+  snapshot: "shallow", // or "ref"
+});
+```
+
+Modes:
+- `deep` (default): deep clone + dev-freeze snapshot values.
+- `shallow`: only clone the top level; nested objects are shared.
+- `ref`: return the live store reference without cloning.
+
+Use `shallow` or `ref` only if your updates are immutable and you accept that
+mutating a snapshot can affect other subscribers.
 
 ## 2.2 Scope, Validation, and Lifecycle
 

@@ -45,6 +45,20 @@ Persisted data is wrapped in an envelope with:
 
 That makes corruption detection and migration decisions possible.
 
+If you are persisting very large stores and want to avoid the checksum cost,
+you can opt out:
+
+```ts
+createStore("bigCache", initialState, {
+  persist: {
+    checksum: "none",
+  },
+});
+```
+
+Disabling checksum removes the integrity check on load; use it only when you
+accept that tradeoff.
+
 ## 26.2 Versioning and Migrations
 
 When the persisted version differs from the target version, Stroid walks migration steps in order.

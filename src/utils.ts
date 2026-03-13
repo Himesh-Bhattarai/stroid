@@ -252,6 +252,24 @@ export const checksumState = hashState; // alias for clarity
 const hasStructuredClone = typeof globalThis !== "undefined" && typeof (globalThis as any).structuredClone === "function";
 const FORBIDDEN_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
+export const shallowClone = <T>(value: T): T => {
+    if (value === null || typeof value !== "object") return value;
+    if (value instanceof Date) return new Date(value.getTime()) as T;
+    if (value instanceof Map) return new Map(value as Map<unknown, unknown>) as T;
+    if (value instanceof Set) return new Set(value as Set<unknown>) as T;
+    if (Array.isArray(value)) return (value.slice() as unknown) as T;
+
+    const clone: Record<string, unknown> = {};
+    const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+    Object.entries(descriptors).forEach(([key, descriptor]) => {
+        if (!descriptor.enumerable) return;
+        if (FORBIDDEN_OBJECT_KEYS.has(key)) return;
+        if ("get" in descriptor || "set" in descriptor) return;
+        clone[key] = descriptor.value;
+    });
+    return clone as T;
+};
+
 const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()): T => {
     if (value === null || typeof value !== "object") return value;
     if (seen.has(value as object)) return seen.get(value as object) as T;

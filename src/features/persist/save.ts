@@ -51,7 +51,7 @@ const persistSaveInner = ({
 
         try {
             const serialized = cfg.serialize(getStoreValue());
-            const checksum = hashState(serialized);
+            const checksum = cfg.checksum === "none" ? null : hashState(serialized);
             const envelope = JSON.stringify({
                 v: meta.version ?? 1,
                 updatedAt: meta.updatedAt,
