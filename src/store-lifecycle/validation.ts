@@ -10,7 +10,15 @@ import {
     PathInput,
 } from "../utils.js";
 import { type ValidateOption } from "../adapters/options.js";
-import { meta, stores, initialFactories, initialStates, setStoreValueInternal, getRegistry } from "./registry.js";
+import {
+    meta,
+    stores,
+    initialFactories,
+    initialStates,
+    setStoreValueInternal,
+    getRegistry,
+    setPathCacheInvalidator,
+} from "./registry.js";
 import { reportStoreError } from "./identity.js";
 import {
     isTransactionActive,
@@ -311,6 +319,8 @@ export const clearPathValidationCache = (): void => {
     getPathValidationCache(registry).clear();
     getPathValidationLru(registry).clear();
 };
+
+setPathCacheInvalidator(invalidatePathCache);
 
 export const materializeInitial = (name: string): boolean => {
     const staged = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
