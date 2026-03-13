@@ -15,7 +15,7 @@ type ResultRow = {
   bytesPerSubscriber: number;
 };
 
-const COUNTS = [50_000, 100_000, 200_000];
+const COUNTS = [50_000, 100_000, 200_000, 800_000];
 let sink = 0;
 
 const maybeGc = (): void => {

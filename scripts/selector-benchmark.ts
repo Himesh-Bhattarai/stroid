@@ -4,8 +4,8 @@ import {
   clearAllStores,
   createStore,
   setStore,
-  subscribeWithSelector,
 } from "../src/store.js";
+import { subscribeWithSelector } from "../src/selectors.js";
 
 type Row = {
   count: number;
@@ -65,7 +65,7 @@ const createMarker = (name: string, readValue: (state: any) => number = (state) 
 const average = (values: number[]): number => values.reduce((sum, value) => sum + value, 0) / values.length;
 
 const main = async () => {
-  const counts = [50_000, 100_000, 200_000];
+  const counts = [50_000, 100_000, 200_000, 800_000];
   const rows: Row[] = [];
 
   for (const count of counts) {

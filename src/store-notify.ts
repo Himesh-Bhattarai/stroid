@@ -107,6 +107,43 @@ const flush = () => {
         if (pendingNotifications.size > 0) scheduleFlush();
     };
 
+    if (runInline) {
+        for (const name of names) {
+            const subs = subscribers[name];
+            if (!subs || subs.size === 0) continue;
+            const version = meta[name]?.updateCount ?? 0;
+            const snapshotMode = resolveSnapshotMode(name);
+            const cached = snapshotCache[name];
+            const snapshot = (cached && cached.version === version)
+                ? cached.snapshot
+                : (() => {
+                    const nextSnapshot = cloneSnapshot(stores[name], snapshotMode);
+                    snapshotCache[name] = { version, snapshot: nextSnapshot };
+                    return nextSnapshot;
+                })();
+
+            const start = now();
+            for (const subscriber of subs) {
+                try { subscriber(snapshot); }
+                catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
+            }
+            const elapsed = now() - start;
+
+            const metrics = meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 };
+            metrics.notifyCount += 1;
+            metrics.totalNotifyMs += elapsed;
+            metrics.lastNotifyMs = elapsed;
+            if (meta[name]) meta[name].metrics = metrics;
+
+            const currentVersion = meta[name]?.updateCount ?? version;
+            if (currentVersion !== version) {
+                pendingNotifications.add(name);
+            }
+        }
+        finish();
+        return;
+    }
+
     type StoreTask = {
         name: string;
         subsArray: Subscriber[];

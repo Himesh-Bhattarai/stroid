@@ -41,6 +41,7 @@ const COUNTS = [
   100_000,
   150_000,
   200_000,
+  800_000,
 ];
 
 const STORE_NAME = "subscriberBenchmark";

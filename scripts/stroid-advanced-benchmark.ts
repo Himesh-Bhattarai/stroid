@@ -4,12 +4,13 @@ import {
   clearAllStores,
   createStore,
   getStore,
-  listStores,
   setStore,
-  subscribeWithSelector,
   deleteStore,
 } from "../src/store.js";
+import { subscribeWithSelector } from "../src/selectors.js";
+import { listStores } from "../src/runtime-tools.js";
 import { fetchStore } from "../src/async.js";
+import "../src/sync.js";
 
 type ScaleRow = {
   count: number;
@@ -34,7 +35,17 @@ const round = (value: number): number => Number(value.toFixed(3));
 let sink = 0;
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
-const COUNTS = [50_000, 100_000, 200_000];
+const COUNTS = [50_000, 100_000, 200_000, 900_000, 1_100_000];
+
+const withTimeout = async <T>(label: string, promise: Promise<T>, ms: number): Promise<T | { error: string }> => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<{ error: string }>((resolve) => {
+    timeoutId = setTimeout(() => resolve({ error: `timeout after ${ms}ms (${label})` }), ms);
+  });
+  const result = await Promise.race([promise, timeout]);
+  if (timeoutId) clearTimeout(timeoutId);
+  return result;
+};
 
 const createMarker = (name: string) => {
   let expected = 0;
@@ -155,7 +166,7 @@ const benchSelectorScale = async (): Promise<ScaleRow[]> => {
 };
 
 const benchDeepUpdates = async (): Promise<DeepRow[]> => {
-  const counts = [50_000, 100_000, 150_000, 200_000, 250_000];
+  const counts = [50_000, 100_000, 150_000, 200_000, 250_000, 900_000, 1_100_000];
   const rows: DeepRow[] = [];
 
   for (const count of counts) {
@@ -505,30 +516,60 @@ const benchLifecycleOverhead = async () => {
   };
 };
 
-const main = async () => {
-  maybeGc();
-  const selectorScale = await benchSelectorScale();
-  maybeGc();
-  const deepUpdates = await benchDeepUpdates();
-  maybeGc();
-  const registryScale = await benchRegistryScale();
-  maybeGc();
-  const leakCheck = await benchLeakCheck();
-  maybeGc();
-  const selectorConsistency = await benchSelectorConsistency();
-  maybeGc();
-  const syncScale = await benchSyncScale();
-  maybeGc();
-  const conflictDeterminism = await benchConflictDeterminism();
-  maybeGc();
-  const lifecycleOverhead = await benchLifecycleOverhead();
+type RunMode = "full" | "lite";
 
-  console.log(JSON.stringify({
+const resolveRunMode = (): RunMode => {
+  const args = process.argv.slice(2);
+  const explicit = args.find((arg) => arg.startsWith("--mode="));
+  if (explicit) {
+    const value = explicit.split("=")[1];
+    return value === "lite" ? "lite" : "full";
+  }
+  if (args.includes("--lite")) return "lite";
+  return "full";
+};
+
+const main = async () => {
+  const runMode = resolveRunMode();
+  const skippedSections: string[] = [];
+
+  maybeGc();
+  const selectorScale = runMode === "full"
+    ? await withTimeout("selectorScale", benchSelectorScale(), 600000)
+    : (skippedSections.push("selectorScale"), null);
+  maybeGc();
+  const deepUpdates = runMode === "full"
+    ? await withTimeout("deepUpdates", benchDeepUpdates(), 600000)
+    : (skippedSections.push("deepUpdates"), null);
+  maybeGc();
+  const registryScale = runMode === "full"
+    ? await withTimeout("registryScale", benchRegistryScale(), 300000)
+    : (skippedSections.push("registryScale"), null);
+  maybeGc();
+  const leakCheck = runMode === "full"
+    ? await withTimeout("leakCheck", benchLeakCheck(), 300000)
+    : (skippedSections.push("leakCheck"), null);
+  maybeGc();
+  const selectorConsistency = runMode === "full"
+    ? await withTimeout("selectorConsistency", benchSelectorConsistency(), 120000)
+    : (skippedSections.push("selectorConsistency"), null);
+  maybeGc();
+  const syncScale = await withTimeout("syncScale", benchSyncScale(), 300000);
+  maybeGc();
+  const conflictDeterminism = runMode === "full"
+    ? await withTimeout("conflictDeterminism", benchConflictDeterminism(), 300000)
+    : (skippedSections.push("conflictDeterminism"), null);
+  maybeGc();
+  const lifecycleOverhead = await withTimeout("lifecycleOverhead", benchLifecycleOverhead(), 300000);
+
+  return {
     environment: {
       node: process.version,
       platform: process.platform,
       arch: process.arch,
     },
+    runMode,
+    skippedSections,
     selectorScale,
     deepUpdates,
     registryScale,
@@ -537,10 +578,15 @@ const main = async () => {
     syncScale,
     conflictDeterminism,
     lifecycleOverhead,
-  }, null, 2));
+  };
 };
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .then((result) => {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
