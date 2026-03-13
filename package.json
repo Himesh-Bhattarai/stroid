@@ -1,7 +1,7 @@
 {
   "name": "stroid",
-  "version": "0.0.4",
-  "description": "Compact state management library with persistence, async caching, sync, and React hooks.",
+  "version": "0.0.5",
+  "description": "Named-store state engine for JavaScript/React with optional persistence, async caching, sync, and devtools.",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -13,9 +13,45 @@
       "types": "./dist/core.d.ts",
       "import": "./dist/core.js"
     },
+    "./runtime-tools": {
+      "types": "./dist/runtime-tools.d.ts",
+      "import": "./dist/runtime-tools.js"
+    },
+    "./runtime-admin": {
+      "types": "./dist/runtime-admin.d.ts",
+      "import": "./dist/runtime-admin.js"
+    },
+    "./selectors": {
+      "types": "./dist/selectors.d.ts",
+      "import": "./dist/selectors.js"
+    },
+    "./computed": {
+      "types": "./dist/computed.d.ts",
+      "import": "./dist/computed.js"
+    },
+    "./helpers": {
+      "types": "./dist/helpers.d.ts",
+      "import": "./dist/helpers.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
     "./async": {
       "types": "./dist/async.d.ts",
       "import": "./dist/async.js"
+    },
+    "./persist": {
+      "types": "./dist/persist.d.ts",
+      "import": "./dist/persist.js"
+    },
+    "./sync": {
+      "types": "./dist/sync.d.ts",
+      "import": "./dist/sync.js"
+    },
+    "./devtools": {
+      "types": "./dist/devtools.d.ts",
+      "import": "./dist/devtools.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
@@ -42,11 +78,21 @@
     "url": "https://github.com/Himesh-Bhattarai/stroid/issues"
   },
   "homepage": "https://github.com/Himesh-Bhattarai/stroid#readme",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/persist.ts",
+    "./src/sync.ts",
+    "./src/devtools.ts",
+    "./dist/persist.js",
+    "./dist/sync.js",
+    "./dist/devtools.js"
+  ],
   "scripts": {
-    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test": "node --import tsx --import ./tests/setup.ts --test tests/async-cleanup.test.ts tests/async-revalidate-cleanup.test.ts tests/async.test.ts tests/computed.test.ts tests/options-adapter.test.ts tests/persist.test.ts tests/react-hooks.test.tsx tests/regressions.test.ts tests/selectors-devfreeze.test.ts tests/ssr-carrier.test.ts tests/store.core.test.ts tests/store.node-env.test.ts tests/strict-missing-features.test.ts tests/sync.core.test.ts tests/testing.test.ts tests/utils.test.ts",
+    "test:heavy": "node --import tsx --test tests/heavy/store.heavy.ts",
+    "test:types": "npm run build && tsc -p tsconfig.typetests.json",
     "typecheck": "tsc -p tsconfig.types.json",
-    "build": "tsup"
+    "build": "tsup",
+    "test:all": "npm test && npm run test:types"
   },
   "engines": {
     "node": ">=18"
@@ -63,8 +109,12 @@
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.1.1",
+    "immer": "^11.1.4",
+    "react-test-renderer": "^19.2.0",
+    "redux": "^5.0.1",
     "tsup": "^8.5.1",
     "tsx": "^4.7.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "zustand": "^5.0.11"
   }
 }

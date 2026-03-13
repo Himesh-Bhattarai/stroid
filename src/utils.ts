@@ -1,34 +1,33 @@
-const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NODE_ENV === "string"
-    ? process.env.NODE_ENV
-    : undefined;
-const _envFromImportMeta = typeof import.meta !== "undefined" && (import.meta as any)?.env?.MODE
-    ? (import.meta as any).env.MODE
-    : undefined;
-const _devFlag = typeof globalThis !== "undefined" && typeof (globalThis as any).__STROID_DEV__ === "boolean"
-    ? (globalThis as any).__STROID_DEV__
-    : undefined;
-
-// Default to production when the environment is unknown to avoid leaking dev logs in bundled builds.
-const _fallbackEnv = typeof process !== "undefined" ? "development" : "production";
-const _resolvedEnv = _envFromProcess ?? _envFromImportMeta ?? _fallbackEnv;
-
-export const __DEV__ = typeof _devFlag === "boolean"
-    ? _devFlag
-    : _resolvedEnv !== "production";
-
-export const isDev = (): boolean => __DEV__;
-
-export const warn: (msg: string) => void = __DEV__
-    ? (msg: string) => { console.warn(`[stroid] ${msg}`); }
-    : () => { };
-
-export const error: (msg: string) => void = __DEV__
-    ? (msg: string) => { console.error(`[stroid] ${msg}`); }
-    : () => { };
-
-export const log: (msg: string) => void = __DEV__
-    ? (msg: string) => { console.log(`[stroid] ${msg}`); }
-    : () => { };
+export {
+    __DEV__,
+    isDev,
+    warn,
+    warnAlways,
+    error,
+    log,
+    critical,
+    suggestStoreName,
+} from "./internals/diagnostics.js";
+import {
+    error,
+    getDateStoreWarningMessage,
+    getDeepNestingWarningMessage,
+    getInvalidFunctionStoreValueMessage,
+    getInvalidStoreNameMessage,
+    getForbiddenStoreNameMessage,
+    getMapSetStoreWarningMessage,
+    getPathDepthExceededMessage,
+    getPathNotObjectMessage,
+    getPathReachedNullMessage,
+    getSanitizeDateWarningMessage,
+    getSanitizeMapWarningMessage,
+    getSanitizeSetWarningMessage,
+    getStoreNameContainsSpacesMessage,
+    isDev,
+    critical,
+    warn,
+    warnAlways,
+} from "./internals/diagnostics.js";
 
 // --- hashing / checksum ------------------------------------------------------
 let _crcTable: number[] | null = null;
@@ -57,26 +56,268 @@ export const crc32 = (str: string): number => {
     return (crc ^ (-1)) >>> 0;
 };
 
-export const hashState = (value: unknown): number => {
-    try {
-        return crc32(JSON.stringify(value));
-    } catch (_) {
-        return crc32(String(value));
+type HashState = {
+    h1: number;
+    h2: number;
+    seen: WeakMap<object, number>;
+    nextId: number;
+    nodes: number;
+};
+
+const HASH_SEED_1 = 0x811C9DC5;
+const HASH_SEED_2 = 0x9E3779B1;
+const MAX_HASH_NODES = 100_000;
+
+const mixHash = (state: HashState, value: number): void => {
+    const v = value >>> 0;
+    state.h1 = Math.imul(state.h1 ^ v, 0x85EBCA6B);
+    state.h2 = Math.imul(state.h2 ^ v, 0xC2B2AE35);
+};
+
+const mixString = (state: HashState, value: string): void => {
+    mixHash(state, value.length);
+    for (let i = 0; i < value.length; i++) {
+        mixHash(state, value.charCodeAt(i));
     }
 };
 
+const mixToken = (state: HashState, token: string): void => {
+    mixString(state, token);
+};
+
+const hashNumber = (state: HashState, value: number): void => {
+    if (Number.isNaN(value)) {
+        mixToken(state, "NaN");
+        return;
+    }
+    if (!Number.isFinite(value)) {
+        mixToken(state, value > 0 ? "Infinity" : "-Infinity");
+        return;
+    }
+    if (Object.is(value, -0)) {
+        mixToken(state, "-0");
+        return;
+    }
+    const asInt = value | 0;
+    if (value === asInt) {
+        mixToken(state, "int");
+        mixHash(state, asInt);
+        return;
+    }
+    mixToken(state, "num");
+    mixString(state, String(value));
+};
+
+const hashValue = (state: HashState, value: unknown): void => {
+    if (state.nodes++ > MAX_HASH_NODES) {
+        mixToken(state, "[max]");
+        return;
+    }
+    if (value === null) {
+        mixToken(state, "null");
+        return;
+    }
+    const type = typeof value;
+    if (type === "string") {
+        mixToken(state, "string");
+        mixString(state, value as string);
+        return;
+    }
+    if (type === "number") {
+        mixToken(state, "number");
+        hashNumber(state, value as number);
+        return;
+    }
+    if (type === "boolean") {
+        mixToken(state, value ? "true" : "false");
+        return;
+    }
+    if (type === "undefined") {
+        mixToken(state, "undefined");
+        return;
+    }
+    if (type === "bigint") {
+        mixToken(state, "bigint");
+        mixString(state, (value as bigint).toString());
+        return;
+    }
+    if (type === "symbol") {
+        mixToken(state, "symbol");
+        const sym = value as symbol;
+        mixString(state, Symbol.keyFor(sym) ?? sym.description ?? String(sym));
+        return;
+    }
+    if (type === "function") {
+        mixToken(state, "function");
+        mixString(state, (value as Function).name || "anonymous");
+        return;
+    }
+
+    const obj = value as object;
+    const seenId = state.seen.get(obj);
+    if (seenId !== undefined) {
+        mixToken(state, "ref");
+        mixHash(state, seenId);
+        return;
+    }
+    const id = state.nextId++;
+    state.seen.set(obj, id);
+
+    if (Array.isArray(obj)) {
+        mixToken(state, "array");
+        mixHash(state, obj.length);
+        for (let i = 0; i < obj.length; i++) {
+            if (Object.prototype.hasOwnProperty.call(obj, i)) {
+                hashValue(state, (obj as unknown[])[i]);
+            } else {
+                mixToken(state, "hole");
+            }
+        }
+        return;
+    }
+    if (obj instanceof Date) {
+        mixToken(state, "date");
+        hashNumber(state, obj.getTime());
+        return;
+    }
+    if (obj instanceof Map) {
+        mixToken(state, "map");
+        mixHash(state, obj.size);
+        obj.forEach((entryValue, key) => {
+            hashValue(state, key);
+            hashValue(state, entryValue);
+        });
+        return;
+    }
+    if (obj instanceof Set) {
+        mixToken(state, "set");
+        mixHash(state, obj.size);
+        obj.forEach((entryValue) => {
+            hashValue(state, entryValue);
+        });
+        return;
+    }
+
+    mixToken(state, "object");
+    const descriptors = Object.getOwnPropertyDescriptors(obj as Record<string, unknown>);
+    const entries: Array<[string, PropertyDescriptor]> = [];
+    Object.entries(descriptors).forEach(([key, descriptor]) => {
+        if (!descriptor?.enumerable) return;
+        if (FORBIDDEN_OBJECT_KEYS.has(key)) return;
+        if ("get" in descriptor || "set" in descriptor) return;
+        entries.push([key, descriptor]);
+    });
+    mixHash(state, entries.length);
+    for (const [key, descriptor] of entries) {
+        mixString(state, key);
+        hashValue(state, descriptor.value);
+    }
+};
+
+/**
+ * Non-cryptographic checksum for integrity (best-effort). Do not use for security.
+ * String inputs preserve the legacy CRC32(JSON.stringify(value)) behavior to keep
+ * persisted checksums stable across versions.
+ */
+export const hashState = (value: unknown): number => {
+    if (typeof value === "string") {
+        return crc32(JSON.stringify(value));
+    }
+    const state: HashState = {
+        h1: HASH_SEED_1,
+        h2: HASH_SEED_2,
+        seen: new WeakMap(),
+        nextId: 1,
+        nodes: 0,
+    };
+    hashValue(state, value);
+    let h1 = state.h1 >>> 0;
+    let h2 = state.h2 >>> 0;
+    h1 ^= h1 >>> 16;
+    h1 = Math.imul(h1, 0x85EBCA6B);
+    h1 ^= h1 >>> 13;
+    h1 = Math.imul(h1, 0xC2B2AE35);
+    h1 ^= h1 >>> 16;
+    h2 ^= h2 >>> 16;
+    h2 = Math.imul(h2, 0x27D4EB2D);
+    h2 ^= h2 >>> 15;
+    h2 = Math.imul(h2, 0x165667B1);
+    h2 ^= h2 >>> 16;
+    return ((h1 & 0x1FFFFF) * 0x100000000) + (h2 >>> 0);
+};
+
+export const checksumState = hashState; // alias for clarity
+
 // --- cloning / equality helpers ------------------------------------------------
 const hasStructuredClone = typeof globalThis !== "undefined" && typeof (globalThis as any).structuredClone === "function";
+const FORBIDDEN_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+export const shallowClone = <T>(value: T): T => {
+    if (value === null || typeof value !== "object") return value;
+    if (value instanceof Date) return new Date(value.getTime()) as T;
+    if (value instanceof Map) return new Map(value as Map<unknown, unknown>) as T;
+    if (value instanceof Set) return new Set(value as Set<unknown>) as T;
+    if (Array.isArray(value)) return (value.slice() as unknown) as T;
+
+    const clone: Record<string, unknown> = {};
+    const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+    Object.entries(descriptors).forEach(([key, descriptor]) => {
+        if (!descriptor.enumerable) return;
+        if (FORBIDDEN_OBJECT_KEYS.has(key)) return;
+        if ("get" in descriptor || "set" in descriptor) return;
+        clone[key] = descriptor.value;
+    });
+    return clone as T;
+};
+
+const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()): T => {
+    if (value === null || typeof value !== "object") return value;
+    if (seen.has(value as object)) return seen.get(value as object) as T;
+
+    if (value instanceof Date) return new Date(value.getTime()) as T;
+    if (value instanceof Map) {
+        const clone = new Map();
+        seen.set(value, clone);
+        value.forEach((entryValue, key) => {
+            clone.set(_deepCloneFallback(key, seen), _deepCloneFallback(entryValue, seen));
+        });
+        return clone as T;
+    }
+    if (value instanceof Set) {
+        const clone = new Set();
+        seen.set(value, clone);
+        value.forEach((entryValue) => {
+            clone.add(_deepCloneFallback(entryValue, seen));
+        });
+        return clone as T;
+    }
+    if (Array.isArray(value)) {
+        const clone: unknown[] = [];
+        seen.set(value, clone);
+        value.forEach((entry, index) => {
+            clone[index] = _deepCloneFallback(entry, seen);
+        });
+        return clone as T;
+    }
+
+    const clone: Record<string, unknown> = {};
+    seen.set(value as object, clone);
+    const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+    Object.entries(descriptors).forEach(([key, descriptor]) => {
+        if (!descriptor.enumerable || FORBIDDEN_OBJECT_KEYS.has(key)) return;
+        if ("get" in descriptor || "set" in descriptor) return;
+        clone[key] = _deepCloneFallback(descriptor.value, seen);
+    });
+    return clone as T;
+};
 
 export const deepClone = <T>(value: T): T => {
     try {
         if (hasStructuredClone) return (structuredClone as <X>(v: X) => X)(value);
-        return JSON.parse(JSON.stringify(value)) as T;
     } catch (_) {
-        if (Array.isArray(value)) return [...value] as unknown as T;
-        if (value && typeof value === "object") return { ...(value as Record<string, unknown>) } as T;
-        return value;
+        // Fall through to the manual clone path below.
     }
+    return _deepCloneFallback(value);
 };
 
 export const shallowEqual = (a: unknown, b: unknown): boolean => {
@@ -125,8 +366,21 @@ export const runSchemaValidation = (schema: unknown, value: unknown): { ok: bool
             return valid ? { ok: true, data: value } : { ok: false, error: "Schema validation failed" };
         }
         if (typeof (schema as { validate?: unknown }).validate === "function") {
-            const valid = (schema as any).validate(value);
-            return valid ? { ok: true, data: value } : { ok: false, error: (schema as any).errors || "Schema validation failed" };
+            const res = (schema as any).validate(value);
+            if (res === true) return { ok: true, data: value };
+            if (res === false) return { ok: false, error: (schema as any).errors || "Schema validation failed" };
+            if (res && typeof res === "object") {
+                const joiError = (res as any).error;
+                const message =
+                    joiError?.details?.[0]?.message ||
+                    joiError?.message ||
+                    (res as any).message ||
+                    (schema as any).errors;
+                if (message) return { ok: false, error: message };
+                if (joiError) return { ok: false, error: joiError };
+            }
+            const errMsg = (schema as any).errors || "Schema validation failed";
+            return { ok: false, error: errMsg };
         }
         if (typeof schema === "function") {
             const res = (schema as (v: unknown) => unknown | boolean)(value);
@@ -163,64 +417,181 @@ export const getType = (value: unknown): SupportedType => {
 export const isValidData = (value: unknown): boolean => {
     const type = getType(value);
     if (type === "function") {
-        error(
-            `Functions cannot be stored in stroid.\n` +
-            `Store data only - handle functions outside the store.`
-        );
+        error(getInvalidFunctionStoreValueMessage());
         return false;
     }
     if (type === "map" || type === "set") {
-        warn(
-            `Map/Set detected. stroid converts these to plain objects.\n` +
-            `Use arrays or plain objects for best results.`
-        );
+        warn(getMapSetStoreWarningMessage());
         return true;
     }
     if (type === "date") {
-        warn(
-            `Date object detected. stroid stores it as ISO string.\n` +
-            `Use new Date(value) to convert back when reading.`
-        );
+        warn(getDateStoreWarningMessage());
         return true;
     }
     return true;
 };
 
-export const sanitize = (value: unknown): unknown => {
+const _canReuseSanitized = (value: unknown, seen: WeakSet<object>): boolean => {
     const type = getType(value);
+    if (type === "number") {
+        if (!Number.isFinite(value as number)) {
+            throw new Error("Non-finite numbers are not supported");
+        }
+        return true;
+    }
+    if (type === "bigint") {
+        throw new Error("BigInt values are not supported");
+    }
+    if (type === "symbol") {
+        throw new Error("Symbol values are not supported");
+    }
+    if (type === "date" || type === "map" || type === "set") {
+        return false;
+    }
+    if (type === "array") {
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
+        const keys = Object.keys(value as unknown[]);
+        for (const key of keys) {
+            const idx = Number(key);
+            if (!Number.isInteger(idx)) return false;
+        }
+        for (let i = 0; i < (value as unknown[]).length; i += 1) {
+            if (!(i in (value as unknown[]))) continue;
+            if (!_canReuseSanitized((value as unknown[])[i], seen)) return false;
+        }
+        return true;
+    }
+    if (type === "object") {
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
+        if (Object.getOwnPropertySymbols(value as object).length > 0) return false;
+        const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+        for (const [key, descriptor] of Object.entries(descriptors)) {
+            if (!descriptor.enumerable) return false;
+            if (FORBIDDEN_OBJECT_KEYS.has(key)) return false;
+            if ("get" in descriptor || "set" in descriptor) {
+                throw new Error(`Accessor properties are not supported during sanitize ("${key}")`);
+            }
+            if (!_canReuseSanitized(descriptor.value, seen)) return false;
+        }
+        return true;
+    }
+    return true;
+};
+
+export const canReuseSanitized = (value: unknown): boolean => _canReuseSanitized(value, new WeakSet<object>());
+
+const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
+    const type = getType(value);
+    if (type === "number") {
+        if (!Number.isFinite(value as number)) {
+            throw new Error("Non-finite numbers are not supported");
+        }
+        return value;
+    }
+    if (type === "bigint") {
+        throw new Error("BigInt values are not supported");
+    }
+    if (type === "symbol") {
+        throw new Error("Symbol values are not supported");
+    }
     if (type === "date") {
-        if (isDev()) warn("Date detected; stored as ISO string. Use new Date(value) when reading.");
+        if (isDev()) warn(getSanitizeDateWarningMessage());
         return (value as Date).toISOString();
     }
     if (type === "map") {
-        if (isDev()) warn("Map detected; converting to plain object.");
-        return Object.fromEntries(value as Map<unknown, unknown>);
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
+        if (isDev()) warn(getSanitizeMapWarningMessage());
+        const clean: Record<string, unknown> = {};
+        for (const [key, entryValue] of value as Map<unknown, unknown>) {
+            if (typeof key !== "string") {
+                throw new Error("Map keys must be strings to remain JSON-safe");
+            }
+            clean[String(key)] = _sanitize(entryValue, seen);
+        }
+        return clean;
     }
     if (type === "set") {
-        if (isDev()) warn("Set detected; converting to array.");
-        return Array.from(value as Set<unknown>);
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
+        if (isDev()) warn(getSanitizeSetWarningMessage());
+        return Array.from(value as Set<unknown>, (entry) => _sanitize(entry, seen));
     }
     if (type === "object") {
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
         const clean: Record<string, unknown> = {};
-        for (const key in value as Record<string, unknown>) {
-            clean[key] = sanitize((value as Record<string, unknown>)[key]);
+        const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+        for (const [key, descriptor] of Object.entries(descriptors)) {
+            if (!descriptor.enumerable) continue;
+            if (FORBIDDEN_OBJECT_KEYS.has(key)) continue;
+            if ("get" in descriptor || "set" in descriptor) {
+                throw new Error(`Accessor properties are not supported during sanitize ("${key}")`);
+            }
+            clean[key] = _sanitize(descriptor.value, seen);
         }
         return clean;
     }
     if (type === "array") {
-        return (value as unknown[]).map(sanitize);
+        if (seen.has(value as object)) {
+            throw new Error("Circular reference detected during sanitize");
+        }
+        seen.add(value as object);
+        return (value as unknown[]).map((entry) => _sanitize(entry, seen));
     }
     return value;
 };
+
+export const sanitize = (value: unknown): unknown => _sanitize(value, new WeakSet<object>());
 
 const MAX_DEPTH = 10;
 const WARN_DEPTH = 5;
 export type PathInput = string | readonly string[] | string[];
 
+const _splitPath = (path: string): string[] => {
+    const parts: string[] = [];
+    let current = "";
+    let escaping = false;
+
+    for (const ch of path) {
+        if (escaping) {
+            current += ch;
+            escaping = false;
+            continue;
+        }
+        if (ch === "\\") {
+            escaping = true;
+            continue;
+        }
+        if (ch === ".") {
+            parts.push(current);
+            current = "";
+            continue;
+        }
+        current += ch;
+    }
+
+    if (escaping) current += "\\";
+    parts.push(current);
+    return parts;
+};
+
 export const parsePath = (path: PathInput): string[] => {
     if (Array.isArray(path)) return [...path] as string[];
     if (typeof path === "string" && !path.includes(".")) return [path];
-    if (typeof path === "string") return path.split(".");
+    if (typeof path === "string") return _splitPath(path);
     return [String(path)];
 };
 
@@ -228,19 +599,11 @@ export const validateDepth = (path: PathInput): boolean => {
     const parts = parsePath(path);
     const depth = parts.length;
     if (depth > MAX_DEPTH) {
-        error(
-            `Path depth of ${depth} exceeded maximum of ${MAX_DEPTH}.\n` +
-            `"${parts.join(".")}"\n` +
-            `This is a data design issue. Split into separate stores:\n` +
-            `createStore("${parts[0]}", ...) and createStore("${parts[1]}", ...)`
-        );
+        error(getPathDepthExceededMessage(depth, MAX_DEPTH, parts));
         return false;
     }
     if (depth > WARN_DEPTH) {
-        warn(
-            `Deep nesting detected (${depth} levels): "${parts.join(".")}"\n` +
-            `Consider splitting into separate stores for better readability.`
-        );
+        warn(getDeepNestingWarningMessage(depth, parts));
     }
     return true;
 };
@@ -250,11 +613,11 @@ export const getByPath = (obj: unknown, path: PathInput): unknown => {
     let current: unknown = obj;
     for (const part of parts) {
         if (current === null || current === undefined) {
-            warn(`Path "${parts.join(".")}" not found - reached null at "${part}"`);
+            warn(getPathReachedNullMessage(parts, part));
             return undefined;
         }
         if (typeof current !== "object") {
-            warn(`Cannot go deeper at "${part}" - value is not an object`);
+            warn(getPathNotObjectMessage(part));
             return undefined;
         }
         current = (current as Record<string, unknown>)[part];
@@ -265,6 +628,12 @@ export const getByPath = (obj: unknown, path: PathInput): unknown => {
 export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T, path: PathInput, value: unknown): T => {
     const parts = parsePath(path);
     if (parts.length === 0) return obj;
+    for (const segment of parts) {
+        if (FORBIDDEN_OBJECT_KEYS.has(segment)) {
+            critical(`Blocked forbidden path segment "${String(segment)}" in setStore path "${parts.join(".")}".`);
+            return obj;
+        }
+    }
 
     const applyAt = (current: unknown, index: number): unknown => {
         const key = parts[index];
@@ -283,6 +652,10 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
         }
 
         if (current && typeof current === "object") {
+            if (FORBIDDEN_OBJECT_KEYS.has(key)) {
+                critical(`Blocked unsafe path segment "${String(key)}" while setting "${parts.join(".")}".`);
+                return current;
+            }
             const clone: Record<string, unknown> = { ...(current as Record<string, unknown>) };
             if (isLast) {
                 clone[key] = value;
@@ -292,8 +665,21 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
             return clone as unknown;
         }
 
-        // Path validation should prevent reaching primitives/null; return current to avoid creating new branches.
-        return current;
+        if ((current === null || current === undefined) && !isLast) {
+            const isIndex = Number.isInteger(Number(key));
+            const container: Record<string, unknown> | unknown[] = isIndex ? [] : {};
+            if (isIndex) {
+                const arr = container as unknown[];
+                const idx = Number(key);
+                arr[idx] = applyAt(undefined, index + 1);
+                return arr;
+            }
+            (container as Record<string, unknown>)[key] = applyAt(undefined, index + 1);
+            return container;
+        }
+
+        // Fallback: leave unchanged when path cannot be extended.
+        return isLast ? value : current;
     };
 
     return applyAt(obj, 0) as T;
@@ -301,51 +687,16 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
 
 export const isValidStoreName = (name: string): boolean => {
     if (typeof name !== "string" || name.trim() === "") {
-        error(`Store name must be a non-empty string. Got: ${JSON.stringify(name)}`);
+        error(getInvalidStoreNameMessage(name));
+        return false;
+    }
+    if (FORBIDDEN_OBJECT_KEYS.has(name)) {
+        error(getForbiddenStoreNameMessage(name));
         return false;
     }
     if (name.includes(" ")) {
-        error(
-            `Store name "${name}" contains spaces.\n` +
-            `Use camelCase or kebab-case: "userName" or "user-name"`
-        );
+        error(getStoreNameContainsSpacesMessage(name));
         return false;
     }
     return true;
-};
-
-export const suggestStoreName = (name: string, existingNames: string[]): void => {
-    const similar = existingNames.find((n) => {
-        const a = n.toLowerCase();
-        const b = name.toLowerCase();
-        return (
-            a.includes(b) ||
-            b.includes(a) ||
-            levenshtein(a, b) <= 2
-        );
-    });
-    if (similar) {
-        warn(`Store "${name}" not found. Did you mean "${similar}"?`);
-    } else {
-        error(
-            `Store "${name}" not found.\n` +
-            `Available stores: [${existingNames.join(", ")}]\n` +
-            `Call createStore("${name}", data) first.`
-        );
-    }
-};
-
-const levenshtein = (a: string, b: string): number => {
-    const matrix = Array.from({ length: b.length + 1 }, (_, i) =>
-        Array.from({ length: a.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
-    );
-    for (let i = 1; i <= b.length; i++) {
-        for (let j = 1; j <= a.length; j++) {
-            matrix[i][j] =
-                b[i - 1] === a[j - 1]
-                    ? matrix[i - 1][j - 1]
-                    : Math.min(matrix[i - 1][j - 1], matrix[i][j - 1], matrix[i - 1][j]) + 1;
-        }
-    }
-    return matrix[b.length][a.length];
 };

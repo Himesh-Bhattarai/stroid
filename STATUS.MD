@@ -35,6 +35,5 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(infinity)`: Gold master / fully trusted.
 - `status(404)`: Human chaos/debugging note (does not imply code quality).
 
-## Description Guideline
-- Pair the code with a message that states the quality/intent (e.g., for fixes use `status(601)` with a summary like “fix async cleanup to avoid leak”).
-- Bug fixes can use `status(601)` (preferred) or `status(201)`; the message must still reflect the quality outcome (stability, safety, perf, etc.).
+# If you feel Good and useful, Give it what it deserve.
+- `QUICK EXPLORE`: https://github.com/Himesh-Bhattarai/STATUS_COMMIT 

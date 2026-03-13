@@ -1,11 +1,18 @@
-import { createStore, setStore, resetStore, clearAllStores } from "./store.js";
+import { _resetAsyncStateForTests } from "./async.js";
+import { createStore, setStore, resetStore, store } from "./store.js";
+import type { PartialDeep, StoreDefinition, StoreKey } from "./store.js";
+import { _hardResetAllStoresForTest } from "./store-write.js";
 
-export const createMockStore = (name = "mock", initial: Record<string, unknown> = {}) => {
+export const createMockStore = <Name extends string, State extends Record<string, unknown> = Record<string, unknown>>(
+    name: Name = "mock" as Name,
+    initial: State = {} as State
+) => {
+    const handle = store<Name, State>(name);
     createStore(name, initial);
     return {
-        set: (update: Record<string, unknown> | ((draft: any) => void)) => setStore(name, update as any),
-        reset: () => resetStore(name),
-        use: () => ({ name }),
+        set: (update: PartialDeep<State> | ((draft: State) => void)) => setStore(handle, update),
+        reset: () => resetStore(handle),
+        use: (): StoreKey<Name, State> => handle,
     };
 };
 
@@ -21,12 +28,15 @@ export const withMockedTime = <T>(nowMs: number, fn: () => T): T => {
     }
 };
 
-export const resetAllStoresForTest = (): void => clearAllStores();
+export const resetAllStoresForTest = (): void => {
+    _hardResetAllStoresForTest();
+    _resetAsyncStateForTests();
+};
 
-export const benchmarkStoreSet = (
-    name: string,
+export const benchmarkStoreSet = <Name extends string, State extends Record<string, unknown>>(
+    name: StoreDefinition<Name, State> | StoreKey<Name, State>,
     iterations = 1000,
-    makeUpdate: (i: number) => Record<string, unknown> = (i) => ({ value: i })
+    makeUpdate: (i: number) => PartialDeep<State> = (i) => ({ value: i } as PartialDeep<State>)
 ) => {
     const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
     for (let i = 0; i < iterations; i++) {

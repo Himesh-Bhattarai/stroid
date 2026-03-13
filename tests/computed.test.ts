@@ -1,0 +1,182 @@
+import test from "node:test";
+import assert from "node:assert";
+import { createStore, setStore, replaceStore, getStore } from "../src/store.js";
+import { clearAllStores } from "../src/runtime-admin.js";
+import {
+  createComputed,
+  invalidateComputed,
+  deleteComputed,
+  _resetComputedForTests,
+} from "../src/computed.js";
+import { detectCycle, getTopoOrderedComputeds } from "../src/computed-graph.js";
+
+const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test.beforeEach(() => {
+  clearAllStores();
+  _resetComputedForTests();
+});
+
+test("derives value from single source", async () => {
+  createStore("count", 0);
+  createComputed("doubled", ["count"], (n) => (n as number) * 2);
+
+  assert.strictEqual(getStore("doubled"), 0);
+
+  replaceStore("count", 5);
+  await wait();
+
+  assert.strictEqual(getStore("doubled"), 10);
+});
+
+test("derives from multiple sources", async () => {
+  createStore("firstName", "John");
+  createStore("lastName", "Doe");
+  createComputed("fullName", ["firstName", "lastName"], (f, l) => `${f} ${l}`);
+
+  assert.strictEqual(getStore("fullName"), "John Doe");
+
+  replaceStore("firstName", "Jane");
+  await wait();
+
+  assert.strictEqual(getStore("fullName"), "Jane Doe");
+});
+
+test("does not notify if computed value unchanged", async () => {
+  createStore("x", 1);
+  createComputed("sign", ["x"], (n) => (n as number) > 0 ? "positive" : "non-positive");
+
+  let notifyCount = 0;
+  const { subscribeStore } = await import("../src/store-notify.js");
+  subscribeStore("sign", () => { notifyCount += 1; });
+
+  replaceStore("x", 2);
+  await wait();
+  assert.strictEqual(notifyCount, 0);
+
+  replaceStore("x", -1);
+  await wait();
+  assert.strictEqual(notifyCount, 1);
+});
+
+test("rejects direct cycle", () => {
+  createStore("a", 1);
+  createComputed("b", ["a"], (x) => x);
+  const result = createComputed("a", ["b"], (x) => x);
+  assert.strictEqual(result, undefined);
+  assert.strictEqual(getStore("a"), 1);
+});
+
+test("rejects indirect cycle", () => {
+  createStore("x", 0);
+  createComputed("y", ["x"], (v) => v);
+  createComputed("z", ["y"], (v) => v);
+  const result = createComputed("x", ["z"], (v) => v);
+  assert.strictEqual(result, undefined);
+});
+
+test("detectCycle returns path string on cycle", async () => {
+  const { registerComputed } = await import("../src/computed-graph.js");
+  registerComputed("m", ["n"], (v) => v);
+  const trace = detectCycle("n", ["m"]);
+  assert.ok(typeof trace === "string");
+  assert.ok(trace.includes("->"));
+});
+
+test("topo order: shallow dependency resolved first", () => {
+  createStore("src", 0);
+  createComputed("level1", ["src"], (v) => v);
+  createComputed("level2", ["level1"], (v) => v);
+
+  const order = getTopoOrderedComputeds(["src"]);
+  assert.deepStrictEqual(order, ["level1", "level2"]);
+});
+
+test("topo order: diamond dependency resolved correctly", () => {
+  createStore("src", 0);
+  createComputed("left", ["src"], (v) => v);
+  createComputed("right", ["src"], (v) => v);
+  createComputed("combined", ["left", "right"], (l, r) => [l, r]);
+
+  const order = getTopoOrderedComputeds(["src"]);
+  const combinedIdx = order.indexOf("combined");
+  const leftIdx = order.indexOf("left");
+  const rightIdx = order.indexOf("right");
+
+  assert.ok(leftIdx < combinedIdx);
+  assert.ok(rightIdx < combinedIdx);
+});
+
+test("invalidateComputed forces recomputation", async () => {
+  createStore("base", 1);
+  let externalValue = 10;
+  createComputed("withExternal", ["base"], (b) => (b as number) + externalValue);
+
+  assert.strictEqual(getStore("withExternal"), 11);
+
+  externalValue = 20;
+  invalidateComputed("withExternal");
+  await wait();
+
+  assert.strictEqual(getStore("withExternal"), 21);
+});
+
+test("deleteComputed stops reactivity", async () => {
+  createStore("src", 0);
+  createComputed("derived", ["src"], (v) => (v as number) * 2);
+
+  replaceStore("src", 5);
+  await wait();
+  assert.strictEqual(getStore("derived"), 10);
+
+  deleteComputed("derived");
+
+  replaceStore("src", 99);
+  await wait();
+  assert.strictEqual(getStore("derived"), 10);
+});
+
+test("re-registering computed cleans up prior subscriptions", async () => {
+  createStore("base", 1);
+
+  let firstRuns = 0;
+  let secondRuns = 0;
+
+  createComputed("twice", ["base"], (n) => {
+    firstRuns += 1;
+    return (n as number) * 2;
+  });
+
+  replaceStore("base", 2);
+  await wait();
+
+  assert.strictEqual(firstRuns, 2);
+  assert.strictEqual(getStore("twice"), 4);
+
+  createComputed("twice", ["base"], (n) => {
+    secondRuns += 1;
+    return (n as number) * 3;
+  });
+
+  replaceStore("base", 3);
+  await wait();
+
+  assert.strictEqual(firstRuns, 2);
+  assert.strictEqual(secondRuns, 2);
+  assert.strictEqual(getStore("twice"), 9);
+});
+
+test("compute function throwing does not crash -- returns previous value", async () => {
+  createStore("n", 2);
+  createComputed("safe", ["n"], (v) => {
+    if ((v as number) > 5) throw new Error("too big");
+    return (v as number) * 2;
+  });
+
+  assert.strictEqual(getStore("safe"), 4);
+
+  replaceStore("n", 10);
+  await wait();
+
+  assert.strictEqual(getStore("safe"), 4);
+});

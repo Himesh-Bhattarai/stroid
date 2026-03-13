@@ -1,51 +1,35 @@
-
 export {
-    createStore,    
-    setStore,     
+    createStore,
+    setStore,
     setStoreBatch,
-    getStore,      
-    deleteStore,   
-    resetStore,   
-    mergeStore,   
-    clearAllStores,
-    hasStore,       
-    listStores,    
-    getStoreMeta,  
-    subscribeWithSelector,
-    createCounterStore,
-    createListStore,
-    createEntityStore,
-    createSelector,
-    getInitialState,
-    createZustandCompatStore,
-    createStoreForRequest,
+    getStore,
+    deleteStore,
+    resetStore,
+    hasStore,
     hydrateStores,
-    getHistory,
-    clearHistory,
-    getMetrics,
 } from "./store.js";
-
-// ── Chain syntax ──────────────────────────────
 export {
-    chain,        
-} from "./chain.js";
-
-// ── Async helpers ─────────────────────────────
-export {
-    fetchStore,    
-    refetchStore,   
-    enableRevalidateOnFocus,
-    getAsyncMetrics,
-} from "./async.js";
-
-// ── React hooks ───────────────────────────────
-export {
-    useStore,       
-    useStoreField, 
-    useAsyncStore,  
-    useSelector,
-    useStoreStatic,
-    useFormStore,
-} from "./hooks.js";
-
-// Testing utilities moved to stroid/testing subpath to avoid bundling by default
+    createComputed,
+    invalidateComputed,
+    deleteComputed,
+    isComputedStore,
+} from "./computed.js";
+export { namespace, store } from "./store.js";
+export type {
+    Path,
+    PathValue,
+    PartialDeep,
+    StoreDefinition,
+    StoreValue,
+    StoreKey,
+    StoreName,
+    StateFor,
+    StoreStateMap,
+    StrictStoreMap,
+    WriteResult,
+    PersistOptions,
+    StoreOptions,
+    SyncOptions,
+} from "./store.js";
+export { configureStroid } from "./config.js";
+export * as queryIntegrations from "./integrations/query.js";
