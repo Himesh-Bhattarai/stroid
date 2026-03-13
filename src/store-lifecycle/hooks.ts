@@ -19,7 +19,7 @@ import {
     setStoreValueInternal,
     hasStoreEntryInternal,
 } from "./registry.js";
-import { runValidation } from "./validation.js";
+import { runValidation, invalidatePathCache } from "./validation.js";
 import { reportStoreError, warnMissingFeature } from "./identity.js";
 
 type BaseFeatureContext = {
@@ -82,6 +82,7 @@ export const createBaseFeatureContext = (name: string): BaseFeatureContext | nul
         },
         applyFeatureState: (value: StoreValue, updatedAtMs?: number) => {
             applyFeatureState(name, value, updatedAtMs);
+            invalidatePathCache(name);
         },
         notify: () => {
             // noop placeholder to be bound by store-notify

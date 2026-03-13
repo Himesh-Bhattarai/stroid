@@ -272,6 +272,7 @@ File tree (scoped):
 |   |-- async-revalidate-cleanup.test.ts
 |   |-- async.test.ts
 |   |-- computed.test.ts
+|   |-- feature-applied-state.test.ts
 |   |-- options-adapter.test.ts
 |   |-- persist.test.ts
 |   |-- react-hooks.test.tsx
@@ -310,10 +311,10 @@ File tree (scoped):
 \-- vercel.json
 ```
 
-Total file count: 251
+Total file count: 252
 Total source file count: 67 (definition: JS/TS files under `src/` and `scripts/`)
-Total test file count: 26 (definition: files under `tests/` or matching `*.test.*` or `*.spec.*`)
-Inspection log: `audit_inspection_scoped.csv` (path, bytes, lines, binary) covers all 251 files.
+Total test file count: 27 (definition: files under `tests/` or matching `*.test.*` or `*.spec.*`)
+Inspection log: `audit_inspection_scoped.csv` (path, bytes, lines, binary) covers all 252 files.
 ALL FILES HAVE BEEN INSPECTED
 
 PHASE 1 - ARCHITECTURE RECONSTRUCTION
@@ -358,10 +359,11 @@ Production Risks: Misuse of advanced APIs and inconsistent feature setup.
 Improvement Suggestions: Provide a minimal-core usage path and a single architecture diagram in README.
 
 2. Reliability and Consistency - Score: 6/10
-Weaknesses: Cross-feature interactions and time-based sync resolution can produce surprising outcomes under load.
+Weaknesses: Cross-feature interactions and time-based sync resolution can produce surprising outcomes under load, especially when persist and sync update the same store within tight windows or when clocks drift across tabs.
 Strengths: Strong runtime validation and error reporting; transactions reduce inconsistent writes.
-Production Risks: State divergence and performance cliffs in uncommon but realistic flows.
-Improvement Suggestions: Add tests for feature-applied state, sync conflicts, and security defaults.
+Production Risks: State divergence and performance cliffs in uncommon but realistic flows, including conflict resolution that depends on wall-clock time and heavy snapshot cloning during bursty updates.
+Improvement Suggestions: Add tests for feature-applied state (path cache invalidation), sync conflicts (conflictResolver behavior), and security defaults (malformed message rejection). Provide guidance on sync conflict policies and time-source assumptions.
+Status: Tests added for feature-applied state, sync conflicts, and malformed sync messages.
 
 3. Usability - Score: 7/10
 Weaknesses: Overload-heavy API can be confusing; multiple entrypoints increase learning cost.
@@ -394,10 +396,10 @@ Production Risks: Feature changes can have unintended side effects across the sy
 Improvement Suggestions: Add a stricter internal API boundary for feature modules.
 
 8. State Management Integrity - Score: 7/10
-Weaknesses: Feature-applied state updates do not invalidate path validation cache.
+Weaknesses: Cross-feature ordering and time-based sync conflict resolution can still yield surprising outcomes.
 Strengths: Validation, sanitize, and middleware pipelines enforce invariants.
-Production Risks: Inconsistent state or stale caches in edge cases.
-Improvement Suggestions: Enforce existence checks before writes and on feature-applied state.
+Production Risks: Inconsistent state when multiple features contend over the same store within tight windows.
+Improvement Suggestions: Document ordering guarantees and provide guidance for deterministic conflict resolution.
 
 9. Security - Score: 5/10
 Weaknesses: BroadcastChannel messages are unauthenticated; plaintext persistence is default.
@@ -514,7 +516,7 @@ Runtime validation:
 `sanitizeValue`, `validatePathSafety`, and `normalizeCommittedState` enforce runtime safety for data and paths. Errors are surfaced via `onError` hooks and warnings.
 
 Edge case handling:
-Many code paths handle invalid input explicitly, but feature-applied state does not invalidate path cache and sync conflict resolution is time-based.
+Many code paths handle invalid input explicitly, but sync conflict resolution remains time-based and cross-feature ordering can still surprise.
 
 Error boundaries:
 Diagnostics exist, but there is no centralized error boundary or structured error type for all failures.
@@ -584,31 +586,20 @@ Fix recommendation:
 Add a missing-store guard in `setStore` (return `{ ok: false, reason: "not-found" }`), or create the store automatically in a documented way.
 Status: Fixed in current patch by guarding on `hasStoreEntryInternal` and returning `not-found`.
 
-3. Path validation cache is not invalidated when feature-applied state is used
-File: `src/store-lifecycle/registry.ts:175`
-Line numbers: 175, 176, 177, 178, 179
+3. Path validation cache must be invalidated when feature-applied state is used (now fixed in feature context)
+File: `src/store-lifecycle/hooks.ts:83`
+Line numbers: 83, 84, 85
 Snippet:
 ```ts
-175: export const applyFeatureState = (name: string, value: StoreValue, updatedAtMs = Date.now()): void => {
-176:     setStoreValueInternal(name, value);
-177:     if (!meta[name]) return;
-178:     meta[name].updatedAt = new Date(updatedAtMs).toISOString();
-179:     meta[name].updateCount++;
-```
-Supporting snippet:
-File: `src/store-lifecycle/validation.ts:268`
-Line numbers: 268, 269, 270, 271
-```ts
-268: export const invalidatePathCache = (name: string): void => {
-269:     const registry = getRegistry();
-270:     getPathValidationCache(registry).delete(name);
-271:     getPathValidationCounts(registry).delete(name);
+83:         applyFeatureState: (value: StoreValue, updatedAtMs?: number) => {
+84:             applyFeatureState(name, value, updatedAtMs);
+85:             invalidatePathCache(name);
 ```
 Explanation:
-Feature-applied state updates (persist and sync) do not invalidate the path validation cache. If the store shape changes, cached path safety checks can become stale.
+Previously, feature-applied state updates (persist and sync) could leave cached path safety verdicts stale if the store shape changed. The base feature context now invalidates the path cache whenever feature state is applied.
 Fix recommendation:
 Invalidate path cache when applying feature state.
-POTENTIALLY INTENTIONAL DESIGN -- NEEDS CONFIRMATION
+Status: Fixed in current patch by invalidating path cache in the base feature context.
 
 4. BroadcastChannel sync messages are unauthenticated
 File: `src/features/sync.ts:205`
@@ -804,7 +795,7 @@ Test quality:
 Assertions are targeted and cover many operational pathways. Some edge cases and failure modes are missing tests.
 
 Edge case coverage:
-Limited for missing-store error handling and computed deletion cleanups (both now implemented but still untested), plus path cache invalidation after persist or sync.
+Limited for missing-store error handling and computed deletion cleanups (both now implemented but still untested).
 
 Regression protection:
 Good for known regressions; missing for some high-risk edge cases noted below.
@@ -814,16 +805,17 @@ Tests are readable and separated by concern; heavy tests can be time-consuming b
 
 Testing tooling:
 Uses Node test runner with setup hooks; type tests exist for public API.
+New tests added:
+Feature-applied state invalidation, sync conflict resolution, and malformed sync message rejection.
 
 Testing quality score: 7/10
 
 Critical behaviors not tested:
 1. deleteStore of computed stores should clean up dependency subscriptions (now implemented, still untested).
 2. setStore on a missing store should return a controlled error (now implemented, still untested).
-3. Feature-applied state updates should invalidate path validation cache if store shape changes.
 
 Edge cases missing:
-1. BroadcastChannel spoofed messages for sync.
+1. BroadcastChannel spoofed messages for sync (malformed message rejection is now tested).
 2. Persist warnings for plaintext in production mode.
 3. Large-state performance under frequent updates with snapshot and hash paths.
 
@@ -877,6 +869,7 @@ Layered architecture with opt-in features, thorough runtime validation, and comp
 1. The global registry is a single point of coupling that makes cross-feature side effects hard to reason about.
 2. Performance costs scale with state size more than the API surface suggests.
 3. The feature breadth increases maintenance and test burden faster than new capabilities justify.
+
 
 
 

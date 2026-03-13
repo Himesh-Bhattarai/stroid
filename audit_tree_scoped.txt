@@ -263,6 +263,7 @@
 |   |-- async-revalidate-cleanup.test.ts
 |   |-- async.test.ts
 |   |-- computed.test.ts
+|   |-- feature-applied-state.test.ts
 |   |-- options-adapter.test.ts
 |   |-- persist.test.ts
 |   |-- react-hooks.test.tsx
