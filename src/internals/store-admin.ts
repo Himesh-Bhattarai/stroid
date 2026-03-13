@@ -3,7 +3,8 @@ import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeature
 import { hasStoreEntry, type StoreRegistry } from "../store-registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn } from "./diagnostics.js";
-import { unregisterComputed, isComputed } from "../computed-graph.js";
+import { isComputed } from "../computed-graph.js";
+import { deleteComputed } from "../computed.js";
 
 type MetaEntry = StoreFeatureMeta;
 
@@ -146,7 +147,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             delete snapshotCache[name];
 
             if (isComputed(name)) {
-                unregisterComputed(name);
+                deleteComputed(name);
             }
 
             const dependents = registry.computedDependents;

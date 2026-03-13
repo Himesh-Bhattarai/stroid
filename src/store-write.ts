@@ -189,6 +189,14 @@ export function setStore<Name extends string>(name: UnregisteredStoreName<Name>,
 export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
     const storeName = nameOf(name);
     if (!materializeInitial(storeName)) return { ok: false, reason: "validate" };
+    if (!hasStoreEntryInternal(storeName)) {
+        const message =
+            `setStore("${storeName}") called before createStore(). ` +
+            `Create the store first or pass a valid StoreDefinition.`;
+        reportStoreError(storeName, message);
+        if (isTransactionActive()) markTransactionFailed(message);
+        return { ok: false, reason: "not-found" };
+    }
     let updated: StoreValue;
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(storeName) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(storeName);

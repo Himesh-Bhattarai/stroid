@@ -1,0 +1,301 @@
+# SCOPED TREE (excluded: node_modules, stroid-website, .git)
+.
+|-- .github
+|   |-- ISSUE_TEMPLATE
+|   |   |-- bug_report.yml
+|   |   |-- config.yml
+|   |   |-- feature_request.yml
+|   |   \-- status.yml
+|   |-- workflows
+|   |   |-- ci.yml
+|   |   |-- discussion-bot.yml
+|   |   \-- status-commit.yml
+|   \-- pull_request_template.md
+|-- .qodo
+|   |-- agents
+|   \-- workflows
+|-- audit_chunks
+|-- dist
+|   |-- types
+|   |   |-- adapters
+|   |   |-- features
+|   |   |-- integrations
+|   |   |-- internals
+|   |   \-- store-lifecycle
+|   |-- async.cjs
+|   |-- async.js
+|   |-- computed.cjs
+|   |-- computed.js
+|   |-- core.cjs
+|   |-- core.js
+|   |-- devtools.cjs
+|   |-- devtools.js
+|   |-- helpers.cjs
+|   |-- helpers.js
+|   |-- index.cjs
+|   |-- index.js
+|   |-- persist.cjs
+|   |-- persist.js
+|   |-- react.cjs
+|   |-- react.js
+|   |-- runtime-admin.cjs
+|   |-- runtime-admin.js
+|   |-- runtime-tools.cjs
+|   |-- runtime-tools.js
+|   |-- selectors.cjs
+|   |-- selectors.js
+|   |-- server.cjs
+|   |-- server.js
+|   |-- sync.cjs
+|   |-- sync.js
+|   |-- testing.cjs
+|   \-- testing.js
+|-- docs_2.0
+|   |-- ARCHITECTURE
+|   |   \-- ARCHITECTURE.md
+|   |-- BACK_MATTER
+|   |   |-- APPENDICES.md
+|   |   |-- BACK_COVER.md
+|   |   |-- Bibliography.md
+|   |   |-- Colophon.md
+|   |   \-- Contact_Information.md
+|   |-- BODY_MATTER
+|   |   |-- ASYNC_OF_STROID
+|   |   |   |-- CACHE_AND_REVALIDATION.md
+|   |   |   |-- FETCH_FLOW.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   \-- REAL_USE.md
+|   |   |-- BEGINNER_GUIDE
+|   |   |   |-- FIRST_STORE.md
+|   |   |   |-- FROM_BASIC_TO_REAL.md
+|   |   |   |-- INSTALL_AND_IMPORTS.md
+|   |   |   |-- REACT_USAGE.md
+|   |   |   \-- START_HERE.md
+|   |   |-- BINARY_TO_BEING
+|   |   |   |-- ASYNC_LAYER.md
+|   |   |   |-- DESIGN_PRINCIPLES_OF_STROID.md
+|   |   |   |-- PERSISTENCE_LAYER.md
+|   |   |   |-- PRODUCTION_PATTERNS.md
+|   |   |   |-- REACT_BINDINGS.md
+|   |   |   |-- RUNTIME_ARCHITECTURE.md
+|   |   |   |-- SELECTORS.md
+|   |   |   |-- STORE_SYSTEM.md
+|   |   |   |-- TOOLING_AND_DEBUGGING.md
+|   |   |   \-- WHY_STATE_MANAGEMENT_FAILS_IN_LARGE_APPS.md
+|   |   |-- BUG_AS_HELPER
+|   |   |   |-- INTENTIONAL_BUGS.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   |-- NO_NEED_TO_FIX.md
+|   |   |   \-- REAL_USE.md
+|   |   |-- CORE_OF_STROID
+|   |   |   |-- CORE_OPTIONS.md
+|   |   |   |-- EXAMPLE.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   \-- REAL_USE.md
+|   |   |-- DEVTOOLS_OF_STROID
+|   |   |   |-- HISTORY_AND_REDACTION.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   |-- REAL_USE.md
+|   |   |   \-- REDUX_DEVTOOLS_AND_BOUNDARIES.md
+|   |   |-- HELPERS_AND_CHAIN_OF_STROID
+|   |   |   |-- CHAIN_API.md
+|   |   |   |-- HELPER_FACTORIES.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   \-- REAL_USE.md
+|   |   |-- OPT_IN_FEATURES_OF_STROID
+|   |   |   |-- INTRODUCTION.md
+|   |   |   |-- POWER_TOOLS.md
+|   |   |   |-- RUNTIME_LAYERS.md
+|   |   |   \-- STORE_FEATURES.md
+|   |   |-- PERSIST_OF_STROID
+|   |   |   |-- FAILURE_AND_RECOVERY.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   |-- REAL_USE.md
+|   |   |   \-- STORAGE_AND_MIGRATIONS.md
+|   |   |-- PHILOSOPHY_OF_STROID
+|   |   |   |-- MINIMAL_ABSTRACTION.md
+|   |   |   |-- OPTIONAL_COMPLEXITY_AND_COMPARISON.md
+|   |   |   |-- PREDICTABLE_STATE_MUTATION.md
+|   |   |   |-- RUNTIME_OBSERVABILITY.md
+|   |   |   \-- WHY_THE_MIND_NEEDS_STRUCTURE.md
+|   |   |-- REACT_OF_STROID
+|   |   |   |-- FORM_AND_ASYNC.md
+|   |   |   |-- HOOKS.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   \-- REAL_USE.md
+|   |   |-- ROADMAP_OF_STROID
+|   |   |   \-- ROADMAP.md
+|   |   |-- RUNTIME_OPERATIONS_OF_STROID
+|   |   |   |-- ADMIN_OPERATIONS.md
+|   |   |   |-- INSPECTION_TOOLS.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   \-- REAL_USE.md
+|   |   |-- SELECTORS_OF_STROID
+|   |   |   |-- CREATE_SELECTOR.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   |-- REAL_USE.md
+|   |   |   \-- SUBSCRIBE_WITH_SELECTOR.md
+|   |   |-- SERVER_OF_STROID
+|   |   |   |-- HYDRATE_FLOW.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   |-- REAL_USE.md
+|   |   |   \-- REQUEST_SCOPE.md
+|   |   |-- SYNC_OF_STROID
+|   |   |   |-- CONFLICTS_AND_RECOVERY.md
+|   |   |   |-- INTRODUCTION.md
+|   |   |   |-- REAL_USE.md
+|   |   |   \-- SYNC_OPTIONS.md
+|   |   |-- TESTING_OF_STROID
+|   |   |   |-- INTRODUCTION.md
+|   |   |   |-- MOCKS_AND_TIME.md
+|   |   |   |-- REAL_USE.md
+|   |   |   \-- RESETS_AND_BENCHMARKS.md
+|   |   |-- THE_GLITCH_IN_MATRIX
+|   |   |   |-- INTRODUCTION.md
+|   |   |   |-- PERFORMANCE_AND_REALITY.md
+|   |   |   |-- REAL_USE.md
+|   |   |   \-- TRADEOFFS_AND_LIMITS.md
+|   |   \-- BACK_COVER.md
+|   \-- FRONT_MATTER
+|       |-- ABOUT_AUTHOR.md
+|       |-- ACKNOWLEDGE.md
+|       |-- CONTENTS.md
+|       |-- COPYRIGHT.md
+|       |-- DEDICATION.md
+|       |-- EPIGRAPH.md
+|       |-- FOREWORD.md
+|       |-- FRONT_COVER_PAGE.md
+|       |-- HOW_TO_USE.md
+|       |-- INTRODUCTION.md
+|       |-- LIST_OF_TABLE.md
+|       |-- PRAISE.md
+|       |-- PREFACE.md
+|       \-- TITLE_PAGE.md
+|-- scripts
+|   |-- compare-state-libraries.ts
+|   |-- deep-update-benchmark.ts
+|   |-- lifecycle-benchmark.ts
+|   |-- selector-benchmark.ts
+|   |-- stroid-advanced-benchmark-output.json
+|   |-- stroid-advanced-benchmark.ts
+|   |-- subscriber-benchmark.ts
+|   \-- sync-scale-benchmark.ts
+|-- src
+|   |-- adapters
+|   |   \-- options.ts
+|   |-- features
+|   |   |-- persist
+|   |   |   |-- crypto.ts
+|   |   |   |-- load.ts
+|   |   |   |-- save.ts
+|   |   |   |-- types.ts
+|   |   |   \-- watch.ts
+|   |   |-- devtools.ts
+|   |   |-- lifecycle.ts
+|   |   |-- persist.ts
+|   |   \-- sync.ts
+|   |-- integrations
+|   |   \-- query.ts
+|   |-- internals
+|   |   |-- config.ts
+|   |   |-- diagnostics.ts
+|   |   |-- hooks-warnings.ts
+|   |   |-- selector-store.ts
+|   |   \-- store-admin.ts
+|   |-- store-lifecycle
+|   |   |-- bind.ts
+|   |   |-- hooks.ts
+|   |   |-- identity.ts
+|   |   |-- registry.ts
+|   |   |-- types.ts
+|   |   \-- validation.ts
+|   |-- async-cache.ts
+|   |-- async-fetch.ts
+|   |-- async-registry.ts
+|   |-- async-retry.ts
+|   |-- async.ts
+|   |-- computed-entry.ts
+|   |-- computed-graph.ts
+|   |-- computed.ts
+|   |-- config.ts
+|   |-- core.ts
+|   |-- devfreeze.ts
+|   |-- devtools-api.ts
+|   |-- devtools.ts
+|   |-- feature-registry.ts
+|   |-- helpers.ts
+|   |-- hooks-async-suspense.ts
+|   |-- hooks-async.ts
+|   |-- hooks-core.ts
+|   |-- hooks-form.ts
+|   |-- hooks.ts
+|   |-- index.ts
+|   |-- persist.ts
+|   |-- runtime-admin.ts
+|   |-- runtime-tools.ts
+|   |-- selectors-entry.ts
+|   |-- selectors.ts
+|   |-- server.ts
+|   |-- store-lifecycle.ts
+|   |-- store-name.ts
+|   |-- store-notify.ts
+|   |-- store-read.ts
+|   |-- store-registry.ts
+|   |-- store-transaction.ts
+|   |-- store-write.ts
+|   |-- store.ts
+|   |-- sync.ts
+|   |-- testing.ts
+|   \-- utils.ts
+|-- tests
+|   |-- heavy
+|   |   |-- environment.heavy.ts
+|   |   |-- snapshot-cache.heavy.ts
+|   |   |-- store.heavy.ts
+|   |   |-- stress-memory.heavy.ts
+|   |   \-- sync.heavy.ts
+|   |-- types
+|   |   |-- ambient-store-map.types.ts
+|   |   |-- assert.ts
+|   |   |-- package-declarations.types.ts
+|   |   \-- public-api.types.ts
+|   |-- async-cleanup.test.ts
+|   |-- async-revalidate-cleanup.test.ts
+|   |-- async.test.ts
+|   |-- computed.test.ts
+|   |-- options-adapter.test.ts
+|   |-- persist.test.ts
+|   |-- react-hooks.test.tsx
+|   |-- regressions.test.ts
+|   |-- selectors-devfreeze.test.ts
+|   |-- setup.ts
+|   |-- ssr-carrier.test.ts
+|   |-- store.core.test.ts
+|   |-- store.node-env.test.ts
+|   |-- strict-missing-features.test.ts
+|   |-- sync.core.test.ts
+|   |-- testing.test.ts
+|   \-- utils.test.ts
+|-- .eslintrc.json
+|-- .gitignore
+|-- audit_inspection_scoped.csv
+|-- AUDIT_REPORTS.md
+|-- audit_tree.txt
+|-- audit_tree_full.txt
+|-- audit_tree_scoped.txt
+|-- BLOG.MD
+|-- CHANGELOG.md
+|-- CODE_OF_CONDUCT.md
+|-- CONTRIBUTING.md
+|-- LICENSE
+|-- package-lock.json
+|-- package.json
+|-- README.md
+|-- STATUS.MD
+|-- tsconfig.build.json
+|-- tsconfig.eslint.json
+|-- tsconfig.json
+|-- tsconfig.types.json
+|-- tsconfig.typetests.json
+|-- tsup.config.ts
+\-- vercel.json
