@@ -55,7 +55,7 @@ export const createComputed = <TResult = unknown>(
     if (!hasStore(name)) {
         createStore(name, initial as TResult);
     } else {
-        setStore(name, () => initial as any);
+        setStore(name, () => initial);
     }
 
     const unsubscribers: Array<() => void> = [];
@@ -110,7 +110,7 @@ const _recomputeAndFlush = (
     const current = getStore(name);
     if (Object.is(next, current)) return;
 
-    setStore(name, () => next as any);
+    setStore(name, () => next);
     markStale(name);
 };
 

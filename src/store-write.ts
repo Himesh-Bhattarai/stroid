@@ -67,7 +67,7 @@ import {
     markTransactionFailed,
 } from "./store-transaction.js";
 
-type KeyOrData = string | string[] | Record<string, unknown> | ((draft: any) => void);
+type KeyOrData = string | string[] | Record<string, unknown> | ((draft: StoreValue) => StoreValue | void);
 type LooseStoreNames = string extends StoreName ? true : false;
 type StorePathFor<Name extends StoreName> =
     LooseStoreNames extends true ? string | string[] : Path<StateFor<Name>>;
@@ -179,21 +179,21 @@ export const createStore = <Name extends string, State>(
 };
 
 export function setStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P, value: PathValue<State, P>): WriteResult;
-export function setStore<Name extends string, State>(name: StoreDefinition<Name, State>, mutator: (draft: State) => void): WriteResult;
+export function setStore<Name extends string, State>(name: StoreDefinition<Name, State>, mutator: (draft: State) => State | void): WriteResult;
 export function setStore<Name extends string, State>(name: StoreDefinition<Name, State>, data: PartialDeep<State>): WriteResult;
 export function setStore<Name extends string, State, P extends Path<State>>(name: StoreKey<Name, State>, path: P, value: PathValue<State, P>): WriteResult;
-export function setStore<Name extends string, State>(name: StoreKey<Name, State>, mutator: (draft: State) => void): WriteResult;
+export function setStore<Name extends string, State>(name: StoreKey<Name, State>, mutator: (draft: State) => State | void): WriteResult;
 export function setStore<Name extends string, State>(name: StoreKey<Name, State>, data: PartialDeep<State>): WriteResult;
 export function setStore<Name extends StoreName, P extends StorePathFor<Name>>(
     name: Name,
     path: P,
     value: StorePathValueFor<Name, P>
 ): WriteResult;
-export function setStore<Name extends StoreName>(name: Name, mutator: (draft: StateFor<Name>) => void): WriteResult;
+export function setStore<Name extends StoreName>(name: Name, mutator: (draft: StateFor<Name>) => StateFor<Name> | void): WriteResult;
 export function setStore<Name extends StoreName>(name: Name, data: PartialDeep<StateFor<Name>>): WriteResult;
 export function setStore<Name extends string>(name: UnregisteredStoreName<Name>, data: Record<string, unknown>): WriteResult;
 export function setStore<Name extends string>(name: UnregisteredStoreName<Name>, path: string | string[], value: unknown): WriteResult;
-export function setStore<Name extends string>(name: UnregisteredStoreName<Name>, mutator: (draft: any) => void): WriteResult;
+export function setStore<Name extends string, State = StoreValue>(name: UnregisteredStoreName<Name>, mutator: (draft: State) => State | void): WriteResult;
 export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
     const storeName = nameOf(name);
     if (!materializeInitial(storeName)) return { ok: false, reason: "validate" };
@@ -212,7 +212,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     if (typeof keyOrData === "function" && value === undefined) {
         try {
             const draft = deepClone(prev);
-            const result = (keyOrData as (draft: any) => unknown)(draft);
+            const result = (keyOrData as (draft: StoreValue) => StoreValue | void)(draft);
             if (result !== undefined && getConfig().strictMutatorReturns) {
                 const message =
                     `setStore("${storeName}", mutator) returned a value. ` +
