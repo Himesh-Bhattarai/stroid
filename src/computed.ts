@@ -83,6 +83,15 @@ export function createComputed<TResult = unknown>(
         warn(`createComputed("${name}") dependencies must be store names or store handles.`);
         return undefined;
     }
+    if (isDev()) {
+        const missing = depNames.filter((dep) => !hasStore(dep as string));
+        if (missing.length > 0) {
+            warn(
+                `createComputed("${name}") dependencies not found at registration: ${missing.join(", ")}. ` +
+                `Computed values will receive null until those stores are created.`
+            );
+        }
+    }
 
     const registered = registerComputed(name, depNames as string[], compute as (...args: unknown[]) => unknown);
     if (!registered) return undefined;

@@ -36,7 +36,7 @@ import {
     setInflightEntry,
     tryDedupeRequest,
 } from "./async/inflight.js";
-import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit } from "./async/rate.js";
+import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit, scheduleRatePrune } from "./async/rate.js";
 import { buildFetchOptions, parseResponseBody } from "./async/request.js";
 const _wildcardCleanups: Array<() => void> = [];
 type AsyncState = AsyncStateSnapshot;
@@ -240,6 +240,7 @@ export async function fetchStore(
 
     const nowTs = Date.now();
     pruneRateCounters(nowTs);
+    scheduleRatePrune();
     if (registerRateHit(cacheSlot, nowTs)) {
         return reportAsyncUsageError(
             name,

@@ -1,17 +1,32 @@
-import { rateCount, ratePruneState, rateWindowStart } from "../async-cache.js";
+import { getActiveAsyncRegistry, rateCount, ratePruneState, rateWindowStart } from "../async-cache.js";
+import type { AsyncRegistry } from "../async-registry.js";
 
 export const RATE_WINDOW_MS = 1000;
 export const RATE_MAX = 100;
 
-export const pruneRateCounters = (nowTs: number): void => {
-    if (nowTs - ratePruneState.lastAt < RATE_WINDOW_MS) return;
-    ratePruneState.lastAt = nowTs;
-    Object.keys(rateWindowStart).forEach((key) => {
-        if (nowTs - (rateWindowStart[key] ?? 0) > RATE_WINDOW_MS) {
-            delete rateWindowStart[key];
-            delete rateCount[key];
+const pruneRateCountersForRegistry = (registry: AsyncRegistry, nowTs: number): void => {
+    if (nowTs - registry.ratePruneState.lastAt < RATE_WINDOW_MS) return;
+    registry.ratePruneState.lastAt = nowTs;
+    Object.keys(registry.rateWindowStart).forEach((key) => {
+        if (nowTs - (registry.rateWindowStart[key] ?? 0) > RATE_WINDOW_MS) {
+            delete registry.rateWindowStart[key];
+            delete registry.rateCount[key];
         }
     });
+};
+
+export const pruneRateCounters = (nowTs: number): void => {
+    pruneRateCountersForRegistry(getActiveAsyncRegistry(), nowTs);
+};
+
+export const scheduleRatePrune = (delayMs = RATE_WINDOW_MS): void => {
+    const registry = getActiveAsyncRegistry();
+    if (registry.ratePruneTimer) return;
+    if (typeof setTimeout !== "function") return;
+    registry.ratePruneTimer = setTimeout(() => {
+        registry.ratePruneTimer = null;
+        pruneRateCountersForRegistry(registry, Date.now());
+    }, delayMs);
 };
 
 export const registerRateHit = (cacheSlot: string, nowTs: number): boolean => {

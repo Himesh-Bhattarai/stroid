@@ -9,7 +9,7 @@ export type FetchInput = string | Promise<unknown> | (() => string | Promise<unk
 export const MAX_CACHE_SLOTS_PER_STORE = 100;
 export const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
 
-const getActiveAsyncRegistry = () => getRegistry().async;
+export const getActiveAsyncRegistry = () => getRegistry().async;
 
 const createAsyncObjectProxy = <T extends object>(getter: () => T): T =>
     new Proxy(Object.create(null), {

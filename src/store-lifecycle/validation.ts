@@ -348,11 +348,13 @@ export const materializeInitial = (name: string): boolean => {
                 setStoreValueInternal(name, value);
                 initialStates[name] = deepClone(value);
                 delete initialFactories[name];
+                invalidatePathCache(name);
             });
         } else {
             setStoreValueInternal(name, normalized.value);
             initialStates[name] = deepClone(normalized.value);
             delete initialFactories[name];
+            invalidatePathCache(name);
         }
         return true;
     } catch (err) {
