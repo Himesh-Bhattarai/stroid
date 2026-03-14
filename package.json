@@ -1,6 +1,6 @@
 {
   "name": "stroid",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "description": "Named-store state engine for JavaScript/React with optional persistence, async caching, sync, and devtools.",
   "keywords": [
     "state-management",

@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.1.0 - 2026-03-14
 ### Added
 - `configureStroid({ strictMissingFeatures: true })` option to hard-fail when a feature is requested without its side-effect registration import.
 - `configureStroid({ allowUntrustedHydration: true })` to opt in to hydrateStores on untrusted snapshots.
