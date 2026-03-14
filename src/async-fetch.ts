@@ -18,12 +18,9 @@ import {
     requestVersion,
     revalidateHandlers,
     revalidateKeys,
-    shouldUseCache,
     storeCleanupFns,
     unregisterStoreCleanup,
-    rateWindowStart,
-    rateCount,
-    ratePruneState,
+    shouldUseCache,
     type FetchInput,
     type FetchOptions,
     type AsyncStateSnapshot,
@@ -32,24 +29,12 @@ import { resetAsyncState } from "./async-cache.js";
 import { delay, normalizeRetryOptions, MAX_RETRY_DELAY_MS } from "./async-retry.js";
 import { cloneAsyncResult } from "./async/clone.js";
 import { reportAsyncUsageError, runAsyncHook, throwAsyncUsageError } from "./async/errors.js";
+import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit } from "./async/rate.js";
 import { buildFetchOptions, parseResponseBody } from "./async/request.js";
 const _wildcardCleanups: Array<() => void> = [];
 type AsyncState = AsyncStateSnapshot;
 
 type InflightEntry = { promise: Promise<unknown>; raw: Promise<unknown>; transform?: FetchOptions["transform"] };
-
-const RATE_WINDOW_MS = 1000;
-const RATE_MAX = 100;
-const _pruneRateCounters = (nowTs: number): void => {
-    if (nowTs - ratePruneState.lastAt < RATE_WINDOW_MS) return;
-    ratePruneState.lastAt = nowTs;
-    Object.keys(rateWindowStart).forEach((key) => {
-        if (nowTs - (rateWindowStart[key] ?? 0) > RATE_WINDOW_MS) {
-            delete rateWindowStart[key];
-            delete rateCount[key];
-        }
-    });
-};
 
 const _isCurrentRequest = (cacheSlot: string, version: number): boolean =>
     (requestVersion[cacheSlot] ?? 0) === version;
@@ -262,21 +247,13 @@ export async function fetchStore(
     }
 
     const nowTs = Date.now();
-    _pruneRateCounters(nowTs);
-    const windowStart = rateWindowStart[cacheSlot];
-    const currentCount = rateCount[cacheSlot] ?? 0;
-    if (windowStart !== undefined && nowTs - windowStart < RATE_WINDOW_MS) {
-        if (currentCount >= RATE_MAX) {
-            return reportAsyncUsageError(
-                name,
-                `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for cacheSlot "${cacheSlot}".`,
-                onError
-            );
-        }
-        rateCount[cacheSlot] = currentCount + 1;
-    } else {
-        rateWindowStart[cacheSlot] = nowTs;
-        rateCount[cacheSlot] = 1;
+    pruneRateCounters(nowTs);
+    if (registerRateHit(cacheSlot, nowTs)) {
+        return reportAsyncUsageError(
+            name,
+            `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for cacheSlot "${cacheSlot}".`,
+            onError
+        );
     }
 
     if (!inflight[cacheSlot] && countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
