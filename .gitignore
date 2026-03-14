@@ -1,7 +1,7 @@
 # dependencies
 node_modules/
 docs/
-
+AUDIT_REPORT/
 # silent
 stroid-website/
 

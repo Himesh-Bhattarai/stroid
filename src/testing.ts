@@ -10,9 +10,12 @@ export const createMockStore = <Name extends string, State extends Record<string
     const handle = store<Name, State>(name);
     createStore(name, initial);
     return {
-        set: (update: PartialDeep<State> | ((draft: State) => void)) => setStore(handle, update),
+        set: (update: PartialDeep<State> | ((draft: State) => void)) => {
+            if (typeof update === "function") return setStore(handle, update);
+            return setStore(handle, update);
+        },
         reset: () => resetStore(handle),
-        use: (): StoreKey<Name, State> => handle,
+        use: (): StoreDefinition<Name, State> => handle,
     };
 };
 

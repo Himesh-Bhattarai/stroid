@@ -1,4 +1,5 @@
 import { useStore } from "./hooks-core.js";
+import { store as storeHandle } from "./store-name.js";
 import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle.js";
 
 export type AsyncStoreState<T = unknown> = {
@@ -22,13 +23,14 @@ export function useAsyncStore<Name extends StoreName>(
 export function useAsyncStore(
     name: string | StoreDefinition<string, AsyncStoreState> | StoreKey<string, AsyncStoreState>
 ): AsyncStoreSnapshot {
-    const store = useStore<AsyncStoreState>(name as StoreDefinition<string, AsyncStoreState>);
+    const handle = typeof name === "string" ? storeHandle<string, AsyncStoreState>(name) : name;
+    const snapshot = useStore(handle);
     return {
-        data: store?.data ?? null,
-        loading: store?.loading ?? false,
-        revalidating: store?.revalidating ?? false,
-        error: store?.error ?? null,
-        status: store?.status ?? "idle",
-        isEmpty: store?.data == null && !store?.loading && !store?.error,
+        data: snapshot?.data ?? null,
+        loading: snapshot?.loading ?? false,
+        revalidating: snapshot?.revalidating ?? false,
+        error: snapshot?.error ?? null,
+        status: snapshot?.status ?? "idle",
+        isEmpty: snapshot?.data == null && !snapshot?.loading && !snapshot?.error,
     };
 }
