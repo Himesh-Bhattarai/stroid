@@ -1,6 +1,7 @@
 import type { Expect, Equal } from "./assert.js";
 import {
   createStore,
+  createStoreStrict,
   setStore,
   getStore,
   type StoreDefinition,
@@ -66,6 +67,9 @@ type UserState = {
 };
 
 type CreateStoreReturn = Expect<Equal<typeof userStore, StoreDefinition<"typedUser", UserState> | undefined>>;
+
+const strictUserStore = createStoreStrict("typedStrictUser", { value: 1 });
+type StrictCreateStoreReturn = Expect<Equal<typeof strictUserStore, StoreDefinition<"typedStrictUser", { value: number }>>>;
 
 if (userStore) {
   const wholeUser = getStore(userStore);

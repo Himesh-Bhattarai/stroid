@@ -1,5 +1,5 @@
 import type { StoreKey, StoreValue } from "./store-lifecycle.js";
-import { createStore, setStore, deleteStore, resetStore } from "./store-write.js";
+import { createStore, createStoreStrict, setStore, deleteStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
 
 /**
@@ -22,6 +22,8 @@ export const namespace = (ns: string) => {
             ({ name: qualify(name) } as StoreKey<Name, State>),
         create: <Name extends string, State>(name: Name, data: State, options?: Parameters<typeof createStore>[2]) =>
             createStore(qualify(name), data, options),
+        createStrict: <Name extends string, State>(name: Name, data: State, options?: Parameters<typeof createStore>[2]) =>
+            createStoreStrict(qualify(name), data, options),
         set: (name: any, ...rest: any[]) => {
             const restParams = rest as [any?, ...any[]];
             return (setStore as any)(adaptName(name), ...restParams);

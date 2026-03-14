@@ -2,7 +2,7 @@
  * @module store-write
  *
  * LAYER: Public Write API
- * OWNS:  createStore(), setStore(), deleteStore(), resetStore(),
+ * OWNS:  createStore(), createStoreStrict(), setStore(), deleteStore(), resetStore(),
  *        hydrateStores(), clearAllStores().
  *
  * DOES NOT KNOW about: React hooks, async caching, or feature internals.
@@ -181,6 +181,19 @@ export const createStore = <Name extends string, State>(
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
     return { name } as StoreDefinition<Name, State>;
+};
+
+export const createStoreStrict = <Name extends string, State>(
+    name: Name,
+    initialData: State,
+    option: StoreOptions<State> = {}
+): StoreDefinition<Name, State> => {
+    const created = createStore(name, initialData, option);
+    if (created) return created;
+    throw new Error(
+        `createStoreStrict("${String(name)}") failed. ` +
+        `See earlier warnings/errors or onError callbacks for the cause.`
+    );
 };
 
 export function setStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P, value: PathValue<State, P>): WriteResult;

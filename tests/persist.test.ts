@@ -232,25 +232,26 @@ test("full package stays lean and requires explicit persist registration in prod
     const stroid = await import(pathToFileURL(${JSON.stringify(indexPath)}).href);
     const errors = [];
 
-    stroid.createStore("cart", { items: [1] }, {
-      allowSSRGlobalStore: true,
-      persist: {
-        driver: {
-          getItem: () => JSON.stringify({ v: 1, checksum: 0, data: JSON.stringify({ items: [2] }) }),
-          setItem: () => {},
-          removeItem: () => {},
+    assert.throws(() => {
+      stroid.createStore("cart", { items: [1] }, {
+        allowSSRGlobalStore: true,
+        persist: {
+          driver: {
+            getItem: () => JSON.stringify({ v: 1, checksum: 0, data: JSON.stringify({ items: [2] }) }),
+            setItem: () => {},
+            removeItem: () => {},
+          },
+          key: "cart-prod-root",
+          serialize: JSON.stringify,
+          deserialize: JSON.parse,
+          encrypt: (v) => v,
+          decrypt: (v) => v,
+          allowPlaintext: true,
         },
-        key: "cart-prod-root",
-        serialize: JSON.stringify,
-        deserialize: JSON.parse,
-        encrypt: (v) => v,
-        decrypt: (v) => v,
-        allowPlaintext: true,
-      },
-      onError: (msg) => errors.push(msg),
-    });
+        onError: (msg) => errors.push(msg),
+      });
+    }, /not registered/);
 
-    assert.deepStrictEqual(stroid.getStore("cart"), { items: [1] });
     assert.ok(errors.some((msg) => msg.includes('Store "cart" requested persist support, but "persist" is not registered.')));
     assert.strictEqual(typeof stroid.clearAllStores, "undefined");
   `;

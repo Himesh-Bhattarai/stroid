@@ -1,5 +1,6 @@
 export {
     createStore,
+    createStoreStrict,
     setStore,
     setStoreBatch,
     getStore,

@@ -43,10 +43,11 @@ The core path API uses `storeName` and `path` separately:
 - Async helpers: `fetchStore`, `refetchStore`, `enableRevalidateOnFocus`
 - Per-store features: `persist`, `sync`, middleware, validator/schema, devtools, history
 - Utility helpers: selectors, metrics, testing helpers, entity/list/counter presets, SSR hydrate helpers
+- Runtime inspection via `stroid/runtime-tools` (`listStores`, `getStoreMeta`, `getMetrics`)
 - Lazy stores for expensive initial state (see below)
 - Store handles with autocomplete: `store("user")` returns `{ name: "user" }` for strongly typed calls
 - Store handles work across core and async APIs (for example, `fetchStore(store("user"), ...)`)
-- `createStore` returns `undefined` on failure; prefer passing literal names or `store("name")` into setters, or null‑check the return value first
+- `createStore` returns `undefined` on failure; use `createStoreStrict(...)` to throw instead, or pass literal names / `store("name")` handles into setters
 
 ## Highlights
 
@@ -72,6 +73,32 @@ await fetchStore(user, "https://api.example.com/user")
 const admin = namespace("admin")
 admin.create("session", { token: null })
 ```
+
+## Type-safe store names (TypeScript)
+
+If you want compile-time checking of store names and state, augment `StrictStoreMap`:
+
+```ts
+// src/stroid.d.ts
+import type { UserState } from "./types";
+
+declare module "stroid" {
+  interface StrictStoreMap {
+    user: UserState;
+    cart: { items: string[] };
+  }
+}
+
+// If you import from "stroid/core", add this too.
+declare module "stroid/core" {
+  interface StrictStoreMap {
+    user: UserState;
+    cart: { items: string[] };
+  }
+}
+```
+
+Now `createStore("user", ...)`, `setStore("user", ...)`, and `store("user")` are fully typed, and unknown store names are a type error.
 
 ## Lazy stores
 
@@ -116,7 +143,7 @@ import "stroid/devtools";
 
 If you prefer explicit paths, you can also import from subpaths (`stroid/core`, `stroid/runtime-tools`, etc.), but remember to include the feature side-effect imports when you need them.
 
-> Important: If you forget these side-effect imports, the features are silently disabled (only a dev-mode warning is emitted). This is the #1 onboarding footgun—add the imports near your app entry point. To hard-fail instead, call `configureStroid({ strictFeatures: true })`.
+> Important: If you forget these side-effect imports, Stroid throws by default to avoid silent feature failures. To opt out (not recommended), call `configureStroid({ strictFeatures: false })`.
 
 ## Persistence and encryption
 

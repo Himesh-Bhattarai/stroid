@@ -108,15 +108,16 @@ test("full package stays lean and requires explicit devtools registration in pro
     const stroid = await import(pathToFileURL(${JSON.stringify(indexPath)}).href);
     const errors = [];
 
-    stroid.createStore("user", { profile: { color: "blue" } }, {
-      allowSSRGlobalStore: true,
-      devtools: {
-        enabled: true,
-        historyLimit: 10,
-      },
-      onError: (msg) => errors.push(msg),
-    });
-    stroid.setStore("user", { profile: { color: "green" } });
+    assert.throws(() => {
+      stroid.createStore("user", { profile: { color: "blue" } }, {
+        allowSSRGlobalStore: true,
+        devtools: {
+          enabled: true,
+          historyLimit: 10,
+        },
+        onError: (msg) => errors.push(msg),
+      });
+    }, /not registered/);
 
     assert.strictEqual(typeof stroid.getHistory, "undefined");
     assert.strictEqual(typeof stroid.clearAllStores, "undefined");

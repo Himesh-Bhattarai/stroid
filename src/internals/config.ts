@@ -81,7 +81,7 @@ const defaultConfig: ResolvedConfig = {
         staggerMs: 100,
     },
     namespace: "",
-    strictMissingFeatures: false,
+    strictMissingFeatures: true,
     assertRuntime: false,
     strictMutatorReturns: true,
     asyncAutoCreate: false,
