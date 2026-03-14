@@ -112,11 +112,14 @@ hydrateStores({
     },
     acceptedTerms: true,
   },
-});
+}, {}, { allowUntrusted: true });
 
 console.log(getStore("checkout"));
 resetStore("checkout");
 ```
+
+Note:
+`hydrateStores` requires an explicit trust opt-in. Use `allowUntrusted: true` only for trusted snapshots you control, or provide a `validate` function in the third argument.
 
 This is still core. No persistence, no sync, no React. But it already expresses:
 
@@ -138,7 +141,7 @@ Table 3.1: Which Core API Solves Which Problem
 | make several writes feel like one notify cycle | `setStoreBatch` |
 | read current state | `getStore` |
 | restore initial state | `resetStore` |
-| load state from server or bootstrap data | `hydrateStores` |
+| load state from server or bootstrap data | `hydrateStores` (trusted snapshots only) |
 
 ## 3.3 Expanding Without Losing the Core Shape
 
@@ -209,10 +212,8 @@ Once names become first-class, store design becomes a domain exercise, not just 
 
 ## Chapter 3 References/Further Reading
 
-- [docs/04-createStore.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/04-createStore.md)
-- [docs/05-setStore.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/05-setStore.md)
-- [docs/09-setStoreBatch.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/09-setStoreBatch.md)
-- [docs/18-ssr.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/18-ssr.md)
+- [Chapter 4: Real Use of Core Stroid](REAL_USE.md)
+- [Chapter 42: Request Scope and Buffered Mutation](../SERVER_OF_STROID/REQUEST_SCOPE.md)
 
 
 ## Navigation
@@ -220,3 +221,4 @@ Once names become first-class, store design becomes a domain exercise, not just 
 - Previous: [Chapter 2: Core Options](CORE_OPTIONS.md)
 - Jump to: [Unit One: Core of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-one-core-of-stroid)
 - Next: [Chapter 4: Real Use of Core Stroid](REAL_USE.md)
+

@@ -16,15 +16,14 @@ That includes:
 
 Most likely files to reference:
 
-- [docs_2.0](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0)
-- [docs](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs)
+- [docs](/docs)
 
 ## For Code or Behavior Questions
 
 Reference the actual source and tests when reporting a concern:
 
-- [src](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src)
-- [tests](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests)
+- [src](/src)
+- [tests](/tests)
 
 This is important because many documentation disagreements are really behavior questions.
 
@@ -55,3 +54,4 @@ the repository is the contact surface.
 - Previous: [Colophon](Colophon.md)
 - Jump to: [Back Matter](../FRONT_MATTER/CONTENTS.md#back-matter)
 - Next: [Back Matter](../FRONT_MATTER/CONTENTS.md#back-matter)
+

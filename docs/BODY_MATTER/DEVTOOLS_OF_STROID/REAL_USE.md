@@ -80,7 +80,7 @@ That is as true in debugging as it is in life.
 
 ## Chapter 32 References/Further Reading
 
-- [docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/TRADEOFFS_AND_LIMITS.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/TRADEOFFS_AND_LIMITS.md)
+- [Tradeoffs and Limits](../THE_GLITCH_IN_MATRIX/TRADEOFFS_AND_LIMITS.md)
 
 
 ## Navigation
@@ -88,3 +88,4 @@ That is as true in debugging as it is in life.
 - Previous: [Chapter 31: Redux DevTools Bridge and Production Boundaries](REDUX_DEVTOOLS_AND_BOUNDARIES.md)
 - Jump to: [Unit Eight: Devtools of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eight-devtools-of-stroid)
 - Next: [Chapter 33: Introduction to Selectors Stroid](../SELECTORS_OF_STROID/INTRODUCTION.md)
+

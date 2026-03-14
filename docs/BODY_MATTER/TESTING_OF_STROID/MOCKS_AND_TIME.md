@@ -73,7 +73,7 @@ They protect trust.
 
 ## Chapter 50 References/Further Reading
 
-- [src/testing.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/testing.ts)
+- [src/testing.ts](/src/testing.ts)
 
 
 ## Navigation
@@ -81,3 +81,4 @@ They protect trust.
 - Previous: [Chapter 49: Introduction to Testing Stroid](INTRODUCTION.md)
 - Jump to: [Unit Thirteen: Testing of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-thirteen-testing-of-stroid)
 - Next: [Chapter 51: Resets, Isolation, and Lightweight Benchmarks](RESETS_AND_BENCHMARKS.md)
+

@@ -26,6 +26,7 @@ Stroid's async layer supports TTL-based cache reuse and optional background refr
 ```ts
 await fetchStore("news", "/api/news", {
   ttl: 60_000,
+  autoCreate: true,
 });
 ```
 
@@ -35,6 +36,7 @@ await fetchStore("news", "/api/news", {
 await fetchStore("news", "/api/news", {
   ttl: 60_000,
   staleWhileRevalidate: true,
+  autoCreate: true,
 });
 ```
 
@@ -141,8 +143,8 @@ That is why cleanup is not a side detail. It is part of whether the runtime is s
 
 ## Chapter 11 References/Further Reading
 
-- [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
-- [tests/async.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/async.test.ts)
+- [src/async.ts](/src/async.ts)
+- [tests/async.test.ts](/tests/async.test.ts)
 
 
 ## Navigation
@@ -150,3 +152,4 @@ That is why cleanup is not a side detail. It is part of whether the runtime is s
 - Previous: [Chapter 10: Fetch Flow, Retry, and Dedupe](FETCH_FLOW.md)
 - Jump to: [Unit Three: Async of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-three-async-of-stroid)
 - Next: [Chapter 12: Real Use of Async Stroid](REAL_USE.md)
+

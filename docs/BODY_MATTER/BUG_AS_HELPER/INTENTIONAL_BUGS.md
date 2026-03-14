@@ -57,7 +57,7 @@ Table 74.2: Intentional Feature-Layer Behaviors
 | 1 | Intentional | sync ordering is deterministic ordering, not true distributed causality |
 | 16 | Intentional | devtools history cloning is opt-in cost, not surprise core cost |
 | 22 | Intentional | deferred persistence save uses batching and may lose a last-moment unload race |
-| 30 | Intentional | `subscribeWithSelector(...)` clones values before listeners for safety |
+| 30 | Intentional | `subscribeWithSelector(...)` follows snapshot mode (deep/shallow/ref) before selector/equality |
 | 32 | Intentional | inline React selectors are not stabilized for the user |
 | 50 | Intentional | subscriber flush is synchronous per store, which is a scale tradeoff |
 | 104 | Intentional | deleting and recreating a store clears remembered async fetch definitions |
@@ -91,7 +91,7 @@ Table 74.3: Intentional Package and Architecture Behaviors
 
 ```text
 explicit import -> explicit behavior
-missing import -> explicit warning
+missing import -> explicit error (default)
 silent magic    -> rejected by design
 ```
 
@@ -127,14 +127,15 @@ Also healthy.
 
 ## Chapter 74 References/Further Reading
 
-- [BUG_REPORT.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/BUG_REPORT.md)
-- [store.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/store.ts)
-- [async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
-- [features/devtools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/devtools.ts)
-- [features/sync.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/sync.ts)
+- [BUG_REPORT.md](/BUG_REPORT.md)
+- [store.ts](/src/store.ts)
+- [async.ts](/src/async.ts)
+- [features/devtools.ts](/src/features/devtools.ts)
+- [features/sync.ts](/src/features/sync.ts)
 
 ## Navigation
 
 - Previous: [Chapter 73: Introduction to Bug as Helper](INTRODUCTION.md)
 - Jump to: [Unit Seventeen: Bug as Helper](../../FRONT_MATTER/CONTENTS.md#unit-seventeen-bug-as-helper)
 - Next: [Chapter 75: No Need to Fix, Low Drama, and Edge-Case Humility](NO_NEED_TO_FIX.md)
+

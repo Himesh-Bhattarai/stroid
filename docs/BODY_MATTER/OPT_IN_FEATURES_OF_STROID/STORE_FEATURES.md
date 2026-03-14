@@ -52,6 +52,7 @@ createStore("auth", {
     deserialize: JSON.parse,
     encrypt: (raw) => raw,
     decrypt: (raw) => raw,
+    allowPlaintext: true,
     onMigrationFail: "reset",
   },
 });
@@ -62,7 +63,9 @@ Persistence controls:
 - storage driver
 - storage key
 - encoding
-- optional wrapping through `encrypt` / `decrypt`
+- optional wrapping through `encrypt` / `decrypt` (or async variants)
+- explicit plaintext acknowledgement via `allowPlaintext`
+- sensitive data guardrails via `sensitiveData`
 - versioning and migrations
 - migration failure behavior
 - storage-cleared observation
@@ -218,12 +221,12 @@ Explicit failure creates understanding.
 
 ## Chapter 6 References/Further Reading
 
-- [src/persist.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/persist.ts)
-- [src/sync.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/sync.ts)
-- [src/devtools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/devtools.ts)
-- [docs/14-persist.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/14-persist.md)
-- [docs/15-sync.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/15-sync.md)
-- [docs/19-devtools.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/19-devtools.md)
+- [src/persist.ts](/src/persist.ts)
+- [src/sync.ts](/src/sync.ts)
+- [src/devtools.ts](/src/devtools.ts)
+- [Chapter 25: Introduction to Persist Stroid](../PERSIST_OF_STROID/INTRODUCTION.md)
+- [Chapter 13: Introduction to Sync Stroid](../SYNC_OF_STROID/INTRODUCTION.md)
+- [Devtools Introduction](../DEVTOOLS_OF_STROID/INTRODUCTION.md)
 
 
 ## Navigation
@@ -231,3 +234,4 @@ Explicit failure creates understanding.
 - Previous: [Chapter 5: Introduction to Opt-In Features](INTRODUCTION.md)
 - Jump to: [Unit Two: Opt-In Features of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-two-opt-in-features-of-stroid)
 - Next: [Chapter 7: Runtime Layers](RUNTIME_LAYERS.md)
+

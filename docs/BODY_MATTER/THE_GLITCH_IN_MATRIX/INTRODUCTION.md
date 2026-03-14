@@ -122,9 +122,9 @@ The reader stops expecting perfection and starts expecting coherence.
 
 ## Chapter 21 References/Further Reading
 
-- [OVERVIEW.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/OVERVIEW.md)
-- [BUNDLE_UNDER_10KB_PLAN.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/BUNDLE_UNDER_10KB_PLAN.md)
-- [answer.ms](/c:/Users/Himesh/Desktop/SM_STROID/stroid/answer.ms)
+- [Architecture Overview](../../ARCHITECTURE/ARCHITECTURE.md)
+- [Performance and Reality](PERFORMANCE_AND_REALITY.md)
+- [Optional Complexity and Comparison](../PHILOSOPHY_OF_STROID/OPTIONAL_COMPLEXITY_AND_COMPARISON.md)
 
 
 ## Navigation
@@ -132,3 +132,4 @@ The reader stops expecting perfection and starts expecting coherence.
 - Previous: [Chapter 20: Real Use of React Stroid](../REACT_OF_STROID/REAL_USE.md)
 - Jump to: [Unit Six: The Glitch in Matrix](../../FRONT_MATTER/CONTENTS.md#unit-six-the-glitch-in-matrix)
 - Next: [Chapter 22: Tradeoffs, Costs, and Weaker Fits](TRADEOFFS_AND_LIMITS.md)
+

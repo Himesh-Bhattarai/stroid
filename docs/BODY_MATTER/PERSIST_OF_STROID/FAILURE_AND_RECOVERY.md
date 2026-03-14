@@ -86,8 +86,8 @@ Sometimes the kindest thing a system can do is refuse to keep lying about broken
 
 ## Chapter 27 References/Further Reading
 
-- [src/features/persist.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/persist.ts)
-- [tests/persist.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/persist.test.ts)
+- [src/features/persist.ts](/src/features/persist.ts)
+- [tests/persist.test.ts](/tests/persist.test.ts)
 
 
 ## Navigation
@@ -95,3 +95,4 @@ Sometimes the kindest thing a system can do is refuse to keep lying about broken
 - Previous: [Chapter 26: Storage Drivers, Versioning, and Migrations](STORAGE_AND_MIGRATIONS.md)
 - Jump to: [Unit Seven: Persist of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-seven-persist-of-stroid)
 - Next: [Chapter 28: Real Use of Persist Stroid](REAL_USE.md)
+

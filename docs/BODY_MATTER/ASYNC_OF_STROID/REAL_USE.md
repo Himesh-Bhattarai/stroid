@@ -35,6 +35,7 @@ await fetchStore("searchResults", "/api/search?q=books&page=1", {
   cacheKey: "books:1",
   ttl: 15_000,
   staleWhileRevalidate: true,
+  autoCreate: true,
 });
 ```
 
@@ -51,6 +52,7 @@ This separation is healthy:
 await fetchStore("currentUser", "/api/me", {
   ttl: 60_000,
   retry: 1,
+  autoCreate: true,
 });
 ```
 
@@ -122,9 +124,9 @@ That honesty matters because good documentation should help someone reject the t
 
 ## Chapter 12 References/Further Reading
 
-- [docs/13-async.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/13-async.md)
-- [src/hooks-async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks-async.ts)
-- [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
+- [Chapter 9: Introduction to Async Stroid](INTRODUCTION.md)
+- [src/hooks-async.ts](/src/hooks-async.ts)
+- [src/async.ts](/src/async.ts)
 
 
 ## Navigation
@@ -132,3 +134,4 @@ That honesty matters because good documentation should help someone reject the t
 - Previous: [Chapter 11: Cache, Revalidation, and Cleanup](CACHE_AND_REVALIDATION.md)
 - Jump to: [Unit Three: Async of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-three-async-of-stroid)
 - Next: [Chapter 13: Introduction to Sync Stroid](../SYNC_OF_STROID/INTRODUCTION.md)
+

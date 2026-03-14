@@ -80,7 +80,7 @@ If it only decorates it, the selector is vanity.
 
 ## Chapter 36 References/Further Reading
 
-- [docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/PERFORMANCE_AND_REALITY.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/PERFORMANCE_AND_REALITY.md)
+- [Performance and Reality](../THE_GLITCH_IN_MATRIX/PERFORMANCE_AND_REALITY.md)
 
 
 ## Navigation
@@ -88,3 +88,4 @@ If it only decorates it, the selector is vanity.
 - Previous: [Chapter 35: subscribeWithSelector, Equality, and Notifications](SUBSCRIBE_WITH_SELECTOR.md)
 - Jump to: [Unit Nine: Selectors of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-nine-selectors-of-stroid)
 - Next: [Chapter 37: Introduction to Runtime Operations](../RUNTIME_OPERATIONS_OF_STROID/INTRODUCTION.md)
+

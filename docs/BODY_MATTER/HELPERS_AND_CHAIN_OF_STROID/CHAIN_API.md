@@ -4,9 +4,12 @@ Chapter opener
 
 Fluent APIs are appealing because they feel like thought without friction. The real test is whether the fluency still leaves the underlying data path obvious.
 
+Status note:
+`stroid/chain` is not exported in the current build. This chapter is a forward-looking design sketch and the code examples are conceptual until the subpath exists.
+
 ## Learning Objectives
 
-- Understand `chain`, `nested`, `target`, `value`, and `set`.
+- Understand the intended `chain`, `nested`, `target`, `value`, and `set` shape.
 - Learn where chain access is useful.
 - See the boundary between fluency and obscurity.
 - Use the chain API without forgetting the underlying store path.
@@ -27,8 +30,8 @@ const themeNode = chain("settings").nested("appearance").target("theme");
 
 ## 47.2 Reading and Writing
 
-`value` reads.
-`set(...)` writes.
+The intended surface is:
+`value` for reads and `set(...)` for writes.
 
 ### Example 47.2: Chain Read and Write
 
@@ -60,8 +63,8 @@ If the API feels elegant but obscures that, the elegance is counterfeit.
 
 ## Chapter 47 Summary
 
-- `chain` gives a fluent nested path API.
-- It reads through `.value` and writes through `.set(...)`.
+- The intended `chain` API gives a fluent nested path surface.
+- It would read through `.value` and write through `.set(...)`.
 - Fluency helps only while the underlying store path stays understandable.
 
 ## Chapter 47 Review Questions
@@ -78,7 +81,7 @@ If the API feels elegant but obscures that, the elegance is counterfeit.
 
 ## Chapter 47 References/Further Reading
 
-- [src/chain.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/chain.ts)
+- TODO: verify chain subpath source when it is added
 
 
 ## Navigation
@@ -86,3 +89,4 @@ If the API feels elegant but obscures that, the elegance is counterfeit.
 - Previous: [Chapter 46: Helper Factories](HELPER_FACTORIES.md)
 - Jump to: [Unit Twelve: Helpers and Chain of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-twelve-helpers-and-chain-of-stroid)
 - Next: [Chapter 48: Real Use of Helpers and Chain](REAL_USE.md)
+

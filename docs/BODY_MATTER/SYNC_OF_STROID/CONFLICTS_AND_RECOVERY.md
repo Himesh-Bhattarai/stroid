@@ -102,8 +102,8 @@ It is a reality leak.
 
 ## Chapter 15 References/Further Reading
 
-- [src/features/sync.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/sync.ts)
-- [tests/sync.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/sync.test.ts)
+- [src/features/sync.ts](/src/features/sync.ts)
+- [tests/sync.test.ts](/tests/sync.test.ts)
 
 
 ## Navigation
@@ -111,3 +111,4 @@ It is a reality leak.
 - Previous: [Chapter 14: Sync Options and Ordering](SYNC_OPTIONS.md)
 - Jump to: [Unit Four: Sync of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-four-sync-of-stroid)
 - Next: [Chapter 16: Real Use of Sync Stroid](REAL_USE.md)
+

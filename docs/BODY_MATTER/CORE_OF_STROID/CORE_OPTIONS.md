@@ -29,12 +29,14 @@ The core option surface is centered around:
 
 - `scope`
 - `validate`
-- `schema`
 - `lifecycle`
 - `onError`
 - `snapshot`
 
 These are part of Stroid's identity because they define what the store is allowed to do and how it should react when things go wrong.
+
+Note:
+`schema` and `validator` are legacy aliases for `validate`. They still work but emit deprecation warnings.
 
 ### Example 2.1: A Core-Only Store With Rules
 
@@ -59,14 +61,14 @@ createStore("profile", {
 
 This store uses no optional feature module. It is still meaningful because core is not just storage. Core is state plus policy.
 
-### Example 2.2: Schema as the Stronger Gate
+### Example 2.2: Schema-Style Validation as the Stronger Gate
 
 ```ts
 createStore("settings", {
   theme: "light",
   locale: "en",
 }, {
-  schema: {
+  validate: {
     safeParse(value: any) {
       const ok =
         value &&
@@ -81,7 +83,7 @@ createStore("settings", {
 });
 ```
 
-Use `validate` for simple boolean gates. Use `schema` when data shape is a contract, not a suggestion.
+Use `validate` for simple boolean gates. Use a schema-style `validate` object when data shape is a contract, not a suggestion.
 
 Important note:
 Lifecycle middleware is synchronous.
@@ -184,7 +186,7 @@ Table 2.2: Core and Feature-Split Options
 |---|---|---|
 | `scope` | Yes | No |
 | `validate` | Yes | No |
-| `schema` | Yes | No |
+| `schema` (legacy alias for `validate`) | Yes | No |
 | `lifecycle` | Yes | No |
 | `onError` | Yes | No |
 | `persist` | Yes | Yes: `stroid/persist` |
@@ -244,10 +246,9 @@ The options object stays unified. The imports decide which power systems are ali
 
 ## Chapter 2 References/Further Reading
 
-- [src/adapters/options.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/adapters/options.ts)
-- [docs/04-createStore.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/04-createStore.md)
-- [docs/16-middleware.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/16-middleware.md)
-- [docs/17-schema.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/17-schema.md)
+- [src/adapters/options.ts](/src/adapters/options.ts)
+- [Chapter 3: Core Examples](EXAMPLE.md)
+- [Predictable State Mutation](../PHILOSOPHY_OF_STROID/PREDICTABLE_STATE_MUTATION.md)
 
 
 ## Navigation
@@ -255,3 +256,4 @@ The options object stays unified. The imports decide which power systems are ali
 - Previous: [Chapter 1: Introduction to Core Stroid](INTRODUCTION.md)
 - Jump to: [Unit One: Core of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-one-core-of-stroid)
 - Next: [Chapter 3: Core Examples](EXAMPLE.md)
+

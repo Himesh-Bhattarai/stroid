@@ -9,7 +9,7 @@ This unit covers Stroid's helper factories and chain API as convenience layers o
 ## Unit Objectives
 
 - Understand what `stroid/helpers` exports.
-- Learn what `stroid/chain` provides and what it does not.
+- Learn the intended role of `stroid/chain` (not shipped in the current build).
 - Use convenience APIs without losing sight of the underlying store.
 - Distinguish helpful ergonomics from accidental abstraction.
 
@@ -48,12 +48,15 @@ Import path:
 import { chain } from "stroid/chain";
 ```
 
+Note:
+`stroid/chain` is not exported in the current build. Treat this section as a forward-looking description until the subpath exists.
+
 Table 45.1: Convenience Subpaths
 
 | Subpath | Purpose |
 |---|---|
 | `helpers` | opinionated store factories |
-| `chain` | fluent nested read/write convenience |
+| `chain` | fluent nested read/write convenience (planned) |
 
 ## 45.3 Why Convenience Stays Optional
 
@@ -64,7 +67,7 @@ That prevents the library from forcing one taste of ergonomics on every team.
 
 ## Chapter 45 Summary
 
-- `helpers` and `chain` are optional convenience surfaces.
+- `helpers` (and the planned `chain`) are optional convenience surfaces.
 - They sit on top of the same core store model.
 - Convenience is valuable only when it preserves clarity.
 
@@ -82,8 +85,8 @@ That prevents the library from forcing one taste of ergonomics on every team.
 
 ## Chapter 45 References/Further Reading
 
-- [src/helpers.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/helpers.ts)
-- [src/chain.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/chain.ts)
+- [src/helpers.ts](/src/helpers.ts)
+- TODO: verify chain subpath source when it is added
 
 
 ## Navigation
@@ -91,3 +94,4 @@ That prevents the library from forcing one taste of ergonomics on every team.
 - Previous: [Chapter 44: Real Use of Server Stroid](../SERVER_OF_STROID/REAL_USE.md)
 - Jump to: [Unit Twelve: Helpers and Chain of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-twelve-helpers-and-chain-of-stroid)
 - Next: [Chapter 46: Helper Factories](HELPER_FACTORIES.md)
+

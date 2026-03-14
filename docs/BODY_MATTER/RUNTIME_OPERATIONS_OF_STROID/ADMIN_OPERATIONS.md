@@ -6,14 +6,14 @@ Global cleanup sounds simple until you realize it is the software equivalent of 
 
 ## Learning Objectives
 
-- Understand `clearAllStores`.
+- Understand `clearAllStores` and `clearStores`.
 - Learn why it lives in `runtime-admin`.
 - See what kinds of workflows justify global cleanup.
 - Respect destructive operations as explicit administrative acts.
 
 ## Chapter Outline
 
-- 39.1 `clearAllStores`
+- 39.1 `clearAllStores` and `clearStores`
 - 39.2 Legitimate Uses
 - 39.3 Why Destructive APIs Need Distance
 
@@ -22,15 +22,21 @@ Global cleanup sounds simple until you realize it is the software equivalent of 
 Import path:
 
 ```ts
-import { clearAllStores } from "stroid/runtime-admin";
+import { clearAllStores, clearStores } from "stroid/runtime-admin";
 ```
 
-This is the only public API in that subpath.
+These are the public APIs in that subpath.
 
 ### Example 39.1: Global Reset
 
 ```ts
 clearAllStores();
+```
+
+### Example 39.2: Targeted Reset
+
+```ts
+clearStores("temp-*");
 ```
 
 ## 39.2 Legitimate Uses
@@ -85,8 +91,8 @@ That weight reminds the caller that a decision is being made, not just a helper 
 
 ## Chapter 39 References/Further Reading
 
-- [src/runtime-admin.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-admin.ts)
-- [src/internals/store-admin.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/internals/store-admin.ts)
+- [src/runtime-admin.ts](/src/runtime-admin.ts)
+- [src/internals/store-admin.ts](/src/internals/store-admin.ts)
 
 
 ## Navigation
@@ -94,3 +100,4 @@ That weight reminds the caller that a decision is being made, not just a helper 
 - Previous: [Chapter 38: Inspection Tools and Registry Visibility](INSPECTION_TOOLS.md)
 - Jump to: [Unit Ten: Runtime Operations of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-ten-runtime-operations-of-stroid)
 - Next: [Chapter 40: Real Use of Runtime Operations](REAL_USE.md)
+

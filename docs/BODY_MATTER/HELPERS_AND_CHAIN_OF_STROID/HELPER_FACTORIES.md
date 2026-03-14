@@ -78,7 +78,7 @@ But if a helper causes the team to forget the actual store shape, the comfort be
 
 ## Chapter 46 References/Further Reading
 
-- [src/helpers.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/helpers.ts)
+- [src/helpers.ts](/src/helpers.ts)
 
 
 ## Navigation
@@ -86,3 +86,4 @@ But if a helper causes the team to forget the actual store shape, the comfort be
 - Previous: [Chapter 45: Introduction to Helpers and Chain](INTRODUCTION.md)
 - Jump to: [Unit Twelve: Helpers and Chain of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-twelve-helpers-and-chain-of-stroid)
 - Next: [Chapter 47: The Chain API](CHAIN_API.md)
+

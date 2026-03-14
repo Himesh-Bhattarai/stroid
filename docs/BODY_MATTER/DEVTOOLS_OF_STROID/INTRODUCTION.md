@@ -105,9 +105,9 @@ Devtools should clarify runtime truth, not replace it.
 
 ## Chapter 29 References/Further Reading
 
-- [src/devtools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/devtools.ts)
-- [src/devtools-api.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/devtools-api.ts)
-- [src/features/devtools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/devtools.ts)
+- [src/devtools.ts](/src/devtools.ts)
+- [src/devtools-api.ts](/src/devtools-api.ts)
+- [src/features/devtools.ts](/src/features/devtools.ts)
 
 
 ## Navigation
@@ -115,3 +115,4 @@ Devtools should clarify runtime truth, not replace it.
 - Previous: [Chapter 28: Real Use of Persist Stroid](../PERSIST_OF_STROID/REAL_USE.md)
 - Jump to: [Unit Eight: Devtools of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eight-devtools-of-stroid)
 - Next: [Chapter 30: History, Diffs, and Redaction](HISTORY_AND_REDACTION.md)
+

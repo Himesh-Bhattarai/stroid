@@ -49,7 +49,7 @@ Sometimes the runtime just prevented you from inventing a future outage.
 
 ## 73.1 The Three Buckets
 
-This unit follows the current categories in [BUG_REPORT.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/BUG_REPORT.md):
+This unit follows the current categories in [BUG_REPORT.md](/BUG_REPORT.md):
 
 - `Must Fix`: real correctness or contract bugs
 - `Intentional`: odd behavior that exists by design
@@ -138,13 +138,14 @@ The tone is less romantic, but the protective instinct is real.
 
 ## Chapter 73 References/Further Reading
 
-- [BUG_REPORT.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/BUG_REPORT.md)
-- [store.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/store.ts)
-- [async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
-- [features/sync.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/sync.ts)
+- [BUG_REPORT.md](/BUG_REPORT.md)
+- [store.ts](/src/store.ts)
+- [async.ts](/src/async.ts)
+- [features/sync.ts](/src/features/sync.ts)
 
 ## Navigation
 
 - Previous: [Chapter 72: From Basic to Real Usage](../BEGINNER_GUIDE/FROM_BASIC_TO_REAL.md)
 - Jump to: [Unit Seventeen: Bug as Helper](../../FRONT_MATTER/CONTENTS.md#unit-seventeen-bug-as-helper)
 - Next: [Chapter 74: Intentional Bugs, Guardrails, and Productive Friction](INTENTIONAL_BUGS.md)
+

@@ -130,8 +130,8 @@ It is a psychological choice about how much ambiguity the team tolerates.
 
 ## Chapter 18 References/Further Reading
 
-- [src/hooks-core.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks-core.ts)
-- [src/selectors.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/selectors.ts)
+- [src/hooks-core.ts](/src/hooks-core.ts)
+- [src/selectors.ts](/src/selectors.ts)
 
 
 ## Navigation
@@ -139,3 +139,4 @@ It is a psychological choice about how much ambiguity the team tolerates.
 - Previous: [Chapter 17: Introduction to React Stroid](INTRODUCTION.md)
 - Jump to: [Unit Five: React of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-five-react-of-stroid)
 - Next: [Chapter 19: Async and Form Hooks](FORM_AND_ASYNC.md)
+

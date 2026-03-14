@@ -87,9 +87,12 @@ Table 5.1: Categories of Opt-In Features
 |---|---|---|
 | Store-attached features | `stroid/persist`, `stroid/sync`, `stroid/devtools` | Add behavior directly to stores via options |
 | Runtime and UI layers | `stroid/react`, `stroid/async`, `stroid/selectors` | Add React integration, async orchestration, and selector subscriptions |
-| Power tools and helpers | `stroid/chain`, `stroid/helpers`, `stroid/server`, `stroid/runtime-tools`, `stroid/runtime-admin`, `stroid/testing` | Add convenience, inspection, admin, server, and test utilities |
+| Power tools and helpers | `stroid/helpers`, `stroid/server`, `stroid/runtime-tools`, `stroid/runtime-admin`, `stroid/testing` | Add convenience, inspection, admin, server, and test utilities |
 
 These are all part of the ecosystem, but they do not deserve equal weight in every application.
+
+Note:
+`stroid/chain` is not exported in the current build. References to chain in this book are forward-looking and should be treated as placeholders until the subpath exists.
 
 ## 5.3 One Mental Model, Many Entry Points
 
@@ -148,10 +151,9 @@ That reduces migration stress. It also reduces the psychological cost of growth,
 
 ## Chapter 5 References/Further Reading
 
-- [OVERVIEW.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/OVERVIEW.md)
-- [src/index.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/index.ts)
-- [src/core.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/core.ts)
-- [src/feature-registry.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/feature-registry.ts)
+- [src/index.ts](/src/index.ts)
+- [src/core.ts](/src/core.ts)
+- [src/feature-registry.ts](/src/feature-registry.ts)
 
 
 ## Navigation
@@ -159,3 +161,4 @@ That reduces migration stress. It also reduces the psychological cost of growth,
 - Previous: [Chapter 4: Real Use of Core Stroid](../CORE_OF_STROID/REAL_USE.md)
 - Jump to: [Unit Two: Opt-In Features of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-two-opt-in-features-of-stroid)
 - Next: [Chapter 6: Store-Attached Features](STORE_FEATURES.md)
+

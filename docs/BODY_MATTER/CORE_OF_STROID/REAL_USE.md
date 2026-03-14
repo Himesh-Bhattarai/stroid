@@ -158,7 +158,7 @@ const requestState = createStoreForRequest((api) => {
 });
 
 const snapshot = requestState.snapshot();
-hydrateStores(snapshot);
+hydrateStores(snapshot, {}, { allowUntrusted: true });
 ```
 
 This is where Stroid becomes especially useful: request scope and hydration let you think about bootstrapping as a controlled state handoff instead of a tangle of ad hoc serialization.
@@ -201,10 +201,9 @@ This matters because systems become cleaner when intent is named before implemen
 
 ## Chapter 4 References/Further Reading
 
-- [src/store.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/store.ts)
-- [src/server.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/server.ts)
-- [docs/18-ssr.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/18-ssr.md)
-- [OVERVIEW.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/OVERVIEW.md)
+- [src/store.ts](/src/store.ts)
+- [src/server.ts](/src/server.ts)
+- [Chapter 41: Introduction to Server Stroid](../SERVER_OF_STROID/INTRODUCTION.md)
 
 
 ## Navigation
@@ -212,3 +211,4 @@ This matters because systems become cleaner when intent is named before implemen
 - Previous: [Chapter 3: Core Examples](EXAMPLE.md)
 - Jump to: [Unit One: Core of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-one-core-of-stroid)
 - Next: [Chapter 5: Introduction to Opt-In Features](../OPT_IN_FEATURES_OF_STROID/INTRODUCTION.md)
+

@@ -26,4 +26,5 @@ That mindset shaped both the code and the writing.
 This documentation is therefore not trying to sound like a neutral product brochure.
 It is written from the position of a builder who wants the system to be legible, defensible, and honest.
 
-For a more personal explanation of the project's origin and motivation, see [BLOG.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/BLOG.md).
+TODO: verify if a personal origin essay exists in this repo and link it here.
+

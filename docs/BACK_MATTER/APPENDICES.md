@@ -44,7 +44,7 @@ Examples:
 
 ### Hydration
 
-Loading external or prebuilt state into Stroid stores through `hydrateStores(...)`.
+Loading external or prebuilt state into Stroid stores through `hydrateStores(...)` with explicit trust (`allowUntrusted` or `validate`).
 
 ### Revalidation
 
@@ -61,7 +61,17 @@ Read-oriented operational APIs for inspecting registry state.
 Current import path:
 
 ```ts
-import { listStores, getStoreMeta, getInitialState, getMetrics } from "stroid/runtime-tools";
+import {
+  listStores,
+  getStoreMeta,
+  getInitialState,
+  getMetrics,
+  getSubscriberCount,
+  getAsyncInflightCount,
+  getPersistQueueDepth,
+  getComputedGraph,
+  getComputedDeps,
+} from "stroid/runtime-tools";
 ```
 
 ### Runtime Admin
@@ -71,7 +81,7 @@ Destructive global runtime operations.
 Current import path:
 
 ```ts
-import { clearAllStores } from "stroid/runtime-admin";
+import { clearAllStores, clearStores } from "stroid/runtime-admin";
 ```
 
 ## Appendix B: Import Matrix
@@ -88,12 +98,14 @@ Table B.1: Public Import Paths
 | `stroid/react` | React hooks |
 | `stroid/async` | async orchestration |
 | `stroid/selectors` | selector helpers |
-| `stroid/chain` | fluent nested access |
 | `stroid/helpers` | store helper factories |
 | `stroid/server` | request-scoped buffering |
 | `stroid/runtime-tools` | runtime inspection |
 | `stroid/runtime-admin` | runtime cleanup |
 | `stroid/testing` | testing helpers |
+
+Note:
+`stroid/chain` is referenced in older material but is not exported in the current build.
 
 ## Appendix C: Scope Decision Cheat Sheet
 
@@ -144,13 +156,13 @@ Do not use built-in sync when:
 
 Main test areas in the repository:
 
-- [tests/store.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/store.test.ts)
-- [tests/async.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/async.test.ts)
-- [tests/persist.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/persist.test.ts)
-- [tests/sync.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/sync.test.ts)
-- [tests/react-hooks.test.tsx](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/react-hooks.test.tsx)
-- [tests/testing.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/testing.test.ts)
-- [tests/heavy](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/heavy)
+- [tests/store.test.ts](/tests/store.test.ts)
+- [tests/async.test.ts](/tests/async.test.ts)
+- [tests/persist.test.ts](/tests/persist.test.ts)
+- [tests/sync.test.ts](/tests/sync.test.ts)
+- [tests/react-hooks.test.tsx](/tests/react-hooks.test.tsx)
+- [tests/testing.test.ts](/tests/testing.test.ts)
+- [tests/heavy](/tests/heavy)
 
 This appendix matters because a state-management library should not be understood only by API surface. It should also be understood by what behavior is being defended in tests.
 
@@ -160,3 +172,4 @@ This appendix matters because a state-management library should not be understoo
 - Previous: [Chapter 77: Roadmap of Stroid](../BODY_MATTER/ROADMAP_OF_STROID/ROADMAP.md)
 - Jump to: [Back Matter](../FRONT_MATTER/CONTENTS.md#back-matter)
 - Next: [Bibliography](Bibliography.md)
+

@@ -14,7 +14,7 @@ Notification systems become expensive when they start treating every change as i
 ## Chapter Outline
 
 - 35.1 Selector Subscriptions
-- 35.2 Equality and Serialized Fallback
+- 35.2 Equality Strategy
 - 35.3 Notification Discipline
 
 ## 35.1 Selector Subscriptions
@@ -38,10 +38,10 @@ Note on `prev` during batched writes:
 `subscribeWithSelector` notifies after the batch flushes, so `prev` is the last observed value before the flush.
 If multiple writes happen in one batch, you will see one notification with `prev` from before the batch, not per-write diffs.
 
-## 35.2 Equality and Serialized Fallback
+## 35.2 Equality Strategy
 
 By default, Stroid uses `Object.is`.
-For object results under default equality, it also uses a serialized fallback comparison path.
+If you need deep or custom comparison, pass your own equality function.
 
 Table 35.1: Equality Read
 
@@ -49,7 +49,6 @@ Table 35.1: Equality Read
 |---|---|
 | custom equality | user-defined comparison |
 | `Object.is` | default primitive/reference comparison |
-| serialized fallback | extra protection for object results under default equality |
 
 ## 35.3 Notification Discipline
 
@@ -88,8 +87,8 @@ They are harmful when they multiply ceremony without reducing meaningful work.
 
 ## Chapter 35 References/Further Reading
 
-- [src/selectors.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/selectors.ts)
-- [tests/store.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/store.test.ts)
+- [src/selectors.ts](/src/selectors.ts)
+- [tests/store.test.ts](/tests/store.test.ts)
 
 
 ## Navigation
@@ -97,3 +96,4 @@ They are harmful when they multiply ceremony without reducing meaningful work.
 - Previous: [Chapter 34: createSelector and Dependency Tracking](CREATE_SELECTOR.md)
 - Jump to: [Unit Nine: Selectors of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-nine-selectors-of-stroid)
 - Next: [Chapter 36: Real Use of Selectors Stroid](REAL_USE.md)
+

@@ -44,11 +44,11 @@ Table 42.1: Request Buffer API
 
 | API | Purpose |
 |---|---|
-| `create` | create request-local state and optionally stage per-store options |
-| `set` | update request-local state |
-| `get` | read request-local state |
+| `create` | create request-local state and optionally stage per-store options (initializer only) |
+| `set` | update request-local state (initializer only) |
+| `get` | read request-local state (initializer only) |
 | `snapshot` | export the buffered record |
-| `hydrate` | publish into real stores |
+| `hydrate` | publish into real stores (`hydrate(renderFn, options?)`) |
 
 ## 42.3 Why Buffer First
 
@@ -82,7 +82,7 @@ That separation reduces accidental cross-request confusion.
 
 ## Chapter 42 References/Further Reading
 
-- [src/server.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/server.ts)
+- [src/server.ts](/src/server.ts)
 
 
 ## Navigation
@@ -90,3 +90,4 @@ That separation reduces accidental cross-request confusion.
 - Previous: [Chapter 41: Introduction to Server Stroid](INTRODUCTION.md)
 - Jump to: [Unit Eleven: Server of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eleven-server-of-stroid)
 - Next: [Chapter 43: Snapshot and Hydrate Flow](HYDRATE_FLOW.md)
+

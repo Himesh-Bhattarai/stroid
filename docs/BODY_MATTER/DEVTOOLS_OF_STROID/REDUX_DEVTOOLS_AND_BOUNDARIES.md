@@ -80,8 +80,8 @@ They are not the reason the store exists.
 
 ## Chapter 31 References/Further Reading
 
-- [src/features/devtools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/devtools.ts)
-- [src/devtools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/devtools.ts)
+- [src/features/devtools.ts](/src/features/devtools.ts)
+- [src/devtools.ts](/src/devtools.ts)
 
 
 ## Navigation
@@ -89,3 +89,4 @@ They are not the reason the store exists.
 - Previous: [Chapter 30: History, Diffs, and Redaction](HISTORY_AND_REDACTION.md)
 - Jump to: [Unit Eight: Devtools of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eight-devtools-of-stroid)
 - Next: [Chapter 32: Real Use of Devtools Stroid](REAL_USE.md)
+

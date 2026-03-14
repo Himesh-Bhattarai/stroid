@@ -148,8 +148,8 @@ Sync forces the system to answer that question precisely. Once that happens, doc
 
 ## Chapter 13 References/Further Reading
 
-- [src/features/sync.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/sync.ts)
-- [docs/15-sync.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/15-sync.md)
+- [src/features/sync.ts](/src/features/sync.ts)
+- [Chapter 14: Sync Options and Ordering](SYNC_OPTIONS.md)
 
 
 ## Navigation
@@ -157,3 +157,4 @@ Sync forces the system to answer that question precisely. Once that happens, doc
 - Previous: [Chapter 12: Real Use of Async Stroid](../ASYNC_OF_STROID/REAL_USE.md)
 - Jump to: [Unit Four: Sync of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-four-sync-of-stroid)
 - Next: [Chapter 14: Sync Options and Ordering](SYNC_OPTIONS.md)
+

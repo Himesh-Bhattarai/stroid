@@ -73,11 +73,16 @@ Table 25.1: Persist Option Surface
 | `version` | persisted schema version |
 | `migrations` | version upgrade steps |
 | `serialize` / `deserialize` | data encoding |
-| `encrypt` / `decrypt` | payload wrapping |
+| `encrypt` / `decrypt` | payload wrapping (sync) |
+| `encryptAsync` / `decryptAsync` | payload wrapping (async) |
+| `allowPlaintext` | explicitly allow plaintext persistence |
+| `sensitiveData` | require non-identity crypto for sensitive payloads |
+| `checksum` | integrity mode (`hash`, `none`, `sha256`) |
 | `onMigrationFail` | recovery strategy |
 | `onStorageCleared` | external-clear detection |
 
-`encrypt`/`decrypt` are synchronous hooks. If you need async crypto (e.g. WebCrypto), encrypt before persistence and store ciphertext in the state you persist.
+`encrypt`/`decrypt` are synchronous hooks. For async crypto, provide both `encryptAsync` and `decryptAsync`.
+Plaintext persistence is blocked in production unless `allowPlaintext: true` is set.
 
 ### Example 25.2: Explicit Persist Shape
 
@@ -91,6 +96,7 @@ createStore("auth", {
     version: 2,
     serialize: JSON.stringify,
     deserialize: JSON.parse,
+    allowPlaintext: true,
   },
 });
 ```
@@ -146,9 +152,9 @@ Persistence is useful precisely because it is optional.
 
 ## Chapter 25 References/Further Reading
 
-- [src/persist.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/persist.ts)
-- [src/features/persist.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/persist.ts)
-- [docs/14-persist.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/14-persist.md)
+- [src/persist.ts](/src/persist.ts)
+- [src/features/persist.ts](/src/features/persist.ts)
+- [Chapter 26: Storage Drivers, Versioning, and Migrations](STORAGE_AND_MIGRATIONS.md)
 
 
 ## Navigation
@@ -156,3 +162,4 @@ Persistence is useful precisely because it is optional.
 - Previous: [Chapter 24: Real Use, Real Limits, Real Confidence](../THE_GLITCH_IN_MATRIX/REAL_USE.md)
 - Jump to: [Unit Seven: Persist of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-seven-persist-of-stroid)
 - Next: [Chapter 26: Storage Drivers, Versioning, and Migrations](STORAGE_AND_MIGRATIONS.md)
+

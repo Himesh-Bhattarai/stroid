@@ -24,6 +24,8 @@ Core async options include:
 - `transform`
 - `onSuccess`
 - `onError`
+- `stateAdapter`
+- `method` / `headers` / `body`
 - `ttl`
 - `staleWhileRevalidate`
 - `dedupe`
@@ -32,6 +34,12 @@ Core async options include:
 - `retryBackoff`
 - `signal`
 - `cacheKey`
+- `responseType`
+- `autoCreate`
+- `cloneResult`
+
+Note:
+When `stateAdapter` is provided, the backing store must already exist.
 
 ### Example 10.1: Configured Fetch
 
@@ -46,6 +54,7 @@ await fetchStore("products", "/api/products", {
   retryDelay: 400,
   retryBackoff: 1.7,
   transform: (result: any) => result.items,
+  autoCreate: true,
 });
 ```
 
@@ -90,7 +99,7 @@ Table 10.1: Fetch Flow Rules
 | duplicate inflight work | dedupe when enabled |
 | racing results | later request version wins |
 | repeated cache entries | bounded per store |
-| missing backing store | async layer creates one when allowed |
+| missing backing store | async layer creates one when `autoCreate` is enabled |
 
 ## 10.3 Retry, Abort, and Refetch
 
@@ -156,8 +165,8 @@ They are the ones that fail predictably when continuing is no longer meaningful.
 
 ## Chapter 10 References/Further Reading
 
-- [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
-- [tests/async.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/async.test.ts)
+- [src/async.ts](/src/async.ts)
+- [tests/async.test.ts](/tests/async.test.ts)
 
 
 ## Navigation
@@ -165,3 +174,4 @@ They are the ones that fail predictably when continuing is no longer meaningful.
 - Previous: [Chapter 9: Introduction to Async Stroid](INTRODUCTION.md)
 - Jump to: [Unit Three: Async of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-three-async-of-stroid)
 - Next: [Chapter 11: Cache, Revalidation, and Cleanup](CACHE_AND_REVALIDATION.md)
+

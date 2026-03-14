@@ -112,7 +112,7 @@ Table 1.1: Core Mental Model
 |---|---|
 | How is state identified? | By store name |
 | How is state created? | `createStore(name, initial, options)` |
-| How is state updated? | `setStore`, `mergeStore`, `resetStore`, `hydrateStores` |
+| How is state updated? | `setStore`, `replaceStore`, `resetStore`, `hydrateStores` |
 | How is state read? | `getStore` |
 | How is behavior attached? | Through one options object |
 | How are optional capabilities activated? | Explicit feature imports |
@@ -180,9 +180,9 @@ That continuity is not accidental. It is what makes the library feel stable unde
 
 ## Chapter 1 References/Further Reading
 
-- [docs/03-core-philosophy.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/03-core-philosophy.md)
-- [docs/04-createStore.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/04-createStore.md)
-- [OVERVIEW.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/OVERVIEW.md)
+- [Chapter 3: Core Examples](EXAMPLE.md)
+- [Minimal Abstraction](../PHILOSOPHY_OF_STROID/MINIMAL_ABSTRACTION.md)
+- [Start Here](../BEGINNER_GUIDE/START_HERE.md)
 
 
 ## Navigation
@@ -190,3 +190,4 @@ That continuity is not accidental. It is what makes the library feel stable unde
 - Previous: [How to Use This Book](../../FRONT_MATTER/HOW_TO_USE.md)
 - Jump to: [Unit One: Core of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-one-core-of-stroid)
 - Next: [Chapter 2: Core Options](CORE_OPTIONS.md)
+

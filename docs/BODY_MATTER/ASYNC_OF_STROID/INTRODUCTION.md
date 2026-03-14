@@ -44,7 +44,7 @@ The async layer does not add behavior to a store through `createStore(..., optio
 
 Instead, it does something different:
 
-- initializes async-shaped stores when needed
+- initializes async-shaped stores when allowed
 - drives them through request lifecycles
 - tracks inflight work
 - keeps cache metadata
@@ -56,10 +56,11 @@ Instead, it does something different:
 ```ts
 import { fetchStore } from "stroid/async";
 
-await fetchStore("products", "/api/products");
+await fetchStore("products", "/api/products", { autoCreate: true });
 ```
 
-If the store does not exist yet, the async layer creates it automatically with the expected async state shape.
+If the store does not exist yet, the async layer can create it when `autoCreate` is enabled (or configured globally). Otherwise, create the store first or provide a `stateAdapter`.
+By default, auto-creation is disabled; enable it with `configureStroid({ asyncAutoCreate: true })` or pass `autoCreate: true` per call.
 
 ## 9.2 The Async Store Shape
 
@@ -82,7 +83,7 @@ Table 9.1: Async Store State Shape
 import { getStore } from "stroid";
 import { fetchStore } from "stroid/async";
 
-await fetchStore("products", "/api/products");
+await fetchStore("products", "/api/products", { autoCreate: true });
 
 console.log(getStore("products"));
 ```
@@ -114,7 +115,7 @@ import { createStore } from "stroid";
 import { fetchStore } from "stroid/async";
 
 createStore("searchFilters", { q: "", page: 1 });
-await fetchStore("searchResults", "/api/search?q=books");
+await fetchStore("searchResults", "/api/search?q=books", { autoCreate: true });
 ```
 
 Core still handles ordinary state.
@@ -160,9 +161,9 @@ That is why the async layer deserves its own unit. Once time enters the model, t
 
 ## Chapter 9 References/Further Reading
 
-- [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
-- [docs/13-async.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/13-async.md)
-- [RUNTIME_LAYERS.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/RUNTIME_LAYERS.md)
+- [src/async.ts](/src/async.ts)
+- [Chapter 10: Fetch Flow, Retry, and Dedupe](FETCH_FLOW.md)
+- [RUNTIME_LAYERS.md](/docs/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/RUNTIME_LAYERS.md)
 
 
 ## Navigation
@@ -170,3 +171,4 @@ That is why the async layer deserves its own unit. Once time enters the model, t
 - Previous: [Chapter 8: Power Tools and Utility Subpaths](../OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md)
 - Jump to: [Unit Three: Async of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-three-async-of-stroid)
 - Next: [Chapter 10: Fetch Flow, Retry, and Dedupe](FETCH_FLOW.md)
+

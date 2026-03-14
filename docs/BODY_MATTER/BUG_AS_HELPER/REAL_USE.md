@@ -29,7 +29,7 @@ That is the difference between philosophy and procrastination.
 
 When a strange behavior appears, walk through this order:
 
-1. Is it already listed as `Must Fix`, `Intentional`, or `No Need to Fix` in [BUG_REPORT.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/BUG_REPORT.md)?
+1. Is it already listed as `Must Fix`, `Intentional`, or `No Need to Fix` in [BUG_REPORT.md](/BUG_REPORT.md)?
 2. Does it break correctness, or does it only offend convenience?
 3. Is the behavior documented as a contract, warning, or boundary?
 4. If removed, would the replacement create more hidden magic?
@@ -127,13 +127,14 @@ But some of them are the software equivalent of a seatbelt bruising your ego whi
 
 ## Chapter 76 References/Further Reading
 
-- [BUG_REPORT.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/BUG_REPORT.md)
-- [docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/INTRODUCTION.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/INTRODUCTION.md)
-- [docs_2.0/BODY_MATTER/DEVTOOLS_OF_STROID/INTRODUCTION.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/DEVTOOLS_OF_STROID/INTRODUCTION.md)
-- [docs_2.0/BODY_MATTER/SERVER_OF_STROID/INTRODUCTION.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/SERVER_OF_STROID/INTRODUCTION.md)
+- [BUG_REPORT.md](/BUG_REPORT.md)
+- [The Glitch in the Matrix: Introduction](../THE_GLITCH_IN_MATRIX/INTRODUCTION.md)
+- [Devtools Introduction](../DEVTOOLS_OF_STROID/INTRODUCTION.md)
+- [Server Stroid Introduction](../SERVER_OF_STROID/INTRODUCTION.md)
 
 ## Navigation
 
 - Previous: [Chapter 75: No Need to Fix, Low Drama, and Edge-Case Humility](NO_NEED_TO_FIX.md)
 - Jump to: [Unit Seventeen: Bug as Helper](../../FRONT_MATTER/CONTENTS.md#unit-seventeen-bug-as-helper)
 - Next: [Chapter 77: Roadmap of Stroid](../ROADMAP_OF_STROID/ROADMAP.md)
+

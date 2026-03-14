@@ -14,7 +14,7 @@ Visibility is valuable only when it creates understanding instead of voyeurism. 
 ## Chapter Outline
 
 - 38.1 `listStores`
-- 38.2 `getStoreMeta`, `getInitialState`, and `getMetrics`
+- 38.2 Registry Metadata and Counters
 - 38.3 When Inspection Helps
 
 ## 38.1 `listStores`
@@ -27,7 +27,7 @@ Visibility is valuable only when it creates understanding instead of voyeurism. 
 const names = listStores();
 ```
 
-## 38.2 `getStoreMeta`, `getInitialState`, and `getMetrics`
+## 38.2 Registry Metadata and Counters
 
 These APIs expose registry-backed metadata.
 
@@ -39,6 +39,11 @@ Table 38.1: Inspection API Surface
 | `getStoreMeta(name)` | store metadata |
 | `getInitialState()` | map of initial states |
 | `getMetrics(name)` | per-store metrics if available |
+| `getSubscriberCount(name)` | current subscriber count |
+| `getAsyncInflightCount(name)` | inflight async request slots |
+| `getPersistQueueDepth(name)` | queued persist flush depth |
+| `getComputedGraph()` | full computed dependency graph |
+| `getComputedDeps(name)` | dependency list for one computed store |
 
 ## 38.3 When Inspection Helps
 
@@ -49,7 +54,7 @@ They hurt when product code starts depending on registry introspection as if the
 
 ## Chapter 38 Summary
 
-- `runtime-tools` exposes four read/inspect APIs.
+- `runtime-tools` exposes multiple read/inspect APIs for registry metadata and counters.
 - These are best suited to diagnostics, admin panels, and operational understanding.
 - Inspection should not quietly become the primary application model.
 
@@ -67,8 +72,8 @@ They hurt when product code starts depending on registry introspection as if the
 
 ## Chapter 38 References/Further Reading
 
-- [src/runtime-tools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-tools.ts)
-- [src/store-registry.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/store-registry.ts)
+- [src/runtime-tools.ts](/src/runtime-tools.ts)
+- [src/store-registry.ts](/src/store-registry.ts)
 
 
 ## Navigation
@@ -76,3 +81,4 @@ They hurt when product code starts depending on registry introspection as if the
 - Previous: [Chapter 37: Introduction to Runtime Operations](INTRODUCTION.md)
 - Jump to: [Unit Ten: Runtime Operations of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-ten-runtime-operations-of-stroid)
 - Next: [Chapter 39: Admin Operations and Global Cleanup](ADMIN_OPERATIONS.md)
+

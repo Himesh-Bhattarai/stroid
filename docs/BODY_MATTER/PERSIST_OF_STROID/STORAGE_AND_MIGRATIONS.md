@@ -20,6 +20,7 @@ Storage is not just where data goes. It is the border where yesterday's assumpti
 ## 26.1 Drivers and Payload Shape
 
 Stroid persistence expects a driver with storage-like methods such as `getItem`, `setItem`, and `removeItem`.
+Driver methods may be synchronous or return Promises.
 
 ### Example 26.1: Custom Driver Shape
 
@@ -45,6 +46,12 @@ Persisted data is wrapped in an envelope with:
 
 That makes accidental corruption detection and migration decisions possible.
 The checksum is not a cryptographic signature and does not prevent malicious tampering.
+
+Checksum modes:
+
+- `hash` (default) for lightweight integrity detection
+- `sha256` for stronger tamper detection (may be async in some environments)
+- `none` to skip integrity checking entirely
 
 If you are persisting very large stores and want to avoid the checksum cost,
 you can opt out:
@@ -130,8 +137,8 @@ The correct strategy depends on the domain:
 
 ## Chapter 26 References/Further Reading
 
-- [src/features/persist.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/persist.ts)
-- [tests/persist.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/persist.test.ts)
+- [src/features/persist.ts](/src/features/persist.ts)
+- [tests/persist.test.ts](/tests/persist.test.ts)
 
 
 ## Navigation
@@ -139,3 +146,4 @@ The correct strategy depends on the domain:
 - Previous: [Chapter 25: Introduction to Persist Stroid](INTRODUCTION.md)
 - Jump to: [Unit Seven: Persist of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-seven-persist-of-stroid)
 - Next: [Chapter 27: Failure, Storage Clearing, and Recovery](FAILURE_AND_RECOVERY.md)
+

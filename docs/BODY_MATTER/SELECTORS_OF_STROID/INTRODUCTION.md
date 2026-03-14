@@ -118,8 +118,8 @@ It is wasteful when the selector is just a habit.
 
 ## Chapter 33 References/Further Reading
 
-- [src/selectors-entry.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/selectors-entry.ts)
-- [src/selectors.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/selectors.ts)
+- [src/selectors-entry.ts](/src/selectors-entry.ts)
+- [src/selectors.ts](/src/selectors.ts)
 
 
 ## Navigation
@@ -127,3 +127,4 @@ It is wasteful when the selector is just a habit.
 - Previous: [Chapter 32: Real Use of Devtools Stroid](../DEVTOOLS_OF_STROID/REAL_USE.md)
 - Jump to: [Unit Nine: Selectors of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-nine-selectors-of-stroid)
 - Next: [Chapter 34: createSelector and Dependency Tracking](CREATE_SELECTOR.md)
+

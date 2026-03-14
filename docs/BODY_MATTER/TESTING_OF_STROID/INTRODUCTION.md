@@ -78,7 +78,7 @@ If the same helper becomes normal product code, the codebase begins solving the 
 
 ## Chapter 49 References/Further Reading
 
-- [src/testing.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/testing.ts)
+- [src/testing.ts](/src/testing.ts)
 
 
 ## Navigation
@@ -86,3 +86,4 @@ If the same helper becomes normal product code, the codebase begins solving the 
 - Previous: [Chapter 48: Real Use of Helpers and Chain](../HELPERS_AND_CHAIN_OF_STROID/REAL_USE.md)
 - Jump to: [Unit Thirteen: Testing of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-thirteen-testing-of-stroid)
 - Next: [Chapter 50: Mock Stores and Time Control](MOCKS_AND_TIME.md)
+

@@ -32,7 +32,7 @@ That preserves a clearer distinction between:
 ```ts
 import { createSelector } from "stroid/selectors";
 
-const selectCompletedItems = createSelector((state: any) =>
+const selectCompletedItems = createSelector("todos", (state: any) =>
   state.items.filter((item: any) => item.done)
 );
 ```

@@ -8,11 +8,11 @@ That means you should read it differently depending on why you are here.
 
 Read in this order:
 
-1. [Preface](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/FRONT_MATTER/PREFACE.md)
-2. [Introduction](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/FRONT_MATTER/INTRODUCTION.md)
-3. [Core of Stroid - Introduction](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/CORE_OF_STROID/INTRODUCTION.md)
-4. [Core of Stroid - Real Use](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/CORE_OF_STROID/REAL_USE.md)
-5. [Opt-In Features - Introduction](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/INTRODUCTION.md)
+1. [Preface](/docs/FRONT_MATTER/PREFACE.md)
+2. [Introduction](/docs/FRONT_MATTER/INTRODUCTION.md)
+3. [Core of Stroid - Introduction](/docs/BODY_MATTER/CORE_OF_STROID/INTRODUCTION.md)
+4. [Core of Stroid - Real Use](/docs/BODY_MATTER/CORE_OF_STROID/REAL_USE.md)
+5. [Opt-In Features - Introduction](/docs/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/INTRODUCTION.md)
 
 This gives you the package model first, before you get lost in API details.
 
@@ -21,19 +21,19 @@ This gives you the package model first, before you get lost in API details.
 Read by need:
 
 - core questions:
-  [Core Options](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/CORE_OF_STROID/CORE_OPTIONS.md)
+  [Core Options](/docs/BODY_MATTER/CORE_OF_STROID/CORE_OPTIONS.md)
 - examples:
-  [Core Examples](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/CORE_OF_STROID/EXAMPLE.md)
+  [Core Examples](/docs/BODY_MATTER/CORE_OF_STROID/EXAMPLE.md)
 - feature imports:
-  [Store-Attached Features](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/STORE_FEATURES.md)
+  [Store-Attached Features](/docs/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/STORE_FEATURES.md)
 - runtime layers:
-  [Runtime Layers](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/RUNTIME_LAYERS.md)
+  [Runtime Layers](/docs/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/RUNTIME_LAYERS.md)
 - React hooks:
-  [Introduction to React Stroid](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/REACT_OF_STROID/INTRODUCTION.md)
+  [Introduction to React Stroid](/docs/BODY_MATTER/REACT_OF_STROID/INTRODUCTION.md)
 - React precision:
-  [Hooks, Selectors, and Render Precision](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/REACT_OF_STROID/HOOKS.md)
+  [Hooks, Selectors, and Render Precision](/docs/BODY_MATTER/REACT_OF_STROID/HOOKS.md)
 - utilities and admin tools:
-  [Power Tools and Utility Subpaths](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md)
+  [Power Tools and Utility Subpaths](/docs/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md)
 
 ## How the writing is organized
 
@@ -84,3 +84,4 @@ Use it as the primary long-form documentation reference for the project.
 - Previous: [Introduction](INTRODUCTION.md)
 - Jump to: [Front Matter](CONTENTS.md#front-matter)
 - Next: [Chapter 1: Introduction to Core Stroid](../BODY_MATTER/CORE_OF_STROID/INTRODUCTION.md)
+

@@ -6,7 +6,7 @@ Convenience pays off when it lowers friction without lowering thought. The momen
 
 ## Learning Objectives
 
-- Decide when helpers and chain are genuinely useful.
+- Decide when helpers are genuinely useful (and treat chain as a planned placeholder).
 - Recognize teams and codebases that benefit from them.
 - See where convenience becomes unnecessary indirection.
 - Use these APIs as accelerators, not identity.
@@ -52,7 +52,7 @@ That distinction matters more than the API looking elegant in isolation.
 
 ## Chapter 48 Summary
 
-- Helpers and chain are useful when they preserve the core mental model.
+- Helpers are useful when they preserve the core mental model.
 - They are weaker fits when they become style without purpose.
 - Honest ergonomics reduce friction without reducing clarity.
 
@@ -70,8 +70,8 @@ That distinction matters more than the API looking elegant in isolation.
 
 ## Chapter 48 References/Further Reading
 
-- [src/helpers.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/helpers.ts)
-- [src/chain.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/chain.ts)
+- [src/helpers.ts](/src/helpers.ts)
+- TODO: verify chain subpath source when it is added
 
 
 ## Navigation
@@ -79,3 +79,4 @@ That distinction matters more than the API looking elegant in isolation.
 - Previous: [Chapter 47: The Chain API](CHAIN_API.md)
 - Jump to: [Unit Twelve: Helpers and Chain of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-twelve-helpers-and-chain-of-stroid)
 - Next: [Chapter 49: Introduction to Testing Stroid](../TESTING_OF_STROID/INTRODUCTION.md)
+

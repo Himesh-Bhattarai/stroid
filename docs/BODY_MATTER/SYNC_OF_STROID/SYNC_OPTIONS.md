@@ -23,9 +23,11 @@ Sync options include:
 
 - `channel`
 - `maxPayloadBytes`
+- `authToken`
 - `conflictResolver`
 - `checksum`
 - `sign` / `verify`
+- `resolveUpdatedAt`
 
 ### Example 14.1: Full Sync Configuration
 
@@ -47,12 +49,14 @@ Table 14.1: Sync Option Roles
 |---|---|
 | `channel` | choose the peer room |
 | `maxPayloadBytes` | prevent oversized sync messages |
+| `authToken` | lightweight shared token check for incoming messages |
 | `conflictResolver` | custom decision when local and incoming disagree |
 | `checksum` | detect accidental corruption (not authentication) |
 | `sign` | attach an auth marker to outgoing payloads |
 | `verify` | accept or reject incoming payloads |
+| `resolveUpdatedAt` | resolve updatedAt timestamps during conflict handling |
 
-Sync does not authenticate messages by default. If you care about origin or tampering, use `sign` and `verify`.
+Sync does not authenticate messages by default. If you care about origin or tampering, use `authToken` and/or `sign` and `verify`.
 `sign` must be synchronous (returning a Promise is rejected).
 
 ## 14.2 Ordering Rules
@@ -99,7 +103,7 @@ That means malformed or invalid incoming state should not silently corrupt the t
 createStore("profile", {
   name: "",
 }, {
-  schema: {
+  validate: {
     safeParse(value: any) {
       return typeof value?.name === "string"
         ? { success: true, data: value }
@@ -149,8 +153,8 @@ The runtime needs an answer because humans disagree about truth faster than code
 
 ## Chapter 14 References/Further Reading
 
-- [src/features/sync.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/sync.ts)
-- [tests/sync.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/sync.test.ts)
+- [src/features/sync.ts](/src/features/sync.ts)
+- [tests/sync.test.ts](/tests/sync.test.ts)
 
 
 ## Navigation
@@ -158,3 +162,4 @@ The runtime needs an answer because humans disagree about truth faster than code
 - Previous: [Chapter 13: Introduction to Sync Stroid](INTRODUCTION.md)
 - Jump to: [Unit Four: Sync of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-four-sync-of-stroid)
 - Next: [Chapter 15: Conflicts, Catch-Up, and Cleanup](CONFLICTS_AND_RECOVERY.md)
+

@@ -114,10 +114,10 @@ The wiser reading is that the limit teaches the correct use pattern.
 
 ## Chapter 23 References/Further Reading
 
-- [test_report/3-8-2026.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/test_report/3-8-2026.md)
-- [selector-benchmark.json](/c:/Users/Himesh/Desktop/SM_STROID/stroid/selector-benchmark.json)
-- [deep-update-benchmark.json](/c:/Users/Himesh/Desktop/SM_STROID/stroid/deep-update-benchmark.json)
-- [bench-advanced.json](/c:/Users/Himesh/Desktop/SM_STROID/stroid/bench-advanced.json)
+- [test_report/3-8-2026.md](/test_report/3-8-2026.md)
+- [selector-benchmark.json](/selector-benchmark.json)
+- [deep-update-benchmark.json](/deep-update-benchmark.json)
+- [bench-advanced.json](/bench-advanced.json)
 
 
 ## Navigation
@@ -125,3 +125,4 @@ The wiser reading is that the limit teaches the correct use pattern.
 - Previous: [Chapter 22: Tradeoffs, Costs, and Weaker Fits](TRADEOFFS_AND_LIMITS.md)
 - Jump to: [Unit Six: The Glitch in Matrix](../../FRONT_MATTER/CONTENTS.md#unit-six-the-glitch-in-matrix)
 - Next: [Chapter 24: Real Use, Real Limits, Real Confidence](REAL_USE.md)
+

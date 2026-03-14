@@ -71,7 +71,7 @@ Table 40.1: Runtime Operations Fit
 
 ## Chapter 40 References/Further Reading
 
-- [docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/INTRODUCTION.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/THE_GLITCH_IN_MATRIX/INTRODUCTION.md)
+- [The Glitch in the Matrix: Introduction](../THE_GLITCH_IN_MATRIX/INTRODUCTION.md)
 
 
 ## Navigation
@@ -79,3 +79,4 @@ Table 40.1: Runtime Operations Fit
 - Previous: [Chapter 39: Admin Operations and Global Cleanup](ADMIN_OPERATIONS.md)
 - Jump to: [Unit Ten: Runtime Operations of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-ten-runtime-operations-of-stroid)
 - Next: [Chapter 41: Introduction to Server Stroid](../SERVER_OF_STROID/INTRODUCTION.md)
+

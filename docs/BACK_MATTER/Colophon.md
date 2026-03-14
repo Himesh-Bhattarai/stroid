@@ -7,7 +7,7 @@ That means the design logic is different from a normal polished publisher workfl
 ## Current Build Characteristics
 
 - format: Markdown
-- location: in-repo documentation under `docs_2.0`
+- location: in-repo documentation under `docs`
 - role: technical documentation book, not print-first layout
 - status: current maintained documentation edition
 

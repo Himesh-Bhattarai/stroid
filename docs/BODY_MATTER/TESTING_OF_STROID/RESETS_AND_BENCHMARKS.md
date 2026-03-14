@@ -77,8 +77,8 @@ The danger is only when rough measurement starts pretending to be final truth.
 
 ## Chapter 51 References/Further Reading
 
-- [src/testing.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/testing.ts)
-- [tests/testing.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/testing.test.ts)
+- [src/testing.ts](/src/testing.ts)
+- [tests/testing.test.ts](/tests/testing.test.ts)
 
 
 ## Navigation
@@ -86,3 +86,4 @@ The danger is only when rough measurement starts pretending to be final truth.
 - Previous: [Chapter 50: Mock Stores and Time Control](MOCKS_AND_TIME.md)
 - Jump to: [Unit Thirteen: Testing of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-thirteen-testing-of-stroid)
 - Next: [Chapter 52: Real Use of Testing Stroid](REAL_USE.md)
+

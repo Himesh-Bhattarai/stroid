@@ -133,9 +133,9 @@ It makes the failure modes easier to name.
 
 ## Chapter 22 References/Further Reading
 
-- [docs_2.0/BODY_MATTER/CORE_OF_STROID/REAL_USE.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/CORE_OF_STROID/REAL_USE.md)
-- [docs_2.0/BODY_MATTER/REACT_OF_STROID/REAL_USE.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/REACT_OF_STROID/REAL_USE.md)
-- [docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs_2.0/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md)
+- [Core Real Use](../CORE_OF_STROID/REAL_USE.md)
+- [React Real Use](../REACT_OF_STROID/REAL_USE.md)
+- [Power Tools and Utility Subpaths](../OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md)
 
 
 ## Navigation
@@ -143,3 +143,4 @@ It makes the failure modes easier to name.
 - Previous: [Chapter 21: Limitations as Design Boundaries](INTRODUCTION.md)
 - Jump to: [Unit Six: The Glitch in Matrix](../../FRONT_MATTER/CONTENTS.md#unit-six-the-glitch-in-matrix)
 - Next: [Chapter 23: Performance, Scaling, and Reality](PERFORMANCE_AND_REALITY.md)
+

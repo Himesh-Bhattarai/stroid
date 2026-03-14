@@ -91,8 +91,8 @@ It is the refusal to confuse access with entitlement.
 
 ## Chapter 30 References/Further Reading
 
-- [src/features/devtools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/devtools.ts)
-- [tests/store.test.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/tests/store.test.ts)
+- [src/features/devtools.ts](/src/features/devtools.ts)
+- [tests/store.test.ts](/tests/store.test.ts)
 
 
 ## Navigation
@@ -100,3 +100,4 @@ It is the refusal to confuse access with entitlement.
 - Previous: [Chapter 29: Introduction to Devtools Stroid](INTRODUCTION.md)
 - Jump to: [Unit Eight: Devtools of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eight-devtools-of-stroid)
 - Next: [Chapter 31: Redux DevTools Bridge and Production Boundaries](REDUX_DEVTOOLS_AND_BOUNDARIES.md)
+

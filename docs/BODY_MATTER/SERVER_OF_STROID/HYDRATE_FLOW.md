@@ -31,10 +31,11 @@ const requestState = createStoreForRequest(({ create }) => {
   });
 });
 
-requestState.hydrate();
+requestState.hydrate(() => renderApp());
 ```
 
 If you call `hydrate(...)` with explicit per-store options, those hydrate-time options override the buffered ones.
+`hydrate(renderFn, options?)` runs the render function inside the request registry context and applies the buffered snapshot via `hydrateStores`.
 
 ## 43.2 The Role of `hydrateStores`
 
@@ -77,8 +78,8 @@ It is also a better one because it is actually supportable.
 
 ## Chapter 43 References/Further Reading
 
-- [src/server.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/server.ts)
-- [src/store.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/store.ts)
+- [src/server.ts](/src/server.ts)
+- [src/store.ts](/src/store.ts)
 
 
 ## Navigation
@@ -86,3 +87,4 @@ It is also a better one because it is actually supportable.
 - Previous: [Chapter 42: Request Scope and Buffered Mutation](REQUEST_SCOPE.md)
 - Jump to: [Unit Eleven: Server of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eleven-server-of-stroid)
 - Next: [Chapter 44: Real Use of Server Stroid](REAL_USE.md)
+

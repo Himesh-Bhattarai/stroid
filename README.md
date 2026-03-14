@@ -1,12 +1,15 @@
 # Stroid
 
-Named-store state management for JavaScript and React with optional power tools.
+[![npm](https://img.shields.io/npm/v/stroid)](https://www.npmjs.com/package/stroid)
+[![npm downloads](https://img.shields.io/npm/dm/stroid)](https://www.npmjs.com/package/stroid)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/stroid)](https://bundlephobia.com/package/stroid)
+[![types](https://img.shields.io/npm/types/stroid)](https://www.npmjs.com/package/stroid)
+[![license](https://img.shields.io/npm/l/stroid)](https://github.com/Himesh-Bhattarai/stroid/blob/main/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/Himesh-Bhattarai/stroid/ci.yml?branch=main)](https://github.com/Himesh-Bhattarai/stroid/actions)
+[![issues](https://img.shields.io/github/issues/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid/issues)
+[![stars](https://img.shields.io/github/stars/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid)
 
-> Development branch notice (`v0.0.5`): `main` stays locked on the released `0.0.4` line. This branch tracks upcoming work, and `dist/` is release-managed, so it may be absent here or still reflect the last released `0.0.4` build until the next release is prepared.
-
-Stroid keeps the API small: create a store, update it, read it. Persistence, async caching, cross-tab sync, middleware, schema validation, history, and React hooks are configured per store instead of bolted on later.
-
-This package is ESM-only, tree-shakeable, side-effect free, and ships with zero runtime dependencies.
+Stroid is a named-store state management library for JavaScript and React with optional persistence, async caching, cross-tab sync, and devtools. It keeps a small core API and lets you opt into extra behavior by explicit import paths.
 
 ## Install
 
@@ -14,296 +17,27 @@ This package is ESM-only, tree-shakeable, side-effect free, and ships with zero 
 npm install stroid
 ```
 
-## Quick Example
-
-```js
-import { createStore, setStore } from "stroid/core"
-import { useStore } from "stroid/react"
-
-createStore("user", { name: "Eli", theme: "dark" })
-
-function Profile() {
-  const name = useStore("user", "name")
-  return <h1>Hello, {name}</h1>
-}
-
-setStore("user", "theme", "light")
-```
-
-The core path API uses `storeName` and `path` separately:
-
-- `setStore("user", "name", "Jo")`
-- `getStore("user", "name")`
-- `useStore("user", "name")`
-
-To replace the entire store value (no path), use `replaceStore`:
-
-- `replaceStore("user", { name: "Jo" })`
-
-## Mutation semantics (important)
-
-- `setStore(name, { ... })` is a **shallow** merge. Nested objects are replaced, not deep-merged.
-- For deep updates, use path writes: `setStore("user", "profile.name", "Ava")`.
-- `setStore(name, draft => { ... })` deep-clones the entire store before applying mutations. For large stores, prefer path writes or smaller stores to avoid expensive full clones.
-
-## What Ships
-
-- Core store primitives: `createStore`, `setStore`, `replaceStore`, `getStore`, `resetStore`, `deleteStore`, `createComputed`
-- React hooks: `useStore`, `useSelector`, `useStoreStatic`, `useAsyncStore`, `useFormStore`
-- Async helpers: `fetchStore`, `refetchStore`, `enableRevalidateOnFocus`
-- Per-store features: `persist`, `sync`, middleware, validator/schema, devtools, history
-- Utility helpers: selectors, metrics, testing helpers, entity/list/counter presets, SSR hydrate helpers
-- Runtime inspection via `stroid/runtime-tools` (`listStores`, `getStoreMeta`, `getMetrics`)
-- Lazy stores for expensive initial state (see below)
-- Store handles with autocomplete: `store("user")` returns `{ name: "user" }` for strongly typed calls
-- Store handles work across core and async APIs (for example, `fetchStore(store("user"), ...)`)
-- `createStore` returns `undefined` on failure; use `createStoreStrict(...)` to throw instead, or pass literal names / `store("name")` handles into setters
-
-## Highlights
-
-- Dot-path reads and writes with path validation
-- Draft-style mutator updates
-- Persistence with custom drivers, migrations, and recovery hooks
-- Async caching with TTL, dedupe, retries, and focus/online revalidation
-- BroadcastChannel sync with conflict resolution and payload size guardrails
-- No Provider required for React usage
-
-## Store handles and namespaces
-
-`store(name)` and `namespace(ns)` are small helpers that return typed handles for safer calls:
+## Minimal Usage
 
 ```ts
-import { store, namespace, setStore } from "stroid/core"
-import { fetchStore } from "stroid/async"
+import { createStore, getStore, setStore } from "stroid";
 
-const user = store("user")
-setStore(user, "name", "Ava")
-await fetchStore(user, "https://api.example.com/user")
+createStore("counter", { count: 0 });
+setStore("counter", "count", 1);
 
-const admin = namespace("admin")
-admin.create("session", { token: null })
+console.log(getStore("counter"));
 ```
-
-### Typed computed dependencies
-
-`createComputed` accepts store handles so dependency values are typed:
-
-```ts
-import { createComputed, store } from "stroid";
-
-const user = store<"user", { name: string }>("user");
-const prefs = store<"prefs", { theme: string }>("prefs");
-
-createComputed("userView", [user, prefs], (userState, prefsState) => ({
-  name: userState?.name ?? "Anonymous",
-  theme: prefsState?.theme ?? "light",
-}));
-```
-
-## Type-safe store names (TypeScript)
-
-If you want compile-time checking of store names and state, augment `StrictStoreMap`:
-
-```ts
-// src/stroid.d.ts
-import type { UserState } from "./types";
-
-declare module "stroid" {
-  interface StrictStoreMap {
-    user: UserState;
-    cart: { items: string[] };
-  }
-}
-
-// If you import from "stroid/core", add this too.
-declare module "stroid/core" {
-  interface StrictStoreMap {
-    user: UserState;
-    cart: { items: string[] };
-  }
-}
-```
-
-Now `createStore("user", ...)`, `setStore("user", ...)`, and `store("user")` are fully typed, and unknown store names are a type error.
-
-### Type safety without globals
-
-If you want strong typing without declaration merging, export store handles from one module:
-
-```ts
-// src/stores.ts
-import { store } from "stroid/core";
-
-export const userStore = store<"user", { name: string; age: number }>("user");
-export const cartStore = store<"cart", { items: string[] }>("cart");
-```
-
-Then use the handles everywhere:
-
-```ts
-import { setStore, getStore } from "stroid/core";
-import { userStore } from "./stores";
-
-setStore(userStore, "name", "Ava");
-const age = getStore(userStore, "age");
-```
-
-## Custom async store shapes
-
-`fetchStore` can write into custom shapes via `stateAdapter`:
-
-```ts
-import { createStore } from "stroid";
-import { fetchStore } from "stroid/async";
-
-createStore("customAsync", { items: [], loading: false, error: null });
-
-await fetchStore("customAsync", "/api/items", {
-  stateAdapter: ({ next, set }) => {
-    set((draft: any) => {
-      draft.loading = next.loading;
-      draft.error = next.error;
-      if (next.status === "success" && next.data) {
-        draft.items = next.data as any[];
-      }
-    });
-  },
-});
-```
-
-When `stateAdapter` is provided, the backing store must already exist.
-
-## Lazy stores
-
-If your initial state is expensive to build, pass a factory with `{ lazy: true }`:
-
-```ts
-createStore(
-  "heavyReport",
-  () => buildLargeInitialState(),
-  { lazy: true }
-)
-// the factory runs only on first access to "heavyReport"
-```
-
-> Note: lazy factories run only after the store is first read/updated. If you see `undefined` reads, make sure you haven’t disabled validation that would block materialization.
-
-## Performance knobs
-
-For large or frequently updated stores, you can trade some safety for speed:
-
-```ts
-createStore("feed", initialFeed, {
-  snapshot: "shallow", // or "ref"
-  persist: { checksum: "none" },
-});
-```
-
-Notes:
-- `snapshot: "shallow"` only clones the top level; nested objects are shared.
-- `snapshot: "ref"` returns the live store reference (no cloning).
-- `persist.checksum: "none"` skips integrity hashing during save/load.
-- `getStore(name)` deep-clones object stores on every call. For hot paths, prefer `getStore(name, "path")` to read a small leaf, or use selector subscriptions.
-- `setStore(name, draft => ...)` clones the entire store before mutating. For large stores, prefer path writes or smaller store shapes.
-
-## Global middleware
-
-To intercept every store write from one place, register global middleware:
-
-```ts
-import { configureStroid } from "stroid";
-
-configureStroid({
-  middleware: [
-    ({ name, next }) => {
-      if (name === "audit") return next;
-      return next;
-    },
-  ],
-});
-```
-
-Store-level middleware runs first; global middleware runs last.
-
-## Import paths that enable features
-
-The root import (`import { createStore } from "stroid"`) is side-effect free and does **not** register optional features. To use persistence, sync, or devtools you must import their side-effect modules once in your app:
-
-```ts
-import "stroid/persist";
-import "stroid/sync";
-import "stroid/devtools";
-```
-
-If you prefer explicit paths, you can also import from subpaths (`stroid/core`, `stroid/runtime-tools`, etc.), but remember to include the feature side-effect imports when you need them.
-
-> Important: If you forget these side-effect imports, Stroid throws by default to avoid silent feature failures. To opt out (not recommended), call `configureStroid({ strictFeatures: false })`.
-
-## Persistence and encryption
-
-The default `encrypt`/`decrypt` functions are identity (no encryption). If you store sensitive data, provide real encryption functions:
-
-```ts
-createStore("secrets", { token: "..." }, {
-  persist: {
-    encrypt: (plaintext) => encryptWithYourKey(plaintext),
-    decrypt: (ciphertext) => decryptWithYourKey(ciphertext),
-  },
-});
-```
-
-The persist feature warns in dev if your `encrypt` is identity, but the default is also identity—don’t rely on defaults for sensitive data.
-The default crypto marker is only for configuration detection; it does not provide any encryption.
-`encrypt`/`decrypt` are synchronous hooks. If you need async crypto (e.g. WebCrypto), encrypt before the value reaches persistence and store ciphertext instead.
-
-## SSR warning
-
-In production server environments (`NODE_ENV=production` and no `allowSSRGlobalStore`/`scope:"global"`), `createStore` returns `undefined` to prevent cross-request leaks. Handle this case or use `createStoreForRequest` inside each request scope.
-
-## Validation option behavior
-
-`validate` accepts:
-
-- A function: `(next) => boolean | nextValue`
-- A schema-like object (Zod/Yup/Joi/etc.)
-- A boolean (legacy): `true` is a no-op, `false` blocks all writes
-
-The boolean case exists for backward compatibility and is **not recommended**. Prefer a function or schema for explicit behavior.
 
 ## Docs
 
-- [The Book](./docs/README.md)
-- [Getting Started](./docs/02-getting-started.md)
-- [Core API](./docs/04-createStore.md)
-- [React](./docs/12-react.md)
-- [Async](./docs/13-async.md)
-- [Persistence](./docs/14-persist.md)
-- [Sync](./docs/15-sync.md)
-- [Testing](./docs/20-testing.md)
-- [Debugging Guide](./DEBUGGING.md)
-- [Roadmap](./docs/24-roadmap.md)
-
-## Package Entry Points
-
-- `stroid` exports the full public API
-- `stroid/core` exports the core store APIs
-- `stroid/react` exports the React hooks
-- `stroid/async` exports async helpers
-- `stroid/testing` exports test helpers
-
-## Notes
-
-- React is a peer dependency (`>=18`)
-- Node `>=18` is required
-- For non-React subscriptions, use `subscribeWithSelector` from `stroid/selectors` to avoid notifying on unrelated changes.
-- `v0.0.5` is the active development branch; `dist/` is release-managed and may be absent here or lag behind in-progress source changes until the next release build
-- Planned or not-yet-implemented ideas belong in the roadmap, not the API docs
-- Sync uses `BroadcastChannel` without origin authentication. Any same-origin tab can inject state; treat it as a trusted-origin channel.
-- Sync `sign`/`verify` are optional but recommended when you need to reject untrusted messages (hooks are synchronous).
-- Persist and sync checksums are for accidental corruption, not tamper-proof security.
-- `hydrateStores` expects trusted snapshots. If you hydrate from HTML, parse from a non-executable script tag and validate/sanitize before calling `hydrateStores`.
-- The feature plugin API (persist/sync/devtools registration) is internal and subject to change; third-party plugins are not supported yet.
-
-## License
-
-MIT @Himesh-Bhattarai
+- [Book Contents](docs/FRONT_MATTER/CONTENTS.md)
+- [Start Here](docs/BODY_MATTER/BEGINNER_GUIDE/START_HERE.md)
+- [Install and Imports](docs/BODY_MATTER/BEGINNER_GUIDE/INSTALL_AND_IMPORTS.md)
+- [Core of Stroid](docs/BODY_MATTER/CORE_OF_STROID/INTRODUCTION.md)
+- [React Layer](docs/BODY_MATTER/REACT_OF_STROID/INTRODUCTION.md)
+- [Async Layer](docs/BODY_MATTER/ASYNC_OF_STROID/INTRODUCTION.md)
+- [Persistence](docs/BODY_MATTER/PERSIST_OF_STROID/INTRODUCTION.md)
+- [Sync](docs/BODY_MATTER/SYNC_OF_STROID/INTRODUCTION.md)
+- [Runtime Operations](docs/BODY_MATTER/RUNTIME_OPERATIONS_OF_STROID/INTRODUCTION.md)
+- [Server and SSR](docs/BODY_MATTER/SERVER_OF_STROID/INTRODUCTION.md)
+- [Helpers](docs/BODY_MATTER/HELPERS_AND_CHAIN_OF_STROID/INTRODUCTION.md)

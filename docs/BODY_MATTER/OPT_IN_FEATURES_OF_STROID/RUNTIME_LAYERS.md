@@ -76,8 +76,12 @@ await fetchStore("products", "/api/products", {
   staleWhileRevalidate: true,
   dedupe: true,
   retry: 2,
+  autoCreate: true,
 });
 ```
+
+Note:
+`fetchStore` only auto-creates a backing store when `autoCreate` is enabled (or configured globally). Otherwise, create the store first or provide a `stateAdapter`.
 
 ### Example 7.4: Revalidation and Metrics
 
@@ -173,11 +177,11 @@ That is an architectural maturity move: the library says, "here is the official 
 
 ## Chapter 7 References/Further Reading
 
-- [src/hooks.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/hooks.ts)
-- [src/async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
-- [src/selectors-entry.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/selectors-entry.ts)
-- [docs/12-react.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/12-react.md)
-- [docs/13-async.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/docs/13-async.md)
+- [src/hooks.ts](/src/hooks.ts)
+- [src/async.ts](/src/async.ts)
+- [src/selectors-entry.ts](/src/selectors-entry.ts)
+- [Chapter 17: Introduction to React Stroid](../REACT_OF_STROID/INTRODUCTION.md)
+- [Chapter 9: Introduction to Async Stroid](../ASYNC_OF_STROID/INTRODUCTION.md)
 
 
 ## Navigation
@@ -185,3 +189,4 @@ That is an architectural maturity move: the library says, "here is the official 
 - Previous: [Chapter 6: Store-Attached Features](STORE_FEATURES.md)
 - Jump to: [Unit Two: Opt-In Features of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-two-opt-in-features-of-stroid)
 - Next: [Chapter 8: Power Tools and Utility Subpaths](POWER_TOOLS.md)
+

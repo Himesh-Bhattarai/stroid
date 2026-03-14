@@ -44,13 +44,18 @@ This subpath is intentionally narrow.
 
 ## 41.2 `createStoreForRequest`
 
-`createStoreForRequest` builds a request-local buffer with:
+`createStoreForRequest` builds a request-local buffer.
+
+Inside the initializer you receive:
 
 - `create`
 - `set`
 - `get`
-- `snapshot`
-- `hydrate`
+
+The returned object exposes:
+
+- `snapshot()`
+- `hydrate(renderFn, options?)`
 
 `create(name, data, options)` buffers both state and per-store options.
 That matters later because `hydrate()` can use those buffered options when it creates the real stores.
@@ -60,7 +65,7 @@ That matters later because `hydrate()` can use those buffered options when it cr
 ```ts
 const requestState = createStoreForRequest(({ create, set }) => {
   create("session", { user: null }, {
-    schema: (next: any) => next?.user === null || typeof next?.user?.id === "string",
+    validate: (next: any) => next?.user === null || typeof next?.user?.id === "string",
   });
   set("session", (draft: any) => {
     draft.user = { id: "u1" };
@@ -96,7 +101,7 @@ Isolation is the cost of correctness.
 
 ## Chapter 41 References/Further Reading
 
-- [src/server.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/server.ts)
+- [src/server.ts](/src/server.ts)
 
 
 ## Navigation
@@ -104,3 +109,4 @@ Isolation is the cost of correctness.
 - Previous: [Chapter 40: Real Use of Runtime Operations](../RUNTIME_OPERATIONS_OF_STROID/REAL_USE.md)
 - Jump to: [Unit Eleven: Server of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-eleven-server-of-stroid)
 - Next: [Chapter 42: Request Scope and Buffered Mutation](REQUEST_SCOPE.md)
+

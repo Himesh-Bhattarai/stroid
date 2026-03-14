@@ -35,7 +35,7 @@ Table 75.1: Reports That Are Already Handled Enough
 | 35 | No Need to Fix | sync snapshot request already exits quietly when resources are gone |
 | 37 | No Need to Fix | aborted inflight async entries are cleared in `finally` |
 | 43 | No Need to Fix | deferred persistence coalescing is behaving as designed |
-| 45 | No Need to Fix | `mergeStore(...)` already runs `onSet` |
+| 45 | No Need to Fix | `setStore(name, partialObject)` already runs `onSet` |
 | 48 | No Need to Fix | unsubscribe during flush does not skip later subscribers in the same pass |
 | 106 | No Need to Fix | subscriber added during flush does not run in that same pass |
 
@@ -49,7 +49,7 @@ Table 75.2: Small Edges That Do Not Deserve a Parade
 | 4 | No Need to Fix | async metadata clears on store delete; unlimited live stores are a bigger runtime choice |
 | 17 | No Need to Fix | warning-suppression set growth is tiny in practical terms |
 | 18 | No Need to Fix | `target()` is type-guarded enough for its ergonomic role |
-| 19 | No Need to Fix | `chain(...)` never promised to create missing parents magically |
+| 19 | No Need to Fix | `chain(...)` is not shipped in the current build; treat this as a forward-looking note |
 | 20 | No Need to Fix | default migration reset behavior is consistent with configured recovery policy |
 | 25 | No Need to Fix | `refetchStore(...)` intentionally reuses the latest remembered fetch definition |
 | 26 | No Need to Fix | async cache pruning is bounded by current slot caps |
@@ -117,14 +117,15 @@ then the bug probably belongs in this chapter.
 
 ## Chapter 75 References/Further Reading
 
-- [BUG_REPORT.md](/c:/Users/Himesh/Desktop/SM_STROID/stroid/BUG_REPORT.md)
-- [store.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/store.ts)
-- [async.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/async.ts)
-- [features/persist.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/persist.ts)
-- [features/devtools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/features/devtools.ts)
+- [BUG_REPORT.md](/BUG_REPORT.md)
+- [store.ts](/src/store.ts)
+- [async.ts](/src/async.ts)
+- [features/persist.ts](/src/features/persist.ts)
+- [features/devtools.ts](/src/features/devtools.ts)
 
 ## Navigation
 
 - Previous: [Chapter 74: Intentional Bugs, Guardrails, and Productive Friction](INTENTIONAL_BUGS.md)
 - Jump to: [Unit Seventeen: Bug as Helper](../../FRONT_MATTER/CONTENTS.md#unit-seventeen-bug-as-helper)
 - Next: [Chapter 76: Real Use of Bug as Helper](REAL_USE.md)
+

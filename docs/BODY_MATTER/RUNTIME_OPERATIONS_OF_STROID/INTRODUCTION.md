@@ -37,8 +37,18 @@ Operations APIs are where a library admits it has a registry, a lifecycle, and a
 Import paths:
 
 ```ts
-import { listStores, getStoreMeta, getInitialState, getMetrics } from "stroid/runtime-tools";
-import { clearAllStores } from "stroid/runtime-admin";
+import {
+  listStores,
+  getStoreMeta,
+  getInitialState,
+  getMetrics,
+  getSubscriberCount,
+  getAsyncInflightCount,
+  getPersistQueueDepth,
+  getComputedGraph,
+  getComputedDeps,
+} from "stroid/runtime-tools";
+import { clearAllStores, clearStores } from "stroid/runtime-admin";
 ```
 
 Table 37.1: Runtime Operations Split
@@ -96,8 +106,8 @@ That friction is often wisdom.
 
 ## Chapter 37 References/Further Reading
 
-- [src/runtime-tools.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-tools.ts)
-- [src/runtime-admin.ts](/c:/Users/Himesh/Desktop/SM_STROID/stroid/src/runtime-admin.ts)
+- [src/runtime-tools.ts](/src/runtime-tools.ts)
+- [src/runtime-admin.ts](/src/runtime-admin.ts)
 
 
 ## Navigation
@@ -105,3 +115,4 @@ That friction is often wisdom.
 - Previous: [Chapter 36: Real Use of Selectors Stroid](../SELECTORS_OF_STROID/REAL_USE.md)
 - Jump to: [Unit Ten: Runtime Operations of Stroid](../../FRONT_MATTER/CONTENTS.md#unit-ten-runtime-operations-of-stroid)
 - Next: [Chapter 38: Inspection Tools and Registry Visibility](INSPECTION_TOOLS.md)
+
