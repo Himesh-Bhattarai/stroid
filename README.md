@@ -17,6 +17,10 @@
 
 Stroid is a named-store state library for JavaScript and React. Core stays small; optional layers unlock persist, async caching, sync, and devtools.
 
+> **Note:** The `main` branch is reserved for releases and is locked between publishes. Current development happens on the `dev` branch. Please target PRs, pulls, and forks to the active development branch.
+
+> **Commits:** We prefer [STATUS-based commit messages](CONTRIBUTING.md)(STATUS.md) to maintain a clean, narrative, and high-quality git history.
+
 ## Table of Contents
 
 - [Install](#install)
