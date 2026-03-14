@@ -1,5 +1,5 @@
 import { createStore, setStore, hasStore, getStore } from "./store.js";
-import { error, warn, isDev, critical, deepClone, shallowClone } from "./utils.js";
+import { error, warn, isDev } from "./utils.js";
 import { getConfig } from "./internals/config.js";
 import { nameOf, type StoreDefinition, type StoreKey, type StoreName } from "./store-lifecycle.js";
 import {
@@ -30,6 +30,8 @@ import {
 } from "./async-cache.js";
 import { resetAsyncState } from "./async-cache.js";
 import { delay, normalizeRetryOptions, MAX_RETRY_DELAY_MS } from "./async-retry.js";
+import { cloneAsyncResult } from "./async/clone.js";
+import { reportAsyncUsageError, runAsyncHook, throwAsyncUsageError } from "./async/errors.js";
 import { buildFetchOptions, parseResponseBody } from "./async/request.js";
 const _wildcardCleanups: Array<() => void> = [];
 type AsyncState = AsyncStateSnapshot;
@@ -47,48 +49,6 @@ const _pruneRateCounters = (nowTs: number): void => {
             delete rateCount[key];
         }
     });
-};
-
-const _runAsyncHook = (
-    name: string,
-    label: "onSuccess" | "onError",
-    fn: ((value: any) => void) | undefined,
-    value: unknown
-): void => {
-    if (typeof fn !== "function") return;
-    try {
-        fn(value);
-    } catch (err) {
-        warn(`fetchStore("${name}") ${label} callback failed: ${(err as { message?: string })?.message ?? err}`);
-    }
-};
-
-const _reportAsyncUsageError = (
-    name: string,
-    message: string,
-    onError?: (message: string) => void
-): null => {
-    _runAsyncHook(name, "onError", onError, message);
-    if (isDev()) {
-        error(message);
-        return null;
-    }
-    critical(message);
-    return null;
-};
-
-const _throwAsyncUsageError = (
-    name: string,
-    message: string,
-    onError?: (message: string) => void
-): never => {
-    _runAsyncHook(name, "onError", onError, message);
-    if (isDev()) {
-        error(message);
-    } else {
-        critical(message);
-    }
-    throw new Error(message);
 };
 
 const _isCurrentRequest = (cacheSlot: string, version: number): boolean =>
@@ -137,13 +97,6 @@ const _settleAbort = (
         });
     }
     return null;
-};
-
-const cloneAsyncResult = (value: unknown, mode: FetchOptions["cloneResult"]): unknown => {
-    if (!mode || mode === "none") return value;
-    if (value === null || typeof value !== "object") return value;
-    if (mode === "shallow") return shallowClone(value);
-    return deepClone(value);
 };
 
 export function fetchStore<Name extends string, State>(
@@ -221,7 +174,7 @@ export async function fetchStore(
     const cloneMode = options.cloneResult ?? getConfig().asyncCloneResult;
 
     if (stateAdapter && !hasStore(name)) {
-        return _reportAsyncUsageError(
+        return reportAsyncUsageError(
             name,
             `fetchStore("${name}") with stateAdapter requires an existing backing store.\n` +
             `Call createStore("${name}", ...) first or omit stateAdapter to use the default AsyncState shape.`,
@@ -230,7 +183,7 @@ export async function fetchStore(
     }
 
     if (!hasStore(name) && isProdServer) {
-        return _reportAsyncUsageError(
+        return reportAsyncUsageError(
             name,
             `fetchStore("${name}") cannot create a backing store on the server in production.\n` +
             `Use createStoreForRequest(...) inside the request scope or create the store ahead of time with { allowSSRGlobalStore: true }.`,
@@ -240,7 +193,7 @@ export async function fetchStore(
 
     if (!hasStore(name)) {
         if (!autoCreate) {
-            return _reportAsyncUsageError(
+            return reportAsyncUsageError(
                 name,
                 `fetchStore("${name}") requires an existing backing store when autoCreate is disabled.\n` +
                 `Call createStore("${name}", ...) first or enable autoCreate.`,
@@ -262,7 +215,7 @@ export async function fetchStore(
             status: "idle",
         } as AsyncState);
         if (!hasStore(name)) {
-            return _reportAsyncUsageError(
+            return reportAsyncUsageError(
                 name,
                 `fetchStore("${name}") could not initialize its backing store.\n` +
                 `On the server in production, use createStoreForRequest(...) inside the request scope ` +
@@ -297,7 +250,7 @@ export async function fetchStore(
         const active = inflight[cacheSlot] as InflightEntry;
         asyncMetrics.dedupes += 1;
         if (transform && active.transform && active.transform !== transform) {
-            _reportAsyncUsageError(
+            reportAsyncUsageError(
                 name,
                 `fetchStore("${name}") cannot dedupe callers that use different transform functions for cacheSlot "${cacheSlot}".`,
                 onError
@@ -314,7 +267,7 @@ export async function fetchStore(
     const currentCount = rateCount[cacheSlot] ?? 0;
     if (windowStart !== undefined && nowTs - windowStart < RATE_WINDOW_MS) {
         if (currentCount >= RATE_MAX) {
-            return _reportAsyncUsageError(
+            return reportAsyncUsageError(
                 name,
                 `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for cacheSlot "${cacheSlot}".`,
                 onError
@@ -327,7 +280,7 @@ export async function fetchStore(
     }
 
     if (!inflight[cacheSlot] && countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
-        return _throwAsyncUsageError(
+        return throwAsyncUsageError(
             name,
             `fetchStore("${name}") exceeded ${MAX_INFLIGHT_SLOTS_PER_STORE} concurrent request slots. Reuse cacheKey values, wait for pending requests, or delete the store to clear async state.`,
             onError
@@ -415,7 +368,7 @@ export async function fetchStore(
 
                 const transformed = transform ? transform(result) : result;
                 if (transformed && typeof (transformed as any).then === "function") {
-                    return _reportAsyncUsageError(
+                    return reportAsyncUsageError(
                         name,
                         `fetchStore("${name}") transform must be synchronous. Return the transformed value directly instead of a Promise.`,
                         onError
@@ -448,7 +401,7 @@ export async function fetchStore(
                     revalidating: false,
                 });
 
-                _runAsyncHook(name, "onSuccess", onSuccess, cloned);
+                runAsyncHook(name, "onSuccess", onSuccess, cloned);
                 const elapsed = Date.now() - startedAt;
                 asyncMetrics.lastMs = elapsed;
                 asyncMetrics.avgMs = ((asyncMetrics.avgMs * (asyncMetrics.requests - 1)) + elapsed) / asyncMetrics.requests;
@@ -480,7 +433,7 @@ export async function fetchStore(
                     revalidating: false,
                 });
 
-                _runAsyncHook(name, "onError", onError, errorMessage);
+                runAsyncHook(name, "onError", onError, errorMessage);
                 asyncMetrics.failures += 1;
                 warn(`fetchStore("${name}") failed: ${errorMessage}`);
                 return null;
@@ -515,7 +468,7 @@ export async function fetchStore(
             cached: backgroundRevalidate,
             revalidating: false,
         });
-        _runAsyncHook(name, "onError", onError, errorMessage);
+        runAsyncHook(name, "onError", onError, errorMessage);
         asyncMetrics.failures += 1;
         warn(`fetchStore("${name}") failed: ${errorMessage}`);
         return null;
