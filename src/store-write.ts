@@ -76,6 +76,19 @@ type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
 
+const SLOW_MUTATOR_WARN_MS = 32;
+const slowMutatorWarned = new Set<string>();
+const warnSlowMutator = (storeName: string, elapsedMs: number): void => {
+    if (!isDev()) return;
+    if (elapsedMs < SLOW_MUTATOR_WARN_MS) return;
+    if (slowMutatorWarned.has(storeName)) return;
+    slowMutatorWarned.add(storeName);
+    warn(
+        `setStore("${storeName}", mutator) took ${elapsedMs}ms. ` +
+        `Mutator writes clone the entire store; consider path writes or smaller stores for hot paths.`
+    );
+};
+
 export const createStore = <Name extends string, State>(
     name: Name,
     initialData: State,
@@ -227,6 +240,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     const usedMutator = typeof keyOrData === "function" && value === undefined;
 
     if (usedMutator) {
+        const mutatorStart = isDev() ? Date.now() : 0;
         try {
             const draft = deepClone(prev);
             const result = (keyOrData as (draft: StoreValue) => void)(draft);
@@ -249,6 +263,10 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
             if (isTransactionActive()) markTransactionFailed(err);
             return { ok: false, reason: "validate" };
+        } finally {
+            if (mutatorStart) {
+                warnSlowMutator(storeName, Date.now() - mutatorStart);
+            }
         }
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) {
