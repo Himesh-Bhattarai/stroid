@@ -24,6 +24,8 @@ Sync options include:
 - `channel`
 - `maxPayloadBytes`
 - `conflictResolver`
+- `checksum`
+- `sign` / `verify`
 
 ### Example 14.1: Full Sync Configuration
 
@@ -46,6 +48,12 @@ Table 14.1: Sync Option Roles
 | `channel` | choose the peer room |
 | `maxPayloadBytes` | prevent oversized sync messages |
 | `conflictResolver` | custom decision when local and incoming disagree |
+| `checksum` | detect accidental corruption (not authentication) |
+| `sign` | attach an auth marker to outgoing payloads |
+| `verify` | accept or reject incoming payloads |
+
+Sync does not authenticate messages by default. If you care about origin or tampering, use `sign` and `verify`.
+`sign` must be synchronous (returning a Promise is rejected).
 
 ## 14.2 Ordering Rules
 

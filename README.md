@@ -230,6 +230,7 @@ createStore("secrets", { token: "..." }, {
 
 The persist feature warns in dev if your `encrypt` is identity, but the default is also identity—don’t rely on defaults for sensitive data.
 The default crypto marker is only for configuration detection; it does not provide any encryption.
+`encrypt`/`decrypt` are synchronous hooks. If you need async crypto (e.g. WebCrypto), encrypt before the value reaches persistence and store ciphertext instead.
 
 ## SSR warning
 
@@ -274,6 +275,9 @@ The boolean case exists for backward compatibility and is **not recommended**. P
 - `v0.0.5` is the active development branch; `dist/` is release-managed and may be absent here or lag behind in-progress source changes until the next release build
 - Planned or not-yet-implemented ideas belong in the roadmap, not the API docs
 - Sync uses `BroadcastChannel` without origin authentication. Any same-origin tab can inject state; treat it as a trusted-origin channel.
+- Sync `sign`/`verify` are optional but recommended when you need to reject untrusted messages (hooks are synchronous).
+- Persist and sync checksums are for accidental corruption, not tamper-proof security.
+- `hydrateStores` expects trusted snapshots. If you hydrate from HTML, parse from a non-executable script tag and validate/sanitize before calling `hydrateStores`.
 - The feature plugin API (persist/sync/devtools registration) is internal and subject to change; third-party plugins are not supported yet.
 
 ## License

@@ -162,6 +162,7 @@ hydrateStores(snapshot);
 ```
 
 This is where Stroid becomes especially useful: request scope and hydration let you think about bootstrapping as a controlled state handoff instead of a tangle of ad hoc serialization.
+Only hydrate trusted snapshots. If you read JSON from HTML, parse from a non-executable script tag and validate/sanitize before calling `hydrateStores`.
 
 ### Case Study 4.1: Choosing Scope Before Writing the Store
 

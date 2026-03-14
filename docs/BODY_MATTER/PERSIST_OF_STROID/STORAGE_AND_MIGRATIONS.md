@@ -43,7 +43,8 @@ Persisted data is wrapped in an envelope with:
 - checksum
 - serialized data
 
-That makes corruption detection and migration decisions possible.
+That makes accidental corruption detection and migration decisions possible.
+The checksum is not a cryptographic signature and does not prevent malicious tampering.
 
 If you are persisting very large stores and want to avoid the checksum cost,
 you can opt out:

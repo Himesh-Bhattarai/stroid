@@ -77,6 +77,8 @@ Table 25.1: Persist Option Surface
 | `onMigrationFail` | recovery strategy |
 | `onStorageCleared` | external-clear detection |
 
+`encrypt`/`decrypt` are synchronous hooks. If you need async crypto (e.g. WebCrypto), encrypt before persistence and store ciphertext in the state you persist.
+
 ### Example 25.2: Explicit Persist Shape
 
 ```ts
