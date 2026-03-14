@@ -9,6 +9,7 @@ import {
   _resetComputedForTests,
 } from "../src/computed.js";
 import { detectCycle, getTopoOrderedComputeds } from "../src/computed-graph.js";
+import { configureStroid, resetConfig } from "../src/config.js";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -81,6 +82,23 @@ test("detectCycle returns path string on cycle", async () => {
   const trace = detectCycle("n", ["m"]);
   assert.ok(typeof trace === "string");
   assert.ok(trace.includes("->"));
+});
+
+test("createComputed warns when dependencies are missing", () => {
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  try {
+    createComputed("missingDeps", ["ghostStore"], (value) => value);
+  } finally {
+    resetConfig();
+  }
+
+  assert.ok(warnings.some((msg) => msg.includes("dependencies not found")));
 });
 
 test("topo order: shallow dependency resolved first", () => {

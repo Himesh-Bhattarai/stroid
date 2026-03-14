@@ -1,14 +1,12 @@
 import test from "node:test";
 import assert from "node:assert";
 import React from "react";
-import { act, create, ReactTestRenderer } from "react-test-renderer";
+import { act, render } from "@testing-library/react";
 import { fetchStore } from "../src/async.js";
 import { asyncMetrics } from "../src/async-cache.js";
 import { useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../src/hooks.js";
 import { clearAllStores, createStore, setStore } from "../src/store.js";
 import { resetAllStoresForTest } from "../src/testing.js";
-
-(globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
 test("useStore inline primitive selector stays stable through unrelated updates", async () => {
   clearAllStores();
@@ -30,9 +28,9 @@ test("useStore inline primitive selector stays stable through unrelated updates"
     return React.createElement("span", null, name);
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(App));
+    ({ unmount } = render(React.createElement(App)));
   });
 
   assert.strictEqual(renderCount, 1);
@@ -53,7 +51,7 @@ test("useStore inline primitive selector stays stable through unrelated updates"
   assert.deepStrictEqual(seen, ["Alex", "Jordan"]);
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });
 
@@ -81,9 +79,9 @@ test("useStore inline object selector with custom equality does not loop or rere
     return React.createElement("span", null, selected?.name ?? "");
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(App));
+    ({ unmount } = render(React.createElement(App)));
   });
 
   assert.strictEqual(renderCount, 1);
@@ -104,7 +102,7 @@ test("useStore inline object selector with custom equality does not loop or rere
   assert.deepStrictEqual(seen, ["Alex", "Jordan"]);
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });
 
@@ -125,9 +123,9 @@ test("useStoreField rerenders only when the selected field changes", async () =>
     return React.createElement("span", null, name ?? "");
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(App));
+    ({ unmount } = render(React.createElement(App)));
   });
 
   await act(async () => {
@@ -142,7 +140,7 @@ test("useStoreField rerenders only when the selected field changes", async () =>
   assert.deepStrictEqual(seen, ["Alex", "Jordan"]);
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });
 
@@ -165,9 +163,9 @@ test("useSelector applies default shallow equality to object selections", async 
     return React.createElement("span", null, selected?.name ?? "");
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(App));
+    ({ unmount } = render(React.createElement(App)));
   });
 
   await act(async () => {
@@ -182,7 +180,7 @@ test("useSelector applies default shallow equality to object selections", async 
   assert.deepStrictEqual(seen, ["Alex", "Jordan"]);
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });
 
@@ -199,9 +197,9 @@ test("selector hooks can mount before createStore and update when the store appe
     return React.createElement("span", null, nameFromUseStore ?? "");
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(App));
+    ({ unmount } = render(React.createElement(App)));
   });
 
   assert.deepStrictEqual(seenUseStore, [null]);
@@ -219,7 +217,7 @@ test("selector hooks can mount before createStore and update when the store appe
   assert.deepStrictEqual(seenUseSelector, [null, "Alex", "Jordan"]);
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });
 
@@ -249,9 +247,9 @@ test("useAsyncStoreSuspense does not reissue fetches when options are omitted", 
     React.createElement(App)
   );
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(Root));
+    ({ unmount } = render(React.createElement(Root)));
   });
 
   const dedupesBefore = asyncMetrics.dedupes;
@@ -268,7 +266,7 @@ test("useAsyncStoreSuspense does not reissue fetches when options are omitted", 
   });
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });
 
@@ -286,9 +284,9 @@ test("useStoreStatic returns a snapshot without subscribing to later updates", a
     return React.createElement("span", null, String(value ?? ""));
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(App));
+    ({ unmount } = render(React.createElement(App)));
   });
 
   await act(async () => {
@@ -299,7 +297,7 @@ test("useStoreStatic returns a snapshot without subscribing to later updates", a
   assert.deepStrictEqual(seen, [1]);
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });
 
@@ -340,10 +338,10 @@ test("useAsyncStore reflects fetchStore loading and success state", async () => 
     return React.createElement("span", null, asyncState.status);
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   try {
     await act(async () => {
-      renderer = create(React.createElement(App));
+      ({ unmount } = render(React.createElement(App)));
     });
 
     const request = fetchStore("asyncHookStore", "https://api.example.com/hook", {
@@ -367,7 +365,7 @@ test("useAsyncStore reflects fetchStore loading and success state", async () => 
   } finally {
     globalThis.fetch = realFetch;
     await act(async () => {
-      renderer.unmount();
+      unmount();
     });
   }
 });
@@ -408,9 +406,9 @@ test("useAsyncStore isEmpty treats falsy successful payloads as non-empty", asyn
     return React.createElement("span", null, "ready");
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(App));
+    ({ unmount } = render(React.createElement(App)));
   });
 
   assert.deepStrictEqual(seen, [{
@@ -420,7 +418,7 @@ test("useAsyncStore isEmpty treats falsy successful payloads as non-empty", asyn
   }]);
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });
 
@@ -438,9 +436,9 @@ test("useFormStore updates store values from direct values and input events", as
     return React.createElement("span", null, form.value ?? "");
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(App));
+    ({ unmount } = render(React.createElement(App)));
   });
 
   await act(async () => {
@@ -455,7 +453,7 @@ test("useFormStore updates store values from direct values and input events", as
   assert.strictEqual(useStoreStatic("formStore", "profile.name"), "Taylor");
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });
 
@@ -471,9 +469,9 @@ test("useFormStore uses checked for checkbox inputs", async () => {
     return React.createElement("span", null, String(form.value));
   };
 
-  let renderer!: ReactTestRenderer;
+  let unmount!: () => void;
   await act(async () => {
-    renderer = create(React.createElement(App));
+    ({ unmount } = render(React.createElement(App)));
   });
 
   await act(async () => {
@@ -483,6 +481,6 @@ test("useFormStore uses checked for checkbox inputs", async () => {
   assert.strictEqual(useStoreStatic("checkboxFormStore", "accepted"), true);
 
   await act(async () => {
-    renderer.unmount();
+    unmount();
   });
 });

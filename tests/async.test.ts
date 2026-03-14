@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { enableRevalidateOnFocus, fetchStore, getAsyncMetrics, refetchStore } from "../src/async.js";
+import { configureStroid, resetConfig } from "../src/config.js";
 import { getStore, clearAllStores, deleteStore, createStore } from "../src/store.js";
 
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
@@ -46,6 +47,27 @@ test("fetchStore stateAdapter writes into a custom store shape", async () => {
   const state = getStore("customAsync");
   assert.deepStrictEqual(state, { items: [1, 2], loading: false, error: null });
   assert.strictEqual((state as any)?.status, undefined);
+});
+
+test("fetchStore warns when overwriting a non-async store without stateAdapter", async () => {
+  clearAllStores();
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  try {
+    createStore("profile", { name: "Alex" });
+    await fetchStore("profile", Promise.resolve({ name: "Jordan" }), { dedupe: false });
+  } finally {
+    resetConfig();
+  }
+
+  assert.ok(warnings.some((msg) => msg.includes("non-async store")));
+  const state = getStore("profile") as any;
+  assert.strictEqual(state?.status, "success");
 });
 
 test("fetchStore dedupes inflight requests", async () => {

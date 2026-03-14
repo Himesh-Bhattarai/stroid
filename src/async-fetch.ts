@@ -10,6 +10,7 @@ import {
     fetchRegistry,
     MAX_INFLIGHT_SLOTS_PER_STORE,
     noSignalWarned,
+    shapeWarned,
     autoCreateWarned,
     ensureCleanupSubscription,
     pruneAsyncCache,
@@ -41,6 +42,12 @@ import { buildFetchOptions, parseResponseBody } from "./async/request.js";
 const _wildcardCleanups: Array<() => void> = [];
 const MAX_NO_SIGNAL_WARNED = 1000;
 type AsyncState = AsyncStateSnapshot;
+
+const looksLikeAsyncState = (value: unknown): boolean => {
+    if (!value || typeof value !== "object") return false;
+    const record = value as Record<string, unknown>;
+    return ("data" in record) && ("loading" in record) && ("error" in record) && ("status" in record);
+};
 
 const _applyAsyncState = (
     name: string,
@@ -214,6 +221,17 @@ export async function fetchStore(
                 `On the server in production, use createStoreForRequest(...) inside the request scope ` +
                 `or create the store with { allowSSRGlobalStore: true } before calling fetchStore.`,
                 onError
+            );
+        }
+    }
+
+    if (!stateAdapter && isDev() && !shapeWarned.has(name)) {
+        const existing = getStore({ name } as StoreDefinition<string, unknown>);
+        if (!looksLikeAsyncState(existing)) {
+            shapeWarned.add(name);
+            warn(
+                `fetchStore("${name}") is writing AsyncState into an existing non-async store. ` +
+                `Provide a stateAdapter or create the store with the async shape to avoid overwriting fields.`
             );
         }
     }

@@ -49,6 +49,55 @@ test("persist setItem errors surface via onError without throwing", async () => 
   clearAllStores();
 });
 
+test("persist restores state across reloads", async () => {
+  clearAllStores();
+  let stored: string | null = null;
+  const driver = {
+    getItem: () => stored,
+    setItem: (_key: string, value: string) => {
+      stored = value;
+    },
+    removeItem: () => {
+      stored = null;
+    },
+  };
+  const persist = {
+    driver,
+    key: "reload-store",
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encrypt: (v: string) => v,
+    decrypt: (v: string) => v,
+    allowPlaintext: true,
+  };
+
+  createStore("reloadStore", { value: 1 }, { persist });
+  setStore("reloadStore", { value: 2 });
+  const startedAt = Date.now();
+  let persistedValue: number | null = null;
+  while (Date.now() - startedAt < 100) {
+    if (stored) {
+      try {
+        const envelope = JSON.parse(stored);
+        const data = JSON.parse(envelope.data);
+        if (typeof data?.value === "number") {
+          persistedValue = data.value;
+          if (persistedValue === 2) break;
+        }
+      } catch {
+        // ignore parse errors during writes
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.strictEqual(persistedValue, 2, "expected persisted payload to capture the updated value before reload");
+
+  resetAllStoresForTest();
+
+  createStore("reloadStore", { value: 0 }, { persist });
+  assert.deepStrictEqual(getStore("reloadStore"), { value: 2 });
+});
+
 test("persist sensitiveData stores require encrypt hooks at creation time", () => {
   clearAllStores();
 

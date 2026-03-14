@@ -62,6 +62,7 @@ export const cleanupSubs = createAsyncObjectProxy(() => getActiveAsyncRegistry()
 export const storeCleanupFns = createAsyncObjectProxy(() => getActiveAsyncRegistry().storeCleanupFns);
 export const revalidateHandlers = createAsyncObjectProxy(() => getActiveAsyncRegistry().revalidateHandlers);
 export const noSignalWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().noSignalWarned);
+export const shapeWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().shapeWarned);
 export const autoCreateWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().autoCreateWarned);
 export const revalidateKeys = createAsyncValueProxy(() => getActiveAsyncRegistry().revalidateKeys);
 export const asyncMetrics = createAsyncValueProxy(() => getActiveAsyncRegistry().asyncMetrics);
@@ -86,6 +87,7 @@ export const shouldUseCache = (cacheSlot: string, ttl?: number): boolean => {
 export const clearAsyncMeta = (name: string): void => {
     delete fetchRegistry[name];
     noSignalWarned.delete(name);
+    shapeWarned.delete(name);
     autoCreateWarned.delete(name);
 
     const startsWithName = (key: string) => key === name || key.startsWith(`${name}:`);

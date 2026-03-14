@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 jobs:
   test:
@@ -14,7 +16,7 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm ci
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run test:types
       - run: npm run typecheck
       - run: npm run build
