@@ -2,9 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.1.0 - 2026-03-14
 ### Added
 - `configureStroid({ strictMissingFeatures: true })` option to hard-fail when a feature is requested without its side-effect registration import.
+- `configureStroid({ allowUntrustedHydration: true })` to opt in to hydrateStores on untrusted snapshots.
+- `configureStroid({ mutatorProduce })` to plug in a structural-sharing mutator engine (e.g. Immer).
 - `getSubscriberCount`, `getAsyncInflightCount`, and `getPersistQueueDepth` observability helpers in `runtime-tools`.
 - `configureStroid({ assertRuntime: true })` option to throw on warnings/errors for test-time assertions.
 - `createComputed(...)` for reactive derived stores.
@@ -23,6 +25,7 @@ All notable changes to this project will be documented in this file.
 - `useStore` overloads now return non-nullable values when called with `StoreKey`/`StoreDefinition` handles.
 - Persist internals split into `features/persist/*` (crypto/load/save/watch/types) to keep responsibilities isolated.
 - `fetchStore` now warns in dev when it auto-creates a missing store (to surface typos early).
+- `fetchStore` now refuses to overwrite non-async store shapes unless a `stateAdapter` is provided.
 - `fetchStore` now hard-fails when the per-store inflight slot limit is exceeded (throws instead of returning `null`).
 - Selector cache logic in React hooks is shared between `useStore` and `useSelector` to avoid duplicate implementations and ensure consistent selector identity checks.
 - Feature hook context creation now avoids full object spread copies on every write/delete to reduce overhead.
@@ -31,6 +34,9 @@ All notable changes to this project will be documented in this file.
 - `useAsyncStoreSuspense` now triggers/awaits async fetches and reuses inflight promises for React Suspense integration.
 - Mutator-based `setStore` now honors non-undefined return values to replace draft updates.
 - Mutator-based `setStore` now warns in dev when a mutator returns a value, since return values replace the entire store.
+- `hydrateStores` now requires explicit trust via the third argument or `configureStroid({ allowUntrustedHydration: true })` (breaking for implicit hydration).
+- Persist now supports async crypto hooks (`encryptAsync`/`decryptAsync`) and `checksum: "sha256"` for stronger integrity checks.
+- `sanitize` now rejects non-serializable host objects (WeakRef/EventTarget/streams) earlier instead of letting clone fallbacks fail later.
 
 ### Fixed
 - `deleteStore` no longer emits an intermediate null notification before deletion, preventing double-render transitions.
@@ -47,6 +53,7 @@ All notable changes to this project will be documented in this file.
 - `deepClone` fallback now preserves Dates consistently (no JSON stringify fallback).
 - `hashState` now handles circular structures and uses a stronger 53-bit hash for non-string inputs while preserving legacy checksums for strings.
 - Chunked notification delivery now defers remaining subscribers if the store updates mid-flush, avoiding mixed snapshots in a single delivery.
+- Chunked notification delivery now includes subscribers added mid-flush in the same notification cycle.
 - `_hardResetAllStoresForTest` is no longer exported from the main package entry; it remains in `stroid/testing`.
 - Async rate limiter now initializes per-slot windows and prunes stale metadata to avoid unbounded growth.
 - Computed cleanup registrations are now scoped to the active registry, preventing cross-request leaks in SSR.

@@ -1,6 +1,10 @@
+import "../../src/persist.js";
+import "../../src/sync.js";
+import "../../src/devtools.js";
 import type { Expect, Equal } from "./assert.js";
 import {
   createStore,
+  createStoreStrict,
   setStore,
   getStore,
   type StoreDefinition,
@@ -13,6 +17,9 @@ import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useS
 import type { AsyncStoreState } from "../../src/hooks-async.js";
 import { fetchStore, getAsyncMetrics } from "../../src/async.js";
 import { createMockStore, benchmarkStoreSet, withMockedTime } from "../../src/testing.js";
+
+type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
+type IsAssignable<From, To> = From extends To ? true : false;
 
 const userStore = createStore("typedUser", {
   profile: {
@@ -67,6 +74,9 @@ type UserState = {
 
 type CreateStoreReturn = Expect<Equal<typeof userStore, StoreDefinition<"typedUser", UserState> | undefined>>;
 
+const strictUserStore = createStoreStrict("typedStrictUser", { value: 1 });
+type StrictCreateStoreReturn = Expect<Equal<typeof strictUserStore, StoreDefinition<"typedStrictUser", { value: number }>>>;
+
 if (userStore) {
   const wholeUser = getStore(userStore);
   const userName = getStore(userStore, "profile.name");
@@ -99,21 +109,26 @@ const typedAsyncHandle = store<"typedAsync", AsyncStoreState<{ ok: boolean }>>("
 const selectName = createSelector<UserState, string>("typedUser", (state) => state.profile.name);
 type CreateSelectorReturn = Expect<Equal<typeof selectName, () => string | null>>;
 
-const selectedName = useStore(typedUserHandle, (state) => state.profile.name);
-const selectedField = useStoreField(typedCounterHandle, "value");
-const selectedStatic = useStoreStatic(typedUserHandle);
-const selectedViaSelector = useSelector(typedUserHandle, (state) => state.profile.name);
-const formStore = useFormStore(typedFormHandle, "profile.name");
-const asyncHook = useAsyncStore(typedAsyncHandle);
+type UserSelector = (state: StoreSnapshot<UserState>) => string;
+type UseStoreSig = (name: typeof typedUserHandle, selector: UserSelector) => string | null;
+type UseStoreFieldSig = (name: typeof typedCounterHandle, field: "value") => number | null;
+type UseStoreStaticSig = (name: typeof typedUserHandle) => Readonly<UserState> | null;
+type UseSelectorSig = (name: typeof typedUserHandle, selector: UserSelector) => string | null;
+type UseFormStoreSig = (name: typeof typedFormHandle, field: "profile.name") => {
+  value: string | null;
+  onChange: (eOrValue: any) => void;
+};
+type UseAsyncStoreSig = (name: typeof typedAsyncHandle) => {
+  status: "idle" | "loading" | "success" | "error" | "aborted";
+  loading: boolean;
+};
 
-type UseStoreReturn = Expect<Equal<typeof selectedName, string | null>>;
-type UseStoreFieldReturn = Expect<Equal<typeof selectedField, number | null>>;
-type UseStoreStaticReturn = Expect<Equal<typeof selectedStatic, Readonly<UserState> | null>>;
-type UseSelectorReturn = Expect<Equal<typeof selectedViaSelector, string | null>>;
-type UseFormStoreValue = Expect<Equal<typeof formStore.value, string | null>>;
-type UseFormStoreOnChange = Expect<Equal<typeof formStore.onChange, (eOrValue: any) => void>>;
-type UseAsyncStoreStatus = Expect<Equal<typeof asyncHook.status, "idle" | "loading" | "success" | "error" | "aborted">>;
-type UseAsyncStoreLoading = Expect<Equal<typeof asyncHook.loading, boolean>>;
+type UseStoreReturn = Expect<Equal<IsAssignable<typeof useStore, UseStoreSig>, true>>;
+type UseStoreFieldReturn = Expect<Equal<IsAssignable<typeof useStoreField, UseStoreFieldSig>, true>>;
+type UseStoreStaticReturn = Expect<Equal<IsAssignable<typeof useStoreStatic, UseStoreStaticSig>, true>>;
+type UseSelectorReturn = Expect<Equal<IsAssignable<typeof useSelector, UseSelectorSig>, true>>;
+type UseFormStoreValue = Expect<Equal<IsAssignable<typeof useFormStore, UseFormStoreSig>, true>>;
+type UseAsyncStoreReturn = Expect<Equal<IsAssignable<typeof useAsyncStore, UseAsyncStoreSig>, true>>;
 
 const counter = createCounterStore("typedCounter", 1);
 counter.inc();

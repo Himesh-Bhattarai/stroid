@@ -7,6 +7,7 @@ type RuntimeToolsApi = typeof import("../../src/runtime-tools.js");
 type RuntimeAdminApi = typeof import("../../src/runtime-admin.js");
 
 declare const createStore: PackageApi["createStore"];
+declare const createStoreStrict: PackageApi["createStoreStrict"];
 
 const declaredStore = createStore("declaredUser", { value: 1 }, {
   persist: {
@@ -24,6 +25,9 @@ const declaredStore = createStore("declaredUser", { value: 1 }, {
 });
 
 type DeclaredCreateStoreReturn = Expect<Equal<typeof declaredStore, { name: "declaredUser"; state?: { value: number } } | undefined>>;
+
+const declaredStrictStore = createStoreStrict("declaredStrict", { value: 1 });
+type DeclaredStrictCreateStoreReturn = Expect<Equal<typeof declaredStrictStore, { name: "declaredStrict"; state?: { value: number } }>>;
 
 const persistOptions: PersistOptions = {
   onMigrationFail: (state: unknown) => state,

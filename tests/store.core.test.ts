@@ -97,7 +97,7 @@ test("createStore and hydrateStores reject forbidden store names", () => {
   assert.strictEqual(hasStore("__proto__"), false);
 
   const snapshot = JSON.parse('{"__proto__":{"polluted":true},"constructor":{"x":1},"valid":{"ok":true}}');
-  const result = hydrateStores(snapshot);
+  const result = hydrateStores(snapshot, {}, { allowUntrusted: true });
 
   assert.strictEqual(result.failed["__proto__"], "invalid-name");
   assert.strictEqual(result.failed["constructor"], "invalid-name");

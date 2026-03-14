@@ -66,7 +66,7 @@ export const createStoreForRequest = (
 
             return serverRegistryContext.run(registry, () =>
                 serverAsyncContext.run(deepClone(buffer), () => {
-                    hydrateStores(buffer, merged);
+                    hydrateStores(buffer, merged, { allowUntrusted: true });
                     return renderFn();
                 })
             );

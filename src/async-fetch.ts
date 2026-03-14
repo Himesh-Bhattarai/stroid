@@ -1,5 +1,5 @@
-import { createStore, setStore, hasStore } from "./store.js";
-import { error, warn, isDev, critical, deepClone, shallowClone } from "./utils.js";
+import { createStore, setStore, hasStore, getStore } from "./store.js";
+import { error, warn, isDev } from "./utils.js";
 import { getConfig } from "./internals/config.js";
 import { nameOf, type StoreDefinition, type StoreKey, type StoreName } from "./store-lifecycle.js";
 import {
@@ -8,102 +8,83 @@ import {
     cleanupSubs,
     countInflightSlots,
     fetchRegistry,
-    inflight,
     MAX_INFLIGHT_SLOTS_PER_STORE,
+    markWarned,
     noSignalWarned,
+    shapeWarned,
     autoCreateWarned,
     ensureCleanupSubscription,
     pruneAsyncCache,
     registerStoreCleanup,
-    requestVersion,
     revalidateHandlers,
     revalidateKeys,
-    shouldUseCache,
     storeCleanupFns,
     unregisterStoreCleanup,
-    rateWindowStart,
-    rateCount,
-    ratePruneState,
+    shouldUseCache,
     type FetchInput,
     type FetchOptions,
+    type AsyncStateSnapshot,
 } from "./async-cache.js";
 import { resetAsyncState } from "./async-cache.js";
 import { delay, normalizeRetryOptions, MAX_RETRY_DELAY_MS } from "./async-retry.js";
+import { cloneAsyncResult } from "./async/clone.js";
+import { reportAsyncUsageError, runAsyncHook } from "./async/errors.js";
+import {
+    clearInflightEntry,
+    clearRequestVersion,
+    hasInflightEntry,
+    isCurrentRequest,
+    reserveRequestVersion,
+    setInflightEntry,
+    tryDedupeRequest,
+} from "./async/inflight.js";
+import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit, scheduleRatePrune } from "./async/rate.js";
+import { buildFetchOptions, parseResponseBody } from "./async/request.js";
 const _wildcardCleanups: Array<() => void> = [];
-type AsyncState = {
-    data: unknown;
-    loading: boolean;
-    error: string | null;
-    status: "idle" | "loading" | "success" | "error" | "aborted";
-    cached?: boolean;
-    revalidating?: boolean;
+type AsyncState = AsyncStateSnapshot;
+
+const looksLikeAsyncState = (value: unknown): boolean => {
+    if (!value || typeof value !== "object") return false;
+    const record = value as Record<string, unknown>;
+    return ("data" in record) && ("loading" in record) && ("error" in record) && ("status" in record);
 };
 
-type InflightEntry = { promise: Promise<unknown>; raw: Promise<unknown>; transform?: FetchOptions["transform"] };
-
-const RATE_WINDOW_MS = 1000;
-const RATE_MAX = 100;
-const _pruneRateCounters = (nowTs: number): void => {
-    if (nowTs - ratePruneState.lastAt < RATE_WINDOW_MS) return;
-    ratePruneState.lastAt = nowTs;
-    Object.keys(rateWindowStart).forEach((key) => {
-        if (nowTs - (rateWindowStart[key] ?? 0) > RATE_WINDOW_MS) {
-            delete rateWindowStart[key];
-            delete rateCount[key];
-        }
-    });
-};
-
-const _runAsyncHook = (
+const _applyAsyncState = (
     name: string,
-    label: "onSuccess" | "onError",
-    fn: ((value: any) => void) | undefined,
-    value: unknown
+    storeHandle: StoreDefinition<string, AsyncState>,
+    next: AsyncStateSnapshot,
+    options: FetchOptions
 ): void => {
-    if (typeof fn !== "function") return;
-    try {
-        fn(value);
-    } catch (err) {
-        warn(`fetchStore("${name}") ${label} callback failed: ${(err as { message?: string })?.message ?? err}`);
+    if (!hasStore(name)) return;
+    if (options.stateAdapter) {
+        try {
+            const prev = getStore({ name } as StoreDefinition<string, unknown>);
+            const set = (value: unknown | ((draft: any) => void)) => {
+                setStore(storeHandle as StoreDefinition<string, any>, value as any);
+            };
+            options.stateAdapter({
+                name,
+                prev,
+                next,
+                set,
+            });
+        } catch (err) {
+            warn(`fetchStore("${name}") stateAdapter failed: ${(err as { message?: string })?.message ?? err}`);
+        }
+        return;
     }
+    setStore(storeHandle, next as AsyncState);
 };
 
-const _reportAsyncUsageError = (
+const _settleAbort = (
     name: string,
-    message: string,
-    onError?: (message: string) => void
+    cacheSlot: string,
+    version: number,
+    applyState: (next: AsyncStateSnapshot) => void
 ): null => {
-    _runAsyncHook(name, "onError", onError, message);
-    if (isDev()) {
-        error(message);
-        return null;
-    }
-    critical(message);
-    return null;
-};
-
-const _throwAsyncUsageError = (
-    name: string,
-    message: string,
-    onError?: (message: string) => void
-): never => {
-    _runAsyncHook(name, "onError", onError, message);
-    if (isDev()) {
-        error(message);
-    } else {
-        critical(message);
-    }
-    throw new Error(message);
-};
-
-const _isCurrentRequest = (cacheSlot: string, version: number): boolean =>
-    (requestVersion[cacheSlot] ?? 0) === version;
-
-const _settleAbort = (name: string, cacheSlot: string, version: number): null => {
     warn(`fetchStore("${name}") aborted`);
-    if (_isCurrentRequest(cacheSlot, version) && hasStore(name)) {
-        const handle = { name } as StoreDefinition<string, AsyncState>;
-        setStore(handle, {
+    if (isCurrentRequest(cacheSlot, version) && hasStore(name)) {
+        applyState({
             loading: false,
             error: "aborted",
             status: "aborted",
@@ -111,13 +92,6 @@ const _settleAbort = (name: string, cacheSlot: string, version: number): null =>
         });
     }
     return null;
-};
-
-const cloneAsyncResult = (value: unknown, mode: FetchOptions["cloneResult"]): unknown => {
-    if (!mode || mode === "none") return value;
-    if (value === null || typeof value !== "object") return value;
-    if (mode === "shallow") return shallowClone(value);
-    return deepClone(value);
 };
 
 export function fetchStore<Name extends string, State>(
@@ -156,6 +130,7 @@ export async function fetchStore(
         transform,
         onSuccess,
         onError,
+        stateAdapter,
         method,
         headers,
         body,
@@ -171,13 +146,15 @@ export async function fetchStore(
     } = options;
 
     if (!signal && isDev() && !noSignalWarned.has(name)) {
-        noSignalWarned.add(name);
+        markWarned(noSignalWarned, name);
         warn(
             `fetchStore("${name}") called without an AbortSignal. Provide "signal" to enable cancellation (recommended).`
         );
     }
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
+    const applyState = (next: AsyncStateSnapshot) =>
+        _applyAsyncState(name, storeHandle, next, options);
     const isDirectPromiseInput =
         typeof urlOrRequest !== "string"
         && typeof urlOrRequest !== "function"
@@ -191,8 +168,17 @@ export async function fetchStore(
     const autoCreate = options.autoCreate ?? getConfig().asyncAutoCreate;
     const cloneMode = options.cloneResult ?? getConfig().asyncCloneResult;
 
+    if (stateAdapter && !hasStore(name)) {
+        return reportAsyncUsageError(
+            name,
+            `fetchStore("${name}") with stateAdapter requires an existing backing store.\n` +
+            `Call createStore("${name}", ...) first or omit stateAdapter to use the default AsyncState shape.`,
+            onError
+        );
+    }
+
     if (!hasStore(name) && isProdServer) {
-        return _reportAsyncUsageError(
+        return reportAsyncUsageError(
             name,
             `fetchStore("${name}") cannot create a backing store on the server in production.\n` +
             `Use createStoreForRequest(...) inside the request scope or create the store ahead of time with { allowSSRGlobalStore: true }.`,
@@ -202,7 +188,7 @@ export async function fetchStore(
 
     if (!hasStore(name)) {
         if (!autoCreate) {
-            return _reportAsyncUsageError(
+            return reportAsyncUsageError(
                 name,
                 `fetchStore("${name}") requires an existing backing store when autoCreate is disabled.\n` +
                 `Call createStore("${name}", ...) first or enable autoCreate.`,
@@ -210,7 +196,7 @@ export async function fetchStore(
             );
         }
         if (isDev() && !autoCreateWarned.has(name)) {
-            autoCreateWarned.add(name);
+            markWarned(autoCreateWarned, name);
             const message =
                 `fetchStore("${name}") auto-created its backing store.\n` +
                 `Call createStore("${name}", ...) first to avoid typos creating phantom stores.`;
@@ -224,7 +210,7 @@ export async function fetchStore(
             status: "idle",
         } as AsyncState);
         if (!hasStore(name)) {
-            return _reportAsyncUsageError(
+            return reportAsyncUsageError(
                 name,
                 `fetchStore("${name}") could not initialize its backing store.\n` +
                 `On the server in production, use createStoreForRequest(...) inside the request scope ` +
@@ -233,15 +219,29 @@ export async function fetchStore(
             );
         }
     }
+
+    if (!stateAdapter) {
+        const existing = getStore({ name } as StoreDefinition<string, unknown>);
+        if (existing && !looksLikeAsyncState(existing)) {
+            if (!shapeWarned.has(name)) markWarned(shapeWarned, name);
+            return reportAsyncUsageError(
+                name,
+                `fetchStore("${name}") cannot write AsyncState into an existing non-async store. ` +
+                `Provide a stateAdapter or create the store with the async shape to avoid overwriting fields.`,
+                onError
+            );
+        }
+    }
     ensureCleanupSubscription(name);
 
     let cachedData: unknown = null;
     let backgroundRevalidate = false;
+    const readCachedData = () => cacheMeta[cacheSlot]?.data ?? null;
 
     if (shouldUseCache(cacheSlot, ttl)) {
         asyncMetrics.cacheHits += 1;
-        cachedData = cacheMeta[cacheSlot].data;
-        setStore(storeHandle, {
+        cachedData = readCachedData();
+        applyState({
             data: cachedData,
             loading: staleWhileRevalidate,
             error: null,
@@ -255,52 +255,34 @@ export async function fetchStore(
         asyncMetrics.cacheMisses += 1;
     }
 
-    if (dedupe && inflight[cacheSlot]) {
-        const active = inflight[cacheSlot] as InflightEntry;
-        asyncMetrics.dedupes += 1;
-        if (transform && active.transform && active.transform !== transform) {
-            _reportAsyncUsageError(
-                name,
-                `fetchStore("${name}") cannot dedupe callers that use different transform functions for cacheSlot "${cacheSlot}".`,
-                onError
-            );
-            return null;
-        }
-        if (!transform || active.transform === transform) return active.promise;
-        return active.raw.then((raw) => transform(raw));
+    if (dedupe) {
+        const deduped = tryDedupeRequest(name, cacheSlot, transform, onError);
+        if (deduped !== undefined) return deduped;
     }
 
     const nowTs = Date.now();
-    _pruneRateCounters(nowTs);
-    const windowStart = rateWindowStart[cacheSlot];
-    const currentCount = rateCount[cacheSlot] ?? 0;
-    if (windowStart !== undefined && nowTs - windowStart < RATE_WINDOW_MS) {
-        if (currentCount >= RATE_MAX) {
-            return _reportAsyncUsageError(
-                name,
-                `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for cacheSlot "${cacheSlot}".`,
-                onError
-            );
-        }
-        rateCount[cacheSlot] = currentCount + 1;
-    } else {
-        rateWindowStart[cacheSlot] = nowTs;
-        rateCount[cacheSlot] = 1;
+    pruneRateCounters(nowTs);
+    scheduleRatePrune();
+    if (registerRateHit(cacheSlot, nowTs)) {
+        return reportAsyncUsageError(
+            name,
+            `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for cacheSlot "${cacheSlot}".`,
+            onError
+        );
     }
 
-    if (!inflight[cacheSlot] && countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
-        return _throwAsyncUsageError(
+    if (!hasInflightEntry(cacheSlot) && countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
+        return reportAsyncUsageError(
             name,
             `fetchStore("${name}") exceeded ${MAX_INFLIGHT_SLOTS_PER_STORE} concurrent request slots. Reuse cacheKey values, wait for pending requests, or delete the store to clear async state.`,
             onError
         );
     }
 
-    const currentVersion = (requestVersion[cacheSlot] ?? 0) + 1;
-    requestVersion[cacheSlot] = currentVersion;
+    const currentVersion = reserveRequestVersion(cacheSlot);
 
     if (!backgroundRevalidate) {
-        setStore(storeHandle, {
+        applyState({
             loading: true,
             error: null,
             status: "loading",
@@ -331,7 +313,7 @@ export async function fetchStore(
         let delayMs = retryPolicy.retryDelay;
         while (true) {
             if (mergedSignal?.aborted) {
-                return _settleAbort(name, cacheSlot, currentVersion);
+                return _settleAbort(name, cacheSlot, currentVersion, applyState);
             }
 
             const currentRequest = typeof urlOrRequest === "function" ? urlOrRequest() : urlOrRequest;
@@ -347,7 +329,7 @@ export async function fetchStore(
                 let result: unknown;
 
                 if (typeof currentRequest === "string") {
-                    const fetchOptions = _buildFetchOptions({
+                    const fetchOptions = buildFetchOptions({
                         method,
                         headers,
                         body,
@@ -358,7 +340,7 @@ export async function fetchStore(
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
-                    result = await _parseResponseBody(response, responseType);
+                    result = await parseResponseBody(response, responseType);
                 } else if (typeof (currentRequest as any).then === "function") {
                     result = await currentRequest;
                 } else {
@@ -372,12 +354,12 @@ export async function fetchStore(
                 }
 
                 if (mergedSignal?.aborted) {
-                    return _settleAbort(name, cacheSlot, currentVersion);
+                    return _settleAbort(name, cacheSlot, currentVersion, applyState);
                 }
 
                 const transformed = transform ? transform(result) : result;
                 if (transformed && typeof (transformed as any).then === "function") {
-                    return _reportAsyncUsageError(
+                    return reportAsyncUsageError(
                         name,
                         `fetchStore("${name}") transform must be synchronous. Return the transformed value directly instead of a Promise.`,
                         onError
@@ -387,10 +369,10 @@ export async function fetchStore(
                 const cloned = cloneAsyncResult(transformed, cloneMode);
 
                 if (mergedSignal?.aborted) {
-                    return _settleAbort(name, cacheSlot, currentVersion);
+                    return _settleAbort(name, cacheSlot, currentVersion, applyState);
                 }
 
-                if (!_isCurrentRequest(cacheSlot, currentVersion)) {
+                if (!isCurrentRequest(cacheSlot, currentVersion)) {
                     return null; // stale, ignore
                 }
 
@@ -401,18 +383,16 @@ export async function fetchStore(
                 };
                 pruneAsyncCache(name);
 
-                if (hasStore(name)) {
-                    setStore(storeHandle, {
-                        data: cloned,
-                        loading: false,
-                        error: null,
-                        status: "success",
-                        cached: false,
-                        revalidating: false,
-                    });
-                }
+                applyState({
+                    data: cloned,
+                    loading: false,
+                    error: null,
+                    status: "success",
+                    cached: false,
+                    revalidating: false,
+                });
 
-                _runAsyncHook(name, "onSuccess", onSuccess, cloned);
+                runAsyncHook(name, "onSuccess", onSuccess, cloned);
                 const elapsed = Date.now() - startedAt;
                 asyncMetrics.lastMs = elapsed;
                 asyncMetrics.avgMs = ((asyncMetrics.avgMs * (asyncMetrics.requests - 1)) + elapsed) / asyncMetrics.requests;
@@ -421,32 +401,30 @@ export async function fetchStore(
                 attempts += 1;
                 const isAbort = (err as any)?.name === "AbortError";
                 if (isAbort) {
-                    return _settleAbort(name, cacheSlot, currentVersion);
+                    return _settleAbort(name, cacheSlot, currentVersion, applyState);
                 }
 
                 if (attempts <= effectiveRetryPolicy.retry) {
-                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion);
+                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion, applyState);
                     await delay(delayMs, mergedSignal);
-                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion);
+                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion, applyState);
                     delayMs = Math.min(MAX_RETRY_DELAY_MS, delayMs * effectiveRetryPolicy.retryBackoff);
                     continue;
                 }
 
-                if (!_isCurrentRequest(cacheSlot, currentVersion)) return null;
+                if (!isCurrentRequest(cacheSlot, currentVersion)) return null;
 
                 const errorMessage = (err as any)?.message || "Something went wrong";
-                if (hasStore(name)) {
-                    setStore(storeHandle, {
-                        data: backgroundRevalidate ? cachedData : null,
-                        loading: false,
-                        error: errorMessage,
-                        status: "error",
-                        cached: backgroundRevalidate,
-                        revalidating: false,
-                    });
-                }
+                applyState({
+                    data: backgroundRevalidate ? readCachedData() : null,
+                    loading: false,
+                    error: errorMessage,
+                    status: "error",
+                    cached: backgroundRevalidate,
+                    revalidating: false,
+                });
 
-                _runAsyncHook(name, "onError", onError, errorMessage);
+                runAsyncHook(name, "onError", onError, errorMessage);
                 asyncMetrics.failures += 1;
                 warn(`fetchStore("${name}") failed: ${errorMessage}`);
                 return null;
@@ -473,32 +451,28 @@ export async function fetchStore(
         timeoutPromise,
     ]).catch((err) => {
         const errorMessage = (err as any)?.message || "Request timed out";
-        if (hasStore(name)) {
-            setStore(storeHandle, {
-                data: backgroundRevalidate ? cachedData : null,
-                loading: false,
-                error: errorMessage,
-                status: "error",
-                cached: backgroundRevalidate,
-                revalidating: false,
-            });
-        }
-        _runAsyncHook(name, "onError", onError, errorMessage);
+        applyState({
+            data: backgroundRevalidate ? readCachedData() : null,
+            loading: false,
+            error: errorMessage,
+            status: "error",
+            cached: backgroundRevalidate,
+            revalidating: false,
+        });
+        runAsyncHook(name, "onError", onError, errorMessage);
         asyncMetrics.failures += 1;
         warn(`fetchStore("${name}") failed: ${errorMessage}`);
         return null;
     });
 
     const promise = execution.then((res) => res?.transformed ?? null).finally(() => {
-        delete inflight[cacheSlot];
-        if (requestVersion[cacheSlot] === currentVersion) {
-            delete requestVersion[cacheSlot];
-        }
+        clearInflightEntry(cacheSlot);
+        clearRequestVersion(cacheSlot, currentVersion);
         if (abortOnCleanup) unregisterStoreCleanup(name, abortOnCleanup);
     });
     const rawPromise = execution.then((res) => res?.raw);
 
-    (inflight as Record<string, InflightEntry>)[cacheSlot] = { promise, raw: rawPromise, transform };
+    setInflightEntry(cacheSlot, { promise, raw: rawPromise, transform });
     if (typeof urlOrRequest === "function") {
         fetchRegistry[name] = { kind: "factory", factory: urlOrRequest, options: { ...options, cacheKey } };
     } else if (typeof urlOrRequest === "string") {
@@ -649,52 +623,6 @@ export function enableRevalidateOnFocus(
     }
     return cleanup;
 }
-
-const _buildFetchOptions = (options: FetchOptions): RequestInit => {
-    const fetchOpts: RequestInit = {};
-
-    if (options.method) {
-        fetchOpts.method = options.method.toUpperCase();
-    }
-
-    if (options.headers) {
-        fetchOpts.headers = options.headers;
-    } else {
-        fetchOpts.headers = { "Content-Type": "application/json" };
-    }
-
-    if (options.body) {
-        fetchOpts.body = typeof options.body === "string"
-            ? options.body
-            : JSON.stringify(options.body);
-    }
-
-    if (options.signal) {
-        fetchOpts.signal = options.signal;
-    }
-
-    return fetchOpts;
-};
-
-const _parseResponseBody = async (response: Response, responseType: FetchOptions["responseType"]): Promise<unknown> => {
-    const type = responseType ?? "auto";
-    if (type === "json") return response.json();
-    if (type === "text") return response.text();
-    if (type === "arrayBuffer") return response.arrayBuffer();
-    if (type === "blob") return response.blob();
-    if (type === "formData") return response.formData();
-
-    // auto-detect
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType.includes("application/json") || contentType.includes("+json")) {
-        return response.json();
-    }
-    if (contentType.startsWith("text/") || contentType.includes("xml") || contentType.includes("html")) {
-        return response.text();
-    }
-    if (contentType.includes("form-data")) return response.formData();
-    return response.arrayBuffer();
-};
 
 export const getAsyncMetrics = () => ({ ...asyncMetrics });
 

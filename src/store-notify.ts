@@ -9,10 +9,11 @@
  *
  * Consumers: store-write (calls notify()), hooks-core (calls subscribe/getSnapshot).
  */
-import { deepClone, shallowClone, warn } from "./utils.js";
+import { deepClone, shallowClone, warn, warnAlways } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import { getConfig } from "./internals/config.js";
 import { beginTransaction, endTransaction, isTransactionActive } from "./store-transaction.js";
+import { runWithRegistry } from "./store-registry.js";
 import {
     meta,
     subscribers,
@@ -29,7 +30,6 @@ import type { SnapshotMode } from "./adapters/options.js";
 
 const pendingNotifications = new Set<string>();
 const pendingBuffer: string[] = [];
-const orderedNames: string[] = [];
 let notifyScheduled = false;
 let batchDepth = 0;
 
@@ -71,7 +71,7 @@ const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs
     const pendingSet = new Set(pendingBuffer);
     const prioritySet = priority.length ? new Set(priority) : null;
 
-    orderedNames.length = 0;
+    const orderedNames: string[] = [];
     if (prioritySet) {
         for (const p of priority) {
             if (pendingSet.has(p)) orderedNames.push(p);
@@ -153,6 +153,7 @@ const flush = () => {
         index: number;
         snapshot: StoreValue | null;
         version: number;
+        notified: Set<Subscriber>;
         metrics: { notifyCount: number; totalNotifyMs: number; lastNotifyMs: number };
         totalMs: number;
     };
@@ -179,7 +180,8 @@ const flush = () => {
                 index: 0,
                 snapshot,
                 version,
-                metrics: meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
+                notified: new Set(),
+                metrics: meta[name]?.metrics ? { ...meta[name]!.metrics } : { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
                 totalMs: 0,
             });
         }
@@ -188,6 +190,17 @@ const flush = () => {
 
     const priorityQueue = prioritySet ? buildQueue((name) => prioritySet.has(name)) : [];
     const regularQueue = buildQueue((name) => !prioritySet || !prioritySet.has(name));
+
+    const refreshTaskSubscribers = (task: StoreTask): void => {
+        const subs = subscribers[task.name];
+        if (!subs || subs.size === 0) {
+            task.subsArray = [];
+            task.index = 0;
+            return;
+        }
+        task.subsArray = Array.from(subs);
+        task.index = 0;
+    };
 
     const runQueue = (queue: StoreTask[], done: () => void): void => {
         const processNext = (): void => {
@@ -207,16 +220,36 @@ const flush = () => {
                 else scheduleChunk(processNext, chunkDelayMs);
                 return;
             }
+
+            refreshTaskSubscribers(task);
+            if (task.subsArray.length === 0) {
+                if (queue.length === 0) {
+                    done();
+                    return;
+                }
+                if (runInline) processNext();
+                else scheduleChunk(processNext, chunkDelayMs);
+                return;
+            }
+
             const start = now();
-            const endIndex = Math.min(task.index + sliceSize, task.subsArray.length);
-            for (let i = task.index; i < endIndex; i++) {
-                try { task.subsArray[i](task.snapshot); }
+            let sent = 0;
+            while (task.index < task.subsArray.length && sent < sliceSize) {
+                const subscriber = task.subsArray[task.index++];
+                if (task.notified.has(subscriber)) continue;
+                task.notified.add(subscriber);
+                try { subscriber(task.snapshot); }
                 catch (err) { warn(`Subscriber for "${task.name}" threw: ${(err as { message?: string })?.message ?? err}`); }
+                sent += 1;
             }
             task.totalMs += now() - start;
-            task.index = endIndex;
 
-            if (task.index < task.subsArray.length) {
+            const currentSubs = subscribers[task.name];
+            const hasUnnotified = currentSubs
+                ? Array.from(currentSubs).some((sub) => !task.notified.has(sub))
+                : false;
+
+            if (task.index < task.subsArray.length || hasUnnotified) {
                 queue.push(task);
             } else {
                 task.metrics.notifyCount += 1;
@@ -261,7 +294,8 @@ export const setStoreBatch = (fn: () => unknown): void => {
         return;
     }
     if (Object.prototype.toString.call(fn) === "[object AsyncFunction]") {
-        throw new Error("setStoreBatch does not support async functions. Move async work outside and batch only synchronous mutations.");
+        warnAlways("setStoreBatch does not support async functions. Move async work outside and batch only synchronous mutations.");
+        return;
     }
 
     batchDepth = Math.max(0, batchDepth + 1);
@@ -269,7 +303,7 @@ export const setStoreBatch = (fn: () => unknown): void => {
     beginTransaction(registry);
     let batchError: unknown;
     try {
-        const result = fn();
+        const result = runWithRegistry(registry, fn);
         if (result && typeof (result as Promise<unknown>).then === "function") {
             batchError = new Error("setStoreBatch does not support promise-returning callbacks. Move async work outside and batch only synchronous mutations.");
         }
@@ -290,7 +324,10 @@ export const setStoreBatch = (fn: () => unknown): void => {
         }
     }
 
-    if (batchError) throw batchError;
+    if (batchError) {
+        const message = batchError instanceof Error ? batchError.message : String(batchError);
+        warnAlways(`setStoreBatch failed: ${message}`);
+    }
 };
 
 export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {
@@ -302,8 +339,10 @@ export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {
     };
 };
 
-// Backward compat alias
+// Backward compat aliases
+/** @deprecated Use subscribeStore instead. */
 export const subscribeInternal = subscribeStore;
+/** @deprecated Use subscribeStore instead. */
 export const subscribe = subscribeStore;
 
 export const getStoreSnapshot = (name: string): StoreValue | null => {
@@ -331,6 +370,7 @@ export const getStoreSnapshot = (name: string): StoreValue | null => {
     return snapshot;
 };
 // Backward compat alias
+/** @deprecated Use getStoreSnapshot instead. */
 export const getSnapshot = getStoreSnapshot;
 
 export const resetNotifyStateForTests = (): void => {

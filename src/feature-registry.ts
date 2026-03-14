@@ -11,6 +11,7 @@ export interface FeatureMetrics {
 export interface StoreFeatureMeta {
     createdAt: string;
     updatedAt: string;
+    updatedAtMs: number;
     updateCount: number;
     version: number;
     metrics: FeatureMetrics;

@@ -1,4 +1,4 @@
-import type { SnapshotMode } from "../adapters/options.js";
+import type { SnapshotMode, MiddlewareCtx, StoreValue } from "../adapters/options.js";
 
 export type LogSink = {
     log?: (msg: string, meta?: Record<string, unknown>) => void;
@@ -26,11 +26,22 @@ export type StroidConfig = {
     revalidateOnFocus?: RevalidateOnFocusConfig;
     namespace?: string;
     strictMissingFeatures?: boolean;
+    strictFeatures?: boolean;
     assertRuntime?: boolean;
     strictMutatorReturns?: boolean;
     asyncAutoCreate?: boolean;
     asyncCloneResult?: AsyncCloneMode;
     defaultSnapshotMode?: SnapshotMode;
+    middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
+    /**
+     * Allow hydrateStores to accept untrusted snapshots without explicit opt-in.
+     * Default: false (hydration requires an explicit trust opt-in).
+     */
+    allowUntrustedHydration?: boolean;
+    /**
+     * Optional custom mutator engine (e.g. Immer's produce) to enable structural sharing.
+     */
+    mutatorProduce?: <T>(base: T, recipe: (draft: T) => void) => T;
 };
 
 type ResolvedConfig = {
@@ -44,6 +55,9 @@ type ResolvedConfig = {
     asyncAutoCreate: boolean;
     asyncCloneResult: AsyncCloneMode;
     defaultSnapshotMode: SnapshotMode;
+    middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
+    allowUntrustedHydration: boolean;
+    mutatorProduce?: <T>(base: T, recipe: (draft: T) => void) => T;
 };
 
 const defaultLogSink: LogSink = {
@@ -80,12 +94,15 @@ const defaultConfig: ResolvedConfig = {
         staggerMs: 100,
     },
     namespace: "",
-    strictMissingFeatures: false,
+    strictMissingFeatures: true,
     assertRuntime: false,
     strictMutatorReturns: true,
     asyncAutoCreate: false,
     asyncCloneResult: "none",
     defaultSnapshotMode: "deep",
+    middleware: [],
+    allowUntrustedHydration: false,
+    mutatorProduce: undefined,
 };
 
 let _config: ResolvedConfig = { ...defaultConfig };
@@ -153,6 +170,12 @@ export const configureStroid = (next?: StroidConfig): void => {
             strictMissingFeatures: next.strictMissingFeatures,
         };
     }
+    if (typeof next.strictFeatures === "boolean") {
+        _config = {
+            ..._config,
+            strictMissingFeatures: next.strictFeatures,
+        };
+    }
 
     if (typeof next.assertRuntime === "boolean") {
         _config = {
@@ -186,6 +209,27 @@ export const configureStroid = (next?: StroidConfig): void => {
         _config = {
             ..._config,
             defaultSnapshotMode: next.defaultSnapshotMode,
+        };
+    }
+
+    if (Array.isArray(next.middleware)) {
+        _config = {
+            ..._config,
+            middleware: next.middleware,
+        };
+    }
+
+    if (typeof next.allowUntrustedHydration === "boolean") {
+        _config = {
+            ..._config,
+            allowUntrustedHydration: next.allowUntrustedHydration,
+        };
+    }
+
+    if (typeof next.mutatorProduce === "function") {
+        _config = {
+            ..._config,
+            mutatorProduce: next.mutatorProduce,
         };
     }
 };

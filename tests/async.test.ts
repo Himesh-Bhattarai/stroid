@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { enableRevalidateOnFocus, fetchStore, getAsyncMetrics, refetchStore } from "../src/async.js";
+import { configureStroid, resetConfig } from "../src/config.js";
 import { getStore, clearAllStores, deleteStore, createStore } from "../src/store.js";
 
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
@@ -25,6 +26,50 @@ const ensureAsyncStore = (name: string) => {
     status: "idle",
   });
 };
+
+test("fetchStore stateAdapter writes into a custom store shape", async () => {
+  clearAllStores();
+  createStore("customAsync", { items: [] as number[], loading: false, error: null });
+
+  const result = await fetchStore("customAsync", Promise.resolve([1, 2]), {
+    stateAdapter: ({ next, set }) => {
+      set((draft: any) => {
+        draft.loading = next.loading;
+        draft.error = next.error;
+        if (next.status === "success" && next.data) {
+          draft.items = next.data as number[];
+        }
+      });
+    },
+  });
+
+  assert.deepStrictEqual(result, [1, 2]);
+  const state = getStore("customAsync");
+  assert.deepStrictEqual(state, { items: [1, 2], loading: false, error: null });
+  assert.strictEqual((state as any)?.status, undefined);
+});
+
+test("fetchStore warns when overwriting a non-async store without stateAdapter", async () => {
+  clearAllStores();
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  try {
+    createStore("profile", { name: "Alex" });
+    const result = await fetchStore("profile", Promise.resolve({ name: "Jordan" }), { dedupe: false });
+    assert.strictEqual(result, null);
+  } finally {
+    resetConfig();
+  }
+
+  assert.ok(warnings.some((msg) => msg.includes("non-async store")));
+  const state = getStore("profile") as any;
+  assert.deepStrictEqual(state, { name: "Alex" });
+});
 
 test("fetchStore dedupes inflight requests", async () => {
   clearAllStores();
@@ -601,14 +646,12 @@ test("fetchStore caps per-store inflight request slots under unique cache keys",
 
     await wait(0);
 
-    await assert.rejects(
-      fetchStore("burstStore", "https://api.example.com/burst", {
-        dedupe: false,
-        cacheKey: "slot-overflow",
-        onError: (msg) => { errors.push(msg); },
-      }),
-      /exceeded 100 concurrent request slots/
-    );
+    const overflow = await fetchStore("burstStore", "https://api.example.com/burst", {
+      dedupe: false,
+      cacheKey: "slot-overflow",
+      onError: (msg) => { errors.push(msg); },
+    });
+    assert.strictEqual(overflow, null);
     assert.strictEqual(calls, 100);
     assert.ok(errors.some((msg) => msg.includes('fetchStore("burstStore") exceeded 100 concurrent request slots')));
 
@@ -743,5 +786,28 @@ test("enableRevalidateOnFocus wildcard cleanup removes focus and online listener
     } else {
       (globalThis as any).window = realWindow;
     }
+  }
+});
+
+test("fetchStore caps no-signal warning cache size under high-cardinality stores", async () => {
+  clearAllStores();
+  configureStroid({
+    logSink: {
+      log: () => {},
+      warn: () => {},
+      critical: () => {},
+    },
+  });
+  const { noSignalWarned, MAX_WARNED_ENTRIES } = await import("../src/async-cache.js");
+
+  try {
+    for (let i = 0; i < MAX_WARNED_ENTRIES + 25; i += 1) {
+      await fetchStore(`warnStore${i}`, Promise.resolve(i), { dedupe: false });
+    }
+
+    assert.ok(noSignalWarned.size <= MAX_WARNED_ENTRIES);
+  } finally {
+    resetConfig();
+    clearAllStores();
   }
 });

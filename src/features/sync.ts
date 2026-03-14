@@ -17,6 +17,7 @@ const resolveProtocolVersion = (msg: { v?: unknown; protocol?: unknown }): numbe
 
 type SyncMeta = {
     updatedAt: string;
+    updatedAtMs?: number;
     updateCount: number;
     options: {
         sync?: boolean | SyncOptions;
@@ -50,6 +51,9 @@ const compareSyncOrder = ({
     return incomingSource.localeCompare(localSource, "en", { sensitivity: "variant" });
 };
 
+const resolveMetaUpdatedAtMs = (meta?: SyncMeta): number =>
+    meta?.updatedAtMs ?? resolveUpdatedAtMs({ value: meta?.updatedAt, fallbackMs: 0 });
+
 const isValidSyncMessage = (msg: unknown): msg is {
     v?: number;
     protocol?: number;
@@ -60,6 +64,7 @@ const isValidSyncMessage = (msg: unknown): msg is {
     data?: unknown;
     updatedAt?: number;
     auth?: unknown;
+    token?: unknown;
     requestedAt?: number;
 } => {
     if (typeof msg !== "object" || msg === null) return false;
@@ -78,17 +83,19 @@ const requestSyncSnapshot = ({
     name,
     syncChannels,
     instanceId,
+    authToken,
     reportStoreError,
 }: {
     name: string;
     syncChannels: SyncChannels;
     instanceId: string;
+    authToken?: string;
     reportStoreError: (name: string, message: string) => void;
 }): void => {
     const channel = syncChannels[name];
     if (!channel) return;
     try {
-        channel.postMessage({
+        const payload: SyncMessage = {
             v: SYNC_PROTOCOL_VERSION,
             protocol: SYNC_PROTOCOL_VERSION,
             type: "sync-request",
@@ -96,7 +103,9 @@ const requestSyncSnapshot = ({
             name,
             clock: 0,
             requestedAt: Date.now(),
-        });
+        };
+        if (authToken) payload.token = authToken;
+        channel.postMessage(payload);
     } catch (err) {
         reportStoreError(name, `Failed to request sync snapshot for "${name}": ${(err as { message?: string })?.message ?? err}`);
     }
@@ -200,6 +209,8 @@ export const setupSync = ({
         reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
         return;
     }
+    const expectedToken = typeof syncOption === "object" ? syncOption.authToken : undefined;
+    let tokenWarned = false;
     const channelName = typeof syncOption === "object" && syncOption.channel
         ? syncOption.channel
         : `stroid_sync_${name}`;
@@ -213,6 +224,13 @@ export const setupSync = ({
             if (syncChannels[name] !== channel || !hasStoreEntry(name) || !getMeta(name)) return;
             if (!isValidSyncMessage(msg)) {
                 reportStoreError(name, `Sync message for "${name}" is malformed; ignoring.`);
+                return;
+            }
+            if (expectedToken && msg.token !== expectedToken) {
+                if (!tokenWarned) {
+                    reportStoreError(name, `Sync message for "${name}" failed auth token verification; ignoring.`);
+                    tokenWarned = true;
+                }
                 return;
             }
             const incomingVersion = resolveProtocolVersion(msg);
@@ -254,8 +272,8 @@ export const setupSync = ({
                 accepted: getAcceptedSyncVersion(name),
             });
             if (order <= 0) {
-                const localUpdated = new Date(getMeta(name)?.updatedAt || 0).getTime();
-                const incomingUpdated = msg.updatedAt;
+                const localUpdated = resolveMetaUpdatedAtMs(getMeta(name));
+                const incomingUpdated = typeof msg.updatedAt === "number" ? msg.updatedAt : Date.now();
                 if (resolver) {
                     const resolved = resolver({
                         local: getStoreValue(name),
@@ -298,6 +316,7 @@ export const setupSync = ({
                     name,
                     syncChannels,
                     instanceId,
+                    authToken: expectedToken,
                     reportStoreError,
                 });
             };
@@ -314,6 +333,7 @@ export const setupSync = ({
                 name,
                 syncChannels,
                 instanceId,
+                authToken: expectedToken,
                 reportStoreError,
             });
         });
@@ -338,7 +358,7 @@ export const broadcastSync = ({
     syncChannels: SyncChannels;
     syncClocks: SyncClocks;
     instanceId: string;
-    updatedAt: string;
+    updatedAt: string | number;
     data: StoreValue;
     hashState: (value: unknown) => number;
     reportStoreError: (name: string, message: string) => void;
@@ -358,6 +378,9 @@ export const broadcastSync = ({
             data,
             checksum: checksumMode === "hash" ? hashState(data) : null,
         };
+        if (typeof syncOption === "object" && syncOption.authToken) {
+            payload.token = syncOption.authToken;
+        }
         if (typeof syncOption === "object" && typeof syncOption.sign === "function") {
             try {
                 const auth = syncOption.sign(payload);
@@ -403,7 +426,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
     const syncWindowCleanup: SyncWindowCleanup = Object.create(null);
     const instanceId = `stroid_${Math.random().toString(16).slice(2)}`;
 
-    const recordLocalVersion = (name: string, updatedAt: string): void => {
+    const recordLocalVersion = (name: string, updatedAt: string | number): void => {
         syncVersions[name] = {
             clock: syncClocks[name] ?? 0,
             updatedAt: resolveUpdatedAtMs({ value: updatedAt, fallbackMs: Date.now() }),
@@ -411,7 +434,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
         };
     };
 
-    const ensureLocalClock = (name: string, updatedAt: string): void => {
+    const ensureLocalClock = (name: string, updatedAt: string | number): void => {
         bumpSyncClock(name, syncClocks);
         recordLocalVersion(name, updatedAt);
     };
@@ -479,7 +502,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                         syncChannels,
                         syncClocks,
                         instanceId,
-                        updatedAt: meta.updatedAt,
+                        updatedAt: meta.updatedAtMs ?? meta.updatedAt,
                         data: ctx.getStoreValue(),
                         hashState: ctx.hashState,
                         reportStoreError: (name, message) => ctx.reportStoreError(message),
@@ -488,7 +511,8 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
             });
 
             if (syncChannels[ctx.name]) {
-                recordLocalVersion(ctx.name, ctx.getMeta()?.updatedAt || new Date().toISOString());
+                const meta = ctx.getMeta();
+                recordLocalVersion(ctx.name, meta?.updatedAtMs ?? meta?.updatedAt ?? new Date().toISOString());
             }
         },
 
@@ -496,14 +520,14 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
             if (!ctx.options.sync) return;
             const meta = ctx.getMeta();
             if (!meta) return;
-            ensureLocalClock(ctx.name, meta.updatedAt);
+            ensureLocalClock(ctx.name, meta.updatedAtMs ?? meta.updatedAt);
             broadcastSync({
                 name: ctx.name,
                 syncOption: ctx.options.sync,
                 syncChannels,
                 syncClocks,
                 instanceId,
-                updatedAt: meta.updatedAt,
+                updatedAt: meta.updatedAtMs ?? meta.updatedAt,
                 data: ctx.next,
                 hashState: ctx.hashState,
                 reportStoreError: (name, message) => ctx.reportStoreError(message),

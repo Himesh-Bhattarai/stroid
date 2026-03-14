@@ -12,6 +12,8 @@ import { flushPersistImmediately } from "../src/features/persist/save.js";
 import { isIdentityCrypto } from "../src/features/persist/crypto.js";
 import { hashState } from "../src/utils.js";
 
+const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+
 test("persist setItem errors surface via onError without throwing", async () => {
   clearAllStores();
   const errors: string[] = [];
@@ -47,6 +49,92 @@ test("persist setItem errors surface via onError without throwing", async () => 
   assert.deepStrictEqual(getStore("cart"), { items: [1, 2] });
 
   clearAllStores();
+});
+
+test("persist supports async crypto and sha256 checksums", async () => {
+  clearAllStores();
+  let stored: string | null = null;
+  const driver = {
+    getItem: () => stored,
+    setItem: (_key: string, value: string) => {
+      stored = value;
+    },
+    removeItem: () => {
+      stored = null;
+    },
+  };
+
+  const persist = {
+    driver,
+    key: "secure-async",
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encryptAsync: async (value: string) => `enc:${value}`,
+    decryptAsync: async (value: string) => value.replace(/^enc:/, ""),
+    checksum: "sha256" as const,
+  };
+
+  createStore("secureAsync", { value: 1 }, { persist });
+  setStore("secureAsync", { value: 2 });
+  await wait(20);
+
+  assert.ok(stored?.startsWith("enc:"));
+
+  resetAllStoresForTest();
+
+  createStore("secureAsync", { value: 0 }, { persist });
+  await wait(20);
+
+  assert.deepStrictEqual(getStore("secureAsync"), { value: 2 });
+});
+
+test("persist restores state across reloads", async () => {
+  clearAllStores();
+  let stored: string | null = null;
+  const driver = {
+    getItem: () => stored,
+    setItem: (_key: string, value: string) => {
+      stored = value;
+    },
+    removeItem: () => {
+      stored = null;
+    },
+  };
+  const persist = {
+    driver,
+    key: "reload-store",
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encrypt: (v: string) => v,
+    decrypt: (v: string) => v,
+    allowPlaintext: true,
+  };
+
+  createStore("reloadStore", { value: 1 }, { persist });
+  setStore("reloadStore", { value: 2 });
+  const startedAt = Date.now();
+  let persistedValue: number | null = null;
+  while (Date.now() - startedAt < 100) {
+    if (stored) {
+      try {
+        const envelope = JSON.parse(stored);
+        const data = JSON.parse(envelope.data);
+        if (typeof data?.value === "number") {
+          persistedValue = data.value;
+          if (persistedValue === 2) break;
+        }
+      } catch {
+        // ignore parse errors during writes
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.strictEqual(persistedValue, 2, "expected persisted payload to capture the updated value before reload");
+
+  resetAllStoresForTest();
+
+  createStore("reloadStore", { value: 0 }, { persist });
+  assert.deepStrictEqual(getStore("reloadStore"), { value: 2 });
 });
 
 test("persist sensitiveData stores require encrypt hooks at creation time", () => {
@@ -232,25 +320,26 @@ test("full package stays lean and requires explicit persist registration in prod
     const stroid = await import(pathToFileURL(${JSON.stringify(indexPath)}).href);
     const errors = [];
 
-    stroid.createStore("cart", { items: [1] }, {
-      allowSSRGlobalStore: true,
-      persist: {
-        driver: {
-          getItem: () => JSON.stringify({ v: 1, checksum: 0, data: JSON.stringify({ items: [2] }) }),
-          setItem: () => {},
-          removeItem: () => {},
+    assert.throws(() => {
+      stroid.createStore("cart", { items: [1] }, {
+        allowSSRGlobalStore: true,
+        persist: {
+          driver: {
+            getItem: () => JSON.stringify({ v: 1, checksum: 0, data: JSON.stringify({ items: [2] }) }),
+            setItem: () => {},
+            removeItem: () => {},
+          },
+          key: "cart-prod-root",
+          serialize: JSON.stringify,
+          deserialize: JSON.parse,
+          encrypt: (v) => v,
+          decrypt: (v) => v,
+          allowPlaintext: true,
         },
-        key: "cart-prod-root",
-        serialize: JSON.stringify,
-        deserialize: JSON.parse,
-        encrypt: (v) => v,
-        decrypt: (v) => v,
-        allowPlaintext: true,
-      },
-      onError: (msg) => errors.push(msg),
-    });
+        onError: (msg) => errors.push(msg),
+      });
+    }, /not registered/);
 
-    assert.deepStrictEqual(stroid.getStore("cart"), { items: [1] });
     assert.ok(errors.some((msg) => msg.includes('Store "cart" requested persist support, but "persist" is not registered.')));
     assert.strictEqual(typeof stroid.clearAllStores, "undefined");
   `;

@@ -9,6 +9,7 @@ import {
   _resetComputedForTests,
 } from "../src/computed.js";
 import { detectCycle, getTopoOrderedComputeds } from "../src/computed-graph.js";
+import { configureStroid, resetConfig } from "../src/config.js";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -81,6 +82,23 @@ test("detectCycle returns path string on cycle", async () => {
   const trace = detectCycle("n", ["m"]);
   assert.ok(typeof trace === "string");
   assert.ok(trace.includes("->"));
+});
+
+test("createComputed warns when dependencies are missing", () => {
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  try {
+    createComputed("missingDeps", ["ghostStore"], (value) => value);
+  } finally {
+    resetConfig();
+  }
+
+  assert.ok(warnings.some((msg) => msg.includes("dependencies not found")));
 });
 
 test("topo order: shallow dependency resolved first", () => {
@@ -179,4 +197,29 @@ test("compute function throwing does not crash -- returns previous value", async
   await wait();
 
   assert.strictEqual(getStore("safe"), 4);
+});
+
+test("computed handles 50+ dependencies", async () => {
+  const total = 60;
+  let expected = 0;
+  const deps: string[] = [];
+
+  for (let i = 0; i < total; i += 1) {
+    const name = `src${i}`;
+    deps.push(name);
+    expected += i;
+    createStore(name, i);
+  }
+
+  createComputed("sumAll", deps, (...values) =>
+    values.reduce((acc, value) => acc + (value as number), 0)
+  );
+
+  assert.strictEqual(getStore("sumAll"), expected);
+
+  replaceStore("src10", 1000);
+  expected = expected - 10 + 1000;
+  await wait();
+
+  assert.strictEqual(getStore("sumAll"), expected);
 });

@@ -1,7 +1,28 @@
+export type AsyncStateSnapshot = {
+    data?: unknown;
+    loading: boolean;
+    error: string | null;
+    status: "idle" | "loading" | "success" | "error" | "aborted";
+    cached?: boolean;
+    revalidating?: boolean;
+};
+
+export type AsyncStateAdapter = (ctx: {
+    name: string;
+    prev: unknown;
+    next: AsyncStateSnapshot;
+    set: (value: unknown | ((draft: any) => void)) => void;
+}) => void;
+
 export interface FetchOptions {
     transform?: (result: unknown) => unknown;
     onSuccess?: (data: unknown) => void;
     onError?: (message: string) => void;
+    /**
+     * Optional adapter to write async state into a custom store shape.
+     * When provided, default AsyncState writes are skipped.
+     */
+    stateAdapter?: AsyncStateAdapter;
     method?: string;
     headers?: Record<string, string>;
     body?: unknown;
@@ -38,7 +59,9 @@ export type AsyncRegistry = {
     rateWindowStart: Record<string, number>;
     rateCount: Record<string, number>;
     ratePruneState: { lastAt: number };
+    ratePruneTimer: ReturnType<typeof setTimeout> | null;
     noSignalWarned: Set<string>;
+    shapeWarned: Set<string>;
     autoCreateWarned: Set<string>;
     cleanupSubs: Record<string, () => void>;
     storeCleanupFns: Record<string, Set<() => void>>;
@@ -63,7 +86,9 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     rateWindowStart: Object.create(null),
     rateCount: Object.create(null),
     ratePruneState: { lastAt: 0 },
+    ratePruneTimer: null,
     noSignalWarned: new Set<string>(),
+    shapeWarned: new Set<string>(),
     autoCreateWarned: new Set<string>(),
     cleanupSubs: Object.create(null),
     storeCleanupFns: Object.create(null),
@@ -107,8 +132,13 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
 
     registry.revalidateKeys.clear();
     registry.noSignalWarned.clear();
+    registry.shapeWarned.clear();
     registry.autoCreateWarned.clear();
     registry.ratePruneState.lastAt = 0;
+    if (registry.ratePruneTimer) {
+        clearTimeout(registry.ratePruneTimer);
+        registry.ratePruneTimer = null;
+    }
 
     registry.asyncMetrics.cacheHits = 0;
     registry.asyncMetrics.cacheMisses = 0;

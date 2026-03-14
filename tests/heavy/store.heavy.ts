@@ -382,6 +382,31 @@ test("sanitize rejects non-JSON-safe values before they corrupt state", () => {
   assert.ok(errors.some((msg) => msg.includes('Sanitize failed for "safeMap"')));
 });
 
+test("sanitize rejects WeakRef and EventTarget values", () => {
+  clearAllStores();
+  const errors: string[] = [];
+
+  if (typeof WeakRef !== "undefined") {
+    assert.doesNotThrow(() => {
+      createStore("weakRefStore", { value: new WeakRef({ ok: true }) } as any, {
+        onError: (msg) => { errors.push(msg); },
+      });
+    });
+    assert.strictEqual(hasStore("weakRefStore"), false);
+  }
+
+  if (typeof EventTarget !== "undefined") {
+    assert.doesNotThrow(() => {
+      createStore("eventTargetStore", { value: new EventTarget() } as any, {
+        onError: (msg) => { errors.push(msg); },
+      });
+    });
+    assert.strictEqual(hasStore("eventTargetStore"), false);
+  }
+
+  assert.ok(errors.some((msg) => msg.includes("values are not supported")));
+});
+
 test("sanitize ignores inherited props and rejects accessor properties", () => {
   clearAllStores();
   const errors: string[] = [];
@@ -583,7 +608,7 @@ test("createEntityStore supports remove and clear operations", () => {
 
   entities.remove("1");
   assert.deepStrictEqual(entities.all(), [{ id: "2", name: "Jordan" }]);
-  assert.strictEqual(entities.get("1"), undefined);
+  assert.strictEqual(entities.get("1"), null);
 
   entities.clear();
   assert.deepStrictEqual(entities.all(), []);
@@ -658,7 +683,8 @@ test("hydrateStores skips invalid schema payloads and keeps reset state intact",
         validate: schema,
         onError: (msg) => { errors.push(`hydrate:${msg}`); },
       },
-    }
+    },
+    { allowUntrusted: true }
   );
 
   assert.deepStrictEqual(getStore("profile"), { name: "Alex" });
@@ -676,7 +702,7 @@ test("hydrateStores replaces existing primitive and array stores", () => {
   hydrateStores({
     count: 2,
     list: [3, 4, 5],
-  });
+  }, {}, { allowUntrusted: true });
 
   assert.strictEqual(getStore("count"), 2);
   assert.deepStrictEqual(getStore("list"), [3, 4, 5]);
@@ -688,12 +714,12 @@ test("hydrateStores allows null whole-store replacement but blocks undefined rep
 
   hydrateStores({
     nullableHydrate: null,
-  });
+  }, {}, { allowUntrusted: true });
   assert.strictEqual(getStore("nullableHydrate"), null);
 
   hydrateStores({
     nullableHydrate: undefined,
-  });
+  }, {}, { allowUntrusted: true });
   assert.strictEqual(getStore("nullableHydrate"), null);
 });
 
@@ -1151,7 +1177,7 @@ test("subscribers are notified in registration order", async () => {
   assert.deepStrictEqual(seen, ["first:1", "second:1"]);
 });
 
-test("subscribers added during notify start on the next cycle", async () => {
+test("subscribers added during notify are included in the same cycle", async () => {
   clearAllStores();
   const seen: string[] = [];
 
@@ -1175,12 +1201,13 @@ test("subscribers added during notify start on the next cycle", async () => {
 
   assert.deepStrictEqual(seen, [
     "first:1",
+    "second:1",
     "first:2",
     "second:2",
   ]);
 });
 
-test("unsubscribing another subscriber during notify does not break the current cycle", async () => {
+test("unsubscribing another subscriber during notify skips its remaining notifications", async () => {
   clearAllStores();
   const seen: string[] = [];
 
@@ -1203,7 +1230,6 @@ test("unsubscribing another subscriber during notify does not break the current 
 
   assert.deepStrictEqual(seen, [
     "first:1",
-    "second:1",
     "first:2",
   ]);
 });
@@ -1297,13 +1323,13 @@ test("setStoreBatch rejects async callbacks before they can interleave state", (
   clearAllStores();
   createStore("batchGuard", { value: 0 });
 
-  assert.throws(() => {
+  assert.doesNotThrow(() => {
     setStoreBatch(async () => {
       setStore("batchGuard", { value: 1 });
       await Promise.resolve();
       setStore("batchGuard", { value: 2 });
     });
-  }, /does not support async functions/);
+  });
 
   assert.deepStrictEqual(getStore("batchGuard"), { value: 0 });
 });
@@ -1332,49 +1358,67 @@ test("setStoreBatch warns and no-ops when passed a non-function", () => {
   }
 });
 
-test("setStoreBatch flushes queued notifications before rejecting promise-returning callbacks", async () => {
+test("setStoreBatch warns and no-ops for promise-returning callbacks", async () => {
   clearAllStores();
   createStore("batchPromiseGuard", { value: 0 });
   const seen: number[] = [];
+  const warned: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (message?: unknown) => {
+    warned.push(String(message ?? ""));
+  };
 
   _subscribe("batchPromiseGuard", (value) => {
     if (!value) return;
     seen.push((value as { value: number }).value);
   });
 
-  assert.throws(() => {
+  assert.doesNotThrow(() => {
     setStoreBatch(() => {
       setStore("batchPromiseGuard", { value: 1 });
       return Promise.resolve();
     });
-  }, /promise-returning callbacks/);
+  });
 
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.deepStrictEqual(getStore("batchPromiseGuard"), { value: 0 });
   assert.deepStrictEqual(seen, []);
+  console.warn = originalWarn;
+  if (isDev()) {
+    assert.ok(warned.some((msg) => msg.includes("promise-returning callbacks")));
+  }
 });
 
-test("setStoreBatch flushes queued notifications before rethrowing callback errors", async () => {
+test("setStoreBatch warns and no-ops when callback throws", async () => {
   clearAllStores();
   createStore("batchThrowFlush", { value: 0 });
   const seen: number[] = [];
+  const warned: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (message?: unknown) => {
+    warned.push(String(message ?? ""));
+  };
 
   _subscribe("batchThrowFlush", (value) => {
     if (!value) return;
     seen.push((value as { value: number }).value);
   });
 
-  assert.throws(() => {
+  assert.doesNotThrow(() => {
     setStoreBatch(() => {
       setStore("batchThrowFlush", { value: 1 });
       throw new Error("boom");
     });
-  }, /boom/);
+  });
 
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(getStore("batchThrowFlush"), { value: 0 });
   assert.deepStrictEqual(seen, []);
+  console.warn = originalWarn;
+  if (isDev()) {
+    assert.ok(warned.some((msg) => msg.includes("setStoreBatch failed")));
+  }
 });
 
 test("lifecycle hook errors do not leave partial commits", () => {

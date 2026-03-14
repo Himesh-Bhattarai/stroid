@@ -2,14 +2,15 @@ import { subscribe } from "./store-notify.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
 import type { FetchOptions } from "./async-registry.js";
 import { resetAsyncRegistry } from "./async-registry.js";
-export type { FetchOptions } from "./async-registry.js";
+export type { FetchOptions, AsyncStateSnapshot, AsyncStateAdapter } from "./async-registry.js";
 
 export type FetchInput = string | Promise<unknown> | (() => string | Promise<unknown>);
 
 export const MAX_CACHE_SLOTS_PER_STORE = 100;
 export const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
+export const MAX_WARNED_ENTRIES = 1000;
 
-const getActiveAsyncRegistry = () => getRegistry().async;
+export const getActiveAsyncRegistry = () => getRegistry().async;
 
 const createAsyncObjectProxy = <T extends object>(getter: () => T): T =>
     new Proxy(Object.create(null), {
@@ -62,10 +63,18 @@ export const cleanupSubs = createAsyncObjectProxy(() => getActiveAsyncRegistry()
 export const storeCleanupFns = createAsyncObjectProxy(() => getActiveAsyncRegistry().storeCleanupFns);
 export const revalidateHandlers = createAsyncObjectProxy(() => getActiveAsyncRegistry().revalidateHandlers);
 export const noSignalWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().noSignalWarned);
+export const shapeWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().shapeWarned);
 export const autoCreateWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().autoCreateWarned);
 export const revalidateKeys = createAsyncValueProxy(() => getActiveAsyncRegistry().revalidateKeys);
 export const asyncMetrics = createAsyncValueProxy(() => getActiveAsyncRegistry().asyncMetrics);
 
+export const markWarned = (set: Set<string>, key: string): void => {
+    if (set.has(key)) return;
+    set.add(key);
+    if (set.size <= MAX_WARNED_ENTRIES) return;
+    const oldest = set.values().next().value as string | undefined;
+    if (oldest !== undefined) set.delete(oldest);
+};
 
 
 export const resetAsyncState = (): void => {
@@ -86,6 +95,7 @@ export const shouldUseCache = (cacheSlot: string, ttl?: number): boolean => {
 export const clearAsyncMeta = (name: string): void => {
     delete fetchRegistry[name];
     noSignalWarned.delete(name);
+    shapeWarned.delete(name);
     autoCreateWarned.delete(name);
 
     const startsWithName = (key: string) => key === name || key.startsWith(`${name}:`);

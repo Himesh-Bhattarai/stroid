@@ -150,6 +150,8 @@ export function useStore<T = unknown, R = unknown>(
     const selectorRef = useRef<typeof selector>(selector);
     const equalityRef = useRef(equalityFn);
     const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
+    const selectorIdentityWarned = useRef(false);
+    const prevSelectorRef = useRef<typeof selector>(selector);
 
     selectorRef.current = selector;
     equalityRef.current = equalityFn;
@@ -185,6 +187,18 @@ export function useStore<T = unknown, R = unknown>(
     const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     useEffect(() => {
+        if (isDev() && hasSelector) {
+            const prev = prevSelectorRef.current;
+            if (prev && prev !== selector && !selectorIdentityWarned.current) {
+                selectorIdentityWarned.current = true;
+                warn(
+                    `useStore("${storeName}") selector was recreated between renders. ` +
+                    `This can cause repeated subscriptions. Wrap the selector in useCallback or define it outside the component.`
+                );
+            }
+            prevSelectorRef.current = selector;
+        }
+
         if (isDev() && !hasSelector && !path && !hasBroadUseStoreWarning(storeName)) {
             markBroadUseStoreWarning(storeName);
             warn(
@@ -192,7 +206,7 @@ export function useStore<T = unknown, R = unknown>(
                 `Prefer useSelector/useStoreField for better performance.`
             );
         }
-    }, [storeName, hasSelector, path]);
+    }, [storeName, hasSelector, path, selector]);
 
     return state as StoreSnapshot<T> | R | null;
 }
@@ -228,6 +242,8 @@ export function useSelector<T = unknown, R = unknown>(
     const selectorRef = useRef(selectorFn);
     const equalityRef = useRef(equalityFn);
     const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
+    const selectorIdentityWarned = useRef(false);
+    const prevSelectorRef = useRef(selectorFn);
 
     selectorRef.current = selectorFn;
     equalityRef.current = equalityFn;
@@ -254,6 +270,20 @@ export function useSelector<T = unknown, R = unknown>(
     }, [resolvedName]);
 
     const selection = useSyncExternalStore(subscribe, getSnap, getSnap);
+
+    useEffect(() => {
+        if (!isDev()) return;
+        const prev = prevSelectorRef.current;
+        if (prev && prev !== selectorFn && !selectorIdentityWarned.current) {
+            selectorIdentityWarned.current = true;
+            warn(
+                `useSelector("${resolvedName}") selector was recreated between renders. ` +
+                `Wrap it in useCallback or define it outside the component to avoid resubscribe churn.`
+            );
+        }
+        prevSelectorRef.current = selectorFn;
+    }, [resolvedName, selectorFn]);
+
     return selection as R | null;
 }
 

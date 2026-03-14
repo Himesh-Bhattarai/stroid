@@ -43,13 +43,17 @@ export const resolveUpdatedAtMs = ({
     fallbackMs?: number;
     onInvalid?: () => void;
 }): number => {
-    const parsed =
-        typeof value === "string" || typeof value === "number"
-            ? Date.parse(String(value))
-            : Number.NaN;
-    if (!Number.isFinite(parsed)) {
+    if (typeof value === "number") {
+        if (Number.isFinite(value)) return value;
         onInvalid?.();
         return fallbackMs;
     }
-    return parsed;
+    if (typeof value === "string") {
+        const parsed = Date.parse(value);
+        if (Number.isFinite(parsed)) return parsed;
+        onInvalid?.();
+        return fallbackMs;
+    }
+    onInvalid?.();
+    return fallbackMs;
 };

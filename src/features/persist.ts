@@ -33,6 +33,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
     const persistKeys: Record<string, string> = Object.create(null);
     const persistWatchState: PersistWatchState = Object.create(null);
     const plaintextWarningsIssued = new Set<string>();
+    const persistLoadState: Record<string, { loading: boolean; pendingSave: boolean }> = Object.create(null);
 
     return {
         api: {
@@ -45,7 +46,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             const cfg = ctx.options.persist;
             if (!cfg) return;
 
-            const isPlaintext = isIdentityCrypto(cfg.encrypt) && isIdentityCrypto(cfg.decrypt);
+            const isPlaintext = !cfg.encryptAsync && isIdentityCrypto(cfg.encrypt) && isIdentityCrypto(cfg.decrypt);
             if (isPlaintext && !cfg.allowPlaintext) {
                 const message =
                     `[stroid/persist] Store "${ctx.name}" is configured for plaintext persistence. ` +
@@ -57,7 +58,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 }
                 ctx.warn(message);
             }
-            if ((cfg as PersistOptions & { sensitiveData?: boolean }).sensitiveData && !cfg.encrypt) {
+            if ((cfg as PersistOptions & { sensitiveData?: boolean }).sensitiveData && !cfg.encryptAsync && isIdentityCrypto(cfg.encrypt)) {
                 ctx.reportStoreError(
                     `persist: store "${ctx.name}" is marked sensitiveData but has no encrypt function. ` +
                     `Plaintext data will be written to storage.`
@@ -84,6 +85,12 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 }
             }
 
+            const loadStartVersion = ctx.getMeta()?.updateCount ?? 0;
+            const shouldApply = () => {
+                const meta = ctx.getMeta();
+                if (!meta) return false;
+                return (meta.updateCount ?? 0) === loadStartVersion;
+            };
             const hadPersistedState = persistLoad({
                 name: ctx.name,
                 silent: true,
@@ -96,9 +103,53 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 hashState: ctx.hashState,
                 deepClone: ctx.deepClone,
                 sanitize: ctx.sanitize,
+                shouldApply,
             });
 
-            if (!hadPersistedState) {
+            if (typeof (hadPersistedState as Promise<boolean>)?.then === "function") {
+                persistLoadState[ctx.name] = { loading: true, pendingSave: false };
+                (hadPersistedState as Promise<boolean>)
+                    .then((loaded) => {
+                        const state = persistLoadState[ctx.name];
+                        if (!state) return;
+                        state.loading = false;
+                        if (!loaded || state.pendingSave) {
+                            persistSave({
+                                name: ctx.name,
+                                persistTimers,
+                                persistInFlight,
+                                persistWatchState,
+                                plaintextWarningsIssued,
+                                exists: () => ctx.hasStore(),
+                                getMeta: ctx.getMeta,
+                                getStoreValue: ctx.getStoreValue,
+                                reportStoreError: (name, message) => ctx.reportStoreError(message),
+                                hashState: ctx.hashState,
+                            });
+                        }
+                        delete persistLoadState[ctx.name];
+                    })
+                    .catch(() => {
+                        const state = persistLoadState[ctx.name];
+                        if (!state) return;
+                        state.loading = false;
+                        if (state.pendingSave) {
+                            persistSave({
+                                name: ctx.name,
+                                persistTimers,
+                                persistInFlight,
+                                persistWatchState,
+                                plaintextWarningsIssued,
+                                exists: () => ctx.hasStore(),
+                                getMeta: ctx.getMeta,
+                                getStoreValue: ctx.getStoreValue,
+                                reportStoreError: (name, message) => ctx.reportStoreError(message),
+                                hashState: ctx.hashState,
+                            });
+                        }
+                        delete persistLoadState[ctx.name];
+                    });
+            } else if (!hadPersistedState) {
                 persistSave({
                     name: ctx.name,
                     persistTimers,
@@ -116,6 +167,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
                 const flush = () => {
                     flushPersistImmediately(ctx.name, {
+                        name: ctx.name,
                         persistTimers,
                         persistInFlight,
                         persistWatchState,
@@ -140,6 +192,11 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
 
         onStoreWrite(ctx) {
             if (!ctx.options.persist) return;
+            const loadState = persistLoadState[ctx.name];
+            if (loadState?.loading) {
+                loadState.pendingSave = true;
+                return;
+            }
             persistSave({
                 name: ctx.name,
                 persistTimers,
@@ -157,6 +214,8 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
         beforeStoreDelete(ctx) {
             const cfg = ctx.options.persist;
             if (!cfg) return;
+
+            delete persistLoadState[ctx.name];
 
             if (persistTimers[ctx.name]) {
                 clearTimeout(persistTimers[ctx.name]);
@@ -188,6 +247,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             Object.keys(persistInFlight).forEach((key) => { persistInFlight[key] = null; delete persistInFlight[key]; });
             Object.keys(persistKeys).forEach((key) => delete persistKeys[key]);
             Object.keys(persistWatchState).forEach((key) => delete persistWatchState[key]);
+            Object.keys(persistLoadState).forEach((key) => delete persistLoadState[key]);
             plaintextWarningsIssued.clear();
         },
     };

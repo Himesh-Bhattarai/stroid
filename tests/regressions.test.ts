@@ -75,7 +75,7 @@ test("hydrateStores does not materialize lazy stores", () => {
     return { count: 0 };
   }, { lazy: true });
 
-  hydrateStores({ lazyHydrate: { count: 5 } });
+  hydrateStores({ lazyHydrate: { count: 5 } }, {}, { allowUntrusted: true });
   assert.strictEqual(calls, 0);
   assert.deepStrictEqual(getStore("lazyHydrate"), { count: 5 });
 });
@@ -184,18 +184,94 @@ test("chunked flush snapshots ordered names (orderedNames race)", async () => {
     await Promise.resolve();
     assert.deepStrictEqual(calls, ["a"]);
 
-    assert.throws(() => {
-      setStoreBatch(() => {
-        setStore("x", "value", 1);
-        throw new Error("boom");
-      });
-    }, /boom/);
+    setStoreBatch(() => {
+      setStore("x", "value", 1);
+      throw new Error("boom");
+    });
 
     await new Promise((r) => setTimeout(r, 120));
     assert.deepStrictEqual(calls, ["a", "b"]);
   } finally {
     resetConfig();
   }
+});
+
+test("chunked flush notifies subscribers added mid-flush", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 20 } });
+
+  try {
+    createStore("chunkedSubs", { value: 0 });
+    const calls: string[] = [];
+    let added = false;
+
+    subscribe("chunkedSubs", () => {
+      calls.push("a");
+      if (!added) {
+        added = true;
+        subscribe("chunkedSubs", () => {
+          calls.push("b");
+        });
+      }
+    });
+
+    setStore("chunkedSubs", "value", 1);
+
+    await new Promise((r) => setTimeout(r, 80));
+
+    assert.deepStrictEqual(calls, ["a", "b"]);
+  } finally {
+    resetConfig();
+  }
+});
+
+test("setStoreBatch supports nested batches without duplicate notifications", async () => {
+  clearAllStores();
+  createStore("nestedBatch", { value: 0 });
+
+  let calls = 0;
+  subscribe("nestedBatch", () => { calls += 1; });
+
+  setStoreBatch(() => {
+    setStore("nestedBatch", "value", 1);
+    setStoreBatch(() => {
+      setStore("nestedBatch", "value", 2);
+    });
+    setStore("nestedBatch", "value", 3);
+  });
+
+  await Promise.resolve();
+  assert.deepStrictEqual(getStore("nestedBatch"), { value: 3 });
+  assert.strictEqual(calls, 1);
+});
+
+test("hydrateStores accepts undefined values in snapshots", () => {
+  clearAllStores();
+  createStore("defined", { value: 1 });
+
+  const result = hydrateStores({
+    defined: undefined as any,
+    missing: undefined as any,
+  }, {}, { allowUntrusted: true });
+
+  assert.deepStrictEqual(result.hydrated.slice().sort(), []);
+  assert.deepStrictEqual(result.created.slice().sort(), ["missing"]);
+  assert.strictEqual(result.failed.defined, "undefined");
+  assert.strictEqual(hasStore("missing"), true);
+  assert.deepStrictEqual(getStore("defined"), { value: 1 });
+  assert.strictEqual(getStore("missing"), undefined);
+});
+
+test("createStore inside onCreate hook is allowed", () => {
+  clearAllStores();
+  createStore("parent", { value: 1 }, {
+    onCreate: () => {
+      createStore("child", { value: 2 });
+    },
+  });
+
+  assert.strictEqual(hasStore("child"), true);
+  assert.deepStrictEqual(getStore("child"), { value: 2 });
 });
 
 test("getStoreSnapshot reads staged values inside setStoreBatch", () => {

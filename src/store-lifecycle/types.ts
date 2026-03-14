@@ -38,6 +38,7 @@ export interface StoreStateMap {}
 // Optional strict map users can augment for explicit, locked store names.
 // Example:
 //   declare module "stroid" { interface StrictStoreMap { user: UserState } }
+//   declare module "stroid/core" { interface StrictStoreMap { user: UserState } }
 export interface StrictStoreMap {}
 type RegisteredStoreMap = StoreStateMap & StrictStoreMap;
 declare const storeNameBrand: unique symbol;

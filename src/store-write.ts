@@ -2,7 +2,7 @@
  * @module store-write
  *
  * LAYER: Public Write API
- * OWNS:  createStore(), setStore(), deleteStore(), resetStore(),
+ * OWNS:  createStore(), createStoreStrict(), setStore(), deleteStore(), resetStore(),
  *        hydrateStores(), clearAllStores().
  *
  * DOES NOT KNOW about: React hooks, async caching, or feature internals.
@@ -75,6 +75,23 @@ type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
 type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
+type HydrationTrust<Snapshot extends Record<string, unknown>> = {
+    allowUntrusted?: boolean;
+    validate?: (snapshot: Snapshot) => boolean;
+};
+
+const SLOW_MUTATOR_WARN_MS = 32;
+const slowMutatorWarned = new Set<string>();
+const warnSlowMutator = (storeName: string, elapsedMs: number): void => {
+    if (!isDev()) return;
+    if (elapsedMs < SLOW_MUTATOR_WARN_MS) return;
+    if (slowMutatorWarned.has(storeName)) return;
+    slowMutatorWarned.add(storeName);
+    warn(
+        `setStore("${storeName}", mutator) took ${elapsedMs}ms. ` +
+        `Mutator writes clone the entire store; consider path writes or smaller stores for hot paths.`
+    );
+};
 
 export const createStore = <Name extends string, State>(
     name: Name,
@@ -162,9 +179,12 @@ export const createStore = <Name extends string, State>(
         setStoreValueInternal(name, validated.value);
         initialStates[name] = deepClone(validated.value);
     }
+    const createdAtMs = Date.now();
+    const createdAtIso = new Date(createdAtMs).toISOString();
     meta[name] = {
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: createdAtIso,
+        updatedAt: createdAtIso,
+        updatedAtMs: createdAtMs,
         updateCount: 0,
         version: normalizedOptions.version,
         metrics: { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
@@ -178,6 +198,19 @@ export const createStore = <Name extends string, State>(
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
     return { name } as StoreDefinition<Name, State>;
+};
+
+export const createStoreStrict = <Name extends string, State>(
+    name: Name,
+    initialData: State,
+    option: StoreOptions<State> = {}
+): StoreDefinition<Name, State> => {
+    const created = createStore(name, initialData, option);
+    if (created) return created;
+    throw new Error(
+        `createStoreStrict("${String(name)}") failed. ` +
+        `See earlier warnings/errors or onError callbacks for the cause.`
+    );
 };
 
 export function setStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P, value: PathValue<State, P>): WriteResult;
@@ -211,10 +244,27 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     const usedMutator = typeof keyOrData === "function" && value === undefined;
 
     if (usedMutator) {
+        const mutatorStart = isDev() ? Date.now() : 0;
         try {
-            const draft = deepClone(prev);
-            const result = (keyOrData as (draft: StoreValue) => void)(draft);
-            if (result !== undefined && getConfig().strictMutatorReturns) {
+            const producer = getConfig().mutatorProduce;
+            let didReturn = false;
+            let returnedValue: unknown = undefined;
+            const recipe = (draft: StoreValue) => {
+                const result = (keyOrData as (draft: StoreValue) => void)(draft);
+                if (result !== undefined) {
+                    didReturn = true;
+                    returnedValue = result;
+                }
+                return result;
+            };
+            const draft = producer
+                ? producer(prev as StoreValue, recipe as (draft: StoreValue) => void)
+                : (() => {
+                    const clone = deepClone(prev);
+                    recipe(clone);
+                    return clone;
+                })();
+            if (didReturn && getConfig().strictMutatorReturns) {
                 const message =
                     `setStore("${storeName}", mutator) returned a value. ` +
                     `Strict mutator mode forbids return values; mutate the draft instead.`;
@@ -222,17 +272,23 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
                 if (isTransactionActive()) markTransactionFailed(message);
                 return { ok: false, reason: "validate" };
             }
-            if (result !== undefined && isDev() && !getConfig().strictMutatorReturns) {
+            if (didReturn && isDev() && !getConfig().strictMutatorReturns) {
                 warn(
                     `setStore("${storeName}", mutator) returned a value. ` +
                     `Return values replace the entire store; return void to apply draft mutations instead.`
                 );
             }
-            updated = draft as StoreValue;
+            updated = (didReturn && !getConfig().strictMutatorReturns)
+                ? (returnedValue as StoreValue)
+                : (draft as StoreValue);
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
             if (isTransactionActive()) markTransactionFailed(err);
             return { ok: false, reason: "validate" };
+        } finally {
+            if (mutatorStart) {
+                warnSlowMutator(storeName, Date.now() - mutatorStart);
+            }
         }
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) {
@@ -310,7 +366,9 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         registerTransactionCommit(() => {
             setStoreValueInternal(storeName, nextValue);
             invalidatePathCache(storeName);
-            meta[storeName].updatedAt = new Date().toISOString();
+            const updatedAtMs = Date.now();
+            meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
+            meta[storeName].updatedAtMs = updatedAtMs;
             meta[storeName].updateCount++;
             runFeatureWriteHooks(storeName, "set", prevValue, nextValue, notify);
             runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prevValue, nextValue]);
@@ -320,7 +378,9 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     } else {
         setStoreValueInternal(storeName, committed.value);
         invalidatePathCache(storeName);
-        meta[storeName].updatedAt = new Date().toISOString();
+        const updatedAtMs = Date.now();
+        meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
+        meta[storeName].updatedAtMs = updatedAtMs;
         meta[storeName].updateCount++;
         runFeatureWriteHooks(storeName, "set", prev, committed.value, notify);
         runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prev, committed.value]);
@@ -374,13 +434,13 @@ export function deleteStore(nameInput: string | StoreDefinition<string, StoreVal
     invalidatePathCache(name);
 }
 
-export function resetStore<Name extends string, State>(name: StoreDefinition<Name, State>): void;
-export function resetStore<Name extends string, State>(name: StoreKey<Name, State>): void;
-export function resetStore<Name extends StoreName>(name: Name): void;
-export function resetStore(nameInput: string | StoreDefinition<string, StoreValue>): void {
+export function resetStore<Name extends string, State>(name: StoreDefinition<Name, State>): WriteResult;
+export function resetStore<Name extends string, State>(name: StoreKey<Name, State>): WriteResult;
+export function resetStore<Name extends StoreName>(name: Name): WriteResult;
+export function resetStore(nameInput: string | StoreDefinition<string, StoreValue>): WriteResult {
     const name = nameOf(nameInput);
-    if (!exists(name)) return;
-    if (!materializeInitial(name)) return;
+    if (!exists(name)) return { ok: false, reason: "not-found" };
+    if (!materializeInitial(name)) return { ok: false, reason: "validate" };
     if (!initialStates[name]) {
         const message =
             `resetStore("${name}") has no initial state to reset to. ` +
@@ -389,7 +449,7 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         if (isTransactionActive()) {
             markTransactionFailed(message);
         }
-        return;
+        return { ok: false, reason: "not-found" };
     }
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : stores[name];
@@ -400,24 +460,29 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         registerTransactionCommit(() => {
             setStoreValueInternal(name, resetValue);
             invalidatePathCache(name);
-            meta[name].updatedAt = new Date().toISOString();
+            const updatedAtMs = Date.now();
+            meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+            meta[name].updatedAtMs = updatedAtMs;
             meta[name].updateCount++;
             runFeatureWriteHooks(name, "reset", prev, resetValue, notify);
             runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
             notify(name);
             log(`Store "${name}" reset to initial state/value`);
         });
-        return;
+        return { ok: true };
     }
 
     setStoreValueInternal(name, resetValue);
     invalidatePathCache(name);
-    meta[name].updatedAt = new Date().toISOString();
+    const updatedAtMs = Date.now();
+    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    meta[name].updatedAtMs = updatedAtMs;
     meta[name].updateCount++;
     runFeatureWriteHooks(name, "reset", prev, resetValue, notify);
     runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
     notify(name);
     log(`Store "${name}" reset to initial state/value`);
+    return { ok: true };
 }
 
 const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { ok: boolean; reason?: string } => {
@@ -440,7 +505,9 @@ const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { o
     if (!committed.ok) return { ok: false, reason: "validate" };
     setStoreValueInternal(name, committed.value);
     invalidatePathCache(name);
-    meta[name].updatedAt = new Date().toISOString();
+    const updatedAtMs = Date.now();
+    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    meta[name].updatedAtMs = updatedAtMs;
     meta[name].updateCount++;
     runFeatureWriteHooks(name, action, prev, committed.value, notify);
     runStoreHookSafe(name, "onSet", meta[name].options.onSet, [prev, committed.value]);
@@ -476,7 +543,8 @@ export const _hardResetAllStoresForTest = (): void => {
 
 export const hydrateStores = <Snapshot extends Record<string, unknown> = HydrateSnapshot>(
     snapshot: Snapshot,
-    options: HydrateOptions<Snapshot> = {}
+    options: HydrateOptions<Snapshot> = {},
+    trust: HydrationTrust<Snapshot> = {}
 ): { hydrated: string[]; created: string[]; failed: Record<string, string> } => {
     if (isTransactionActive()) {
         const message = `hydrateStores(...) cannot be called inside setStoreBatch.`;
@@ -494,6 +562,33 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
         failed: Object.create(null) as Record<string, string>,
     };
     if (!snapshot || typeof snapshot !== "object") return result;
+
+    const allowUntrusted = trust.allowUntrusted === true || getConfig().allowUntrustedHydration === true;
+    if (!allowUntrusted) {
+        warnAlways(
+            `hydrateStores(...) requires explicit trust. ` +
+            `Pass { allowUntrusted: true } as the third argument or configureStroid({ allowUntrustedHydration: true }).`
+        );
+        result.failed._hydration = "untrusted";
+        return result;
+    }
+    if (typeof trust.validate === "function") {
+        let ok = false;
+        try {
+            ok = !!trust.validate(snapshot);
+        } catch (err) {
+            warnAlways(
+                `hydrateStores(...) trust validation threw: ${(err as { message?: string })?.message ?? err}`
+            );
+            result.failed._hydration = "validation-error";
+            return result;
+        }
+        if (!ok) {
+            warnAlways("hydrateStores(...) rejected by trust validation.");
+            result.failed._hydration = "validation-failed";
+            return result;
+        }
+    }
     Object.entries(snapshot).forEach(([storeName, data]) => {
         if (!isValidStoreName(storeName)) {
             result.failed[storeName] = "invalid-name";

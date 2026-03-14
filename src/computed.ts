@@ -8,10 +8,8 @@
  *
  * Consumers: index.ts, computed-entry.ts
  */
-import { createStore, replaceStore } from "./store-write.js";
-import { getStore, hasStore } from "./store-read.js";
 import { store } from "./store-name.js";
-import { subscribeStore } from "./store-notify.js";
+import { createStore, replaceStore, getStore, hasStore, subscribeStore } from "./internals/store-ops.js";
 import {
     registerComputed,
     unregisterComputed,
@@ -21,7 +19,7 @@ import {
 } from "./computed-graph.js";
 import { warn, isDev, log } from "./utils.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
-import type { StoreDefinition } from "./store-lifecycle.js";
+import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "./store-lifecycle.js";
 
 export type ComputedOptions = {
     autoDispose?: boolean;
@@ -30,12 +28,21 @@ export type ComputedOptions = {
 
 const getComputedCleanups = (): Map<string, () => void> => getRegistry().computedCleanups;
 
-export const createComputed = <TResult = unknown>(
+type DepHandle = StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue>;
+type DepValue<T> = T extends StoreDefinition<string, infer S>
+    ? Readonly<S> | null
+    : T extends StoreKey<string, infer S>
+        ? Readonly<S> | null
+        : T extends StoreName
+            ? Readonly<StateFor<T>> | null
+            : StoreValue | null;
+
+export function createComputed<TResult, Deps extends readonly (StoreName | DepHandle)[]>(
     name: string,
-    deps: string[],
-    compute: (...args: unknown[]) => TResult,
+    deps: Deps,
+    compute: (...args: { [K in keyof Deps]: DepValue<Deps[K]> }) => TResult,
     options: ComputedOptions = {}
-): StoreDefinition<string, TResult> | undefined => {
+): StoreDefinition<string, TResult> | undefined {
     if (!name || typeof name !== "string") {
         warn("createComputed requires a store name as first argument");
         return undefined;
@@ -58,7 +65,22 @@ export const createComputed = <TResult = unknown>(
         cleanups.delete(name);
     }
 
-    const registered = registerComputed(name, deps, compute as (...args: unknown[]) => unknown);
+    const depNames = deps.map((dep) => (typeof dep === "string" ? dep : dep?.name));
+    if (depNames.some((dep) => !dep || typeof dep !== "string")) {
+        warn(`createComputed("${name}") dependencies must be store names or store handles.`);
+        return undefined;
+    }
+    if (isDev()) {
+        const missing = depNames.filter((dep) => !hasStore(dep as string));
+        if (missing.length > 0) {
+            warn(
+                `createComputed("${name}") dependencies not found at registration: ${missing.join(", ")}. ` +
+                `Computed values will receive null until those stores are created.`
+            );
+        }
+    }
+
+    const registered = registerComputed(name, depNames as string[], compute as (...args: unknown[]) => unknown);
     if (!registered) return undefined;
 
     const initial = _runCompute(name, deps, compute as (...args: unknown[]) => unknown, options.onError);
@@ -71,9 +93,9 @@ export const createComputed = <TResult = unknown>(
     }
 
     const unsubscribers: Array<() => void> = [];
-    for (const dep of deps) {
-        const unsub = subscribeStore(dep, () => {
-            _recomputeAndFlush(name, deps, compute as (...args: unknown[]) => unknown, options.onError);
+    for (const dep of depNames) {
+        const unsub = subscribeStore(dep as string, () => {
+            _recomputeAndFlush(name, depNames as string[], compute as (...args: unknown[]) => unknown, options.onError);
         });
         unsubscribers.push(unsub);
     }
@@ -84,19 +106,22 @@ export const createComputed = <TResult = unknown>(
     });
 
     if (isDev()) {
-        log(`computed store "${name}" created, deps: [${deps.join(", ")}]`);
+        log(`computed store "${name}" created, deps: [${depNames.join(", ")}]`);
     }
 
     return handle as StoreDefinition<string, TResult>;
-};
+}
 
 const _runCompute = (
     name: string,
-    deps: string[],
+    deps: Array<string | DepHandle>,
     compute: (...args: unknown[]) => unknown,
     onError?: (err: unknown) => void
 ): unknown => {
-    const args = deps.map((dep) => getStore(store(dep)));
+    const args = deps.map((dep) => {
+        if (typeof dep === "string") return getStore(store(dep));
+        return getStore(dep as StoreDefinition<string, StoreValue>);
+    });
 
     try {
         return compute(...args);

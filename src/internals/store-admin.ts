@@ -163,13 +163,15 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             }
 
             const dependents = registry.computedDependents;
-            const affected = dependents[name] ?? [];
-            for (const computedName of affected) {
-                warn(
-                    `[stroid] source store "${name}" was deleted. ` +
-                    `Computed store "${computedName}" depends on it and will return stale data. ` +
-                    `Call deleteComputed("${computedName}") to clean up.`
-                );
+            const affected = dependents[name];
+            if (affected) {
+                for (const computedName of affected) {
+                    warn(
+                        `[stroid] source store "${name}" was deleted. ` +
+                        `Computed store "${computedName}" depends on it and will return stale data. ` +
+                        `Call deleteComputed("${computedName}") to clean up.`
+                    );
+                }
             }
 
             runFeatureDeleteHooks({

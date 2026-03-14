@@ -1,3 +1,4 @@
+// Public store API barrel. store-* modules are split for organization and re-exported here.
 export type {
     Path,
     PathDepth,
@@ -23,6 +24,7 @@ export type {
 
 export {
     createStore,
+    createStoreStrict,
     setStore,
     replaceStore,
     deleteStore,
