@@ -30,6 +30,7 @@ import {
 } from "./async-cache.js";
 import { resetAsyncState } from "./async-cache.js";
 import { delay, normalizeRetryOptions, MAX_RETRY_DELAY_MS } from "./async-retry.js";
+import { buildFetchOptions, parseResponseBody } from "./async/request.js";
 const _wildcardCleanups: Array<() => void> = [];
 type AsyncState = AsyncStateSnapshot;
 
@@ -384,7 +385,7 @@ export async function fetchStore(
                 let result: unknown;
 
                 if (typeof currentRequest === "string") {
-                    const fetchOptions = _buildFetchOptions({
+                    const fetchOptions = buildFetchOptions({
                         method,
                         headers,
                         body,
@@ -395,7 +396,7 @@ export async function fetchStore(
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
-                    result = await _parseResponseBody(response, responseType);
+                    result = await parseResponseBody(response, responseType);
                 } else if (typeof (currentRequest as any).then === "function") {
                     result = await currentRequest;
                 } else {
@@ -680,52 +681,6 @@ export function enableRevalidateOnFocus(
     }
     return cleanup;
 }
-
-const _buildFetchOptions = (options: FetchOptions): RequestInit => {
-    const fetchOpts: RequestInit = {};
-
-    if (options.method) {
-        fetchOpts.method = options.method.toUpperCase();
-    }
-
-    if (options.headers) {
-        fetchOpts.headers = options.headers;
-    } else {
-        fetchOpts.headers = { "Content-Type": "application/json" };
-    }
-
-    if (options.body) {
-        fetchOpts.body = typeof options.body === "string"
-            ? options.body
-            : JSON.stringify(options.body);
-    }
-
-    if (options.signal) {
-        fetchOpts.signal = options.signal;
-    }
-
-    return fetchOpts;
-};
-
-const _parseResponseBody = async (response: Response, responseType: FetchOptions["responseType"]): Promise<unknown> => {
-    const type = responseType ?? "auto";
-    if (type === "json") return response.json();
-    if (type === "text") return response.text();
-    if (type === "arrayBuffer") return response.arrayBuffer();
-    if (type === "blob") return response.blob();
-    if (type === "formData") return response.formData();
-
-    // auto-detect
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType.includes("application/json") || contentType.includes("+json")) {
-        return response.json();
-    }
-    if (contentType.startsWith("text/") || contentType.includes("xml") || contentType.includes("html")) {
-        return response.text();
-    }
-    if (contentType.includes("form-data")) return response.formData();
-    return response.arrayBuffer();
-};
 
 export const getAsyncMetrics = () => ({ ...asyncMetrics });
 
