@@ -623,14 +623,12 @@ test("fetchStore caps per-store inflight request slots under unique cache keys",
 
     await wait(0);
 
-    await assert.rejects(
-      fetchStore("burstStore", "https://api.example.com/burst", {
-        dedupe: false,
-        cacheKey: "slot-overflow",
-        onError: (msg) => { errors.push(msg); },
-      }),
-      /exceeded 100 concurrent request slots/
-    );
+    const overflow = await fetchStore("burstStore", "https://api.example.com/burst", {
+      dedupe: false,
+      cacheKey: "slot-overflow",
+      onError: (msg) => { errors.push(msg); },
+    });
+    assert.strictEqual(overflow, null);
     assert.strictEqual(calls, 100);
     assert.ok(errors.some((msg) => msg.includes('fetchStore("burstStore") exceeded 100 concurrent request slots')));
 

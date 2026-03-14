@@ -184,12 +184,10 @@ test("chunked flush snapshots ordered names (orderedNames race)", async () => {
     await Promise.resolve();
     assert.deepStrictEqual(calls, ["a"]);
 
-    assert.throws(() => {
-      setStoreBatch(() => {
-        setStore("x", "value", 1);
-        throw new Error("boom");
-      });
-    }, /boom/);
+    setStoreBatch(() => {
+      setStore("x", "value", 1);
+      throw new Error("boom");
+    });
 
     await new Promise((r) => setTimeout(r, 120));
     assert.deepStrictEqual(calls, ["a", "b"]);

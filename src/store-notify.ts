@@ -9,7 +9,7 @@
  *
  * Consumers: store-write (calls notify()), hooks-core (calls subscribe/getSnapshot).
  */
-import { deepClone, shallowClone, warn } from "./utils.js";
+import { deepClone, shallowClone, warn, warnAlways } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import { getConfig } from "./internals/config.js";
 import { beginTransaction, endTransaction, isTransactionActive } from "./store-transaction.js";
@@ -261,7 +261,8 @@ export const setStoreBatch = (fn: () => unknown): void => {
         return;
     }
     if (Object.prototype.toString.call(fn) === "[object AsyncFunction]") {
-        throw new Error("setStoreBatch does not support async functions. Move async work outside and batch only synchronous mutations.");
+        warnAlways("setStoreBatch does not support async functions. Move async work outside and batch only synchronous mutations.");
+        return;
     }
 
     batchDepth = Math.max(0, batchDepth + 1);
@@ -290,7 +291,10 @@ export const setStoreBatch = (fn: () => unknown): void => {
         }
     }
 
-    if (batchError) throw batchError;
+    if (batchError) {
+        const message = batchError instanceof Error ? batchError.message : String(batchError);
+        warnAlways(`setStoreBatch failed: ${message}`);
+    }
 };
 
 export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {

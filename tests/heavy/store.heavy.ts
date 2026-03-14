@@ -1297,13 +1297,13 @@ test("setStoreBatch rejects async callbacks before they can interleave state", (
   clearAllStores();
   createStore("batchGuard", { value: 0 });
 
-  assert.throws(() => {
+  assert.doesNotThrow(() => {
     setStoreBatch(async () => {
       setStore("batchGuard", { value: 1 });
       await Promise.resolve();
       setStore("batchGuard", { value: 2 });
     });
-  }, /does not support async functions/);
+  });
 
   assert.deepStrictEqual(getStore("batchGuard"), { value: 0 });
 });

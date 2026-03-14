@@ -26,7 +26,7 @@ import {
 import { resetAsyncState } from "./async-cache.js";
 import { delay, normalizeRetryOptions, MAX_RETRY_DELAY_MS } from "./async-retry.js";
 import { cloneAsyncResult } from "./async/clone.js";
-import { reportAsyncUsageError, runAsyncHook, throwAsyncUsageError } from "./async/errors.js";
+import { reportAsyncUsageError, runAsyncHook } from "./async/errors.js";
 import {
     clearInflightEntry,
     clearRequestVersion,
@@ -249,7 +249,7 @@ export async function fetchStore(
     }
 
     if (!hasInflightEntry(cacheSlot) && countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
-        return throwAsyncUsageError(
+        return reportAsyncUsageError(
             name,
             `fetchStore("${name}") exceeded ${MAX_INFLIGHT_SLOTS_PER_STORE} concurrent request slots. Reuse cacheKey values, wait for pending requests, or delete the store to clear async state.`,
             onError
