@@ -126,6 +126,28 @@ declare module "stroid/core" {
 
 Now `createStore("user", ...)`, `setStore("user", ...)`, and `store("user")` are fully typed, and unknown store names are a type error.
 
+### Type safety without globals
+
+If you want strong typing without declaration merging, export store handles from one module:
+
+```ts
+// src/stores.ts
+import { store } from "stroid/core";
+
+export const userStore = store<"user", { name: string; age: number }>("user");
+export const cartStore = store<"cart", { items: string[] }>("cart");
+```
+
+Then use the handles everywhere:
+
+```ts
+import { setStore, getStore } from "stroid/core";
+import { userStore } from "./stores";
+
+setStore(userStore, "name", "Ava");
+const age = getStore(userStore, "age");
+```
+
 ## Custom async store shapes
 
 `fetchStore` can write into custom shapes via `stateAdapter`:
