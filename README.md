@@ -116,7 +116,7 @@ import "stroid/devtools";
 
 If you prefer explicit paths, you can also import from subpaths (`stroid/core`, `stroid/runtime-tools`, etc.), but remember to include the feature side-effect imports when you need them.
 
-> Important: If you forget these side-effect imports, the features are silently disabled (only a dev-mode warning is emitted). This is the #1 onboarding footgun—add the imports near your app entry point.
+> Important: If you forget these side-effect imports, the features are silently disabled (only a dev-mode warning is emitted). This is the #1 onboarding footgun—add the imports near your app entry point. To hard-fail instead, call `configureStroid({ strictFeatures: true })`.
 
 ## Persistence and encryption
 

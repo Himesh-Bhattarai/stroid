@@ -26,6 +26,7 @@ export type StroidConfig = {
     revalidateOnFocus?: RevalidateOnFocusConfig;
     namespace?: string;
     strictMissingFeatures?: boolean;
+    strictFeatures?: boolean;
     assertRuntime?: boolean;
     strictMutatorReturns?: boolean;
     asyncAutoCreate?: boolean;
@@ -151,6 +152,12 @@ export const configureStroid = (next?: StroidConfig): void => {
         _config = {
             ..._config,
             strictMissingFeatures: next.strictMissingFeatures,
+        };
+    }
+    if (typeof next.strictFeatures === "boolean") {
+        _config = {
+            ..._config,
+            strictMissingFeatures: next.strictFeatures,
         };
     }
 
