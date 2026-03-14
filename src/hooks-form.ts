@@ -15,11 +15,11 @@ type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 export function useFormStore<Name extends string, State, P extends Path<State>>(
     storeName: StoreDefinition<Name, State> | StoreKey<Name, State>,
     field: P
-): { value: StoreSnapshot<PathValue<State, P>> | null; onChange: (eOrValue: unknown) => void };
+): { value: StoreSnapshot<PathValue<State, P>> | null; onChange: (eOrValue: any) => void };
 export function useFormStore<Name extends StoreName, P extends Path<StateFor<Name>>>(
     storeName: Name,
     field: P
-): { value: StoreSnapshot<PathValue<StateFor<Name>, P>> | null; onChange: (eOrValue: unknown) => void };
+): { value: StoreSnapshot<PathValue<StateFor<Name>, P>> | null; onChange: (eOrValue: any) => void };
 export function useFormStore(
     storeName: StoreDefinition<string, unknown> | StoreKey<string, unknown> | StoreName,
     field: string
@@ -33,7 +33,7 @@ export function useFormStore(
                     ? !!target.checked
                     : target.value
                 : eOrValue;
-            setStore(storeName as any, field as any, next as any);
+            (setStore as any)(storeName, field, next);
         },
         [storeName, field]
     );

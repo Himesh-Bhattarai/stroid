@@ -1,5 +1,7 @@
-import { createStore, setStore, resetStore, getStore, store } from "./store.js";
-import type { StoreOptions } from "./store.js";
+import { createStore, setStore, resetStore } from "./store-write.js";
+import { getStore } from "./store-read.js";
+import { store } from "./store-name.js";
+import type { StoreOptions } from "./adapters/options.js";
 
 let entityIdCounter = 0;
 
@@ -21,8 +23,8 @@ export const createListStore = <T>(name: string, initial: T[] = [], options: Sto
     return {
         push: (item: T) => setStore(handle, (draft) => { draft.items.push(item); }),
         removeAt: (index: number) => setStore(handle, (draft) => { draft.items.splice(index, 1); }),
-        clear: () => setStore(handle, { items: [] }),
-        replace: (items: T[]) => setStore(handle, { items }),
+        clear: () => setStore(handle, (draft) => { draft.items = []; }),
+        replace: (items: T[]) => setStore(handle, (draft) => { draft.items = items; }),
         all: () => {
             const items = getStore(handle, "items");
             return items ? [...items] : [];
@@ -53,7 +55,10 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
             if (!store) return [];
             return store.ids.map((id) => store.entities[id]) as T[];
         },
-        get: (id: string) => getStore(handle, ["entities", id]) as T | null,
+        get: (id: string) => {
+            const entities = getStore(handle, "entities") as Record<string, T> | null;
+            return entities ? (entities[id] ?? null) : null;
+        },
         clear: () => resetStore(handle),
     };
 };

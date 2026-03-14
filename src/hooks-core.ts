@@ -220,10 +220,11 @@ export function useSelector<Name extends StoreName, R>(
     equalityFn?: (a: R, b: R) => boolean
 ): R | null;
 export function useSelector<T = unknown, R = unknown>(
-    storeName: string,
+    storeName: string | StoreDefinition<string, T> | StoreKey<string, T>,
     selectorFn: (state: T) => R,
     equalityFn: (a: R, b: R) => boolean = shallowEqual
 ): R | null {
+    const resolvedName = typeof storeName === "string" ? storeName : storeName.name;
     const selectorRef = useRef(selectorFn);
     const equalityRef = useRef(equalityFn);
     const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
@@ -233,24 +234,24 @@ export function useSelector<T = unknown, R = unknown>(
 
     const selectValue = useCallback(
         (data: T | null): R | null =>
-            readSelectorCache(storeName, data, selectorRef, equalityRef, selectorCache),
-        [storeName]
+            readSelectorCache(resolvedName, data, selectorRef, equalityRef, selectorCache),
+        [resolvedName]
     );
 
     const getSnap = useCallback(() => {
-        const data = getStoreSnapshot(storeName) as T | null;
-        warnMissingStoreOnce(storeName);
+        const data = getStoreSnapshot(resolvedName) as T | null;
+        warnMissingStoreOnce(resolvedName);
         return selectValue(data);
-    }, [storeName, selectValue]);
+    }, [resolvedName, selectValue]);
 
     const subscribe = useCallback((notify: () => void) => {
         return subscribeWithSelector(
-            storeName,
+            resolvedName,
             (state) => selectorRef.current(state as T),
             (a, b) => equalityRef.current(a, b),
             () => notify()
         );
-    }, [storeName]);
+    }, [resolvedName]);
 
     const selection = useSyncExternalStore(subscribe, getSnap, getSnap);
     return selection as R | null;
@@ -272,9 +273,13 @@ export function useStoreStatic<Name extends StoreName>(
     name: Name,
     path?: undefined
 ): StoreSnapshot<StateFor<Name>> | null;
-export function useStoreStatic(name: string, path?: string): unknown {
-    const data = getStoreSnapshot(name);
-    warnMissingStoreOnce(name);
+export function useStoreStatic(
+    name: string | StoreDefinition<string, unknown> | StoreKey<string, unknown>,
+    path?: string
+): unknown {
+    const resolvedName = typeof name === "string" ? name : name.name;
+    const data = getStoreSnapshot(resolvedName);
+    warnMissingStoreOnce(resolvedName);
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
 }
