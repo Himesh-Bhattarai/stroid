@@ -180,3 +180,28 @@ test("compute function throwing does not crash -- returns previous value", async
 
   assert.strictEqual(getStore("safe"), 4);
 });
+
+test("computed handles 50+ dependencies", async () => {
+  const total = 60;
+  let expected = 0;
+  const deps: string[] = [];
+
+  for (let i = 0; i < total; i += 1) {
+    const name = `src${i}`;
+    deps.push(name);
+    expected += i;
+    createStore(name, i);
+  }
+
+  createComputed("sumAll", deps, (...values) =>
+    values.reduce((acc, value) => acc + (value as number), 0)
+  );
+
+  assert.strictEqual(getStore("sumAll"), expected);
+
+  replaceStore("src10", 1000);
+  expected = expected - 10 + 1000;
+  await wait();
+
+  assert.strictEqual(getStore("sumAll"), expected);
+});

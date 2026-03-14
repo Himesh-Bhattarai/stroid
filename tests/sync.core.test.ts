@@ -10,6 +10,7 @@ class MockBroadcastChannel {
 
   readonly name: string;
   onmessage: ((event: MessageEvent) => void) | null = null;
+  closed = false;
 
   constructor(name: string) {
     this.name = name;
@@ -19,6 +20,9 @@ class MockBroadcastChannel {
   }
 
   postMessage(data: any) {
+    if (this.closed) {
+      throw new Error("BroadcastChannel is closed");
+    }
     const peers = MockBroadcastChannel.channels.get(this.name) ?? new Set<MockBroadcastChannel>();
     peers.forEach((peer) => {
       if (peer === this) return;
@@ -29,6 +33,7 @@ class MockBroadcastChannel {
   }
 
   close() {
+    this.closed = true;
     const peers = MockBroadcastChannel.channels.get(this.name);
     peers?.delete(this);
     if (peers?.size === 0) {
@@ -92,6 +97,40 @@ test("sync core (serial)", async (t) => {
       assert.ok(errors.some((msg) => msg.includes("signer") && msg.includes("Promise")));
     } finally {
       deleteStore("syncSignPromise");
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
+  await t.test("sync reports failures when BroadcastChannel is closed", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+    (globalThis as any).window = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncClosed", { value: 1 }, {
+        sync: true,
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      const channels = MockBroadcastChannel.channels.get("stroid_sync_syncClosed");
+      const channel = channels?.values().next().value as MockBroadcastChannel | undefined;
+      channel?.close();
+
+      setStore("syncClosed", { value: 2 });
+      await wait();
+
+      assert.ok(errors.some((msg) => msg.includes("Failed to broadcast sync")));
+    } finally {
+      deleteStore("syncClosed");
       (globalThis as any).window = originalWindow;
       (globalThis as any).BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();

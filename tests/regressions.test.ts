@@ -196,6 +196,55 @@ test("chunked flush snapshots ordered names (orderedNames race)", async () => {
   }
 });
 
+test("setStoreBatch supports nested batches without duplicate notifications", async () => {
+  clearAllStores();
+  createStore("nestedBatch", { value: 0 });
+
+  let calls = 0;
+  subscribe("nestedBatch", () => { calls += 1; });
+
+  setStoreBatch(() => {
+    setStore("nestedBatch", "value", 1);
+    setStoreBatch(() => {
+      setStore("nestedBatch", "value", 2);
+    });
+    setStore("nestedBatch", "value", 3);
+  });
+
+  await Promise.resolve();
+  assert.deepStrictEqual(getStore("nestedBatch"), { value: 3 });
+  assert.strictEqual(calls, 1);
+});
+
+test("hydrateStores accepts undefined values in snapshots", () => {
+  clearAllStores();
+  createStore("defined", { value: 1 });
+
+  const result = hydrateStores({
+    defined: undefined as any,
+    missing: undefined as any,
+  });
+
+  assert.deepStrictEqual(result.hydrated.slice().sort(), []);
+  assert.deepStrictEqual(result.created.slice().sort(), ["missing"]);
+  assert.strictEqual(result.failed.defined, "undefined");
+  assert.strictEqual(hasStore("missing"), true);
+  assert.deepStrictEqual(getStore("defined"), { value: 1 });
+  assert.strictEqual(getStore("missing"), undefined);
+});
+
+test("createStore inside onCreate hook is allowed", () => {
+  clearAllStores();
+  createStore("parent", { value: 1 }, {
+    onCreate: () => {
+      createStore("child", { value: 2 });
+    },
+  });
+
+  assert.strictEqual(hasStore("child"), true);
+  assert.deepStrictEqual(getStore("child"), { value: 2 });
+});
+
 test("getStoreSnapshot reads staged values inside setStoreBatch", () => {
   clearAllStores();
   createStore("batched", { value: 0 });
