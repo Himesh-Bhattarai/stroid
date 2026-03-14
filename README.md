@@ -40,6 +40,12 @@ To replace the entire store value (no path), use `replaceStore`:
 
 - `replaceStore("user", { name: "Jo" })`
 
+## Mutation semantics (important)
+
+- `setStore(name, { ... })` is a **shallow** merge. Nested objects are replaced, not deep-merged.
+- For deep updates, use path writes: `setStore("user", "profile.name", "Ava")`.
+- `setStore(name, draft => { ... })` deep-clones the entire store before applying mutations. For large stores, prefer path writes or smaller stores to avoid expensive full clones.
+
 ## What Ships
 
 - Core store primitives: `createStore`, `setStore`, `replaceStore`, `getStore`, `resetStore`, `deleteStore`, `createComputed`
@@ -264,6 +270,7 @@ The boolean case exists for backward compatibility and is **not recommended**. P
 
 - React is a peer dependency (`>=18`)
 - Node `>=18` is required
+- For non-React subscriptions, use `subscribeWithSelector` from `stroid/selectors` to avoid notifying on unrelated changes.
 - `v0.0.5` is the active development branch; `dist/` is release-managed and may be absent here or lag behind in-progress source changes until the next release build
 - Planned or not-yet-implemented ideas belong in the roadmap, not the API docs
 - Sync uses `BroadcastChannel` without origin authentication. Any same-origin tab can inject state; treat it as a trusted-origin channel.
