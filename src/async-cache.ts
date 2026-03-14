@@ -2,7 +2,7 @@ import { subscribe } from "./store-notify.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
 import type { FetchOptions } from "./async-registry.js";
 import { resetAsyncRegistry } from "./async-registry.js";
-export type { FetchOptions } from "./async-registry.js";
+export type { FetchOptions, AsyncStateSnapshot, AsyncStateAdapter } from "./async-registry.js";
 
 export type FetchInput = string | Promise<unknown> | (() => string | Promise<unknown>);
 

@@ -1,4 +1,4 @@
-import { createStore, setStore, hasStore } from "./store.js";
+import { createStore, setStore, hasStore, getStore } from "./store.js";
 import { error, warn, isDev, critical, deepClone, shallowClone } from "./utils.js";
 import { getConfig } from "./internals/config.js";
 import { nameOf, type StoreDefinition, type StoreKey, type StoreName } from "./store-lifecycle.js";
@@ -26,18 +26,12 @@ import {
     ratePruneState,
     type FetchInput,
     type FetchOptions,
+    type AsyncStateSnapshot,
 } from "./async-cache.js";
 import { resetAsyncState } from "./async-cache.js";
 import { delay, normalizeRetryOptions, MAX_RETRY_DELAY_MS } from "./async-retry.js";
 const _wildcardCleanups: Array<() => void> = [];
-type AsyncState = {
-    data: unknown;
-    loading: boolean;
-    error: string | null;
-    status: "idle" | "loading" | "success" | "error" | "aborted";
-    cached?: boolean;
-    revalidating?: boolean;
-};
+type AsyncState = AsyncStateSnapshot;
 
 type InflightEntry = { promise: Promise<unknown>; raw: Promise<unknown>; transform?: FetchOptions["transform"] };
 
@@ -99,11 +93,42 @@ const _throwAsyncUsageError = (
 const _isCurrentRequest = (cacheSlot: string, version: number): boolean =>
     (requestVersion[cacheSlot] ?? 0) === version;
 
-const _settleAbort = (name: string, cacheSlot: string, version: number): null => {
+const _applyAsyncState = (
+    name: string,
+    storeHandle: StoreDefinition<string, AsyncState>,
+    next: AsyncStateSnapshot,
+    options: FetchOptions
+): void => {
+    if (!hasStore(name)) return;
+    if (options.stateAdapter) {
+        try {
+            const prev = getStore({ name } as StoreDefinition<string, unknown>);
+            const set = (value: unknown | ((draft: any) => void)) => {
+                setStore(storeHandle as StoreDefinition<string, any>, value as any);
+            };
+            options.stateAdapter({
+                name,
+                prev,
+                next,
+                set,
+            });
+        } catch (err) {
+            warn(`fetchStore("${name}") stateAdapter failed: ${(err as { message?: string })?.message ?? err}`);
+        }
+        return;
+    }
+    setStore(storeHandle, next as AsyncState);
+};
+
+const _settleAbort = (
+    name: string,
+    cacheSlot: string,
+    version: number,
+    applyState: (next: AsyncStateSnapshot) => void
+): null => {
     warn(`fetchStore("${name}") aborted`);
     if (_isCurrentRequest(cacheSlot, version) && hasStore(name)) {
-        const handle = { name } as StoreDefinition<string, AsyncState>;
-        setStore(handle, {
+        applyState({
             loading: false,
             error: "aborted",
             status: "aborted",
@@ -156,6 +181,7 @@ export async function fetchStore(
         transform,
         onSuccess,
         onError,
+        stateAdapter,
         method,
         headers,
         body,
@@ -178,6 +204,8 @@ export async function fetchStore(
     }
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
+    const applyState = (next: AsyncStateSnapshot) =>
+        _applyAsyncState(name, storeHandle, next, options);
     const isDirectPromiseInput =
         typeof urlOrRequest !== "string"
         && typeof urlOrRequest !== "function"
@@ -190,6 +218,15 @@ export async function fetchStore(
         && (typeof process !== "undefined" ? process.env?.NODE_ENV : undefined) === "production";
     const autoCreate = options.autoCreate ?? getConfig().asyncAutoCreate;
     const cloneMode = options.cloneResult ?? getConfig().asyncCloneResult;
+
+    if (stateAdapter && !hasStore(name)) {
+        return _reportAsyncUsageError(
+            name,
+            `fetchStore("${name}") with stateAdapter requires an existing backing store.\n` +
+            `Call createStore("${name}", ...) first or omit stateAdapter to use the default AsyncState shape.`,
+            onError
+        );
+    }
 
     if (!hasStore(name) && isProdServer) {
         return _reportAsyncUsageError(
@@ -241,7 +278,7 @@ export async function fetchStore(
     if (shouldUseCache(cacheSlot, ttl)) {
         asyncMetrics.cacheHits += 1;
         cachedData = cacheMeta[cacheSlot].data;
-        setStore(storeHandle, {
+        applyState({
             data: cachedData,
             loading: staleWhileRevalidate,
             error: null,
@@ -300,7 +337,7 @@ export async function fetchStore(
     requestVersion[cacheSlot] = currentVersion;
 
     if (!backgroundRevalidate) {
-        setStore(storeHandle, {
+        applyState({
             loading: true,
             error: null,
             status: "loading",
@@ -331,7 +368,7 @@ export async function fetchStore(
         let delayMs = retryPolicy.retryDelay;
         while (true) {
             if (mergedSignal?.aborted) {
-                return _settleAbort(name, cacheSlot, currentVersion);
+                return _settleAbort(name, cacheSlot, currentVersion, applyState);
             }
 
             const currentRequest = typeof urlOrRequest === "function" ? urlOrRequest() : urlOrRequest;
@@ -372,7 +409,7 @@ export async function fetchStore(
                 }
 
                 if (mergedSignal?.aborted) {
-                    return _settleAbort(name, cacheSlot, currentVersion);
+                    return _settleAbort(name, cacheSlot, currentVersion, applyState);
                 }
 
                 const transformed = transform ? transform(result) : result;
@@ -387,7 +424,7 @@ export async function fetchStore(
                 const cloned = cloneAsyncResult(transformed, cloneMode);
 
                 if (mergedSignal?.aborted) {
-                    return _settleAbort(name, cacheSlot, currentVersion);
+                    return _settleAbort(name, cacheSlot, currentVersion, applyState);
                 }
 
                 if (!_isCurrentRequest(cacheSlot, currentVersion)) {
@@ -401,16 +438,14 @@ export async function fetchStore(
                 };
                 pruneAsyncCache(name);
 
-                if (hasStore(name)) {
-                    setStore(storeHandle, {
-                        data: cloned,
-                        loading: false,
-                        error: null,
-                        status: "success",
-                        cached: false,
-                        revalidating: false,
-                    });
-                }
+                applyState({
+                    data: cloned,
+                    loading: false,
+                    error: null,
+                    status: "success",
+                    cached: false,
+                    revalidating: false,
+                });
 
                 _runAsyncHook(name, "onSuccess", onSuccess, cloned);
                 const elapsed = Date.now() - startedAt;
@@ -421,13 +456,13 @@ export async function fetchStore(
                 attempts += 1;
                 const isAbort = (err as any)?.name === "AbortError";
                 if (isAbort) {
-                    return _settleAbort(name, cacheSlot, currentVersion);
+                    return _settleAbort(name, cacheSlot, currentVersion, applyState);
                 }
 
                 if (attempts <= effectiveRetryPolicy.retry) {
-                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion);
+                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion, applyState);
                     await delay(delayMs, mergedSignal);
-                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion);
+                    if (mergedSignal?.aborted) return _settleAbort(name, cacheSlot, currentVersion, applyState);
                     delayMs = Math.min(MAX_RETRY_DELAY_MS, delayMs * effectiveRetryPolicy.retryBackoff);
                     continue;
                 }
@@ -435,16 +470,14 @@ export async function fetchStore(
                 if (!_isCurrentRequest(cacheSlot, currentVersion)) return null;
 
                 const errorMessage = (err as any)?.message || "Something went wrong";
-                if (hasStore(name)) {
-                    setStore(storeHandle, {
-                        data: backgroundRevalidate ? cachedData : null,
-                        loading: false,
-                        error: errorMessage,
-                        status: "error",
-                        cached: backgroundRevalidate,
-                        revalidating: false,
-                    });
-                }
+                applyState({
+                    data: backgroundRevalidate ? cachedData : null,
+                    loading: false,
+                    error: errorMessage,
+                    status: "error",
+                    cached: backgroundRevalidate,
+                    revalidating: false,
+                });
 
                 _runAsyncHook(name, "onError", onError, errorMessage);
                 asyncMetrics.failures += 1;
@@ -473,16 +506,14 @@ export async function fetchStore(
         timeoutPromise,
     ]).catch((err) => {
         const errorMessage = (err as any)?.message || "Request timed out";
-        if (hasStore(name)) {
-            setStore(storeHandle, {
-                data: backgroundRevalidate ? cachedData : null,
-                loading: false,
-                error: errorMessage,
-                status: "error",
-                cached: backgroundRevalidate,
-                revalidating: false,
-            });
-        }
+        applyState({
+            data: backgroundRevalidate ? cachedData : null,
+            loading: false,
+            error: errorMessage,
+            status: "error",
+            cached: backgroundRevalidate,
+            revalidating: false,
+        });
         _runAsyncHook(name, "onError", onError, errorMessage);
         asyncMetrics.failures += 1;
         warn(`fetchStore("${name}") failed: ${errorMessage}`);

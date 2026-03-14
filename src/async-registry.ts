@@ -1,7 +1,28 @@
+export type AsyncStateSnapshot = {
+    data?: unknown;
+    loading: boolean;
+    error: string | null;
+    status: "idle" | "loading" | "success" | "error" | "aborted";
+    cached?: boolean;
+    revalidating?: boolean;
+};
+
+export type AsyncStateAdapter = (ctx: {
+    name: string;
+    prev: unknown;
+    next: AsyncStateSnapshot;
+    set: (value: unknown | ((draft: any) => void)) => void;
+}) => void;
+
 export interface FetchOptions {
     transform?: (result: unknown) => unknown;
     onSuccess?: (data: unknown) => void;
     onError?: (message: string) => void;
+    /**
+     * Optional adapter to write async state into a custom store shape.
+     * When provided, default AsyncState writes are skipped.
+     */
+    stateAdapter?: AsyncStateAdapter;
     method?: string;
     headers?: Record<string, string>;
     body?: unknown;

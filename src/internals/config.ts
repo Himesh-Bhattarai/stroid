@@ -1,4 +1,4 @@
-import type { SnapshotMode } from "../adapters/options.js";
+import type { SnapshotMode, MiddlewareCtx, StoreValue } from "../adapters/options.js";
 
 export type LogSink = {
     log?: (msg: string, meta?: Record<string, unknown>) => void;
@@ -32,6 +32,7 @@ export type StroidConfig = {
     asyncAutoCreate?: boolean;
     asyncCloneResult?: AsyncCloneMode;
     defaultSnapshotMode?: SnapshotMode;
+    middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
 };
 
 type ResolvedConfig = {
@@ -45,6 +46,7 @@ type ResolvedConfig = {
     asyncAutoCreate: boolean;
     asyncCloneResult: AsyncCloneMode;
     defaultSnapshotMode: SnapshotMode;
+    middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
 };
 
 const defaultLogSink: LogSink = {
@@ -87,6 +89,7 @@ const defaultConfig: ResolvedConfig = {
     asyncAutoCreate: false,
     asyncCloneResult: "none",
     defaultSnapshotMode: "deep",
+    middleware: [],
 };
 
 let _config: ResolvedConfig = { ...defaultConfig };
@@ -193,6 +196,13 @@ export const configureStroid = (next?: StroidConfig): void => {
         _config = {
             ..._config,
             defaultSnapshotMode: next.defaultSnapshotMode,
+        };
+    }
+
+    if (Array.isArray(next.middleware)) {
+        _config = {
+            ..._config,
+            middleware: next.middleware,
         };
     }
 };

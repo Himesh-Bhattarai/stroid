@@ -74,6 +74,22 @@ const admin = namespace("admin")
 admin.create("session", { token: null })
 ```
 
+### Typed computed dependencies
+
+`createComputed` accepts store handles so dependency values are typed:
+
+```ts
+import { createComputed, store } from "stroid";
+
+const user = store<"user", { name: string }>("user");
+const prefs = store<"prefs", { theme: string }>("prefs");
+
+createComputed("userView", [user, prefs], (userState, prefsState) => ({
+  name: userState?.name ?? "Anonymous",
+  theme: prefsState?.theme ?? "light",
+}));
+```
+
 ## Type-safe store names (TypeScript)
 
 If you want compile-time checking of store names and state, augment `StrictStoreMap`:
@@ -99,6 +115,31 @@ declare module "stroid/core" {
 ```
 
 Now `createStore("user", ...)`, `setStore("user", ...)`, and `store("user")` are fully typed, and unknown store names are a type error.
+
+## Custom async store shapes
+
+`fetchStore` can write into custom shapes via `stateAdapter`:
+
+```ts
+import { createStore } from "stroid";
+import { fetchStore } from "stroid/async";
+
+createStore("customAsync", { items: [], loading: false, error: null });
+
+await fetchStore("customAsync", "/api/items", {
+  stateAdapter: ({ next, set }) => {
+    set((draft: any) => {
+      draft.loading = next.loading;
+      draft.error = next.error;
+      if (next.status === "success" && next.data) {
+        draft.items = next.data as any[];
+      }
+    });
+  },
+});
+```
+
+When `stateAdapter` is provided, the backing store must already exist.
 
 ## Lazy stores
 
@@ -130,6 +171,25 @@ Notes:
 - `snapshot: "shallow"` only clones the top level; nested objects are shared.
 - `snapshot: "ref"` returns the live store reference (no cloning).
 - `persist.checksum: "none"` skips integrity hashing during save/load.
+
+## Global middleware
+
+To intercept every store write from one place, register global middleware:
+
+```ts
+import { configureStroid } from "stroid";
+
+configureStroid({
+  middleware: [
+    ({ name, next }) => {
+      if (name === "audit") return next;
+      return next;
+    },
+  ],
+});
+```
+
+Store-level middleware runs first; global middleware runs last.
 
 ## Import paths that enable features
 

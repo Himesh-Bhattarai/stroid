@@ -26,6 +26,28 @@ const ensureAsyncStore = (name: string) => {
   });
 };
 
+test("fetchStore stateAdapter writes into a custom store shape", async () => {
+  clearAllStores();
+  createStore("customAsync", { items: [] as number[], loading: false, error: null });
+
+  const result = await fetchStore("customAsync", Promise.resolve([1, 2]), {
+    stateAdapter: ({ next, set }) => {
+      set((draft: any) => {
+        draft.loading = next.loading;
+        draft.error = next.error;
+        if (next.status === "success" && next.data) {
+          draft.items = next.data as number[];
+        }
+      });
+    },
+  });
+
+  assert.deepStrictEqual(result, [1, 2]);
+  const state = getStore("customAsync");
+  assert.deepStrictEqual(state, { items: [1, 2], loading: false, error: null });
+  assert.strictEqual((state as any)?.status, undefined);
+});
+
 test("fetchStore dedupes inflight requests", async () => {
   clearAllStores();
   ensureAsyncStore("dedupeStore");

@@ -1,5 +1,6 @@
 import { warn, log, hashState, deepClone, sanitize, isDev } from "../utils.js";
 import { runMiddleware, runStoreHook, MIDDLEWARE_ABORT } from "../features/lifecycle.js";
+import { getConfig } from "../internals/config.js";
 import {
     hasRegisteredStoreFeature,
     type FeatureDeleteContext,
@@ -149,7 +150,14 @@ export const runMiddlewareForStore = (
     runMiddleware({
         name,
         payload,
-        middlewares: meta[name]?.options?.middleware || [],
+        middlewares: (() => {
+            const storeMiddleware = meta[name]?.options?.middleware || [];
+            const globalMiddleware = getConfig().middleware || [];
+            if (storeMiddleware.length === 0) return globalMiddleware;
+            if (globalMiddleware.length === 0) return storeMiddleware;
+            // Store-level first, then global middleware as the final gate.
+            return [...storeMiddleware, ...globalMiddleware];
+        })(),
         reportIssue: (message, visibility) => {
             reportStoreWarning(name, message, visibility);
         },

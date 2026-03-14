@@ -1,4 +1,4 @@
-export type { FetchOptions, FetchInput } from "./async-cache.js";
+export type { FetchOptions, FetchInput, AsyncStateSnapshot, AsyncStateAdapter } from "./async-cache.js";
 export {
     fetchStore,
     refetchStore,
