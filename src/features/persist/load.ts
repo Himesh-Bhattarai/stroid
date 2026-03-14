@@ -40,7 +40,7 @@ const resolveMigrationFailure = ({
         }
     }
 
-    return { state: deepClone(initialState), requiresValidation: false };
+    return { state: deepClone(initialState), requiresValidation: true };
 };
 
 export const persistLoad = ({

@@ -1,3 +1,4 @@
+import { warnAlways } from "../internals/diagnostics.js";
 import { FORBIDDEN_OBJECT_KEYS } from "./validation.js";
 
 // --- cloning / equality helpers ------------------------------------------------
@@ -51,9 +52,24 @@ const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()):
         return clone as T;
     }
 
+    const hasWeakRef = typeof WeakRef !== "undefined";
+    if (hasWeakRef && value instanceof WeakRef) {
+        warnAlways("WeakRef values cannot be deep-cloned. Returning the original reference.");
+        return value;
+    }
+
     const clone: Record<string, unknown> = {};
     seen.set(value as object, clone);
-    const descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+    let descriptors: Record<string, PropertyDescriptor>;
+    try {
+        descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
+    } catch (err) {
+        warnAlways(
+            `deepClone failed to read object descriptors (possible Proxy or host object). ` +
+            `Returning the original reference.`
+        );
+        return value;
+    }
     Object.entries(descriptors).forEach(([key, descriptor]) => {
         if (!descriptor.enumerable || FORBIDDEN_OBJECT_KEYS.has(key)) return;
         if ("get" in descriptor || "set" in descriptor) return;
