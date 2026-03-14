@@ -36,9 +36,13 @@ The core path API uses `storeName` and `path` separately:
 - `getStore("user", "name")`
 - `useStore("user", "name")`
 
+To replace the entire store value (no path), use `replaceStore`:
+
+- `replaceStore("user", { name: "Jo" })`
+
 ## What Ships
 
-- Core store primitives: `createStore`, `setStore`, `getStore`, `resetStore`, `createComputed`
+- Core store primitives: `createStore`, `setStore`, `replaceStore`, `getStore`, `resetStore`, `deleteStore`, `createComputed`
 - React hooks: `useStore`, `useSelector`, `useStoreStatic`, `useAsyncStore`, `useFormStore`
 - Async helpers: `fetchStore`, `refetchStore`, `enableRevalidateOnFocus`
 - Per-store features: `persist`, `sync`, middleware, validator/schema, devtools, history

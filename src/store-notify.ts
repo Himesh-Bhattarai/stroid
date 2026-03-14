@@ -302,8 +302,10 @@ export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {
     };
 };
 
-// Backward compat alias
+// Backward compat aliases
+/** @deprecated Use subscribeStore instead. */
 export const subscribeInternal = subscribeStore;
+/** @deprecated Use subscribeStore instead. */
 export const subscribe = subscribeStore;
 
 export const getStoreSnapshot = (name: string): StoreValue | null => {
@@ -331,6 +333,7 @@ export const getStoreSnapshot = (name: string): StoreValue | null => {
     return snapshot;
 };
 // Backward compat alias
+/** @deprecated Use getStoreSnapshot instead. */
 export const getSnapshot = getStoreSnapshot;
 
 export const resetNotifyStateForTests = (): void => {

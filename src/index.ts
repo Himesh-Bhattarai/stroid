@@ -1,3 +1,4 @@
+// Root public API barrel. Core store API is defined in store.ts and re-exported here.
 export {
     createStore,
     createStoreStrict,
