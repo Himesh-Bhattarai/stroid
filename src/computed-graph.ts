@@ -43,7 +43,6 @@ export const detectCycle = (name: string, deps: string[]): string | null => {
 
     for (const dep of deps) {
         path.length = 0;
-        visited.clear();
         if (dfs(dep)) {
             return [name, ...path, name].join(" -> ");
         }
@@ -55,9 +54,10 @@ export const detectCycle = (name: string, deps: string[]): string | null => {
 const removeComputedDependentLinks = (name: string, deps: string[]): void => {
     const dependents = getDependents();
     for (const dep of deps) {
-        if (!dependents[dep]) continue;
-        dependents[dep] = dependents[dep].filter((d) => d !== name);
-        if (dependents[dep].length === 0) delete dependents[dep];
+        const links = dependents[dep];
+        if (!links) continue;
+        links.delete(name);
+        if (links.size === 0) delete dependents[dep];
     }
 };
 
@@ -86,10 +86,8 @@ export const registerComputed = (
     entries[name] = { deps, compute, stale: true } as ComputedEntry;
 
     for (const dep of deps) {
-        if (!dependents[dep]) dependents[dep] = [];
-        if (!dependents[dep].includes(name)) {
-            dependents[dep].push(name);
-        }
+        if (!dependents[dep]) dependents[dep] = new Set<string>();
+        dependents[dep].add(name);
     }
 
     return true;
@@ -124,7 +122,8 @@ export const getTopoOrderedComputeds = (changedSources: string[]): string[] => {
 
     while (queue.length > 0) {
         const current = queue.shift()!;
-        const deps = dependents[current] ?? [];
+        const deps = dependents[current];
+        if (!deps) continue;
         for (const dep of deps) {
             if (!affected.has(dep)) {
                 affected.add(dep);
@@ -212,8 +211,9 @@ export const getFullComputedGraph = (): {
 export const getComputedDepsFor = (name: string): { deps: string[]; dependents: string[] } | null => {
     const entry = getEntries()[name];
     if (!entry) return null;
+    const dependents = getDependents()[name];
     return {
         deps: [...entry.deps],
-        dependents: [...(getDependents()[name] ?? [])],
+        dependents: dependents ? [...dependents] : [],
     };
 };

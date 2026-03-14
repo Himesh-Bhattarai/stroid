@@ -45,7 +45,7 @@ export type StoreRegistry = {
     featureRuntimes: Map<FeatureName, StoreFeatureRuntime>;
     deletingStores: Set<string>;
     computedEntries: Record<string, ComputedEntry>;
-    computedDependents: Record<string, string[]>;
+    computedDependents: Record<string, Set<string>>;
     computedCleanups: Map<string, () => void>;
     transaction: TransactionState;
     async: AsyncRegistry;

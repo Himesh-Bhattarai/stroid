@@ -29,7 +29,6 @@ import type { SnapshotMode } from "./adapters/options.js";
 
 const pendingNotifications = new Set<string>();
 const pendingBuffer: string[] = [];
-const orderedNames: string[] = [];
 let notifyScheduled = false;
 let batchDepth = 0;
 
@@ -71,7 +70,7 @@ const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs
     const pendingSet = new Set(pendingBuffer);
     const prioritySet = priority.length ? new Set(priority) : null;
 
-    orderedNames.length = 0;
+    const orderedNames: string[] = [];
     if (prioritySet) {
         for (const p of priority) {
             if (pendingSet.has(p)) orderedNames.push(p);

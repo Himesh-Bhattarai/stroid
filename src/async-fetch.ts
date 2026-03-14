@@ -39,6 +39,7 @@ import {
 import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit, scheduleRatePrune } from "./async/rate.js";
 import { buildFetchOptions, parseResponseBody } from "./async/request.js";
 const _wildcardCleanups: Array<() => void> = [];
+const MAX_NO_SIGNAL_WARNED = 1000;
 type AsyncState = AsyncStateSnapshot;
 
 const _applyAsyncState = (
@@ -138,6 +139,11 @@ export async function fetchStore(
     } = options;
 
     if (!signal && isDev() && !noSignalWarned.has(name)) {
+        while (noSignalWarned.size >= MAX_NO_SIGNAL_WARNED) {
+            const oldest = noSignalWarned.values().next().value;
+            if (typeof oldest !== "string") break;
+            noSignalWarned.delete(oldest);
+        }
         noSignalWarned.add(name);
         warn(
             `fetchStore("${name}") called without an AbortSignal. Provide "signal" to enable cancellation (recommended).`
@@ -215,10 +221,11 @@ export async function fetchStore(
 
     let cachedData: unknown = null;
     let backgroundRevalidate = false;
+    const readCachedData = () => cacheMeta[cacheSlot]?.data ?? null;
 
     if (shouldUseCache(cacheSlot, ttl)) {
         asyncMetrics.cacheHits += 1;
-        cachedData = cacheMeta[cacheSlot].data;
+        cachedData = readCachedData();
         applyState({
             data: cachedData,
             loading: staleWhileRevalidate,
@@ -394,7 +401,7 @@ export async function fetchStore(
 
                 const errorMessage = (err as any)?.message || "Something went wrong";
                 applyState({
-                    data: backgroundRevalidate ? cachedData : null,
+                    data: backgroundRevalidate ? readCachedData() : null,
                     loading: false,
                     error: errorMessage,
                     status: "error",
@@ -430,7 +437,7 @@ export async function fetchStore(
     ]).catch((err) => {
         const errorMessage = (err as any)?.message || "Request timed out";
         applyState({
-            data: backgroundRevalidate ? cachedData : null,
+            data: backgroundRevalidate ? readCachedData() : null,
             loading: false,
             error: errorMessage,
             status: "error",
