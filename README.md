@@ -181,6 +181,8 @@ Notes:
 - `snapshot: "shallow"` only clones the top level; nested objects are shared.
 - `snapshot: "ref"` returns the live store reference (no cloning).
 - `persist.checksum: "none"` skips integrity hashing during save/load.
+- `getStore(name)` deep-clones object stores on every call. For hot paths, prefer `getStore(name, "path")` to read a small leaf, or use selector subscriptions.
+- `setStore(name, draft => ...)` clones the entire store before mutating. For large stores, prefer path writes or smaller store shapes.
 
 ## Global middleware
 
