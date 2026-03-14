@@ -75,6 +75,10 @@ type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
 type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
+type HydrationTrust<Snapshot extends Record<string, unknown>> = {
+    allowUntrusted?: boolean;
+    validate?: (snapshot: Snapshot) => boolean;
+};
 
 const SLOW_MUTATOR_WARN_MS = 32;
 const slowMutatorWarned = new Set<string>();
@@ -242,9 +246,25 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     if (usedMutator) {
         const mutatorStart = isDev() ? Date.now() : 0;
         try {
-            const draft = deepClone(prev);
-            const result = (keyOrData as (draft: StoreValue) => void)(draft);
-            if (result !== undefined && getConfig().strictMutatorReturns) {
+            const producer = getConfig().mutatorProduce;
+            let didReturn = false;
+            let returnedValue: unknown = undefined;
+            const recipe = (draft: StoreValue) => {
+                const result = (keyOrData as (draft: StoreValue) => void)(draft);
+                if (result !== undefined) {
+                    didReturn = true;
+                    returnedValue = result;
+                }
+                return result;
+            };
+            const draft = producer
+                ? producer(prev as StoreValue, recipe as (draft: StoreValue) => void)
+                : (() => {
+                    const clone = deepClone(prev);
+                    recipe(clone);
+                    return clone;
+                })();
+            if (didReturn && getConfig().strictMutatorReturns) {
                 const message =
                     `setStore("${storeName}", mutator) returned a value. ` +
                     `Strict mutator mode forbids return values; mutate the draft instead.`;
@@ -252,13 +272,15 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
                 if (isTransactionActive()) markTransactionFailed(message);
                 return { ok: false, reason: "validate" };
             }
-            if (result !== undefined && isDev() && !getConfig().strictMutatorReturns) {
+            if (didReturn && isDev() && !getConfig().strictMutatorReturns) {
                 warn(
                     `setStore("${storeName}", mutator) returned a value. ` +
                     `Return values replace the entire store; return void to apply draft mutations instead.`
                 );
             }
-            updated = draft as StoreValue;
+            updated = (didReturn && !getConfig().strictMutatorReturns)
+                ? (returnedValue as StoreValue)
+                : (draft as StoreValue);
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
             if (isTransactionActive()) markTransactionFailed(err);
@@ -521,7 +543,8 @@ export const _hardResetAllStoresForTest = (): void => {
 
 export const hydrateStores = <Snapshot extends Record<string, unknown> = HydrateSnapshot>(
     snapshot: Snapshot,
-    options: HydrateOptions<Snapshot> = {}
+    options: HydrateOptions<Snapshot> = {},
+    trust: HydrationTrust<Snapshot> = {}
 ): { hydrated: string[]; created: string[]; failed: Record<string, string> } => {
     if (isTransactionActive()) {
         const message = `hydrateStores(...) cannot be called inside setStoreBatch.`;
@@ -539,6 +562,33 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
         failed: Object.create(null) as Record<string, string>,
     };
     if (!snapshot || typeof snapshot !== "object") return result;
+
+    const allowUntrusted = trust.allowUntrusted === true || getConfig().allowUntrustedHydration === true;
+    if (!allowUntrusted) {
+        warnAlways(
+            `hydrateStores(...) requires explicit trust. ` +
+            `Pass { allowUntrusted: true } as the third argument or configureStroid({ allowUntrustedHydration: true }).`
+        );
+        result.failed._hydration = "untrusted";
+        return result;
+    }
+    if (typeof trust.validate === "function") {
+        let ok = false;
+        try {
+            ok = !!trust.validate(snapshot);
+        } catch (err) {
+            warnAlways(
+                `hydrateStores(...) trust validation threw: ${(err as { message?: string })?.message ?? err}`
+            );
+            result.failed._hydration = "validation-error";
+            return result;
+        }
+        if (!ok) {
+            warnAlways("hydrateStores(...) rejected by trust validation.");
+            result.failed._hydration = "validation-failed";
+            return result;
+        }
+    }
     Object.entries(snapshot).forEach(([storeName, data]) => {
         if (!isValidStoreName(storeName)) {
             result.failed[storeName] = "invalid-name";

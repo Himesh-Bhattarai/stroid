@@ -64,6 +64,7 @@ const isValidSyncMessage = (msg: unknown): msg is {
     data?: unknown;
     updatedAt?: number;
     auth?: unknown;
+    token?: unknown;
     requestedAt?: number;
 } => {
     if (typeof msg !== "object" || msg === null) return false;
@@ -82,17 +83,19 @@ const requestSyncSnapshot = ({
     name,
     syncChannels,
     instanceId,
+    authToken,
     reportStoreError,
 }: {
     name: string;
     syncChannels: SyncChannels;
     instanceId: string;
+    authToken?: string;
     reportStoreError: (name: string, message: string) => void;
 }): void => {
     const channel = syncChannels[name];
     if (!channel) return;
     try {
-        channel.postMessage({
+        const payload: SyncMessage = {
             v: SYNC_PROTOCOL_VERSION,
             protocol: SYNC_PROTOCOL_VERSION,
             type: "sync-request",
@@ -100,7 +103,9 @@ const requestSyncSnapshot = ({
             name,
             clock: 0,
             requestedAt: Date.now(),
-        });
+        };
+        if (authToken) payload.token = authToken;
+        channel.postMessage(payload);
     } catch (err) {
         reportStoreError(name, `Failed to request sync snapshot for "${name}": ${(err as { message?: string })?.message ?? err}`);
     }
@@ -204,6 +209,8 @@ export const setupSync = ({
         reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
         return;
     }
+    const expectedToken = typeof syncOption === "object" ? syncOption.authToken : undefined;
+    let tokenWarned = false;
     const channelName = typeof syncOption === "object" && syncOption.channel
         ? syncOption.channel
         : `stroid_sync_${name}`;
@@ -217,6 +224,13 @@ export const setupSync = ({
             if (syncChannels[name] !== channel || !hasStoreEntry(name) || !getMeta(name)) return;
             if (!isValidSyncMessage(msg)) {
                 reportStoreError(name, `Sync message for "${name}" is malformed; ignoring.`);
+                return;
+            }
+            if (expectedToken && msg.token !== expectedToken) {
+                if (!tokenWarned) {
+                    reportStoreError(name, `Sync message for "${name}" failed auth token verification; ignoring.`);
+                    tokenWarned = true;
+                }
                 return;
             }
             const incomingVersion = resolveProtocolVersion(msg);
@@ -259,7 +273,7 @@ export const setupSync = ({
             });
             if (order <= 0) {
                 const localUpdated = resolveMetaUpdatedAtMs(getMeta(name));
-                const incomingUpdated = msg.updatedAt;
+                const incomingUpdated = typeof msg.updatedAt === "number" ? msg.updatedAt : Date.now();
                 if (resolver) {
                     const resolved = resolver({
                         local: getStoreValue(name),
@@ -302,6 +316,7 @@ export const setupSync = ({
                     name,
                     syncChannels,
                     instanceId,
+                    authToken: expectedToken,
                     reportStoreError,
                 });
             };
@@ -318,6 +333,7 @@ export const setupSync = ({
                 name,
                 syncChannels,
                 instanceId,
+                authToken: expectedToken,
                 reportStoreError,
             });
         });
@@ -362,6 +378,9 @@ export const broadcastSync = ({
             data,
             checksum: checksumMode === "hash" ? hashState(data) : null,
         };
+        if (typeof syncOption === "object" && syncOption.authToken) {
+            payload.token = syncOption.authToken;
+        }
         if (typeof syncOption === "object" && typeof syncOption.sign === "function") {
             try {
                 const auth = syncOption.sign(payload);

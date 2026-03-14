@@ -60,14 +60,15 @@ test("fetchStore warns when overwriting a non-async store without stateAdapter",
 
   try {
     createStore("profile", { name: "Alex" });
-    await fetchStore("profile", Promise.resolve({ name: "Jordan" }), { dedupe: false });
+    const result = await fetchStore("profile", Promise.resolve({ name: "Jordan" }), { dedupe: false });
+    assert.strictEqual(result, null);
   } finally {
     resetConfig();
   }
 
   assert.ok(warnings.some((msg) => msg.includes("non-async store")));
   const state = getStore("profile") as any;
-  assert.strictEqual(state?.status, "success");
+  assert.deepStrictEqual(state, { name: "Alex" });
 });
 
 test("fetchStore dedupes inflight requests", async () => {
@@ -785,5 +786,28 @@ test("enableRevalidateOnFocus wildcard cleanup removes focus and online listener
     } else {
       (globalThis as any).window = realWindow;
     }
+  }
+});
+
+test("fetchStore caps no-signal warning cache size under high-cardinality stores", async () => {
+  clearAllStores();
+  configureStroid({
+    logSink: {
+      log: () => {},
+      warn: () => {},
+      critical: () => {},
+    },
+  });
+  const { noSignalWarned, MAX_WARNED_ENTRIES } = await import("../src/async-cache.js");
+
+  try {
+    for (let i = 0; i < MAX_WARNED_ENTRIES + 25; i += 1) {
+      await fetchStore(`warnStore${i}`, Promise.resolve(i), { dedupe: false });
+    }
+
+    assert.ok(noSignalWarned.size <= MAX_WARNED_ENTRIES);
+  } finally {
+    resetConfig();
+    clearAllStores();
   }
 });

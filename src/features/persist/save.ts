@@ -1,6 +1,7 @@
 import type { StoreValue } from "../../adapters/options.js";
 import { warnAlways } from "../../utils.js";
 import { usesDefaultPersistCrypto } from "./crypto.js";
+import { computePersistChecksum } from "./checksum.js";
 import { setPersistPresence } from "./watch.js";
 import type {
     PersistMeta,
@@ -56,14 +57,17 @@ const persistSaveInner = ({
 
         try {
             const serialized = cfg.serialize(getStoreValue());
-            const checksum = cfg.checksum === "none" ? null : hashState(serialized);
+            const checksum = await computePersistChecksum(cfg.checksum, serialized, hashState);
             const envelope = JSON.stringify({
                 v: meta.version ?? 1,
                 updatedAt: meta.updatedAt,
+                updatedAtMs: meta.updatedAtMs ?? Date.now(),
                 checksum,
                 data: serialized,
             });
-            const payload = cfg.encrypt(envelope);
+            const payload = cfg.encryptAsync
+                ? await cfg.encryptAsync(envelope)
+                : cfg.encrypt(envelope);
             await Promise.resolve(cfg.driver.setItem?.(cfg.key, payload));
             setPersistPresence(persistWatchState, name, true);
         } catch (e) {

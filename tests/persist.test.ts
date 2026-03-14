@@ -12,6 +12,8 @@ import { flushPersistImmediately } from "../src/features/persist/save.js";
 import { isIdentityCrypto } from "../src/features/persist/crypto.js";
 import { hashState } from "../src/utils.js";
 
+const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+
 test("persist setItem errors surface via onError without throwing", async () => {
   clearAllStores();
   const errors: string[] = [];
@@ -47,6 +49,43 @@ test("persist setItem errors surface via onError without throwing", async () => 
   assert.deepStrictEqual(getStore("cart"), { items: [1, 2] });
 
   clearAllStores();
+});
+
+test("persist supports async crypto and sha256 checksums", async () => {
+  clearAllStores();
+  let stored: string | null = null;
+  const driver = {
+    getItem: () => stored,
+    setItem: (_key: string, value: string) => {
+      stored = value;
+    },
+    removeItem: () => {
+      stored = null;
+    },
+  };
+
+  const persist = {
+    driver,
+    key: "secure-async",
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encryptAsync: async (value: string) => `enc:${value}`,
+    decryptAsync: async (value: string) => value.replace(/^enc:/, ""),
+    checksum: "sha256" as const,
+  };
+
+  createStore("secureAsync", { value: 1 }, { persist });
+  setStore("secureAsync", { value: 2 });
+  await wait(20);
+
+  assert.ok(stored?.startsWith("enc:"));
+
+  resetAllStoresForTest();
+
+  createStore("secureAsync", { value: 0 }, { persist });
+  await wait(20);
+
+  assert.deepStrictEqual(getStore("secureAsync"), { value: 2 });
 });
 
 test("persist restores state across reloads", async () => {

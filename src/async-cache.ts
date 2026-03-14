@@ -8,6 +8,7 @@ export type FetchInput = string | Promise<unknown> | (() => string | Promise<unk
 
 export const MAX_CACHE_SLOTS_PER_STORE = 100;
 export const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
+export const MAX_WARNED_ENTRIES = 1000;
 
 export const getActiveAsyncRegistry = () => getRegistry().async;
 
@@ -67,6 +68,13 @@ export const autoCreateWarned = createAsyncValueProxy(() => getActiveAsyncRegist
 export const revalidateKeys = createAsyncValueProxy(() => getActiveAsyncRegistry().revalidateKeys);
 export const asyncMetrics = createAsyncValueProxy(() => getActiveAsyncRegistry().asyncMetrics);
 
+export const markWarned = (set: Set<string>, key: string): void => {
+    if (set.has(key)) return;
+    set.add(key);
+    if (set.size <= MAX_WARNED_ENTRIES) return;
+    const oldest = set.values().next().value as string | undefined;
+    if (oldest !== undefined) set.delete(oldest);
+};
 
 
 export const resetAsyncState = (): void => {

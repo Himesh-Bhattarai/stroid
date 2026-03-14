@@ -1,9 +1,9 @@
 export type StoreValue = unknown;
 
 export interface PersistDriver {
-    getItem?: (k: string) => string | null;
-    setItem?: (k: string, v: string) => void;
-    removeItem?: (k: string) => void;
+    getItem?: (k: string) => string | null | Promise<string | null>;
+    setItem?: (k: string, v: string) => void | Promise<void>;
+    removeItem?: (k: string) => void | Promise<void>;
     [key: string]: unknown;
 }
 
@@ -34,11 +34,23 @@ export interface PersistOptions<State = StoreValue> {
      */
     encrypt?: (v: string) => string;
     /**
+     * Optional async encryption hook for persisted payloads.
+     *
+     * When provided, persistence will encrypt in the background and hydrate asynchronously.
+     */
+    encryptAsync?: (v: string) => Promise<string>;
+    /**
      * Optional decryption hook for persisted payloads.
      *
      * Default is identity (no encryption). Data is stored in plaintext.
      */
     decrypt?: (v: string) => string;
+    /**
+     * Optional async decryption hook for persisted payloads.
+     *
+     * When provided, persistence will hydrate asynchronously after store creation.
+     */
+    decryptAsync?: (v: string) => Promise<string>;
     /**
      * Explicitly allow plaintext persistence when encrypt/decrypt are identity.
      *
@@ -56,8 +68,9 @@ export interface PersistOptions<State = StoreValue> {
      * Integrity check mode for persisted payloads.
      * - "hash" (default): store and validate a checksum.
      * - "none": skip checksum generation/validation.
+     * - "sha256": store a SHA-256 hash for stronger tamper detection (may be async in browsers).
      */
-    checksum?: "hash" | "none";
+    checksum?: "hash" | "none" | "sha256";
     version?: number;
     migrations?: Record<number, (state: State) => State>;
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
@@ -71,9 +84,11 @@ export interface PersistConfig {
     deserialize: (v: string) => unknown;
     encrypt: (v: string) => string;
     decrypt: (v: string) => string;
+    encryptAsync?: (v: string) => Promise<string>;
+    decryptAsync?: (v: string) => Promise<string>;
     allowPlaintext?: boolean;
     sensitiveData?: boolean;
-    checksum: "hash" | "none";
+    checksum: "hash" | "none" | "sha256";
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
     onStorageCleared?: (info: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
 }
@@ -89,6 +104,11 @@ export interface MiddlewareCtx {
 export interface SyncOptions {
     channel?: string;
     maxPayloadBytes?: number;
+    /**
+     * Optional shared token for lightweight cross-tab authentication.
+     * When set, incoming sync messages without a matching token are rejected.
+     */
+    authToken?: string;
     conflictResolver?: (args: {
         local: StoreValue;
         incoming: StoreValue;
@@ -131,6 +151,7 @@ export type SyncMessage = {
     data?: StoreValue;
     checksum?: number | null;
     auth?: unknown;
+    token?: string;
     requestedAt?: number;
 };
 
@@ -250,15 +271,12 @@ const hasOwn = (value: object, key: string): boolean =>
 
 const isIdentityStringTransform = (fn: (v: string) => string): boolean => {
     try {
-        const probe = "__stroid_plaintext_probe__";
-        return fn(probe) === probe;
+        const probeA = `__stroid_plaintext_probe_${Math.random().toString(36).slice(2)}__`;
+        const probeB = `__stroid_plaintext_probe_${Math.random().toString(36).slice(2)}__`;
+        if (fn(probeA) !== probeA) return false;
+        return fn(probeB) === probeB;
     } catch (_) {
-        try {
-            const src = fn.toString().replace(/\s/g, "");
-            return src === "v=>v" || src === "(v)=>v" || src === "function(v){returnv;}";
-        } catch (_) {
-            return false;
-        }
+        return false;
     }
 };
 
@@ -324,11 +342,21 @@ export const normalizePersistOptions = <State>(
 
     const encrypt = persist.encrypt || base.encrypt;
     const decrypt = persist.decrypt || base.decrypt;
+    const encryptAsync = persist.encryptAsync;
+    const decryptAsync = persist.decryptAsync;
     const sensitiveData = persist.sensitiveData === true;
     const allowPlaintext = persist.allowPlaintext === true;
-    const checksum = persist.checksum === "none" ? "none" : "hash";
+    const checksum = persist.checksum === "sha256"
+        ? "sha256"
+        : (persist.checksum === "none" ? "none" : "hash");
 
-    if (sensitiveData && isIdentityStringTransform(encrypt)) {
+    if ((encryptAsync && !decryptAsync) || (!encryptAsync && decryptAsync)) {
+        throw new Error(
+            `[stroid/persist] Store "${name}" must provide both encryptAsync and decryptAsync when using async crypto.`
+        );
+    }
+
+    if (sensitiveData && isIdentityStringTransform(encrypt) && !encryptAsync) {
         throw new Error(
             `[stroid/persist] Store "${name}" is marked sensitiveData but is configured to persist in plaintext. ` +
             `Provide encrypt/decrypt hooks to protect sensitive data.`,
@@ -342,6 +370,8 @@ export const normalizePersistOptions = <State>(
         deserialize: persist.deserialize || base.deserialize,
         encrypt,
         decrypt,
+        encryptAsync,
+        decryptAsync,
         allowPlaintext,
         sensitiveData,
         checksum,
@@ -391,6 +421,18 @@ export const normalizeStoreOptions = <State>(
         onError,
         sync,
     } = option;
+
+    if (persistGroup?.sensitiveData === true) {
+        const enc = persistGroup.encrypt;
+        const encAsync = persistGroup.encryptAsync;
+        const isIdentity = !enc || isIdentityStringTransform(enc);
+        if (isIdentity && !encAsync) {
+            throw new Error(
+                `[stroid/persist] Store "${name}" is marked sensitiveData but is configured to persist in plaintext. ` +
+                `Provide encrypt/decrypt hooks to protect sensitive data.`,
+            );
+        }
+    }
 
     return {
         scope: normalizedScope,

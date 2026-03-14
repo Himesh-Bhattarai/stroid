@@ -224,7 +224,7 @@ test("selector hooks can mount before createStore and update when the store appe
 test("useAsyncStoreSuspense does not reissue fetches when options are omitted", async () => {
   resetAllStoresForTest();
   asyncMetrics.dedupes = 0;
-  createStore("suspenseStore", { data: null, loading: false, error: null });
+  createStore("suspenseStore", { data: null, loading: false, error: null, status: "idle" });
 
   let resolvePromise!: (value: number) => void;
   const fetchPromise = new Promise<number>((resolve) => {

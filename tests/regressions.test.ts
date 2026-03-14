@@ -75,7 +75,7 @@ test("hydrateStores does not materialize lazy stores", () => {
     return { count: 0 };
   }, { lazy: true });
 
-  hydrateStores({ lazyHydrate: { count: 5 } });
+  hydrateStores({ lazyHydrate: { count: 5 } }, {}, { allowUntrusted: true });
   assert.strictEqual(calls, 0);
   assert.deepStrictEqual(getStore("lazyHydrate"), { count: 5 });
 });
@@ -196,6 +196,35 @@ test("chunked flush snapshots ordered names (orderedNames race)", async () => {
   }
 });
 
+test("chunked flush notifies subscribers added mid-flush", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 20 } });
+
+  try {
+    createStore("chunkedSubs", { value: 0 });
+    const calls: string[] = [];
+    let added = false;
+
+    subscribe("chunkedSubs", () => {
+      calls.push("a");
+      if (!added) {
+        added = true;
+        subscribe("chunkedSubs", () => {
+          calls.push("b");
+        });
+      }
+    });
+
+    setStore("chunkedSubs", "value", 1);
+
+    await new Promise((r) => setTimeout(r, 80));
+
+    assert.deepStrictEqual(calls, ["a", "b"]);
+  } finally {
+    resetConfig();
+  }
+});
+
 test("setStoreBatch supports nested batches without duplicate notifications", async () => {
   clearAllStores();
   createStore("nestedBatch", { value: 0 });
@@ -223,7 +252,7 @@ test("hydrateStores accepts undefined values in snapshots", () => {
   const result = hydrateStores({
     defined: undefined as any,
     missing: undefined as any,
-  });
+  }, {}, { allowUntrusted: true });
 
   assert.deepStrictEqual(result.hydrated.slice().sort(), []);
   assert.deepStrictEqual(result.created.slice().sort(), ["missing"]);

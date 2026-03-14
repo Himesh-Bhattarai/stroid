@@ -33,6 +33,15 @@ export type StroidConfig = {
     asyncCloneResult?: AsyncCloneMode;
     defaultSnapshotMode?: SnapshotMode;
     middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
+    /**
+     * Allow hydrateStores to accept untrusted snapshots without explicit opt-in.
+     * Default: false (hydration requires an explicit trust opt-in).
+     */
+    allowUntrustedHydration?: boolean;
+    /**
+     * Optional custom mutator engine (e.g. Immer's produce) to enable structural sharing.
+     */
+    mutatorProduce?: <T>(base: T, recipe: (draft: T) => void) => T;
 };
 
 type ResolvedConfig = {
@@ -47,6 +56,8 @@ type ResolvedConfig = {
     asyncCloneResult: AsyncCloneMode;
     defaultSnapshotMode: SnapshotMode;
     middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
+    allowUntrustedHydration: boolean;
+    mutatorProduce?: <T>(base: T, recipe: (draft: T) => void) => T;
 };
 
 const defaultLogSink: LogSink = {
@@ -90,6 +101,8 @@ const defaultConfig: ResolvedConfig = {
     asyncCloneResult: "none",
     defaultSnapshotMode: "deep",
     middleware: [],
+    allowUntrustedHydration: false,
+    mutatorProduce: undefined,
 };
 
 let _config: ResolvedConfig = { ...defaultConfig };
@@ -203,6 +216,20 @@ export const configureStroid = (next?: StroidConfig): void => {
         _config = {
             ..._config,
             middleware: next.middleware,
+        };
+    }
+
+    if (typeof next.allowUntrustedHydration === "boolean") {
+        _config = {
+            ..._config,
+            allowUntrustedHydration: next.allowUntrustedHydration,
+        };
+    }
+
+    if (typeof next.mutatorProduce === "function") {
+        _config = {
+            ..._config,
+            mutatorProduce: next.mutatorProduce,
         };
     }
 };

@@ -9,6 +9,7 @@ import {
     countInflightSlots,
     fetchRegistry,
     MAX_INFLIGHT_SLOTS_PER_STORE,
+    markWarned,
     noSignalWarned,
     shapeWarned,
     autoCreateWarned,
@@ -40,7 +41,6 @@ import {
 import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit, scheduleRatePrune } from "./async/rate.js";
 import { buildFetchOptions, parseResponseBody } from "./async/request.js";
 const _wildcardCleanups: Array<() => void> = [];
-const MAX_NO_SIGNAL_WARNED = 1000;
 type AsyncState = AsyncStateSnapshot;
 
 const looksLikeAsyncState = (value: unknown): boolean => {
@@ -146,12 +146,7 @@ export async function fetchStore(
     } = options;
 
     if (!signal && isDev() && !noSignalWarned.has(name)) {
-        while (noSignalWarned.size >= MAX_NO_SIGNAL_WARNED) {
-            const oldest = noSignalWarned.values().next().value;
-            if (typeof oldest !== "string") break;
-            noSignalWarned.delete(oldest);
-        }
-        noSignalWarned.add(name);
+        markWarned(noSignalWarned, name);
         warn(
             `fetchStore("${name}") called without an AbortSignal. Provide "signal" to enable cancellation (recommended).`
         );
@@ -201,7 +196,7 @@ export async function fetchStore(
             );
         }
         if (isDev() && !autoCreateWarned.has(name)) {
-            autoCreateWarned.add(name);
+            markWarned(autoCreateWarned, name);
             const message =
                 `fetchStore("${name}") auto-created its backing store.\n` +
                 `Call createStore("${name}", ...) first to avoid typos creating phantom stores.`;
@@ -225,13 +220,15 @@ export async function fetchStore(
         }
     }
 
-    if (!stateAdapter && isDev() && !shapeWarned.has(name)) {
+    if (!stateAdapter) {
         const existing = getStore({ name } as StoreDefinition<string, unknown>);
-        if (!looksLikeAsyncState(existing)) {
-            shapeWarned.add(name);
-            warn(
-                `fetchStore("${name}") is writing AsyncState into an existing non-async store. ` +
-                `Provide a stateAdapter or create the store with the async shape to avoid overwriting fields.`
+        if (existing && !looksLikeAsyncState(existing)) {
+            if (!shapeWarned.has(name)) markWarned(shapeWarned, name);
+            return reportAsyncUsageError(
+                name,
+                `fetchStore("${name}") cannot write AsyncState into an existing non-async store. ` +
+                `Provide a stateAdapter or create the store with the async shape to avoid overwriting fields.`,
+                onError
             );
         }
     }

@@ -4,6 +4,7 @@ node_modules/
 AUDIT_REPORT/
 # silent
 stroid-website/
+coverage/
 
 # builds
 dist/

@@ -37,23 +37,10 @@ type DepValue<T> = T extends StoreDefinition<string, infer S>
             ? Readonly<StateFor<T>> | null
             : StoreValue | null;
 
-export function createComputed<TResult, Deps extends readonly StoreName[]>(
-    name: string,
-    deps: Deps,
-    compute: (...args: { [K in keyof Deps]: Readonly<StateFor<Deps[K]>> | null }) => TResult,
-    options?: ComputedOptions
-): StoreDefinition<string, TResult> | undefined;
-export function createComputed<TResult, Deps extends readonly DepHandle[]>(
+export function createComputed<TResult, Deps extends readonly (StoreName | DepHandle)[]>(
     name: string,
     deps: Deps,
     compute: (...args: { [K in keyof Deps]: DepValue<Deps[K]> }) => TResult,
-    options?: ComputedOptions
-): StoreDefinition<string, TResult> | undefined;
-
-export function createComputed<TResult = unknown>(
-    name: string,
-    deps: Array<string | DepHandle>,
-    compute: (...args: unknown[]) => TResult,
     options: ComputedOptions = {}
 ): StoreDefinition<string, TResult> | undefined {
     if (!name || typeof name !== "string") {

@@ -52,8 +52,8 @@ const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()):
         return clone as T;
     }
 
-    const hasWeakRef = typeof WeakRef !== "undefined";
-    if (hasWeakRef && value instanceof WeakRef) {
+    const WeakRefCtor = (globalThis as any)?.WeakRef as (new (...args: any[]) => any) | undefined;
+    if (WeakRefCtor && value instanceof WeakRefCtor) {
         warnAlways("WeakRef values cannot be deep-cloned. Returning the original reference.");
         return value;
     }

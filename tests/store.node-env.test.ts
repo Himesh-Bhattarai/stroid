@@ -19,7 +19,8 @@ test("hydrateStores surfaces blocked production SSR store creation", () => {
         default: {
           onError: (msg) => { errors.push(msg); },
         },
-      }
+      },
+      { allowUntrusted: true }
     );
 
     assert.strictEqual(store.hasStore("ssrHydrate"), false);

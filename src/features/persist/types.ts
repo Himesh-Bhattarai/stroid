@@ -8,6 +8,7 @@ export type PersistInFlight = Record<string, Promise<void> | null>;
 export type PersistMeta = {
     version: number;
     updatedAt: string;
+    updatedAtMs?: number;
     options: {
         persist: PersistConfig | null;
         migrations: Record<number, (state: any) => any>;
@@ -21,6 +22,7 @@ export type PersistLoadArgs = {
     getMeta: () => PersistMeta | undefined;
     getInitialState: () => StoreValue;
     applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
+    shouldApply?: () => boolean;
     reportStoreError: (name: string, message: string) => void;
     validate: (next: StoreValue) => { ok: boolean; value?: StoreValue };
     log: (message: string) => void;

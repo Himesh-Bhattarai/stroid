@@ -137,6 +137,66 @@ test("sync core (serial)", async (t) => {
     }
   });
 
+  await t.test("sync authToken rejects mismatched tokens and accepts matching tokens", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+    (globalThis as any).window = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncToken", { value: "local" }, {
+        sync: { authToken: "secret" },
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      setStore("syncToken", { value: "local2" });
+      await wait();
+
+      const peer = new MockBroadcastChannel("stroid_sync_syncToken");
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncToken",
+        clock: 999,
+        source: "peer",
+        data: { value: "bad" },
+        updatedAt: Date.now(),
+        token: "wrong",
+      });
+
+      await wait();
+      assert.deepStrictEqual(getStore("syncToken"), { value: "local2" });
+      assert.ok(errors.some((msg) => msg.includes("auth token")));
+
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncToken",
+        clock: 1000,
+        source: "peer",
+        data: { value: "ok" },
+        updatedAt: Date.now(),
+        token: "secret",
+      });
+
+      await wait();
+      assert.deepStrictEqual(getStore("syncToken"), { value: "ok" });
+    } finally {
+      deleteStore("syncToken");
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
   await t.test("sync conflictResolver runs on older incoming versions", async () => {
     const originalWindow = (globalThis as any).window;
     const originalBroadcastChannel = (globalThis as any).BroadcastChannel;

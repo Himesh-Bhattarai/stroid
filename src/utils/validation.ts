@@ -83,6 +83,22 @@ export const getType = (value: unknown): SupportedType => {
     return typeof value;
 };
 
+const getNonSerializableType = (value: unknown): string | null => {
+    if (!value || typeof value !== "object") return null;
+    const WeakRefCtor = (globalThis as any)?.WeakRef as (new (...args: any[]) => any) | undefined;
+    if (WeakRefCtor && value instanceof WeakRefCtor) return "WeakRef";
+    if (typeof WeakMap !== "undefined" && value instanceof WeakMap) return "WeakMap";
+    if (typeof WeakSet !== "undefined" && value instanceof WeakSet) return "WeakSet";
+    if (typeof EventTarget !== "undefined" && value instanceof EventTarget) return "EventTarget";
+    if (typeof ReadableStream !== "undefined" && value instanceof ReadableStream) return "ReadableStream";
+    if (typeof WritableStream !== "undefined" && value instanceof WritableStream) return "WritableStream";
+    if (typeof Request !== "undefined" && value instanceof Request) return "Request";
+    if (typeof Response !== "undefined" && value instanceof Response) return "Response";
+    if (typeof Headers !== "undefined" && value instanceof Headers) return "Headers";
+    if (typeof FormData !== "undefined" && value instanceof FormData) return "FormData";
+    return null;
+};
+
 export const isValidData = (value: unknown): boolean => {
     const type = getType(value);
     if (type === "function") {
@@ -101,6 +117,10 @@ export const isValidData = (value: unknown): boolean => {
 };
 
 const _canReuseSanitized = (value: unknown, seen: WeakSet<object>): boolean => {
+    const blocked = getNonSerializableType(value);
+    if (blocked) {
+        throw new Error(`${blocked} values are not supported`);
+    }
     const type = getType(value);
     if (type === "number") {
         if (!Number.isFinite(value as number)) {
@@ -156,6 +176,10 @@ const _canReuseSanitized = (value: unknown, seen: WeakSet<object>): boolean => {
 export const canReuseSanitized = (value: unknown): boolean => _canReuseSanitized(value, new WeakSet<object>());
 
 const _sanitize = (value: unknown, seen: WeakSet<object>): unknown => {
+    const blocked = getNonSerializableType(value);
+    if (blocked) {
+        throw new Error(`${blocked} values are not supported`);
+    }
     const type = getType(value);
     if (type === "number") {
         if (!Number.isFinite(value as number)) {

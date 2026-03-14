@@ -13,6 +13,7 @@ import { deepClone, shallowClone, warn, warnAlways } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import { getConfig } from "./internals/config.js";
 import { beginTransaction, endTransaction, isTransactionActive } from "./store-transaction.js";
+import { runWithRegistry } from "./store-registry.js";
 import {
     meta,
     subscribers,
@@ -152,6 +153,7 @@ const flush = () => {
         index: number;
         snapshot: StoreValue | null;
         version: number;
+        notified: Set<Subscriber>;
         metrics: { notifyCount: number; totalNotifyMs: number; lastNotifyMs: number };
         totalMs: number;
     };
@@ -178,6 +180,7 @@ const flush = () => {
                 index: 0,
                 snapshot,
                 version,
+                notified: new Set(),
                 metrics: meta[name]?.metrics ? { ...meta[name]!.metrics } : { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
                 totalMs: 0,
             });
@@ -195,18 +198,8 @@ const flush = () => {
             task.index = 0;
             return;
         }
-        const nextArray = Array.from(subs);
-        if (task.index > 0 && task.subsArray.length > 0) {
-            const processed = new Set(task.subsArray.slice(0, task.index));
-            let newIndex = 0;
-            for (const sub of nextArray) {
-                if (processed.has(sub)) newIndex += 1;
-            }
-            task.index = Math.min(newIndex, nextArray.length);
-        } else {
-            task.index = Math.min(task.index, nextArray.length);
-        }
-        task.subsArray = nextArray;
+        task.subsArray = Array.from(subs);
+        task.index = 0;
     };
 
     const runQueue = (queue: StoreTask[], done: () => void): void => {
@@ -240,15 +233,23 @@ const flush = () => {
             }
 
             const start = now();
-            const endIndex = Math.min(task.index + sliceSize, task.subsArray.length);
-            for (let i = task.index; i < endIndex; i++) {
-                try { task.subsArray[i](task.snapshot); }
+            let sent = 0;
+            while (task.index < task.subsArray.length && sent < sliceSize) {
+                const subscriber = task.subsArray[task.index++];
+                if (task.notified.has(subscriber)) continue;
+                task.notified.add(subscriber);
+                try { subscriber(task.snapshot); }
                 catch (err) { warn(`Subscriber for "${task.name}" threw: ${(err as { message?: string })?.message ?? err}`); }
+                sent += 1;
             }
             task.totalMs += now() - start;
-            task.index = endIndex;
 
-            if (task.index < task.subsArray.length) {
+            const currentSubs = subscribers[task.name];
+            const hasUnnotified = currentSubs
+                ? Array.from(currentSubs).some((sub) => !task.notified.has(sub))
+                : false;
+
+            if (task.index < task.subsArray.length || hasUnnotified) {
                 queue.push(task);
             } else {
                 task.metrics.notifyCount += 1;
@@ -302,7 +303,7 @@ export const setStoreBatch = (fn: () => unknown): void => {
     beginTransaction(registry);
     let batchError: unknown;
     try {
-        const result = fn();
+        const result = runWithRegistry(registry, fn);
         if (result && typeof (result as Promise<unknown>).then === "function") {
             batchError = new Error("setStoreBatch does not support promise-returning callbacks. Move async work outside and batch only synchronous mutations.");
         }
