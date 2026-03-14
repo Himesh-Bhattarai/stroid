@@ -8,14 +8,12 @@ import {
     cleanupSubs,
     countInflightSlots,
     fetchRegistry,
-    inflight,
     MAX_INFLIGHT_SLOTS_PER_STORE,
     noSignalWarned,
     autoCreateWarned,
     ensureCleanupSubscription,
     pruneAsyncCache,
     registerStoreCleanup,
-    requestVersion,
     revalidateHandlers,
     revalidateKeys,
     storeCleanupFns,
@@ -29,15 +27,19 @@ import { resetAsyncState } from "./async-cache.js";
 import { delay, normalizeRetryOptions, MAX_RETRY_DELAY_MS } from "./async-retry.js";
 import { cloneAsyncResult } from "./async/clone.js";
 import { reportAsyncUsageError, runAsyncHook, throwAsyncUsageError } from "./async/errors.js";
+import {
+    clearInflightEntry,
+    clearRequestVersion,
+    hasInflightEntry,
+    isCurrentRequest,
+    reserveRequestVersion,
+    setInflightEntry,
+    tryDedupeRequest,
+} from "./async/inflight.js";
 import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit } from "./async/rate.js";
 import { buildFetchOptions, parseResponseBody } from "./async/request.js";
 const _wildcardCleanups: Array<() => void> = [];
 type AsyncState = AsyncStateSnapshot;
-
-type InflightEntry = { promise: Promise<unknown>; raw: Promise<unknown>; transform?: FetchOptions["transform"] };
-
-const _isCurrentRequest = (cacheSlot: string, version: number): boolean =>
-    (requestVersion[cacheSlot] ?? 0) === version;
 
 const _applyAsyncState = (
     name: string,
@@ -73,7 +75,7 @@ const _settleAbort = (
     applyState: (next: AsyncStateSnapshot) => void
 ): null => {
     warn(`fetchStore("${name}") aborted`);
-    if (_isCurrentRequest(cacheSlot, version) && hasStore(name)) {
+    if (isCurrentRequest(cacheSlot, version) && hasStore(name)) {
         applyState({
             loading: false,
             error: "aborted",
@@ -231,19 +233,9 @@ export async function fetchStore(
         asyncMetrics.cacheMisses += 1;
     }
 
-    if (dedupe && inflight[cacheSlot]) {
-        const active = inflight[cacheSlot] as InflightEntry;
-        asyncMetrics.dedupes += 1;
-        if (transform && active.transform && active.transform !== transform) {
-            reportAsyncUsageError(
-                name,
-                `fetchStore("${name}") cannot dedupe callers that use different transform functions for cacheSlot "${cacheSlot}".`,
-                onError
-            );
-            return null;
-        }
-        if (!transform || active.transform === transform) return active.promise;
-        return active.raw.then((raw) => transform(raw));
+    if (dedupe) {
+        const deduped = tryDedupeRequest(name, cacheSlot, transform, onError);
+        if (deduped !== undefined) return deduped;
     }
 
     const nowTs = Date.now();
@@ -256,7 +248,7 @@ export async function fetchStore(
         );
     }
 
-    if (!inflight[cacheSlot] && countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
+    if (!hasInflightEntry(cacheSlot) && countInflightSlots(name) >= MAX_INFLIGHT_SLOTS_PER_STORE) {
         return throwAsyncUsageError(
             name,
             `fetchStore("${name}") exceeded ${MAX_INFLIGHT_SLOTS_PER_STORE} concurrent request slots. Reuse cacheKey values, wait for pending requests, or delete the store to clear async state.`,
@@ -264,8 +256,7 @@ export async function fetchStore(
         );
     }
 
-    const currentVersion = (requestVersion[cacheSlot] ?? 0) + 1;
-    requestVersion[cacheSlot] = currentVersion;
+    const currentVersion = reserveRequestVersion(cacheSlot);
 
     if (!backgroundRevalidate) {
         applyState({
@@ -358,7 +349,7 @@ export async function fetchStore(
                     return _settleAbort(name, cacheSlot, currentVersion, applyState);
                 }
 
-                if (!_isCurrentRequest(cacheSlot, currentVersion)) {
+                if (!isCurrentRequest(cacheSlot, currentVersion)) {
                     return null; // stale, ignore
                 }
 
@@ -398,7 +389,7 @@ export async function fetchStore(
                     continue;
                 }
 
-                if (!_isCurrentRequest(cacheSlot, currentVersion)) return null;
+                if (!isCurrentRequest(cacheSlot, currentVersion)) return null;
 
                 const errorMessage = (err as any)?.message || "Something went wrong";
                 applyState({
@@ -452,15 +443,13 @@ export async function fetchStore(
     });
 
     const promise = execution.then((res) => res?.transformed ?? null).finally(() => {
-        delete inflight[cacheSlot];
-        if (requestVersion[cacheSlot] === currentVersion) {
-            delete requestVersion[cacheSlot];
-        }
+        clearInflightEntry(cacheSlot);
+        clearRequestVersion(cacheSlot, currentVersion);
         if (abortOnCleanup) unregisterStoreCleanup(name, abortOnCleanup);
     });
     const rawPromise = execution.then((res) => res?.raw);
 
-    (inflight as Record<string, InflightEntry>)[cacheSlot] = { promise, raw: rawPromise, transform };
+    setInflightEntry(cacheSlot, { promise, raw: rawPromise, transform });
     if (typeof urlOrRequest === "function") {
         fetchRegistry[name] = { kind: "factory", factory: urlOrRequest, options: { ...options, cacheKey } };
     } else if (typeof urlOrRequest === "string") {
