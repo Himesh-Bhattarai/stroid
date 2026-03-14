@@ -80,6 +80,6 @@ export const runStoreHook = ({
         fn(...args);
     } catch (err) {
         const message = `${label} for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;
-        reportIssue(message, "dev");
+        reportIssue(message, "always");
     }
 };

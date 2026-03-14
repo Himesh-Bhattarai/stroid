@@ -17,6 +17,7 @@ const resolveProtocolVersion = (msg: { v?: unknown; protocol?: unknown }): numbe
 
 type SyncMeta = {
     updatedAt: string;
+    updatedAtMs?: number;
     updateCount: number;
     options: {
         sync?: boolean | SyncOptions;
@@ -49,6 +50,9 @@ const compareSyncOrder = ({
     if (incomingSource === localSource) return 0;
     return incomingSource.localeCompare(localSource, "en", { sensitivity: "variant" });
 };
+
+const resolveMetaUpdatedAtMs = (meta?: SyncMeta): number =>
+    meta?.updatedAtMs ?? resolveUpdatedAtMs({ value: meta?.updatedAt, fallbackMs: 0 });
 
 const isValidSyncMessage = (msg: unknown): msg is {
     v?: number;
@@ -254,7 +258,7 @@ export const setupSync = ({
                 accepted: getAcceptedSyncVersion(name),
             });
             if (order <= 0) {
-                const localUpdated = new Date(getMeta(name)?.updatedAt || 0).getTime();
+                const localUpdated = resolveMetaUpdatedAtMs(getMeta(name));
                 const incomingUpdated = msg.updatedAt;
                 if (resolver) {
                     const resolved = resolver({
@@ -338,7 +342,7 @@ export const broadcastSync = ({
     syncChannels: SyncChannels;
     syncClocks: SyncClocks;
     instanceId: string;
-    updatedAt: string;
+    updatedAt: string | number;
     data: StoreValue;
     hashState: (value: unknown) => number;
     reportStoreError: (name: string, message: string) => void;
@@ -403,7 +407,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
     const syncWindowCleanup: SyncWindowCleanup = Object.create(null);
     const instanceId = `stroid_${Math.random().toString(16).slice(2)}`;
 
-    const recordLocalVersion = (name: string, updatedAt: string): void => {
+    const recordLocalVersion = (name: string, updatedAt: string | number): void => {
         syncVersions[name] = {
             clock: syncClocks[name] ?? 0,
             updatedAt: resolveUpdatedAtMs({ value: updatedAt, fallbackMs: Date.now() }),
@@ -411,7 +415,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
         };
     };
 
-    const ensureLocalClock = (name: string, updatedAt: string): void => {
+    const ensureLocalClock = (name: string, updatedAt: string | number): void => {
         bumpSyncClock(name, syncClocks);
         recordLocalVersion(name, updatedAt);
     };
@@ -479,7 +483,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                         syncChannels,
                         syncClocks,
                         instanceId,
-                        updatedAt: meta.updatedAt,
+                        updatedAt: meta.updatedAtMs ?? meta.updatedAt,
                         data: ctx.getStoreValue(),
                         hashState: ctx.hashState,
                         reportStoreError: (name, message) => ctx.reportStoreError(message),
@@ -488,7 +492,8 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
             });
 
             if (syncChannels[ctx.name]) {
-                recordLocalVersion(ctx.name, ctx.getMeta()?.updatedAt || new Date().toISOString());
+                const meta = ctx.getMeta();
+                recordLocalVersion(ctx.name, meta?.updatedAtMs ?? meta?.updatedAt ?? new Date().toISOString());
             }
         },
 
@@ -496,14 +501,14 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
             if (!ctx.options.sync) return;
             const meta = ctx.getMeta();
             if (!meta) return;
-            ensureLocalClock(ctx.name, meta.updatedAt);
+            ensureLocalClock(ctx.name, meta.updatedAtMs ?? meta.updatedAt);
             broadcastSync({
                 name: ctx.name,
                 syncOption: ctx.options.sync,
                 syncChannels,
                 syncClocks,
                 instanceId,
-                updatedAt: meta.updatedAt,
+                updatedAt: meta.updatedAtMs ?? meta.updatedAt,
                 data: ctx.next,
                 hashState: ctx.hashState,
                 reportStoreError: (name, message) => ctx.reportStoreError(message),

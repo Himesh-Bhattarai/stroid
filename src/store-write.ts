@@ -162,9 +162,12 @@ export const createStore = <Name extends string, State>(
         setStoreValueInternal(name, validated.value);
         initialStates[name] = deepClone(validated.value);
     }
+    const createdAtMs = Date.now();
+    const createdAtIso = new Date(createdAtMs).toISOString();
     meta[name] = {
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: createdAtIso,
+        updatedAt: createdAtIso,
+        updatedAtMs: createdAtMs,
         updateCount: 0,
         version: normalizedOptions.version,
         metrics: { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
@@ -310,7 +313,9 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         registerTransactionCommit(() => {
             setStoreValueInternal(storeName, nextValue);
             invalidatePathCache(storeName);
-            meta[storeName].updatedAt = new Date().toISOString();
+            const updatedAtMs = Date.now();
+            meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
+            meta[storeName].updatedAtMs = updatedAtMs;
             meta[storeName].updateCount++;
             runFeatureWriteHooks(storeName, "set", prevValue, nextValue, notify);
             runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prevValue, nextValue]);
@@ -320,7 +325,9 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     } else {
         setStoreValueInternal(storeName, committed.value);
         invalidatePathCache(storeName);
-        meta[storeName].updatedAt = new Date().toISOString();
+        const updatedAtMs = Date.now();
+        meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
+        meta[storeName].updatedAtMs = updatedAtMs;
         meta[storeName].updateCount++;
         runFeatureWriteHooks(storeName, "set", prev, committed.value, notify);
         runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prev, committed.value]);
@@ -374,13 +381,13 @@ export function deleteStore(nameInput: string | StoreDefinition<string, StoreVal
     invalidatePathCache(name);
 }
 
-export function resetStore<Name extends string, State>(name: StoreDefinition<Name, State>): void;
-export function resetStore<Name extends string, State>(name: StoreKey<Name, State>): void;
-export function resetStore<Name extends StoreName>(name: Name): void;
-export function resetStore(nameInput: string | StoreDefinition<string, StoreValue>): void {
+export function resetStore<Name extends string, State>(name: StoreDefinition<Name, State>): WriteResult;
+export function resetStore<Name extends string, State>(name: StoreKey<Name, State>): WriteResult;
+export function resetStore<Name extends StoreName>(name: Name): WriteResult;
+export function resetStore(nameInput: string | StoreDefinition<string, StoreValue>): WriteResult {
     const name = nameOf(nameInput);
-    if (!exists(name)) return;
-    if (!materializeInitial(name)) return;
+    if (!exists(name)) return { ok: false, reason: "not-found" };
+    if (!materializeInitial(name)) return { ok: false, reason: "validate" };
     if (!initialStates[name]) {
         const message =
             `resetStore("${name}") has no initial state to reset to. ` +
@@ -389,7 +396,7 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         if (isTransactionActive()) {
             markTransactionFailed(message);
         }
-        return;
+        return { ok: false, reason: "not-found" };
     }
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : stores[name];
@@ -400,24 +407,29 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         registerTransactionCommit(() => {
             setStoreValueInternal(name, resetValue);
             invalidatePathCache(name);
-            meta[name].updatedAt = new Date().toISOString();
+            const updatedAtMs = Date.now();
+            meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+            meta[name].updatedAtMs = updatedAtMs;
             meta[name].updateCount++;
             runFeatureWriteHooks(name, "reset", prev, resetValue, notify);
             runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
             notify(name);
             log(`Store "${name}" reset to initial state/value`);
         });
-        return;
+        return { ok: true };
     }
 
     setStoreValueInternal(name, resetValue);
     invalidatePathCache(name);
-    meta[name].updatedAt = new Date().toISOString();
+    const updatedAtMs = Date.now();
+    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    meta[name].updatedAtMs = updatedAtMs;
     meta[name].updateCount++;
     runFeatureWriteHooks(name, "reset", prev, resetValue, notify);
     runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
     notify(name);
     log(`Store "${name}" reset to initial state/value`);
+    return { ok: true };
 }
 
 const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { ok: boolean; reason?: string } => {
@@ -440,7 +452,9 @@ const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { o
     if (!committed.ok) return { ok: false, reason: "validate" };
     setStoreValueInternal(name, committed.value);
     invalidatePathCache(name);
-    meta[name].updatedAt = new Date().toISOString();
+    const updatedAtMs = Date.now();
+    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    meta[name].updatedAtMs = updatedAtMs;
     meta[name].updateCount++;
     runFeatureWriteHooks(name, action, prev, committed.value, notify);
     runStoreHookSafe(name, "onSet", meta[name].options.onSet, [prev, committed.value]);
