@@ -7,15 +7,12 @@ export const usesDefaultPersistCrypto = (fn: (v: string) => string): boolean =>
 
 export const isIdentityCrypto = (fn: (v: string) => string): boolean => {
     try {
-        const probe = "__stroid_plaintext_probe__";
-        return fn(probe) === probe;
+        const probeA = `__stroid_plaintext_probe_${Math.random().toString(36).slice(2)}__`;
+        const probeB = `__stroid_plaintext_probe_${Math.random().toString(36).slice(2)}__`;
+        if (fn(probeA) !== probeA) return false;
+        return fn(probeB) === probeB;
     } catch (_) {
-        try {
-            const src = fn.toString().replace(/\s/g, "");
-            return src === "v=>v" || src === "(v)=>v" || src === "function(v){returnv;}";
-        } catch (_) {
-            return false;
-        }
+        return false;
     }
 };
 

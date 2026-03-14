@@ -178,7 +178,7 @@ const flush = () => {
                 index: 0,
                 snapshot,
                 version,
-                metrics: meta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
+                metrics: meta[name]?.metrics ? { ...meta[name]!.metrics } : { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
                 totalMs: 0,
             });
         }
@@ -187,6 +187,27 @@ const flush = () => {
 
     const priorityQueue = prioritySet ? buildQueue((name) => prioritySet.has(name)) : [];
     const regularQueue = buildQueue((name) => !prioritySet || !prioritySet.has(name));
+
+    const refreshTaskSubscribers = (task: StoreTask): void => {
+        const subs = subscribers[task.name];
+        if (!subs || subs.size === 0) {
+            task.subsArray = [];
+            task.index = 0;
+            return;
+        }
+        const nextArray = Array.from(subs);
+        if (task.index > 0 && task.subsArray.length > 0) {
+            const processed = new Set(task.subsArray.slice(0, task.index));
+            let newIndex = 0;
+            for (const sub of nextArray) {
+                if (processed.has(sub)) newIndex += 1;
+            }
+            task.index = Math.min(newIndex, nextArray.length);
+        } else {
+            task.index = Math.min(task.index, nextArray.length);
+        }
+        task.subsArray = nextArray;
+    };
 
     const runQueue = (queue: StoreTask[], done: () => void): void => {
         const processNext = (): void => {
@@ -206,6 +227,18 @@ const flush = () => {
                 else scheduleChunk(processNext, chunkDelayMs);
                 return;
             }
+
+            refreshTaskSubscribers(task);
+            if (task.subsArray.length === 0) {
+                if (queue.length === 0) {
+                    done();
+                    return;
+                }
+                if (runInline) processNext();
+                else scheduleChunk(processNext, chunkDelayMs);
+                return;
+            }
+
             const start = now();
             const endIndex = Math.min(task.index + sliceSize, task.subsArray.length);
             for (let i = task.index; i < endIndex; i++) {

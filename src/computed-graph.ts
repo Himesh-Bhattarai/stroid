@@ -134,6 +134,20 @@ export const getTopoOrderedComputeds = (changedSources: string[]): string[] => {
 
     if (affected.size === 0) return [];
 
+    const expandComputedDeps = (name: string): void => {
+        const entry = entries[name];
+        if (!entry) return;
+        for (const dep of entry.deps) {
+            if (!entries[dep]) continue;
+            if (!affected.has(dep)) {
+                affected.add(dep);
+                expandComputedDeps(dep);
+            }
+        }
+    };
+
+    Array.from(affected).forEach((name) => expandComputedDeps(name));
+
     const inDegree = new Map<string, number>();
     const adjList = new Map<string, string[]>();
 
