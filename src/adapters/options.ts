@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\adapters\options.ts
+ * @module adapters/options
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for adapters/options.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { registerTestResetHook } from "../internals/test-reset.js";
 
@@ -548,4 +553,5 @@ export const normalizeStoreOptions = <State>(
         explicitDevtools,
     };
 };
+
 

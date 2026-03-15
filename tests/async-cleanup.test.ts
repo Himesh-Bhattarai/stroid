@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\async-cleanup.test.ts
+ * @module tests/async-cleanup.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/async-cleanup.test.
+ *
+ * Consumers: Test runner.
  */
 import assert from "node:assert";
 import { test } from "node:test";
@@ -30,4 +35,5 @@ test("fetchStore metadata is cleared when store is deleted", async () => {
 
   clearAllStores();
 });
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\testing.ts
+ * @module testing
+ *
+ * LAYER: Testing
+ * OWNS:  Module-level behavior and exports for testing.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { _resetAsyncStateForTests } from "./async.js";
 import { createStore, setStore, resetStore, store } from "./store.js";
@@ -52,4 +57,5 @@ export const benchmarkStoreSet = <Name extends string, State extends Record<stri
     const total = end - start;
     return { iterations, totalMs: total, avgMs: total / iterations };
 };
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\devfreeze.ts
+ * @module devfreeze
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for devfreeze.
+ *
+ * Consumers: Internal imports and public API.
  */
 export const devDeepFreeze = <T>(value: T): T => {
     if (typeof value !== "object" || value === null) return value;
@@ -32,4 +37,5 @@ export const devDeepFreeze = <T>(value: T): T => {
     }
     return value;
 };
+
 

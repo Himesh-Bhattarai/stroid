@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\async-revalidate-cleanup.test.ts
+ * @module tests/async-revalidate-cleanup.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/async-revalidate-cleanup.test.
+ *
+ * Consumers: Test runner.
  */
 import assert from "node:assert";
 import { test } from "node:test";
@@ -71,4 +76,5 @@ test("resetAsyncState cleans up wildcard revalidate listeners", () => {
     ["focus", "online"]
   );
 });
+
 

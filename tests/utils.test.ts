@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\utils.test.ts
+ * @module tests/utils.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/utils.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -73,4 +78,5 @@ test("suggestStoreName still suggests close short matches", () => {
 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
+
 

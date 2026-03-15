@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-lifecycle\types.ts
+ * @module store-lifecycle/types
+ *
+ * LAYER: Store lifecycle
+ * OWNS:  Module-level behavior and exports for store-lifecycle/types.
+ *
+ * Consumers: Internal imports and public API.
  */
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -66,4 +71,5 @@ export type WriteResult =
     | { ok: false; reason: "not-found" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" };
 
 export type Subscriber = (value: StoreValue | null) => void;
+
 

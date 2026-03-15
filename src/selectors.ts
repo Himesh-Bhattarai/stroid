@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\selectors.ts
+ * @module selectors
+ *
+ * LAYER: Selectors
+ * OWNS:  Module-level behavior and exports for selectors.
+ *
+ * Consumers: Internal imports and public API.
  */
 import {
     getSelectorStoreValueRef,
@@ -129,4 +134,5 @@ export const subscribeWithSelector = <R>(
     };
     return subscribeSelectorStore(name, wrapped);
 };
+
 

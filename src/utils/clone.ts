@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\utils\clone.ts
+ * @module utils/clone
+ *
+ * LAYER: Utilities
+ * OWNS:  Module-level behavior and exports for utils/clone.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { warnAlways } from "../internals/diagnostics.js";
 import { FORBIDDEN_OBJECT_KEYS } from "./validation.js";
@@ -115,4 +120,5 @@ export const produceClone = <T>(base: T, recipe: (draft: T) => void): T => {
         );
     }
 };
+
 

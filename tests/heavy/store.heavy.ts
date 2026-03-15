@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\heavy\store.heavy.ts
+ * @module tests/heavy/store.heavy
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/heavy/store.heavy.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -1587,5 +1592,6 @@ test("clearAllStores removes stores created during delete hooks", () => {
   assert.strictEqual(hasStore("late"), false);
   assert.deepStrictEqual(listStores(), []);
 });
+
 
 

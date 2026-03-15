@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\internals\config.ts
+ * @module internals/config
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/config.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { SnapshotMode, MiddlewareCtx, StoreValue } from "../adapters/options.js";
 import { registerTestResetHook } from "./test-reset.js";
@@ -350,4 +355,5 @@ export const setNamespace = (ns: string): void => {
         baseConfig = cloneConfig(next);
     }
 };
+
 

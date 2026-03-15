@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\testing.test.ts
+ * @module tests/testing.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/testing.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -156,4 +161,5 @@ test("resetAllStoresForTest runs registered reset hooks", () => {
   resetAllStoresForTest();
   assert.ok(calls > before);
 });
+
 

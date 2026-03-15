@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\async-cache.ts
+ * @module async-cache
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for async-cache.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { subscribe } from "./store-notify.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
@@ -177,4 +182,5 @@ export const ensureCleanupSubscription = (name: string): void => {
         clearAsyncMeta(name);
     });
 };
+
 

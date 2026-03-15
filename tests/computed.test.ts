@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\computed.test.ts
+ * @module tests/computed.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/computed.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -226,4 +231,5 @@ test("computed handles 50+ dependencies", async () => {
 
   assert.strictEqual(getStore("sumAll"), expected);
 });
+
 

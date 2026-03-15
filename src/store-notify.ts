@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-notify.ts
+ * @module store-notify
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-notify.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { deepClone, shallowClone, warn, warnAlways } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
@@ -404,4 +409,5 @@ export const resetNotifyStateForTests = (): void => {
 };
 
 registerTestResetHook("notify.reset", resetNotifyStateForTests, 40);
+
 

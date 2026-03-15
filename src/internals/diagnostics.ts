@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\internals\diagnostics.ts
+ * @module internals/diagnostics
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/diagnostics.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { getConfig } from "./config.js";
 const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NODE_ENV === "string"
@@ -174,4 +179,5 @@ export const suggestStoreName = (name: string, existingNames: string[]): void =>
         `Call createStore("${name}", data) first.`
     );
 };
+
 

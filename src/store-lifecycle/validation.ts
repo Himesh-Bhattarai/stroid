@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-lifecycle\validation.ts
+ * @module store-lifecycle/validation
+ *
+ * LAYER: Store lifecycle
+ * OWNS:  Module-level behavior and exports for store-lifecycle/validation.
+ *
+ * Consumers: Internal imports and public API.
  */
 import {
     warn,
@@ -368,4 +373,5 @@ export const materializeInitial = (name: string): boolean => {
         return false;
     }
 };
+
 

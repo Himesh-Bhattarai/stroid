@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-lifecycle\hooks.ts
+ * @module store-lifecycle/hooks
+ *
+ * LAYER: Store lifecycle
+ * OWNS:  Module-level behavior and exports for store-lifecycle/hooks.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { warn, log, hashState, deepClone, sanitize, isDev } from "../utils.js";
 import { runMiddleware, runStoreHook, MIDDLEWARE_ABORT } from "../features/lifecycle.js";
@@ -208,4 +213,5 @@ export const resolveFeatureAvailability = (name: string, options: NormalizedOpti
 
     return next;
 };
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\internals\computed-order.ts
+ * @module internals/computed-order
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/computed-order.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { registerTestResetHook } from "./test-reset.js";
 
@@ -18,4 +23,5 @@ export const getComputedOrder = (names: string[]): string[] => {
 registerTestResetHook("computed.order-resolver", () => {
     resolver = null;
 }, 105);
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-read.ts
+ * @module store-read
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-read.
+ *
+ * Consumers: Internal imports and public API.
  */
 import {
     deepClone,
@@ -59,4 +64,5 @@ export const getMetrics = (name: string): (typeof meta)[string]["metrics"] | nul
     if (!metaEntry?.metrics) return null;
     return { ...metaEntry.metrics };
 };
+
 

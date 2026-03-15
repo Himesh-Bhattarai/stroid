@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\features\lifecycle.ts
+ * @module features/lifecycle
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/lifecycle.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { StoreValue } from "../adapters/options.js";
 import { deepClone, isDev } from "../utils.js";
@@ -86,4 +91,5 @@ export const runStoreHook = ({
         reportIssue(message, "always");
     }
 };
+
 

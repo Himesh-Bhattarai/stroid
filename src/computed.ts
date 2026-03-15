@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\computed.ts
+ * @module computed
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for computed.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { store } from "./store-name.js";
 import { createStore, replaceStore, getStore, hasStore, subscribeStore } from "./internals/store-ops.js";
@@ -172,4 +177,5 @@ export const _resetComputedForTests = (): void => {
     cleanups.forEach((fn) => fn());
     cleanups.clear();
 };
+
 

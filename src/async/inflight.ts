@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\async\inflight.ts
+ * @module async/inflight
+ *
+ * LAYER: Async subsystem
+ * OWNS:  Module-level behavior and exports for async/inflight.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { asyncMetrics, inflight, requestVersion } from "../async-cache.js";
 import type { FetchOptions } from "../async-cache.js";
@@ -51,4 +56,5 @@ export const tryDedupeRequest = (
     if (!transform || active.transform === transform) return active.promise;
     return active.raw.then((raw) => transform(raw));
 };
+
 

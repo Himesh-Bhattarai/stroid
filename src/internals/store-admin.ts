@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\internals\store-admin.ts
+ * @module internals/store-admin
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/store-admin.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { runStoreHook } from "../features/lifecycle.js";
 import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../feature-registry.js";
@@ -239,4 +244,5 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
         reportStoreError,
     };
 };
+
 

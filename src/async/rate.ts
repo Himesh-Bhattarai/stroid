@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\async\rate.ts
+ * @module async/rate
+ *
+ * LAYER: Async subsystem
+ * OWNS:  Module-level behavior and exports for async/rate.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { getActiveAsyncRegistry, rateCount, ratePruneState, rateWindowStart } from "../async-cache.js";
 import type { AsyncRegistry } from "../async-registry.js";
@@ -47,4 +52,5 @@ export const registerRateHit = (cacheSlot: string, nowTs: number): boolean => {
     rateCount[cacheSlot] = 1;
     return false;
 };
+
 

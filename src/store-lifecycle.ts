@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-lifecycle.ts
+ * @module store-lifecycle
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-lifecycle.
+ *
+ * Consumers: Internal imports and public API.
  */
 export type {
     Path,
@@ -78,4 +83,5 @@ export {
 } from "./store-lifecycle/identity.js";
 
 export { bindRegistry, useRegistry } from "./store-lifecycle/bind.js";
+
 

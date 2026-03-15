@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\heavy\environment.heavy.ts
+ * @module tests/heavy/environment.heavy
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/heavy/environment.heavy.
+ *
+ * Consumers: Test runner.
  */
 import assert from "node:assert";
 import test from "node:test";
@@ -103,4 +108,5 @@ test("heavy repeated sync create delete cycles leave no open channels", async ()
     (globalThis as any).BroadcastChannel = originalBroadcastChannel;
   }
 });
+
 

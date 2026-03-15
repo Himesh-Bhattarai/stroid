@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\types\package-declarations.types.ts
+ * @module tests/types/package-declarations.types
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/types/package-declarations.types.
+ *
+ * Consumers: Test runner.
  */
 import type { Expect, Equal } from "./assert.js";
 import type { PersistOptions, StoreOptions, SyncOptions } from "../../dist/index.d.ts";
@@ -112,4 +117,5 @@ void (0 as unknown as RuntimeAdminClearAllStores);
 // @ts-expect-error package declarations should reject unsupported onMigrationFail literals
 const badPersist: PersistOptions = { onMigrationFail: "ignore" };
 void badPersist;
+
 

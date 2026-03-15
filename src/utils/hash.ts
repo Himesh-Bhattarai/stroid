@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\utils\hash.ts
+ * @module utils/hash
+ *
+ * LAYER: Utilities
+ * OWNS:  Module-level behavior and exports for utils/hash.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { FORBIDDEN_OBJECT_KEYS } from "./validation.js";
 
@@ -221,4 +226,5 @@ export const hashState = (value: unknown): number => {
 };
 
 export const checksumState = hashState; // alias for clarity
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\install.ts
+ * @module install
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for install.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { registerPersistFeature } from "./features/persist.js";
 import { registerSyncFeature } from "./features/sync.js";
@@ -22,4 +27,5 @@ export const installAllFeatures = (): void => {
     installSync();
     installDevtools();
 };
+
 

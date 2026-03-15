@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\features\devtools.ts
+ * @module features/devtools
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/devtools.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { StoreValue } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
@@ -258,4 +263,5 @@ export const registerDevtoolsFeature = (): void => {
     _registered = true;
     registerStoreFeature("devtools", createDevtoolsFeatureRuntime);
 };
+
 

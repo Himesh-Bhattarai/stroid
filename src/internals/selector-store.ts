@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\internals\selector-store.ts
+ * @module internals/selector-store
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/selector-store.
+ *
+ * Consumers: Internal imports and public API.
  */
 import {
     stores as _stores,
@@ -25,4 +30,5 @@ export const subscribeSelectorStore = (name: string, fn: SelectorSubscriber): ((
         if (_subscribers[name]?.size === 0) delete _subscribers[name];
     };
 };
+
 

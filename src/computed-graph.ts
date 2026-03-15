@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\computed-graph.ts
+ * @module computed-graph
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for computed-graph.
+ *
+ * Consumers: Internal imports and public API.
  */
 import {
     getStoreRegistry,
@@ -227,4 +232,5 @@ export const getComputedDepsFor = (name: string): { deps: string[]; dependents: 
         dependents: dependents ? [...dependents] : [],
     };
 };
+
 

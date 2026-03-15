@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\internals\hooks-warnings.ts
+ * @module internals/hooks-warnings
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/hooks-warnings.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { registerTestResetHook } from "./test-reset.js";
 
@@ -30,4 +35,5 @@ export const resetMissingUseStoreWarnings = (): void => {
 
 registerTestResetHook("hooks.broad-warning", resetBroadUseStoreWarnings, 70);
 registerTestResetHook("hooks.missing-warning", resetMissingUseStoreWarnings, 80);
+
 

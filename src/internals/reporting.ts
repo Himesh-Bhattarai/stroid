@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\internals\reporting.ts
+ * @module internals/reporting
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/reporting.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { critical, warn, warnAlways } from "./diagnostics.js";
 
@@ -34,4 +39,5 @@ export const reportIssue = (message: string, options: IssueOptions = {}): void =
 
     warn(message);
 };
+
 

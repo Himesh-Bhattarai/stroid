@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\features\state-helpers.ts
+ * @module features/state-helpers
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/state-helpers.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { StoreValue } from "../adapters/options.js";
 
@@ -60,4 +65,5 @@ export const resolveUpdatedAtMs = ({
     onInvalid?.();
     return fallbackMs;
 };
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\helpers.test.ts
+ * @module tests/helpers.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/helpers.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -64,4 +69,5 @@ test("createEntityStore supports upsert, get, all, remove, and clear", () => {
   entities.clear();
   assert.deepStrictEqual(entities.all(), []);
 });
+
 

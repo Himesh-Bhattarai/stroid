@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\async\request.ts
+ * @module async/request
+ *
+ * LAYER: Async subsystem
+ * OWNS:  Module-level behavior and exports for async/request.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { FetchOptions } from "../async-cache.js";
 
@@ -51,4 +56,5 @@ export const parseResponseBody = async (
     if (contentType.includes("form-data")) return response.formData();
     return response.arrayBuffer();
 };
+
 

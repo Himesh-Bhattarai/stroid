@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\async.test.ts
+ * @module tests/async.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/async.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -873,4 +878,5 @@ test("fetchStore caps no-signal warning cache size under high-cardinality stores
     clearAllStores();
   }
 });
+
 

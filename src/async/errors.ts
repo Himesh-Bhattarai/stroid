@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\async\errors.ts
+ * @module async/errors
+ *
+ * LAYER: Async subsystem
+ * OWNS:  Module-level behavior and exports for async/errors.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { critical, error, isDev, warn } from "../utils.js";
 import { getConfig } from "../internals/config.js";
@@ -48,4 +53,5 @@ export const throwAsyncUsageError = (
     }
     throw new Error(message);
 };
+
 

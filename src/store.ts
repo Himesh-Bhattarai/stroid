@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store.ts
+ * @module store
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store.
+ *
+ * Consumers: Internal imports and public API.
  */
 // Public store API barrel. store-* modules are split for organization and re-exported here.
 export type {
@@ -60,4 +65,5 @@ export {
 export { clearAllStores, clearStores } from "./runtime-admin.js";
 
 export { store, namespace } from "./store-name.js";
+
 

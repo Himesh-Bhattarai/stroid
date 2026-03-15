@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\setup.ts
+ * @module tests/setup
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/setup.
+ *
+ * Consumers: Test runner.
  */
 import { afterEach } from "node:test";
 import { JSDOM } from "jsdom";
@@ -53,4 +58,5 @@ afterEach(() => {
   cleanup();
   resetAllStoresForTest();
 });
+
 

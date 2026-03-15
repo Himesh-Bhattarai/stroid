@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\server.ts
+ * @module server
+ *
+ * LAYER: SSR
+ * OWNS:  Module-level behavior and exports for server.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { hydrateStores } from "./store.js";
 import { deepClone, produceClone } from "./utils.js";
@@ -113,4 +118,5 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
         },
     };
 };
+
 

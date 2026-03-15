@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\utils\validation.ts
+ * @module utils/validation
+ *
+ * LAYER: Utilities
+ * OWNS:  Module-level behavior and exports for utils/validation.
+ *
+ * Consumers: Internal imports and public API.
  */
 import {
     error,
@@ -267,4 +272,5 @@ export const isValidStoreName = (name: string): boolean => {
     }
     return true;
 };
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\features\persist\crypto.ts
+ * @module features/persist/crypto
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist/crypto.
+ *
+ * Consumers: Internal imports and public API.
  */
 const DEFAULT_PERSIST_CRYPTO_MARK = typeof Symbol === "function"
     ? Symbol.for("stroid.persist.defaultCrypto")
@@ -48,4 +53,5 @@ export const validateCryptoPair = (
     }
     return { ok: true };
 };
+
 

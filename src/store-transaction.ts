@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-transaction.ts
+ * @module store-transaction
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-transaction.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { StoreValue } from "./store-lifecycle/types.js";
 import {
@@ -82,4 +87,5 @@ export const endTransaction = (err?: unknown, registry?: StoreRegistry): Error |
 
     return finalError;
 };
+
 

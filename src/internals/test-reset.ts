@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\internals\test-reset.ts
+ * @module internals/test-reset
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/test-reset.
+ *
+ * Consumers: Internal imports and public API.
  */
 type TestResetHook = {
     name: string;
@@ -21,4 +26,5 @@ export const runTestResets = (): void => {
     });
     ordered.forEach((hook) => hook.fn());
 };
+
 

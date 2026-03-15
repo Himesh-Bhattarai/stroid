@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\async-fetch.ts
+ * @module async-fetch
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for async-fetch.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { createStore, setStore, hasStore, getStore } from "./internals/store-ops.js";
 import { error, warn, isDev } from "./utils.js";
@@ -656,4 +661,5 @@ export const cleanupAllRevalidateHandlers = (): void => {
     _wildcardCleanups.forEach(fn => fn());
     _wildcardCleanups.length = 0;
 };
+
 

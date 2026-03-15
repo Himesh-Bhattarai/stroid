@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\features\persist\load.ts
+ * @module features/persist/load
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist/load.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { PersistConfig, StoreValue } from "../../adapters/options.js";
 import type { PersistMeta, PersistLoadArgs } from "./types.js";
@@ -329,4 +334,5 @@ const applyMigratedState = ({
 
     return { ok: true, state: validationResult.value ?? parsed };
 };
+
 

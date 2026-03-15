@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\features\persist\types.ts
+ * @module features/persist/types
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist/types.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { PersistConfig, StoreValue } from "../../adapters/options.js";
 
@@ -48,4 +53,5 @@ export type PersistSaveArgs = {
     reportStoreError: (name: string, message: string) => void;
     hashState: (value: unknown) => number;
 };
+
 

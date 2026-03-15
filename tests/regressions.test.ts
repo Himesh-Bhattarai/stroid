@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\regressions.test.ts
+ * @module tests/regressions.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/regressions.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -492,4 +497,5 @@ test("assertRuntime throws on warnings to hard-fail tests", () => {
     resetConfig();
   }
 });
+
 

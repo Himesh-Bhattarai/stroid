@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\store.core.test.ts
+ * @module tests/store.core.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/store.core.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -167,4 +172,5 @@ test("createComputed derives and updates from dependencies", async () => {
 
   assert.strictEqual(getStore("fullName"), "Jordan Stone");
 });
+
 

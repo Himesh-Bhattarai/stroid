@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\store.node-env.test.ts
+ * @module tests/store.node-env.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/store.node-env.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -173,4 +178,5 @@ test("full package stays lean and requires explicit devtools registration in pro
 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
+
 

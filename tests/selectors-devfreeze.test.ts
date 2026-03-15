@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\selectors-devfreeze.test.ts
+ * @module tests/selectors-devfreeze.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/selectors-devfreeze.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -33,5 +38,6 @@ test("subscribeWithSelector passes a mutable value to selector in dev mode", () 
   assert.strictEqual(res.status, 0, `child process failed:\n${res.stderr || res.stdout}`);
   assert.match(res.stdout ?? "", /ok/);
 });
+
 
 

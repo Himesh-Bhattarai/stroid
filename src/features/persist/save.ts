@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\features\persist\save.ts
+ * @module features/persist/save
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist/save.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { StoreValue } from "../../adapters/options.js";
 import { warnAlways } from "../../utils.js";
@@ -120,4 +125,5 @@ export const persistSave = (args: PersistSaveArgs): void => persistSaveInner(arg
 
 export const flushPersistImmediately = (name: string, args: PersistSaveArgs): void =>
     persistSaveInner({ ...args, name }, true);
+
 

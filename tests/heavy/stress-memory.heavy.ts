@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\heavy\stress-memory.heavy.ts
+ * @module tests/heavy/stress-memory.heavy
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/heavy/stress-memory.heavy.
+ *
+ * Consumers: Test runner.
  */
 import assert from "node:assert";
 import test from "node:test";
@@ -87,4 +92,5 @@ test("heavy repeated create delete cycles leave no residual stores", () => {
 
   assert.deepStrictEqual(listStores(), []);
 });
+
 

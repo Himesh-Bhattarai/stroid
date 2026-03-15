@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\types\ambient-store-map.types.ts
+ * @module tests/types/ambient-store-map.types
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/types/ambient-store-map.types.
+ *
+ * Consumers: Test runner.
  */
 import type { Expect, Equal } from "./assert.js";
 import { createStore, getStore, setStore } from "../../src/store.js";
@@ -32,5 +37,6 @@ createStore("validateContext", { count: 0 }, {
     return true;
   },
 });
+
 
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\strict-missing-features.test.ts
+ * @module tests/strict-missing-features.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/strict-missing-features.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -31,4 +36,5 @@ test("strictMissingFeatures throws when a feature is requested but not registere
 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
+
 

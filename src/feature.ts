@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\feature.ts
+ * @module feature
+ *
+ * LAYER: Public API
+ * OWNS:  Module-level behavior and exports for feature.
+ *
+ * Consumers: Internal imports and public API.
  */
 export type {
     BuiltInFeatureName,
@@ -20,4 +25,5 @@ export {
     hasRegisteredStoreFeature,
     getRegisteredFeatureNames,
 } from "./feature-registry.js";
+
 

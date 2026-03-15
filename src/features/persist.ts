@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\features\persist.ts
+ * @module features/persist
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { PersistOptions } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
@@ -270,4 +275,5 @@ export const registerPersistFeature = (): void => {
     _registered = true;
     registerStoreFeature("persist", createPersistFeatureRuntime);
 };
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\persist.test.ts
+ * @module tests/persist.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/persist.test.
+ *
+ * Consumers: Test runner.
  */
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
@@ -932,4 +937,5 @@ test("persistSave uses a zero-argument exists callback", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(calls, [0]);
 });
+
 

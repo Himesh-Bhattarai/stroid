@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-write.ts
+ * @module store-write
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-write.
+ *
+ * Consumers: Internal imports and public API.
  */
 import {
     warn,
@@ -611,4 +616,5 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
 };
 
 export { useRegistry } from "./store-lifecycle/bind.js";
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-lifecycle\registry.ts
+ * @module store-lifecycle/registry
+ *
+ * LAYER: Store lifecycle
+ * OWNS:  Module-level behavior and exports for store-lifecycle/registry.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { devDeepFreeze } from "../devfreeze.js";
 import { isDev } from "../utils.js";
@@ -219,4 +224,5 @@ export const resolveScope = (scopeOrRegistry?: string | ReturnType<typeof getSto
         : scopeOrRegistry ?? getStoreRegistry(_scope);
     return { scope: resolvedScope, registry };
 };
+
 

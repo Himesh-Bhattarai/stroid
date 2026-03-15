@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-registry.ts
+ * @module store-registry
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-registry.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { FeatureName, StoreFeatureMeta, StoreFeatureRuntime } from "./feature-registry.js";
 import type { AsyncRegistry } from "./async-registry.js";
@@ -250,4 +255,5 @@ export const enterRegistry = (registry: StoreRegistry): void => {
         currentRegistryRunner.enterWith(registry);
     }
 };
+
 

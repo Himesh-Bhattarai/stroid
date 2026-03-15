@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\async-retry.ts
+ * @module async-retry
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for async-retry.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { warn } from "./utils.js";
 
@@ -77,4 +82,5 @@ export const normalizeRetryOptions = (
         retryBackoff: safeRetryBackoff,
     };
 };
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\async-registry.ts
+ * @module async-registry
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for async-registry.
+ *
+ * Consumers: Internal imports and public API.
  */
 export type AsyncStateSnapshot = {
     data?: unknown;
@@ -154,4 +159,5 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     registry.asyncMetrics.avgMs = 0;
     registry.asyncMetrics.lastMs = 0;
 };
+
 

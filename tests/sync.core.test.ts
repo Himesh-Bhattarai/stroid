@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\sync.core.test.ts
+ * @module tests/sync.core.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/sync.core.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -327,4 +332,5 @@ test("sync core (serial)", async (t) => {
   }
   });
 });
+
 

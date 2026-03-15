@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\runtime-tools.ts
+ * @module runtime-tools
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for runtime-tools.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { deepClone, suggestStoreName } from "./utils.js";
 import {
@@ -69,4 +74,5 @@ export const getPersistQueueDepth = (name: string): number => {
 export const getComputedGraph = () => getFullComputedGraph();
 
 export const getComputedDeps = (name: string) => getComputedDepsFor(name);
+
 

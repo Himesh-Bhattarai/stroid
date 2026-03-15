@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\hooks-form.ts
+ * @module hooks-form
+ *
+ * LAYER: React hooks
+ * OWNS:  Module-level behavior and exports for hooks-form.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { useCallback } from "react";
 import { useStore } from "./hooks-core.js";
@@ -42,4 +47,5 @@ export function useFormStore(
     );
     return { value, onChange };
 }
+
 

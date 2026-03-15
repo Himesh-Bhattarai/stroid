@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\integrations\query.ts
+ * @module integrations/query
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for integrations/query.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { fetchStore } from "../async.js";
 import type { FetchInput, FetchOptions } from "../async-cache.js";
@@ -37,4 +42,5 @@ export const createSwrFetcher = (
     }
     return fetchStore(storeName, input, options);
 };
+
 

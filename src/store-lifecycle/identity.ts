@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\store-lifecycle\identity.ts
+ * @module store-lifecycle/identity
+ *
+ * LAYER: Store lifecycle
+ * OWNS:  Module-level behavior and exports for store-lifecycle/identity.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { warn, isDev, suggestStoreName } from "../utils.js";
 import { getConfig, getNamespace } from "../internals/config.js";
@@ -101,4 +106,5 @@ export const warnMissingFeature = (storeName: string, featureName: FeatureName, 
 };
 
 export const getFeatureApi = (name: FeatureName) => featureRuntimes.get(name)?.api;
+
 

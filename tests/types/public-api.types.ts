@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\types\public-api.types.ts
+ * @module tests/types/public-api.types
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/types/public-api.types.
+ *
+ * Consumers: Test runner.
  */
 import "../../src/persist.js";
 import "../../src/sync.js";
@@ -241,4 +246,5 @@ createStore("legacyTyped", { count: 1 }, {
 createStore("badScope", { value: 1 }, { scope: "scoped" });
 // @ts-expect-error invalid sync maxPayloadBytes type should be rejected
 createStore("badSync", { value: 1 }, { sync: { maxPayloadBytes: "big" } });
+
 

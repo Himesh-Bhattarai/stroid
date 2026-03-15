@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\hooks-core.ts
+ * @module hooks-core
+ *
+ * LAYER: React hooks
+ * OWNS:  Module-level behavior and exports for hooks-core.
+ *
+ * Consumers: Internal imports and public API.
  */
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { subscribeStore, getStoreSnapshot, hasStore } from "./store.js";
@@ -321,4 +326,5 @@ export function useStoreStatic(
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
 }
+
 

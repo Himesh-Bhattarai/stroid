@@ -1,5 +1,10 @@
 /**
- * @fileoverview tests\react-hooks.test.tsx
+ * @module tests/react-hooks.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/react-hooks.test.
+ *
+ * Consumers: Test runner.
  */
 import test from "node:test";
 import assert from "node:assert";
@@ -487,4 +492,5 @@ test("useFormStore uses checked for checkbox inputs", async () => {
     unmount();
   });
 });
+
 

@@ -1,5 +1,10 @@
 /**
- * @fileoverview src\feature-registry.ts
+ * @module feature-registry
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for feature-registry.
+ *
+ * Consumers: Internal imports and public API.
  */
 import type { NormalizedOptions, StoreValue } from "./adapters/options.js";
 
@@ -97,4 +102,5 @@ export const resetRegisteredStoreFeaturesForTests = (): void => {
     _featureFactories.clear();
     _onFeatureRegistered = null;
 };
+
 
