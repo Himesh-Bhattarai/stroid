@@ -102,6 +102,7 @@ type HydrationTrust<Snapshot extends Record<string, unknown>> = {
 
 const SLOW_MUTATOR_WARN_MS = 32;
 const slowMutatorWarned = new Set<string>();
+const ssrGlobalAllowWarned = new Set<string>();
 const warnSlowMutator = (storeName: string, elapsedMs: number): void => {
     if (!isDev()) return;
     if (elapsedMs < SLOW_MUTATOR_WARN_MS) return;
@@ -200,6 +201,13 @@ export const createStore = <Name extends string, State>(
             `Call createStoreForRequest(...) inside each request scope or pass { scope: "global" } to opt in.`;
         reportStoreCreationError(msg, option.onError as ((message: string) => void) | undefined);
         return;
+    }
+    if (isProdServer && allowGlobalSSR && !ssrGlobalAllowWarned.has(name)) {
+        ssrGlobalAllowWarned.add(name);
+        warnAlways(
+            `createStore("${name}") is allowed on the server in production because allowSSRGlobalStore is true.\n` +
+            `This can leak data across concurrent requests. Prefer createStoreForRequest(...) or scope: "request" unless you truly need a global SSR store.`
+        );
     }
 
     if (hasStoreEntryInternal(name)) {

@@ -1,6 +1,7 @@
 import type { StoreValue, SyncMessage, SyncOptions } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "./state-helpers.js";
+import { warnAlways } from "../utils.js";
 
 export type SyncChannels = Record<string, BroadcastChannel>;
 export type SyncClocks = Record<string, number>;
@@ -14,6 +15,9 @@ const resolveProtocolVersion = (msg: { v?: unknown; protocol?: unknown }): numbe
     typeof msg?.v === "number"
         ? msg.v as number
         : (typeof msg?.protocol === "number" ? msg.protocol as number : undefined);
+
+const insecureSyncWarned = new Set<string>();
+const signerVerifyWarned = new Set<string>();
 
 type SyncMeta = {
     updatedAt: string;
@@ -208,6 +212,27 @@ export const setupSync = ({
     if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
         reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
         return;
+    }
+    const hasAuthToken = typeof syncOption === "object"
+        && typeof syncOption.authToken === "string"
+        && syncOption.authToken.length > 0;
+    const hasVerify = typeof syncOption === "object" && typeof syncOption.verify === "function";
+    const hasSign = typeof syncOption === "object" && typeof syncOption.sign === "function";
+
+    if (!hasAuthToken && !hasVerify && !insecureSyncWarned.has(name)) {
+        insecureSyncWarned.add(name);
+        warnAlways(
+            `Sync for "${name}" is unauthenticated. Any same-origin tab can forge sync messages. ` +
+            `Provide sync.authToken or sync.verify to enforce authentication.`
+        );
+    }
+
+    if (hasSign && !hasVerify && !signerVerifyWarned.has(name)) {
+        signerVerifyWarned.add(name);
+        warn(
+            `Sync for "${name}" is configured with "sign" but no "verify". ` +
+            `"sign" has no effect unless incoming messages are verified.`
+        );
     }
     const expectedToken = typeof syncOption === "object" ? syncOption.authToken : undefined;
     let tokenWarned = false;
@@ -553,6 +578,8 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
             Object.keys(syncClocks).forEach((key) => delete syncClocks[key]);
             Object.keys(syncVersions).forEach((key) => delete syncVersions[key]);
             Object.keys(syncWindowCleanup).forEach((key) => delete syncWindowCleanup[key]);
+            insecureSyncWarned.clear();
+            signerVerifyWarned.clear();
         },
     };
 };
