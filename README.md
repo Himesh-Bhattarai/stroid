@@ -130,6 +130,28 @@ setStore(counter, draft => { draft.count += 1 })
 console.log(getStore(counter, "count")) // 1
 ```
 
+**Type-safe string store names (module augmentation).**
+
+If you prefer `useStore("user")` and `setStore("user", ...)` with compile-time checking,
+augment `StoreStateMap` or `StrictStoreMap` in a `.d.ts` file:
+
+```ts
+// src/stroid.d.ts
+declare module "stroid" {
+  interface StoreStateMap {
+    user: {
+      name: string
+      role: "admin" | "user"
+    }
+  }
+}
+
+// Optional strict opt-in for locked store names:
+// declare module "stroid" { interface StrictStoreMap { user: ... } }
+// If you import from "stroid/core", add the same module augmentation there.
+```
+
+
 ---
 
 ### Level 2 — Real Features
