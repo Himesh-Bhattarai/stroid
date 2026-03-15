@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import { createStore, getStore, setStore } from "../src/store.js";
+import { getStore, setStore, setStoreBatch, subscribe } from "../src/store.js";
 import { resetAllStoresForTest } from "../src/testing.js";
 import { createStoreForRequest } from "../src/server.js";
 
@@ -62,4 +62,65 @@ test("SSR Carrier perfectly isolates concurrent requests", async () => {
         globalState == null,
         "expected no global store data after concurrent SSR requests"
     );
+});
+
+test("SSR notifications do not bleed across request registries", async () => {
+    resetAllStoresForTest();
+
+    const reqA = createStoreForRequest(({ create }) => {
+        create("session", { user: "UserA" }, { lazy: false });
+    });
+
+    const reqB = createStoreForRequest(({ create }) => {
+        create("session", { user: "UserB" }, { lazy: false });
+    });
+
+    const callsA: string[] = [];
+    const callsB: string[] = [];
+
+    reqA.hydrate(() => {
+        subscribe("session", () => callsA.push("A"));
+        setStore("session", "user", "UserA2");
+    });
+
+    reqB.hydrate(() => {
+        subscribe("session", () => callsB.push("B"));
+        setStore("session", "user", "UserB2");
+    });
+
+    await Promise.resolve();
+
+    assert.deepStrictEqual(callsA, ["A"]);
+    assert.deepStrictEqual(callsB, ["B"]);
+});
+
+test("setStoreBatch does not block notifications across request registries", async () => {
+    resetAllStoresForTest();
+
+    const reqA = createStoreForRequest(({ create }) => {
+        create("session", { user: "UserA" }, { lazy: false });
+    });
+
+    const reqB = createStoreForRequest(({ create }) => {
+        create("session", { user: "UserB" }, { lazy: false });
+    });
+
+    const callsA: string[] = [];
+    const callsB: string[] = [];
+
+    reqA.hydrate(() => {
+        subscribe("session", () => callsA.push("A"));
+        setStoreBatch(() => {
+            setStore("session", "user", "UserA2");
+            reqB.hydrate(() => {
+                subscribe("session", () => callsB.push("B"));
+                setStore("session", "user", "UserB2");
+            });
+        });
+    });
+
+    await Promise.resolve();
+
+    assert.deepStrictEqual(callsA, ["A"]);
+    assert.deepStrictEqual(callsB, ["B"]);
 });

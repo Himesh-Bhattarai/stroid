@@ -35,6 +35,14 @@ export type ComputedEntry = {
     stale: boolean;
 };
 
+export type NotifyState = {
+    pendingNotifications: Set<string>;
+    pendingBuffer: string[];
+    orderedNames: string[];
+    notifyScheduled: boolean;
+    batchDepth: number;
+};
+
 export type StoreRegistry = {
     stores: Record<string, RegistryStoreValue>;
     subscribers: Record<string, Set<RegistrySubscriber>>;
@@ -49,6 +57,7 @@ export type StoreRegistry = {
     computedCleanups: Map<string, () => void>;
     transaction: TransactionState;
     async: AsyncRegistry;
+    notify: NotifyState;
 };
 
 const _registries = new Map<string, StoreRegistry>();
@@ -79,6 +88,22 @@ export const clearRegistryScopeOverrideForTests = (): void => {
     _registries.clear();
 };
 
+const createNotifyState = (): NotifyState => ({
+    pendingNotifications: new Set<string>(),
+    pendingBuffer: [],
+    orderedNames: [],
+    notifyScheduled: false,
+    batchDepth: 0,
+});
+
+const resetNotifyState = (notify: NotifyState): void => {
+    notify.pendingNotifications.clear();
+    notify.pendingBuffer.length = 0;
+    notify.orderedNames.length = 0;
+    notify.notifyScheduled = false;
+    notify.batchDepth = 0;
+};
+
 export const createStoreRegistry = (): StoreRegistry => ({
     stores: Object.create(null),
     subscribers: Object.create(null),
@@ -99,6 +124,7 @@ export const createStoreRegistry = (): StoreRegistry => ({
         error: undefined,
     },
     async: createAsyncRegistry(),
+    notify: createNotifyState(),
 });
 
 export const getStoreRegistry = (scope: string): StoreRegistry => {
@@ -141,6 +167,7 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
     registry.transaction.stagedValues.clear();
     registry.transaction.failed = false;
     registry.transaction.error = undefined;
+    resetNotifyState(registry.notify);
     resetAsyncRegistry(registry.async);
 };
 
@@ -170,6 +197,7 @@ export const resetAllStoreRegistriesForTests = (): void => {
         registry.transaction.stagedValues.clear();
         registry.transaction.failed = false;
         registry.transaction.error = undefined;
+        resetNotifyState(registry.notify);
         resetAsyncRegistry(registry.async);
     });
     _registries.clear();

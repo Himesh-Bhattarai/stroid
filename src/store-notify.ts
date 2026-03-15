@@ -13,7 +13,7 @@ import { deepClone, shallowClone, warn, warnAlways } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
 import { getConfig } from "./internals/config.js";
 import { beginTransaction, endTransaction, isTransactionActive } from "./store-transaction.js";
-import { runWithRegistry } from "./store-registry.js";
+import { runWithRegistry, type StoreRegistry, type NotifyState } from "./store-registry.js";
 import {
     meta,
     subscribers,
@@ -27,11 +27,6 @@ import {
 } from "./store-lifecycle.js";
 import { getTopoOrderedComputeds } from "./computed-graph.js";
 import type { SnapshotMode } from "./adapters/options.js";
-
-const pendingNotifications = new Set<string>();
-const pendingBuffer: string[] = [];
-let notifyScheduled = false;
-let batchDepth = 0;
 
 const resolveSnapshotMode = (name: string): SnapshotMode => {
     const mode = meta[name]?.options?.snapshot ?? getConfig().defaultSnapshotMode;
@@ -61,7 +56,8 @@ const scheduleChunk = (fn: () => void, delayMs: number): void => {
     Promise.resolve().then(fn);
 };
 
-const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs: number; runInline: boolean; prioritySet: Set<string> | null } => {
+const buildPendingOrder = (state: NotifyState): { names: string[]; sliceSize: number; chunkDelayMs: number; runInline: boolean; prioritySet: Set<string> | null } => {
+    const { pendingNotifications, pendingBuffer, orderedNames } = state;
     pendingBuffer.length = 0;
     for (const name of pendingNotifications) pendingBuffer.push(name);
     pendingNotifications.clear();
@@ -71,7 +67,7 @@ const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs
     const pendingSet = new Set(pendingBuffer);
     const prioritySet = priority.length ? new Set(priority) : null;
 
-    const orderedNames: string[] = [];
+    orderedNames.length = 0;
     if (prioritySet) {
         for (const p of priority) {
             if (pendingSet.has(p)) orderedNames.push(p);
@@ -101,13 +97,14 @@ const buildPendingOrder = (): { names: string[]; sliceSize: number; chunkDelayMs
     return { names, sliceSize, chunkDelayMs, runInline, prioritySet };
 };
 
-const flush = () => {
-    const { names, sliceSize, chunkDelayMs, runInline, prioritySet } = buildPendingOrder();
+const flush = (registry: StoreRegistry): void => {
+    const state = registry.notify;
+    const { names, sliceSize, chunkDelayMs, runInline, prioritySet } = buildPendingOrder(state);
     const now = () => (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
 
     const finish = () => {
-        notifyScheduled = false;
-        if (pendingNotifications.size > 0) scheduleFlush();
+        state.notifyScheduled = false;
+        if (state.pendingNotifications.size > 0) scheduleFlush(registry);
     };
 
     if (runInline) {
@@ -140,7 +137,7 @@ const flush = () => {
 
             const currentVersion = meta[name]?.updateCount ?? version;
             if (currentVersion !== version) {
-                pendingNotifications.add(name);
+                state.pendingNotifications.add(name);
             }
         }
         finish();
@@ -211,7 +208,7 @@ const flush = () => {
             const task = queue.shift()!;
             const currentVersion = meta[task.name]?.updateCount ?? task.version;
             if (currentVersion !== task.version) {
-                pendingNotifications.add(task.name);
+                state.pendingNotifications.add(task.name);
                 if (queue.length === 0) {
                     done();
                     return;
@@ -276,16 +273,20 @@ const flush = () => {
     }
 };
 
-const scheduleFlush = (): void => {
-    if (notifyScheduled) return;
-    notifyScheduled = true;
-    if (typeof queueMicrotask === "function") queueMicrotask(flush);
-    else Promise.resolve().then(flush);
+const scheduleFlush = (registry: StoreRegistry): void => {
+    const state = registry.notify;
+    if (state.notifyScheduled) return;
+    state.notifyScheduled = true;
+    const run = () => runWithRegistry(registry, () => flush(registry));
+    if (typeof queueMicrotask === "function") queueMicrotask(run);
+    else Promise.resolve().then(run);
 };
 
 export const notify = (name: string): void => {
-    pendingNotifications.add(name);
-    if (batchDepth === 0) scheduleFlush();
+    const registry = getRegistry();
+    const state = registry.notify;
+    state.pendingNotifications.add(name);
+    if (state.batchDepth === 0) scheduleFlush(registry);
 };
 
 export const setStoreBatch = (fn: () => unknown): void => {
@@ -298,8 +299,9 @@ export const setStoreBatch = (fn: () => unknown): void => {
         return;
     }
 
-    batchDepth = Math.max(0, batchDepth + 1);
     const registry = getRegistry();
+    const state = registry.notify;
+    state.batchDepth = Math.max(0, state.batchDepth + 1);
     beginTransaction(registry);
     let batchError: unknown;
     try {
@@ -311,13 +313,13 @@ export const setStoreBatch = (fn: () => unknown): void => {
         batchError = err;
     } finally {
         const txError = endTransaction(batchError, registry);
-        batchDepth = Math.max(0, batchDepth - 1);
+        state.batchDepth = Math.max(0, state.batchDepth - 1);
         if (batchError || txError) {
-            pendingNotifications.clear();
-            notifyScheduled = false;
+            state.pendingNotifications.clear();
+            state.notifyScheduled = false;
         }
-        if (batchDepth === 0 && pendingNotifications.size > 0) {
-            scheduleFlush();
+        if (state.batchDepth === 0 && state.pendingNotifications.size > 0) {
+            scheduleFlush(registry);
         }
         if (txError && !batchError) {
             batchError = txError;
@@ -374,7 +376,10 @@ export const getStoreSnapshot = (name: string): StoreValue | null => {
 export const getSnapshot = getStoreSnapshot;
 
 export const resetNotifyStateForTests = (): void => {
-    pendingNotifications.clear();
-    notifyScheduled = false;
-    batchDepth = 0;
+    const state = getRegistry().notify;
+    state.pendingNotifications.clear();
+    state.pendingBuffer.length = 0;
+    state.orderedNames.length = 0;
+    state.notifyScheduled = false;
+    state.batchDepth = 0;
 };
