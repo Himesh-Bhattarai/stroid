@@ -26,8 +26,16 @@ export type TransactionState = {
     depth: number;
     pending: Array<() => void>;
     stagedValues: Map<string, RegistryStoreValue>;
+    snapshotCache: Map<string, TransactionSnapshotEntry>;
     failed: boolean;
     error?: Error;
+};
+
+type TransactionSnapshotMode = "deep" | "shallow" | "ref";
+type TransactionSnapshotEntry = {
+    source: RegistryStoreValue | null | undefined;
+    snapshot: RegistryStoreValue | null;
+    mode: TransactionSnapshotMode;
 };
 
 export type ComputedEntry = {
@@ -123,6 +131,7 @@ export const createStoreRegistry = (): StoreRegistry => ({
         depth: 0,
         pending: [],
         stagedValues: new Map(),
+        snapshotCache: new Map(),
         failed: false,
         error: undefined,
     },
@@ -168,6 +177,7 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
     registry.transaction.depth = 0;
     registry.transaction.pending = [];
     registry.transaction.stagedValues.clear();
+    registry.transaction.snapshotCache.clear();
     registry.transaction.failed = false;
     registry.transaction.error = undefined;
     resetNotifyState(registry.notify);
@@ -198,6 +208,7 @@ export const resetAllStoreRegistriesForTests = (): void => {
         registry.transaction.depth = 0;
         registry.transaction.pending = [];
         registry.transaction.stagedValues.clear();
+        registry.transaction.snapshotCache.clear();
         registry.transaction.failed = false;
         registry.transaction.error = undefined;
         resetNotifyState(registry.notify);

@@ -278,6 +278,9 @@ test("getStoreSnapshot reads staged values inside setStoreBatch", () => {
   clearAllStores();
   createStore("batched", { value: 0 });
 
+  const pre = _getSnapshot("batched");
+  assert.deepStrictEqual(pre, { value: 0 });
+
   let stagedSnapshot: any = null;
   setStoreBatch(() => {
     setStore("batched", "value", 1);
@@ -285,6 +288,29 @@ test("getStoreSnapshot reads staged values inside setStoreBatch", () => {
   });
 
   assert.deepStrictEqual(stagedSnapshot, { value: 1 });
+});
+
+test("getStoreSnapshot caches within a transaction and invalidates on stage", () => {
+  clearAllStores();
+  createStore("batchCache", { value: 0 });
+
+  let first: any = null;
+  let second: any = null;
+  let third: any = null;
+
+  setStoreBatch(() => {
+    setStore("batchCache", "value", 1);
+    first = _getSnapshot("batchCache");
+    second = _getSnapshot("batchCache");
+    assert.strictEqual(first, second);
+
+    setStore("batchCache", "value", 2);
+    third = _getSnapshot("batchCache");
+  });
+
+  assert.deepStrictEqual(first, { value: 1 });
+  assert.deepStrictEqual(third, { value: 2 });
+  assert.notStrictEqual(first, third);
 });
 
 test("critical fires when sync payload is dropped", () => {

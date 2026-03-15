@@ -349,20 +349,30 @@ export const subscribe = subscribeStore;
 
 export const getStoreSnapshot = (name: string): StoreValue | null => {
     if (!hasStoreEntryInternal(name)) return null;
-    const version = meta[name]?.updateCount ?? 0;
     const snapshotMode = resolveSnapshotMode(name);
+    if (isTransactionActive()) {
+        const registry = getRegistry();
+        const txCache = registry.transaction.snapshotCache;
+        const source = getStoreValueRef(name);
+        if (source === undefined) return null;
+        const cached = txCache.get(name);
+        if (cached && cached.source === source && cached.mode === snapshotMode) {
+            const snap = cached.snapshot;
+            maybeFreezeSnapshot(snap, snapshotMode);
+            return snap;
+        }
+        const snapshot = cloneSnapshot(source, snapshotMode);
+        txCache.set(name, { source, snapshot, mode: snapshotMode });
+        maybeFreezeSnapshot(snapshot, snapshotMode);
+        return snapshot;
+    }
+
+    const version = meta[name]?.updateCount ?? 0;
     const cached = snapshotCache[name];
     if (cached && cached.version === version) {
         const snap = cached.snapshot;
         maybeFreezeSnapshot(snap, snapshotMode);
         return snap;
-    }
-    if (isTransactionActive()) {
-        const source = getStoreValueRef(name);
-        if (source === undefined) return null;
-        const snapshot = cloneSnapshot(source, snapshotMode);
-        maybeFreezeSnapshot(snapshot, snapshotMode);
-        return snapshot;
     }
 
     const source = getStoreValueRef(name);
