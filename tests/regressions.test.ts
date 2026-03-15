@@ -16,8 +16,8 @@ import {
 } from "../src/store.js";
 import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
-import { hashState } from "../src/utils.js";
-import { defaultRegistryScope } from "../src/store-registry.js";
+import { hashState, warn } from "../src/utils.js";
+import { createStoreRegistry, defaultRegistryScope, runWithRegistry } from "../src/store-registry.js";
 import { stores, validatePathSafety, getStoreAdmin } from "../src/store-lifecycle.js";
 import { createStoreForRequest } from "../src/server.js";
 import { setComputedOrderResolver } from "../src/internals/computed-order.js";
@@ -291,6 +291,32 @@ test("getStoreSnapshot reads staged values inside setStoreBatch", () => {
   });
 
   assert.deepStrictEqual(stagedSnapshot, { value: 1 });
+});
+
+test("configureStroid is registry-scoped", () => {
+  const registryA = createStoreRegistry();
+  const registryB = createStoreRegistry();
+  const warningsA: string[] = [];
+  const warningsB: string[] = [];
+
+  runWithRegistry(registryA, () => {
+    configureStroid({ logSink: { warn: (msg) => warningsA.push(msg) } });
+    warn("A");
+  });
+
+  runWithRegistry(registryB, () => {
+    configureStroid({ logSink: { warn: (msg) => warningsB.push(msg) } });
+    warn("B");
+  });
+
+  runWithRegistry(registryA, () => {
+    warn("A2");
+  });
+
+  assert.deepStrictEqual(warningsA, ["A", "A2"]);
+  assert.deepStrictEqual(warningsB, ["B"]);
+
+  resetConfig();
 });
 
 test("snapshotStrategy sets the default snapshot mode", () => {
