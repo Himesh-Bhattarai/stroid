@@ -37,6 +37,9 @@ type RequestSnapshot<StateMap> = Partial<{
 type RequestHydrateOptions<StateMap> = Partial<{
     [K in RequestStoreName<StateMap>]: StoreOptions<RequestStoreValue<StateMap, K>>;
 }> & { default?: StoreOptions };
+type RequestHydrateOptionsInternal = Record<string, StoreOptions<any> | undefined> & {
+    default?: StoreOptions<any>;
+};
 
 export type RequestStoreApi<StateMap extends StoreStateMap = StoreStateMap> = {
     create: <Name extends RequestStoreName<StateMap>>(
@@ -63,13 +66,13 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
 ): RequestStoreContext<StateMap> => {
     const registry = createStoreRegistry();
     const buffer: RequestSnapshot<StateMap> = {};
-    const bufferedOptions: Record<string, StoreOptions<unknown>> = {};
+    const bufferedOptions: Record<string, StoreOptions<any>> = {};
     const hasBuffered = (name: RequestStoreName<StateMap>): boolean =>
         Object.prototype.hasOwnProperty.call(buffer, name);
     const api: RequestStoreApi<StateMap> = {
         create: (name, data, options = {}) => {
             buffer[name] = deepClone(data) as RequestStoreValue<StateMap, typeof name>;
-            bufferedOptions[name] = { ...options };
+            bufferedOptions[name] = { ...options } as StoreOptions<any>;
             return buffer[name] as RequestStoreValue<StateMap, typeof name>;
         },
         set: (name, updater) => {
@@ -95,23 +98,28 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
             renderFn: () => T,
             options: RequestHydrateOptions<StateMap> = {}
         ): T => {
-            const merged: RequestHydrateOptions<StateMap> = {
-                ...options,
-                default: options.default,
+            const merged: RequestHydrateOptionsInternal = {
+                ...(options as RequestHydrateOptionsInternal),
+                default: (options as RequestHydrateOptionsInternal).default,
             };
 
             Object.keys(buffer).forEach((name) => {
                 const key = name as RequestStoreName<StateMap>;
-                merged[key] = {
-                    ...(options.default || {}),
-                    ...(options[key] || {}),
+                const mergedOptions: StoreOptions<any> = {
+                    ...(options.default as StoreOptions<any> | undefined || {}),
+                    ...(options[key] as StoreOptions<any> | undefined || {}),
                     ...(bufferedOptions[name] || {}),
                 };
+                merged[key] = mergedOptions;
             });
 
             return serverRegistryContext.run(registry, () =>
                 serverAsyncContext.run(deepClone(buffer), () => {
-                    hydrateStores(buffer, merged, { allowUntrusted: true });
+                    hydrateStores(
+                        buffer,
+                        merged as Parameters<typeof hydrateStores>[1],
+                        { allowUntrusted: true }
+                    );
                     return renderFn();
                 })
             );
