@@ -16,6 +16,7 @@ import {
   setStore,
   getStore,
   type StoreDefinition,
+  type StoreStateMap,
   store,
 } from "../../src/store.js";
 import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers.js";
@@ -138,7 +139,7 @@ type UseSelectorReturn = Expect<Equal<IsAssignable<typeof useSelector, UseSelect
 type UseFormStoreValue = Expect<Equal<IsAssignable<typeof useFormStore, UseFormStoreSig>, true>>;
 type UseAsyncStoreReturn = Expect<Equal<IsAssignable<typeof useAsyncStore, UseAsyncStoreSig>, true>>;
 
-type RequestMap = {
+type RequestMap = StoreStateMap & {
   requestUser: { id: string; name: string };
   flags: { beta: boolean };
 };
