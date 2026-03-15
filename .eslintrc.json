@@ -8,6 +8,21 @@
   ],
   "rules": {
     "@typescript-eslint/explicit-function-return-type": "off",
-    "@typescript-eslint/strict-boolean-expressions": "off"
+    "@typescript-eslint/strict-boolean-expressions": "off",
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "./store-lifecycle.js",
+            "message": "Import from explicit submodules (./store-lifecycle/*) to avoid barrel coupling."
+          },
+          {
+            "name": "../store-lifecycle.js",
+            "message": "Import from explicit submodules (../store-lifecycle/*) to avoid barrel coupling."
+          }
+        ]
+      }
+    ]
   }
 }
