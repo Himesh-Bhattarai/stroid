@@ -12,6 +12,7 @@ import {
   subscribe,
   useRegistry,
   _getSnapshot,
+  _getStoreValueRef,
 } from "../src/store.js";
 import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
@@ -288,6 +289,63 @@ test("getStoreSnapshot reads staged values inside setStoreBatch", () => {
   });
 
   assert.deepStrictEqual(stagedSnapshot, { value: 1 });
+});
+
+test("snapshotStrategy sets the default snapshot mode", () => {
+  clearAllStores();
+  configureStroid({ snapshotStrategy: "shallow" });
+
+  try {
+    createStore("snap", { nested: { value: 1 } });
+    const snap = _getSnapshot("snap") as any;
+    const ref = _getStoreValueRef("snap") as any;
+    assert.notStrictEqual(snap, ref);
+    assert.strictEqual(snap.nested, ref.nested);
+  } finally {
+    resetConfig();
+  }
+});
+
+test("mutatorProduce enables structural sharing", async () => {
+  clearAllStores();
+  const { produce } = await import("immer");
+  configureStroid({ mutatorProduce: produce });
+
+  try {
+    createStore("sharing", { a: { value: 1 }, b: { value: 2 } });
+    const before = _getStoreValueRef("sharing") as any;
+    setStore("sharing", (draft: any) => {
+      draft.a.value = 99;
+    });
+    const after = _getStoreValueRef("sharing") as any;
+    assert.notStrictEqual(before, after);
+    assert.notStrictEqual(before.a, after.a);
+    assert.strictEqual(before.b, after.b);
+  } finally {
+    resetConfig();
+  }
+});
+
+test("mutatorProduce accepts the \"immer\" alias when globally provided", async () => {
+  clearAllStores();
+  const { produce } = await import("immer");
+  (globalThis as any).__STROID_IMMER_PRODUCE__ = produce;
+
+  try {
+    configureStroid({ mutatorProduce: "immer" });
+    createStore("sharingAlias", { a: { value: 1 }, b: { value: 2 } });
+    const before = _getStoreValueRef("sharingAlias") as any;
+    setStore("sharingAlias", (draft: any) => {
+      draft.a.value = 2;
+    });
+    const after = _getStoreValueRef("sharingAlias") as any;
+    assert.notStrictEqual(before, after);
+    assert.notStrictEqual(before.a, after.a);
+    assert.strictEqual(before.b, after.b);
+  } finally {
+    delete (globalThis as any).__STROID_IMMER_PRODUCE__;
+    resetConfig();
+  }
 });
 
 test("getStoreSnapshot caches within a transaction and invalidates on stage", () => {

@@ -52,10 +52,12 @@ const createAsyncValueProxy = <T extends object>(getter: () => T): T =>
         },
     });
 
-export const fetchRegistry = createAsyncObjectProxy(() => getActiveAsyncRegistry().fetchRegistry);
+export const getFetchRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["fetchRegistry"] =>
+    getActiveAsyncRegistry().fetchRegistry;
 export const inflight = createAsyncObjectProxy(() => getActiveAsyncRegistry().inflight);
 export const requestVersion = createAsyncObjectProxy(() => getActiveAsyncRegistry().requestVersion);
-export const cacheMeta = createAsyncObjectProxy(() => getActiveAsyncRegistry().cacheMeta);
+export const getCacheMeta = (): ReturnType<typeof getActiveAsyncRegistry>["cacheMeta"] =>
+    getActiveAsyncRegistry().cacheMeta;
 export const rateWindowStart = createAsyncObjectProxy(() => getActiveAsyncRegistry().rateWindowStart);
 export const rateCount = createAsyncObjectProxy(() => getActiveAsyncRegistry().rateCount);
 export const ratePruneState = createAsyncValueProxy(() => getActiveAsyncRegistry().ratePruneState);
@@ -84,6 +86,7 @@ export const resetAsyncState = (): void => {
 
 export const shouldUseCache = (cacheSlot: string, ttl?: number): boolean => {
     if (!ttl) return false;
+    const cacheMeta = getCacheMeta();
     const meta = cacheMeta[cacheSlot];
     if (!meta) return false;
     if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
@@ -94,6 +97,8 @@ export const shouldUseCache = (cacheSlot: string, ttl?: number): boolean => {
 };
 
 export const clearAsyncMeta = (name: string): void => {
+    const fetchRegistry = getFetchRegistry();
+    const cacheMeta = getCacheMeta();
     delete fetchRegistry[name];
     noSignalWarned.delete(name);
     shapeWarned.delete(name);
@@ -111,6 +116,7 @@ export const clearAsyncMeta = (name: string): void => {
 
 export const pruneAsyncCache = (name: string): void => {
     const prefix = `${name}:`;
+    const cacheMeta = getCacheMeta();
     const slots = Object.entries(cacheMeta)
         .filter(([key, meta]) => {
             if (key !== name && !key.startsWith(prefix)) return false;

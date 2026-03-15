@@ -395,6 +395,23 @@ configureStroid({
 })
 ```
 
+**Large store performance (recommendations).**
+
+- Split stores by domain to keep hot updates small.
+- For large lists, prefer `snapshot: "shallow"` per store or `configureStroid({ snapshotStrategy: "shallow" })` globally.
+- Prefer path updates and targeted selectors (`useSelector`, `useStoreField`) over whole-store subscriptions.
+
+**Optional structural sharing for mutator updates.**
+
+```ts
+import { configureStroid } from "stroid"
+import { produce } from "immer"
+
+configureStroid({ mutatorProduce: produce })
+```
+
+If you prefer a shorthand, set `globalThis.__STROID_IMMER_PRODUCE__ = produce` once and use `configureStroid({ mutatorProduce: "immer" })`.
+
 **Testing — deterministic, isolated, zero globals.**
 
 ```ts

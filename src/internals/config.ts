@@ -1,5 +1,6 @@
 import type { SnapshotMode, MiddlewareCtx, StoreValue } from "../adapters/options.js";
 import { registerTestResetHook } from "./test-reset.js";
+import { warnAlways } from "./diagnostics.js";
 
 export type LogSink = {
     log?: (msg: string, meta?: Record<string, unknown>) => void;
@@ -33,6 +34,10 @@ export type StroidConfig = {
     asyncAutoCreate?: boolean;
     asyncCloneResult?: AsyncCloneMode;
     defaultSnapshotMode?: SnapshotMode;
+    /**
+     * Alias for defaultSnapshotMode.
+     */
+    snapshotStrategy?: SnapshotMode;
     middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
     /**
      * Allow hydrateStores to accept untrusted snapshots without explicit opt-in.
@@ -41,8 +46,9 @@ export type StroidConfig = {
     allowUntrustedHydration?: boolean;
     /**
      * Optional custom mutator engine (e.g. Immer's produce) to enable structural sharing.
+     * You can pass the produce function directly or use "immer" with a global produce shim.
      */
-    mutatorProduce?: <T>(base: T, recipe: (draft: T) => void) => T;
+    mutatorProduce?: (<T>(base: T, recipe: (draft: T) => void) => T) | "immer";
 };
 
 type ResolvedConfig = {
@@ -107,6 +113,20 @@ const defaultConfig: ResolvedConfig = {
 };
 
 let _config: ResolvedConfig = { ...defaultConfig };
+
+const IMMER_PRODUCE_KEY = "__STROID_IMMER_PRODUCE__";
+let cachedImmerProduce: (<T>(base: T, recipe: (draft: T) => void) => T) | undefined;
+let immerMissingWarned = false;
+const resolveImmerProduce = (): (<T>(base: T, recipe: (draft: T) => void) => T) | undefined => {
+    if (cachedImmerProduce) return cachedImmerProduce;
+    const globalAny = globalThis as Record<string, unknown> | undefined;
+    const candidate = globalAny ? globalAny[IMMER_PRODUCE_KEY] : undefined;
+    if (typeof candidate === "function") {
+        cachedImmerProduce = candidate as (<T>(base: T, recipe: (draft: T) => void) => T);
+        return cachedImmerProduce;
+    }
+    return undefined;
+};
 
 export const getConfig = (): ResolvedConfig => _config;
 
@@ -206,6 +226,13 @@ export const configureStroid = (next?: StroidConfig): void => {
         };
     }
 
+    if (next.snapshotStrategy === "shallow" || next.snapshotStrategy === "ref" || next.snapshotStrategy === "deep") {
+        _config = {
+            ..._config,
+            defaultSnapshotMode: next.snapshotStrategy,
+        };
+    }
+
     if (next.defaultSnapshotMode === "shallow" || next.defaultSnapshotMode === "ref" || next.defaultSnapshotMode === "deep") {
         _config = {
             ..._config,
@@ -232,11 +259,29 @@ export const configureStroid = (next?: StroidConfig): void => {
             ..._config,
             mutatorProduce: next.mutatorProduce,
         };
+    } else if (next.mutatorProduce === "immer") {
+        const produce = resolveImmerProduce();
+        if (produce) {
+            _config = {
+                ..._config,
+                mutatorProduce: produce,
+            };
+        } else {
+            if (!immerMissingWarned) {
+                immerMissingWarned = true;
+                warnAlways(
+                    `configureStroid({ mutatorProduce: "immer" }) requires Immer's produce function.\n` +
+                    `Set globalThis.${IMMER_PRODUCE_KEY} = produce or pass mutatorProduce: produce directly.`
+                );
+            }
+        }
     }
 };
 
 export const resetConfig = (): void => {
     _config = { ...defaultConfig };
+    cachedImmerProduce = undefined;
+    immerMissingWarned = false;
 };
 
 registerTestResetHook("config.reset", resetConfig, 90);

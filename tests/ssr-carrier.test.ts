@@ -5,6 +5,7 @@ import { resetAllStoresForTest } from "../src/testing.js";
 import { createStoreForRequest } from "../src/server.js";
 import { configureStroid, resetConfig } from "../src/config.js";
 import { getRegistry } from "../src/store-lifecycle.js";
+import { fetchStore, refetchStore } from "../src/async.js";
 
 test("SSR Carrier perfectly isolates concurrent requests", async () => {
     resetAllStoresForTest();
@@ -212,4 +213,33 @@ test("SSR notify orderedNames stays bounded under variable chunk sizes", async (
     } finally {
         resetConfig();
     }
+});
+
+test("SSR async registries isolate fetch registry and cache meta", async () => {
+    resetAllStoresForTest();
+
+    const reqA = createStoreForRequest(({ create }) => {
+        create("asyncScoped", {
+            data: null,
+            loading: false,
+            error: null,
+            status: "idle",
+        }, { lazy: false });
+    });
+
+    const reqB = createStoreForRequest(({ create }) => {
+        create("asyncScoped", {
+            data: null,
+            loading: false,
+            error: null,
+            status: "idle",
+        }, { lazy: false });
+    });
+
+    await reqA.hydrate(async () => {
+        await fetchStore("asyncScoped", () => Promise.resolve({ value: "a" }));
+    });
+
+    const resultB = await reqB.hydrate(() => refetchStore("asyncScoped"));
+    assert.strictEqual(resultB, undefined);
 });

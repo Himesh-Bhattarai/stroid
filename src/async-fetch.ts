@@ -5,10 +5,10 @@ import { nameOf } from "./store-lifecycle/identity.js";
 import type { StoreDefinition, StoreKey, StoreName } from "./store-lifecycle/types.js";
 import {
     asyncMetrics,
-    cacheMeta,
+    getCacheMeta,
     cleanupSubs,
     countInflightSlots,
-    fetchRegistry,
+    getFetchRegistry,
     MAX_INFLIGHT_SLOTS_PER_STORE,
     markWarned,
     mutableResultWarned,
@@ -146,6 +146,8 @@ export async function fetchStore(
         cacheKey,
         responseType = "auto",
     } = options;
+    const cacheMeta = getCacheMeta();
+    const fetchRegistry = getFetchRegistry();
 
     if (!signal && isDev() && !noSignalWarned.has(name)) {
         markWarned(noSignalWarned, name);
@@ -503,11 +505,13 @@ export function refetchStore<Name extends StoreName>(name: Name): Promise<unknow
 export async function refetchStore(nameInput: string | StoreDefinition<string, unknown>): Promise<unknown> {
     const name = nameOf(nameInput as StoreDefinition<string, unknown>);
     if (!hasStore(name)) return undefined;
+    const fetchRegistry = getFetchRegistry();
     const last = fetchRegistry[name];
     if (!last) {
         // Fallback: if we don't have a replayable fetch recipe (e.g. direct Promise input),
         // return the most recent cached value for this store when available.
         const prefix = `${name}:`;
+        const cacheMeta = getCacheMeta();
         const slots = Object.entries(cacheMeta).filter(([key]) =>
             key === name || key.startsWith(prefix)
         );
@@ -562,6 +566,7 @@ export function enableRevalidateOnFocus(
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const runRefetch = () => {
+        const fetchRegistry = getFetchRegistry();
         let targets = key === "*" ? Object.keys(fetchRegistry) : [key];
         if (overrides?.priority === "high" && key !== "*") {
             targets = [key, ...targets.filter((t) => t !== key)];
@@ -572,6 +577,7 @@ export function enableRevalidateOnFocus(
             const batch = targets.slice(index, index + maxConcurrent);
             batch.forEach((storeName, offset) => {
                 const fire = () => {
+                    const fetchRegistry = getFetchRegistry();
                     const last = fetchRegistry[storeName];
                     if (!last) {
                         void refetchStore({ name: storeName } as StoreDefinition<string, AsyncState>);
