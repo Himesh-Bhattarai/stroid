@@ -232,6 +232,7 @@ const flush = (registry: StoreRegistry): void => {
 
             const start = now();
             let sent = 0;
+            let versionChanged = false;
             while (task.index < task.subsArray.length && sent < sliceSize) {
                 const subscriber = task.subsArray[task.index++];
                 if (task.notified.has(subscriber)) continue;
@@ -239,8 +240,24 @@ const flush = (registry: StoreRegistry): void => {
                 try { subscriber(task.snapshot); }
                 catch (err) { warn(`Subscriber for "${task.name}" threw: ${(err as { message?: string })?.message ?? err}`); }
                 sent += 1;
+                const currentVersion = meta[task.name]?.updateCount ?? task.version;
+                if (currentVersion !== task.version) {
+                    versionChanged = true;
+                    state.pendingNotifications.add(task.name);
+                    break;
+                }
             }
             task.totalMs += now() - start;
+
+            if (versionChanged) {
+                if (queue.length === 0) {
+                    done();
+                    return;
+                }
+                if (runInline) processNext();
+                else scheduleChunk(processNext, chunkDelayMs);
+                return;
+            }
 
             const currentSubs = subscribers[task.name];
             const hasUnnotified = currentSubs

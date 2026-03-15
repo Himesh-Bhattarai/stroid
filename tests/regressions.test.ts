@@ -334,6 +334,38 @@ test("snapshotStrategy sets the default snapshot mode", () => {
   }
 });
 
+test("chunked flush avoids mixed snapshots when store updates mid-chunk", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 10 } });
+
+  try {
+    createStore("chunkMix", { value: 0 });
+    const calls: Array<[string, number]> = [];
+    let triggered = false;
+
+    subscribe("chunkMix", (snap: any) => {
+      calls.push(["first", snap.value as number]);
+      if (!triggered) {
+        triggered = true;
+        setStore("chunkMix", "value", (snap.value as number) + 1);
+      }
+    });
+    subscribe("chunkMix", (snap: any) => {
+      calls.push(["second", snap.value as number]);
+    });
+
+    setStore("chunkMix", "value", 1);
+    await new Promise((r) => setTimeout(r, 80));
+
+    const secondValues = calls.filter(([id]) => id === "second").map(([, value]) => value);
+    assert.ok(secondValues.length > 0);
+    assert.ok(secondValues.every((value) => value !== 1));
+    assert.ok(secondValues.includes(2));
+  } finally {
+    resetConfig();
+  }
+});
+
 test("notify uses computed order resolver when provided", async () => {
   clearAllStores();
   let calls = 0;
