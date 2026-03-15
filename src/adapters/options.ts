@@ -1,5 +1,11 @@
 export type StoreValue = unknown;
 
+// Ambient map users can augment to type feature option bags.
+// Example:
+//   declare module "stroid" { interface FeatureOptionsMap { myFeature: { enabled: boolean } } }
+export interface FeatureOptionsMap {}
+export type FeatureOptions = Partial<FeatureOptionsMap> & Record<string, unknown>;
+
 export interface PersistDriver {
     getItem?: (k: string) => string | null | Promise<string | null>;
     setItem?: (k: string, v: string) => void | Promise<void>;
@@ -203,6 +209,11 @@ export interface StoreOptions<State = StoreValue> {
     allowSSRGlobalStore?: boolean;
     sync?: boolean | SyncOptions;
     /**
+     * Optional feature option bag for third-party plugins.
+     * Keys are plugin names, values are plugin-specific options.
+     */
+    features?: FeatureOptions;
+    /**
      * Snapshot cloning strategy used by subscriptions and selector snapshots.
      *
      * - "deep" (default): deep clone and dev-freeze snapshot values.
@@ -231,6 +242,7 @@ export interface NormalizedOptions {
     historyLimit: number;
     allowSSRGlobalStore?: boolean;
     sync?: boolean | SyncOptions;
+    features?: FeatureOptions;
     snapshot: SnapshotMode;
     explicitPersist: boolean;
     explicitSync: boolean;
@@ -408,6 +420,9 @@ export const normalizeStoreOptions = <State>(
         option.snapshot === "shallow" || option.snapshot === "ref"
             ? option.snapshot
             : "deep";
+    const normalizedFeatures = isObject(option.features)
+        ? { ...(option.features as Record<string, unknown>) }
+        : undefined;
     const explicitPersist = hasOwn(option, "persist");
     const explicitSync = hasOwn(option, "sync");
     const explicitDevtools = hasOwn(option, "devtools") || hasOwn(option, "historyLimit") || hasOwn(option, "redactor");
@@ -462,6 +477,7 @@ export const normalizeStoreOptions = <State>(
         sync: normalizedScope === "temp" && !explicitSync
             ? false
             : (sync ?? false),
+        features: normalizedFeatures,
         allowSSRGlobalStore: normalizedAllowSSRGlobalStore,
         snapshot: normalizedSnapshot,
         explicitPersist,

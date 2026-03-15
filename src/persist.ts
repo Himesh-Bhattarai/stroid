@@ -1,5 +1,5 @@
-import { registerPersistFeature } from "./features/persist.js";
+import { installPersist } from "./install.js";
 
-registerPersistFeature();
+installPersist();
 
-export {};
+export { installPersist };

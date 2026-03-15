@@ -1,5 +1,7 @@
-import { registerDevtoolsFeature } from "./features/devtools.js";
+import { installDevtools } from "./install.js";
 export { getHistory, clearHistory } from "./devtools-api.js";
 export type { HistoryEntry, HistoryDiff } from "./features/devtools.js";
 
-registerDevtoolsFeature();
+installDevtools();
+
+export { installDevtools };

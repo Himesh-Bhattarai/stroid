@@ -1,6 +1,7 @@
 import type { NormalizedOptions, StoreValue } from "./adapters/options.js";
 
-export type FeatureName = "persist" | "sync" | "devtools";
+export type BuiltInFeatureName = "persist" | "sync" | "devtools";
+export type FeatureName = BuiltInFeatureName | (string & {});
 
 export interface FeatureMetrics {
     notifyCount: number;

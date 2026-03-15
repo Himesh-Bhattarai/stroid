@@ -1,5 +1,5 @@
-import { registerSyncFeature } from "./features/sync.js";
+import { installSync } from "./install.js";
 
-registerSyncFeature();
+installSync();
 
-export {};
+export { installSync };

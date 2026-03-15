@@ -29,6 +29,8 @@ export type {
     StoreStateMap,
     StrictStoreMap,
     WriteResult,
+    FeatureOptions,
+    FeatureOptionsMap,
     PersistOptions,
     StoreOptions,
     SyncOptions,

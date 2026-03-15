@@ -14,6 +14,8 @@ export type {
     WriteResult,
 } from "./store-lifecycle.js";
 export type {
+    FeatureOptions,
+    FeatureOptionsMap,
     PersistConfig,
     PersistOptions,
     MiddlewareCtx,
