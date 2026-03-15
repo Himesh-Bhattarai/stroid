@@ -65,6 +65,7 @@ export const revalidateHandlers = createAsyncObjectProxy(() => getActiveAsyncReg
 export const noSignalWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().noSignalWarned);
 export const shapeWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().shapeWarned);
 export const autoCreateWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().autoCreateWarned);
+export const mutableResultWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().mutableResultWarned);
 export const revalidateKeys = createAsyncValueProxy(() => getActiveAsyncRegistry().revalidateKeys);
 export const asyncMetrics = createAsyncValueProxy(() => getActiveAsyncRegistry().asyncMetrics);
 
@@ -97,6 +98,7 @@ export const clearAsyncMeta = (name: string): void => {
     noSignalWarned.delete(name);
     shapeWarned.delete(name);
     autoCreateWarned.delete(name);
+    mutableResultWarned.delete(name);
 
     const startsWithName = (key: string) => key === name || key.startsWith(`${name}:`);
 

@@ -3,6 +3,8 @@ import assert from "node:assert";
 import { getStore, setStore, setStoreBatch, subscribe } from "../src/store.js";
 import { resetAllStoresForTest } from "../src/testing.js";
 import { createStoreForRequest } from "../src/server.js";
+import { configureStroid, resetConfig } from "../src/config.js";
+import { getRegistry } from "../src/store-lifecycle.js";
 
 test("SSR Carrier perfectly isolates concurrent requests", async () => {
     resetAllStoresForTest();
@@ -123,4 +125,91 @@ test("setStoreBatch does not block notifications across request registries", asy
 
     assert.deepStrictEqual(callsA, ["A"]);
     assert.deepStrictEqual(callsB, ["B"]);
+});
+
+test("SSR notify orderedNames stays bounded under variable chunk sizes", async () => {
+    resetAllStoresForTest();
+    configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 5 } });
+
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const deferred = () => {
+        let resolve!: () => void;
+        const promise = new Promise<void>((res) => { resolve = res; });
+        return { promise, resolve };
+    };
+
+    try {
+        const reqA = createStoreForRequest(({ create }) => {
+            create("a1", { value: 0 }, { lazy: false });
+            create("a2", { value: 0 }, { lazy: false });
+            create("a3", { value: 0 }, { lazy: false });
+        });
+
+        const reqB = createStoreForRequest(({ create }) => {
+            create("b1", { value: 0 }, { lazy: false });
+            create("b2", { value: 0 }, { lazy: false });
+        });
+
+        const lengthsA: number[] = [];
+        const lengthsB: number[] = [];
+        const firstCycleDone = deferred();
+        const secondCycleStart = deferred();
+        let finishedFirst = 0;
+
+        const markFirstCycle = () => {
+            finishedFirst += 1;
+            if (finishedFirst === 2) firstCycleDone.resolve();
+        };
+
+        const promiseA = reqA.hydrate(async () => {
+            subscribe("a1", () => {});
+            subscribe("a2", () => {});
+            subscribe("a3", () => {});
+
+            setStore("a1", "value", 1);
+            setStore("a2", "value", 1);
+            setStore("a3", "value", 1);
+
+            await wait(40);
+            lengthsA.push(getRegistry().notify.orderedNames.length);
+            markFirstCycle();
+
+            await secondCycleStart.promise;
+
+            setStore("a1", "value", 2);
+            await wait(40);
+            lengthsA.push(getRegistry().notify.orderedNames.length);
+        });
+
+        const promiseB = reqB.hydrate(async () => {
+            subscribe("b1", () => {});
+            subscribe("b2", () => {});
+
+            setStore("b1", "value", 1);
+            setStore("b2", "value", 1);
+
+            await wait(40);
+            lengthsB.push(getRegistry().notify.orderedNames.length);
+            markFirstCycle();
+
+            await secondCycleStart.promise;
+
+            setStore("b1", "value", 2);
+            await wait(40);
+            lengthsB.push(getRegistry().notify.orderedNames.length);
+        });
+
+        await firstCycleDone.promise;
+        configureStroid({ flush: { chunkSize: 2, chunkDelayMs: 5 } });
+        secondCycleStart.resolve();
+
+        await Promise.all([promiseA, promiseB]);
+
+        assert.ok(lengthsA[0] <= 3, `reqA orderedNames too large: ${lengthsA[0]}`);
+        assert.ok(lengthsA[1] <= 1, `reqA orderedNames should shrink: ${lengthsA[1]}`);
+        assert.ok(lengthsB[0] <= 2, `reqB orderedNames too large: ${lengthsB[0]}`);
+        assert.ok(lengthsB[1] <= 1, `reqB orderedNames should shrink: ${lengthsB[1]}`);
+    } finally {
+        resetConfig();
+    }
 });

@@ -10,6 +10,7 @@ import {
     fetchRegistry,
     MAX_INFLIGHT_SLOTS_PER_STORE,
     markWarned,
+    mutableResultWarned,
     noSignalWarned,
     shapeWarned,
     autoCreateWarned,
@@ -364,6 +365,17 @@ export async function fetchStore(
                         `fetchStore("${name}") transform must be synchronous. Return the transformed value directly instead of a Promise.`,
                         onError
                     );
+                }
+
+                if (cloneMode === "none" && isDev() && transformed && typeof transformed === "object") {
+                    if (!mutableResultWarned.has(name)) {
+                        markWarned(mutableResultWarned, name);
+                        warn(
+                            `fetchStore("${name}") received a mutable object while asyncCloneResult is "none".\n` +
+                            `Async data is stored by reference; mutations will affect cache and subscribers.\n` +
+                            `Set cloneResult: "deep" (per call) or configureStroid({ asyncCloneResult: "deep" }).`
+                        );
+                    }
                 }
 
                 const cloned = cloneAsyncResult(transformed, cloneMode);

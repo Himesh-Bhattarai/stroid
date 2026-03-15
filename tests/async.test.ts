@@ -71,6 +71,29 @@ test("fetchStore warns when overwriting a non-async store without stateAdapter",
   assert.deepStrictEqual(state, { name: "Alex" });
 });
 
+test("fetchStore warns once when async results are mutable", async () => {
+  clearAllStores();
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+    asyncCloneResult: "none",
+  });
+
+  const controller = new AbortController();
+  try {
+    ensureAsyncStore("mutableAsync");
+    await fetchStore("mutableAsync", Promise.resolve({ value: 1 }), { signal: controller.signal, dedupe: false });
+    await fetchStore("mutableAsync", Promise.resolve({ value: 2 }), { signal: controller.signal, dedupe: false });
+  } finally {
+    resetConfig();
+  }
+
+  const mutableWarnings = warnings.filter((msg) => msg.includes("asyncCloneResult"));
+  assert.strictEqual(mutableWarnings.length, 1);
+});
+
 test("fetchStore dedupes inflight requests", async () => {
   clearAllStores();
   ensureAsyncStore("dedupeStore");
