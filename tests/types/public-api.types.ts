@@ -130,6 +130,35 @@ type UseSelectorReturn = Expect<Equal<IsAssignable<typeof useSelector, UseSelect
 type UseFormStoreValue = Expect<Equal<IsAssignable<typeof useFormStore, UseFormStoreSig>, true>>;
 type UseAsyncStoreReturn = Expect<Equal<IsAssignable<typeof useAsyncStore, UseAsyncStoreSig>, true>>;
 
+type RequestMap = {
+  requestUser: { id: string; name: string };
+  flags: { beta: boolean };
+};
+
+const requestStores = createStoreForRequest<RequestMap>((api) => {
+  const created = api.create("requestUser", { id: "1", name: "Ava" });
+  const updated = api.set("requestUser", (draft) => {
+    draft.name = "Kai";
+  });
+  const flags = api.create("flags", { beta: false });
+  const currentFlags = api.get("flags");
+
+  type CreatedType = Expect<Equal<typeof created, { id: string; name: string }>>;
+  type UpdatedType = Expect<Equal<typeof updated, { id: string; name: string }>>;
+  type FlagsType = Expect<Equal<typeof flags, { beta: boolean }>>;
+  type CurrentFlagsType = Expect<Equal<typeof currentFlags, { beta: boolean } | undefined>>;
+
+  // @ts-expect-error unknown store name should be rejected
+  api.create("unknown", { value: 1 });
+  // @ts-expect-error wrong data shape should be rejected
+  api.create("requestUser", { id: 1 });
+  // @ts-expect-error wrong payload type should be rejected
+  api.set("flags", { beta: "nope" });
+});
+
+const requestSnapshot = requestStores.snapshot();
+type RequestSnapshotReturn = Expect<Equal<typeof requestSnapshot, Partial<RequestMap>>>;
+
 const counter = createCounterStore("typedCounter", 1);
 counter.inc();
 counter.dec(2);

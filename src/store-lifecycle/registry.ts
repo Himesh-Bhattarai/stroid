@@ -29,7 +29,7 @@ export { defaultRegistryScope } from "../store-registry.js";
 
 let _scope = defaultRegistryScope;
 let _defaultRegistry = getStoreRegistry(_scope);
-let _invalidatePathCache: ((name: string) => void) | null = null;
+var _invalidatePathCache: ((name: string) => void) | null = null;
 const initializedRegistries = new WeakSet<StoreRegistry>();
 const initializeRegistryFeatureRuntimes = (registry: StoreRegistry): void => {
     if (initializedRegistries.has(registry)) return;
@@ -56,9 +56,9 @@ export const setRegistryContext = (scope: string, registry: StoreRegistry): void
 
 export const getRegistry = (): StoreRegistry => getActiveRegistry();
 
-export const setPathCacheInvalidator = (fn: (name: string) => void): void => {
+export function setPathCacheInvalidator(fn: (name: string) => void): void {
     _invalidatePathCache = fn;
-};
+}
 
 const createRegistryObjectProxy = <T extends object>(getter: () => T): T =>
     new Proxy(Object.create(null), {

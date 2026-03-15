@@ -60,6 +60,7 @@ npm install stroid
 | `createStore(name, state, options?)` | Define a store |
 | `setStore(name, path, value)` | Write a value by path |
 | `setStore(name, draft => { })` | Mutate with a function |
+| `replaceStore(name, value)` | Replace an entire store |
 | `getStore(name, path?)` | Read a store (or a path inside it) |
 | `setStoreBatch(fn)` | Atomic multi-store write, rollback on error |
 | `useStore(name, selector?)` | React hook — subscribes to a store |
@@ -306,6 +307,9 @@ export async function GET(req: Request) {
 
 // Client: rehydrate from server snapshot
 hydrateStores(window.__STROID_STATE__)
+
+Tip: For typed SSR APIs, either augment `StoreStateMap` or pass a generic:
+`createStoreForRequest<{ user: UserState }>((api) => { ... })`.
 ```
 
 **Middleware — intercept, transform, or veto any write.**
@@ -473,6 +477,8 @@ import { clearAllStores }                            from "stroid/runtime-admin"
 - **Features are explicit.** `persist`, `sync`, and `devtools` require a side-effect import. Nothing loads you didn't ask for.
 - **Snapshot mode defaults to deep clone.** Subscribers and selectors always receive immutable snapshots.
 - **`setStoreBatch` is transactional.** All writes stage first. Commit happens only if the batch completes without error. On failure, all writes roll back.
+- **`setStore(name, data)` merges objects.** It shallow-merges into object stores. Use `replaceStore(name, value)` to replace the whole store.
+- **Typed string store names are opt-in.** If you want `setStore("user", "profile.name", ...)` to be checked, augment `StoreStateMap` or use typed store handles.
 - **SSR stores are request-scoped by default.** Global SSR stores require `{ allowSSRGlobalStore: true }`.
 - **`fetchStore` deduplicates by default.** Concurrent calls with the same store name share one in-flight request.
 - **Computed deps can be store names or handles.** Missing deps yield `null` until the dependency store is created.

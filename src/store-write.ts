@@ -87,11 +87,12 @@ import {
 } from "./store-transaction.js";
 
 type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: any) => void);
-type LooseStoreNames = string extends StoreName ? true : false;
+// If store names are loose (not registered via StoreStateMap), fall back to untyped paths/values.
+type IsStoreNameLoose = string extends StoreName ? true : false;
 type StorePathFor<Name extends StoreName> =
-    LooseStoreNames extends true ? string | string[] : Path<StateFor<Name>>;
+    IsStoreNameLoose extends true ? string | string[] : Path<StateFor<Name>>;
 type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
-    LooseStoreNames extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
+    IsStoreNameLoose extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
 type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
@@ -179,7 +180,10 @@ export const createStore = <Name extends string, State>(
         warn(message);
     });
 
-    const normalizedOptions = resolveFeatureAvailability(name, normalizeStoreOptions(option, name));
+    const normalizedOptions = resolveFeatureAvailability(
+        name,
+        normalizeStoreOptions(option, name, getConfig().defaultSnapshotMode)
+    );
 
     if (normalizedOptions.scope === "temp" && option.persist) {
         const message =
@@ -395,7 +399,8 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
             `  setStore("${storeName}", "field", value)\n` +
             `  setStore("${storeName}", "nested.field", value)\n` +
             `  setStore("${storeName}", { field: value })\n` +
-            `  setStore(storeDef, draft => { draft.field = value })`;
+            `  setStore(storeDef, draft => { draft.field = value })\n` +
+            `  replaceStore("${storeName}", value)  // full-store replace`;
         error(message);
         meta[storeName]?.options?.onError?.(message);
         if (isTransactionActive()) markTransactionFailed(message);
