@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.1 - 2026-03-15
+### Commits
+- 14b1ab6 status(201): Test & Threshold [pass]
+- d7e5fde status(601): The build initially failed on DTS generation due to strict type variance in the SSR createStoreForRequest options merge. I fixed it with an internal, type-safe-ish cast wrapper so the public API types remain intact while DTS emits cleanly--- Test fund
+- 3a7c81b status(302): expand regression coverage for SSR, features, persist, and sync
+- 9c1b594 status(203): standardize file header docs
+- a650cf0 status(203): normalize file header JSDoc
+- 4bc147e status(203): add file header JSDoc
+- 1d5de83 status(601): skip stale persist writes
+- 4f1b208 status(601): avoid mixed snapshots in chunked flush
+- 97e89f8 status(603): scope config to registry
+- 8094f55 status(301): tightened the layering without changing behavior, and I added a regression test to make sure the new hook stays wired.
+- e74b5c4 status(201): Typed the SSR request API so createStoreForRequest is generic, returns typed snapshots, and uses a typed RequestStoreApi instead of any, Ensured snapshotStrategy actually drives default snapshot behavior by threading the default snapshot mode through option normalization, and resolved the path-cache invalidator TDZ issue in the registry
+- 824804a status(201): Added strictAsyncUsageErrors to the global config (default false).
+- 552d378 status(201): Added opt‑in structural sharing support via configureStroid({ mutatorProduce }), plus a safe(immer) alias that uses globalThis.__STROID_IMMER_PRODUCE__ when present.
+- a5cc685 status(601): -T -Added a production‑visible warning when sync is enabled without authToken or verify, since any same‑origin tab can forge messages in that case -Added a dev warning when sign is configured without verify (since sign is useless unless incoming messages are verified) -Added a production warning (once per store) when allowSSRGlobalStore is used on the server, with a clear suggestion to use request‑scoped stores instead.,
+- 799a261 status(601): Added a transaction‑scoped snapshot cache to the registry’s transaction state, cleared on begin/end and invalidated per‑store when staging new values, Updated getStoreSnapshot to use the transaction cache when a batch is active (and to bypass the global snapshot cache), preventing stale reads and repeated cloning, Added a regression test to assert snapshot caching inside a transaction and invalidation on subsequent stage; also strengthened the existing staged snapshot test to pre‑populate the global cache
+- 005d9ba status(301): Updated .eslintrc.json to add no-restricted-imports for ./store-lifecycle.js and ../store-lifecycle.js with a clear message
+- bdc399c status(300): Breaking: none. This is an internal import refactor only; no runtime behavior changes.
+- c1ab000 status(601): - -Deduplicated the transactional commit pipeline, -Made test resets future‑proof with a reset hook registry, -Added a regression test for reset‑hook wiring
+- 789a010 status(601): Added a dev‑only warning when async results are stored by reference (asyncCloneResult:( none) and the payload is an object, plus per‑store dedupe
+- bc20a56 status(601): Added a public feature entrypoint and installer entrypoint, Switched stroid/persist, stroid/sync, stroid/devtools to call installers while preserving side‑effect behavior, Introduced the features option bag and exported feature option types: src/adapters/options.ts, src/store.ts, src/index.ts, dded regression tests for explicit installers and custom feature registration/options passthrough
+- 0d63f8c status(601): Moved the broad useStore warning to the render‑phase snapshot read (still deduped per store) and removed the useEffect‑only warning so it fires immediately.
+- eb83316 status(601): Moved notification queue state into registry-scoped notify and reset it with registry clears, plus scheduled flushes under the correct registry context in src/store-registry.ts and src/store-notify.ts
+- 37d0927 status(203): Redme Polished, make dev friendly
+
 ## 0.1.0 - 2026-03-14
 ### Added
 - `configureStroid({ strictMissingFeatures: true })` option to hard-fail when a feature is requested without its side-effect registration import.
