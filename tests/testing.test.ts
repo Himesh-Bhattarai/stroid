@@ -1,9 +1,18 @@
+/**
+ * @module tests/testing.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/testing.test.
+ *
+ * Consumers: Test runner.
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { createStore, getStore, hasStore, store } from "../src/store.js";
 import { fetchStore, getAsyncMetrics, refetchStore } from "../src/async.js";
 import { collectLegacyOptionDeprecationWarnings } from "../src/adapters/options.js";
 import { benchmarkStoreSet, createMockStore, resetAllStoresForTest, withMockedTime } from "../src/testing.js";
+import { registerTestResetHook } from "../src/internals/test-reset.js";
 
 test("resetAllStoresForTest clears registries without firing delete hooks", () => {
   let deletes = 0;
@@ -141,3 +150,16 @@ test("resetAllStoresForTest resets legacy option deprecation warnings", () => {
     ]
   );
 });
+
+test("resetAllStoresForTest runs registered reset hooks", () => {
+  let calls = 0;
+  registerTestResetHook("tests.reset-hook", () => {
+    calls += 1;
+  }, 5000);
+
+  const before = calls;
+  resetAllStoresForTest();
+  assert.ok(calls > before);
+});
+
+

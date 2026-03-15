@@ -1,9 +1,18 @@
+/**
+ * @module features/persist/types
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist/types.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import type { PersistConfig, StoreValue } from "../../adapters/options.js";
 
 export type PersistWatchEntry = { lastPresent: boolean; dispose: () => void };
 export type PersistWatchState = Record<string, PersistWatchEntry>;
 export type PersistTimers = Record<string, ReturnType<typeof setTimeout>>;
 export type PersistInFlight = Record<string, Promise<void> | null>;
+export type PersistSequence = Record<string, number>;
 
 export type PersistMeta = {
     version: number;
@@ -35,6 +44,7 @@ export type PersistSaveArgs = {
     name: string;
     persistTimers: PersistTimers;
     persistInFlight: PersistInFlight;
+    persistSequence: PersistSequence;
     persistWatchState: PersistWatchState;
     plaintextWarningsIssued: Set<string>;
     exists: () => boolean;
@@ -43,3 +53,5 @@ export type PersistSaveArgs = {
     reportStoreError: (name: string, message: string) => void;
     hashState: (value: unknown) => number;
 };
+
+

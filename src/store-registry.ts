@@ -1,18 +1,15 @@
 /**
  * @module store-registry
  *
- * LAYER: Dumb Data Container
- * OWNS:  The shape of a StoreRegistry, the global map of all scoped registries,
- *        and the SSR carrier-context injection point.
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-registry.
  *
- * DOES NOT KNOW about: validation, features, hooks, React, or any write logic.
- * It is a plain key-value store factory — nothing more.
- *
- * Consumers: store-lifecycle (binds a registry scope on startup / SSR switch).
+ * Consumers: Internal imports and public API.
  */
 import type { FeatureName, StoreFeatureMeta, StoreFeatureRuntime } from "./feature-registry.js";
 import type { AsyncRegistry } from "./async-registry.js";
 import { createAsyncRegistry, resetAsyncRegistry } from "./async-registry.js";
+import { registerTestResetHook } from "./internals/test-reset.js";
 
 export type RegistryStoreValue = unknown;
 export type RegistrySubscriber = (value: RegistryStoreValue | null) => void;
@@ -25,14 +22,30 @@ export type TransactionState = {
     depth: number;
     pending: Array<() => void>;
     stagedValues: Map<string, RegistryStoreValue>;
+    snapshotCache: Map<string, TransactionSnapshotEntry>;
     failed: boolean;
     error?: Error;
+};
+
+type TransactionSnapshotMode = "deep" | "shallow" | "ref";
+type TransactionSnapshotEntry = {
+    source: RegistryStoreValue | null | undefined;
+    snapshot: RegistryStoreValue | null;
+    mode: TransactionSnapshotMode;
 };
 
 export type ComputedEntry = {
     deps: string[];
     compute: (...args: unknown[]) => unknown;
     stale: boolean;
+};
+
+export type NotifyState = {
+    pendingNotifications: Set<string>;
+    pendingBuffer: string[];
+    orderedNames: string[];
+    notifyScheduled: boolean;
+    batchDepth: number;
 };
 
 export type StoreRegistry = {
@@ -49,6 +62,7 @@ export type StoreRegistry = {
     computedCleanups: Map<string, () => void>;
     transaction: TransactionState;
     async: AsyncRegistry;
+    notify: NotifyState;
 };
 
 const _registries = new Map<string, StoreRegistry>();
@@ -79,6 +93,24 @@ export const clearRegistryScopeOverrideForTests = (): void => {
     _registries.clear();
 };
 
+registerTestResetHook("registry.scope-override", clearRegistryScopeOverrideForTests, 110);
+
+const createNotifyState = (): NotifyState => ({
+    pendingNotifications: new Set<string>(),
+    pendingBuffer: [],
+    orderedNames: [],
+    notifyScheduled: false,
+    batchDepth: 0,
+});
+
+const resetNotifyState = (notify: NotifyState): void => {
+    notify.pendingNotifications.clear();
+    notify.pendingBuffer.length = 0;
+    notify.orderedNames.length = 0;
+    notify.notifyScheduled = false;
+    notify.batchDepth = 0;
+};
+
 export const createStoreRegistry = (): StoreRegistry => ({
     stores: Object.create(null),
     subscribers: Object.create(null),
@@ -95,10 +127,12 @@ export const createStoreRegistry = (): StoreRegistry => ({
         depth: 0,
         pending: [],
         stagedValues: new Map(),
+        snapshotCache: new Map(),
         failed: false,
         error: undefined,
     },
     async: createAsyncRegistry(),
+    notify: createNotifyState(),
 });
 
 export const getStoreRegistry = (scope: string): StoreRegistry => {
@@ -139,8 +173,10 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
     registry.transaction.depth = 0;
     registry.transaction.pending = [];
     registry.transaction.stagedValues.clear();
+    registry.transaction.snapshotCache.clear();
     registry.transaction.failed = false;
     registry.transaction.error = undefined;
+    resetNotifyState(registry.notify);
     resetAsyncRegistry(registry.async);
 };
 
@@ -168,8 +204,10 @@ export const resetAllStoreRegistriesForTests = (): void => {
         registry.transaction.depth = 0;
         registry.transaction.pending = [];
         registry.transaction.stagedValues.clear();
+        registry.transaction.snapshotCache.clear();
         registry.transaction.failed = false;
         registry.transaction.error = undefined;
+        resetNotifyState(registry.notify);
         resetAsyncRegistry(registry.async);
     });
     _registries.clear();
@@ -217,3 +255,5 @@ export const enterRegistry = (registry: StoreRegistry): void => {
         currentRegistryRunner.enterWith(registry);
     }
 };
+
+

@@ -1,3 +1,11 @@
+/**
+ * @module tests/store.node-env.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/store.node-env.test.
+ *
+ * Consumers: Test runner.
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
@@ -7,12 +15,16 @@ import { fileURLToPath } from "node:url";
 test("hydrateStores surfaces blocked production SSR store creation", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const storePath = path.join(repoRoot, "src", "store.ts");
+  const configPath = path.join(repoRoot, "src", "config.ts");
   const script = `
     const assert = (await import("node:assert")).default;
     const { pathToFileURL } = await import("node:url");
+    const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
     const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
 
     const errors = [];
+    const warnings = [];
+    config.configureStroid({ logSink: { warn: (msg) => warnings.push(msg) } });
     store.hydrateStores(
       { ssrHydrate: { value: 1 } },
       {
@@ -25,6 +37,36 @@ test("hydrateStores surfaces blocked production SSR store creation", () => {
 
     assert.strictEqual(store.hasStore("ssrHydrate"), false);
     assert.ok(errors.some((msg) => msg.includes('createStore("ssrHydrate") is blocked on the server in production')));
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("allowSSRGlobalStore warns in production server", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const configPath = path.join(repoRoot, "src", "config.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    const warnings = [];
+    config.configureStroid({ logSink: { warn: (msg) => warnings.push(msg) } });
+
+    store.createStore("ssrAllowed", { value: 1 }, { allowSSRGlobalStore: true });
+
+    assert.ok(warnings.some((msg) => msg.includes("allowSSRGlobalStore") && msg.includes("server in production")));
   `;
 
   const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
@@ -136,3 +178,5 @@ test("full package stays lean and requires explicit devtools registration in pro
 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
+
+

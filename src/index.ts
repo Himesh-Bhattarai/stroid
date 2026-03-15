@@ -1,3 +1,11 @@
+/**
+ * @module index
+ *
+ * LAYER: Public API
+ * OWNS:  Module-level behavior and exports for index.
+ *
+ * Consumers: Internal imports and public API.
+ */
 // Root public API barrel. Core store API is defined in store.ts and re-exported here.
 export {
     createStore,
@@ -29,9 +37,13 @@ export type {
     StoreStateMap,
     StrictStoreMap,
     WriteResult,
+    FeatureOptions,
+    FeatureOptionsMap,
     PersistOptions,
     StoreOptions,
     SyncOptions,
 } from "./store.js";
 export { configureStroid } from "./config.js";
 export * as queryIntegrations from "./integrations/query.js";
+
+

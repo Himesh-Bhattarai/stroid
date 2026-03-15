@@ -1,6 +1,15 @@
+/**
+ * @module tests/sync.core.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/sync.core.test.
+ *
+ * Consumers: Test runner.
+ */
 import test from "node:test";
 import assert from "node:assert";
 import "../src/sync.js";
+import { configureStroid, resetConfig } from "../src/config.js";
 import { createStore, setStore, getStore, deleteStore } from "../src/store.js";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -68,6 +77,41 @@ test("sync core (serial)", async (t) => {
     setStore("syncConfig", { value: 2 });
     assert.strictEqual(errors.length > 0, true);
     deleteStore("syncConfig");
+  });
+
+  await t.test("sync warns when unauthenticated", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+    (globalThis as any).window = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    const warnings: string[] = [];
+    configureStroid({
+      logSink: {
+        warn: (msg: string) => { warnings.push(msg); },
+      },
+    });
+
+    try {
+      createStore("syncInsecure", { value: 1 }, {
+        sync: true,
+      });
+
+      setStore("syncInsecure", { value: 2 });
+      await wait();
+
+      assert.ok(warnings.some((msg) => msg.includes("unauthenticated") && msg.includes("syncInsecure")));
+    } finally {
+      deleteStore("syncInsecure");
+      resetConfig();
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
   });
 
   await t.test("sync sign rejects promise-returning signers", async () => {
@@ -197,6 +241,71 @@ test("sync core (serial)", async (t) => {
     }
   });
 
+  await t.test("sync verify rejects spoofed messages even with a valid token", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+    (globalThis as any).window = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncVerify", { value: "local" }, {
+        sync: {
+          authToken: "secret",
+          verify: (msg) => msg.auth === "sig",
+        },
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      setStore("syncVerify", { value: "local2" });
+      await wait();
+
+      const peer = new MockBroadcastChannel("stroid_sync_syncVerify");
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncVerify",
+        clock: 5,
+        source: "peer",
+        data: { value: "spoof" },
+        updatedAt: Date.now(),
+        token: "secret",
+        auth: "bad",
+      });
+
+      await wait();
+      assert.deepStrictEqual(getStore("syncVerify"), { value: "local2" });
+      assert.ok(errors.some((msg) => msg.includes("failed verification")));
+
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncVerify",
+        clock: 6,
+        source: "peer",
+        data: { value: "ok" },
+        updatedAt: Date.now(),
+        token: "secret",
+        auth: "sig",
+      });
+
+      await wait();
+      assert.deepStrictEqual(getStore("syncVerify"), { value: "ok" });
+    } finally {
+      deleteStore("syncVerify");
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
   await t.test("sync conflictResolver runs on older incoming versions", async () => {
     const originalWindow = (globalThis as any).window;
     const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
@@ -288,3 +397,5 @@ test("sync core (serial)", async (t) => {
   }
   });
 });
+
+

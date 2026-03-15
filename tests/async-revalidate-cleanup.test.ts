@@ -1,3 +1,11 @@
+/**
+ * @module tests/async-revalidate-cleanup.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/async-revalidate-cleanup.test.
+ *
+ * Consumers: Test runner.
+ */
 import assert from "node:assert";
 import { test } from "node:test";
 import { enableRevalidateOnFocus, _resetAsyncStateForTests } from "../src/async.js";
@@ -68,3 +76,5 @@ test("resetAsyncState cleans up wildcard revalidate listeners", () => {
     ["focus", "online"]
   );
 });
+
+

@@ -1,12 +1,10 @@
 /**
  * @module computed-graph
  *
- * LAYER: Internal graph engine
- * OWNS:  Dependency tracking, cycle detection, topological ordering,
- *        computed entry CRUD. Zero React. Zero async.
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for computed-graph.
  *
- * Consumers: computed.ts (public API), store-notify.ts (flush ordering),
- *            store-admin.ts (cleanup on delete), runtime-tools.ts (diagnostics)
+ * Consumers: Internal imports and public API.
  */
 import {
     getStoreRegistry,
@@ -15,6 +13,7 @@ import {
     type ComputedEntry,
 } from "./store-registry.js";
 import { error } from "./utils.js";
+import { setComputedOrderResolver } from "./internals/computed-order.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
 
@@ -192,6 +191,8 @@ export const getTopoOrderedComputeds = (changedSources: string[]): string[] => {
     return sorted;
 };
 
+setComputedOrderResolver(getTopoOrderedComputeds);
+
 export const getFullComputedGraph = (): {
     nodes: string[];
     edges: Array<{ from: string; to: string }>;
@@ -231,3 +232,5 @@ export const getComputedDepsFor = (name: string): { deps: string[]; dependents: 
         dependents: dependents ? [...dependents] : [],
     };
 };
+
+

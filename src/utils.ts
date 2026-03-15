@@ -1,3 +1,11 @@
+/**
+ * @module utils
+ *
+ * LAYER: Utilities
+ * OWNS:  Module-level behavior and exports for utils.
+ *
+ * Consumers: Internal imports and public API.
+ */
 export {
     __DEV__,
     isDev,
@@ -21,3 +29,5 @@ export {
     isValidStoreName,
     type SupportedType,
 } from "./utils/validation.js";
+
+

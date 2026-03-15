@@ -1,3 +1,11 @@
+/**
+ * @module tests/helpers.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/helpers.test.
+ *
+ * Consumers: Test runner.
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { clearAllStores } from "../src/runtime-admin.js";
@@ -61,3 +69,5 @@ test("createEntityStore supports upsert, get, all, remove, and clear", () => {
   entities.clear();
   assert.deepStrictEqual(entities.all(), []);
 });
+
+

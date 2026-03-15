@@ -1,3 +1,11 @@
+/**
+ * @module helpers
+ *
+ * LAYER: Public API
+ * OWNS:  Module-level behavior and exports for helpers.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { createStore, setStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
 import { store } from "./store-name.js";
@@ -62,3 +70,5 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
         clear: () => resetStore(handle),
     };
 };
+
+

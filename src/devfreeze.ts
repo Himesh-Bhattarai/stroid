@@ -1,3 +1,11 @@
+/**
+ * @module devfreeze
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for devfreeze.
+ *
+ * Consumers: Internal imports and public API.
+ */
 export const devDeepFreeze = <T>(value: T): T => {
     if (typeof value !== "object" || value === null) return value;
     // Skip React elements, DOM nodes, and complex instances (Maps, Sets, third-party classes, etc.)
@@ -29,3 +37,5 @@ export const devDeepFreeze = <T>(value: T): T => {
     }
     return value;
 };
+
+

@@ -56,6 +56,14 @@
       "types": "./dist/async.d.ts",
       "import": "./dist/async.js"
     },
+    "./feature": {
+      "types": "./dist/feature.d.ts",
+      "import": "./dist/feature.js"
+    },
+    "./install": {
+      "types": "./dist/install.d.ts",
+      "import": "./dist/install.js"
+    },
     "./persist": {
       "types": "./dist/persist.d.ts",
       "import": "./dist/persist.js"
@@ -102,8 +110,8 @@
     "./dist/devtools.js"
   ],
   "scripts": {
-    "test": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/async-cleanup.test.ts tests/async-revalidate-cleanup.test.ts tests/async.test.ts tests/computed.test.ts tests/helpers.test.ts tests/options-adapter.test.ts tests/persist.test.ts tests/react-hooks.test.tsx tests/regressions.test.ts tests/selectors-devfreeze.test.ts tests/ssr-carrier.test.ts tests/store.core.test.ts tests/store.node-env.test.ts tests/strict-missing-features.test.ts tests/sync.core.test.ts tests/testing.test.ts tests/utils.test.ts",
-    "test:coverage": "c8 --check-coverage --lines 80 --branches 80 --functions 80 --statements 80 node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/async-cleanup.test.ts tests/async-revalidate-cleanup.test.ts tests/async.test.ts tests/computed.test.ts tests/helpers.test.ts tests/options-adapter.test.ts tests/persist.test.ts tests/react-hooks.test.tsx tests/regressions.test.ts tests/selectors-devfreeze.test.ts tests/ssr-carrier.test.ts tests/store.core.test.ts tests/store.node-env.test.ts tests/strict-missing-features.test.ts tests/sync.core.test.ts tests/testing.test.ts tests/utils.test.ts",
+    "test": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/async-cleanup.test.ts tests/async-revalidate-cleanup.test.ts tests/async.test.ts tests/computed.test.ts tests/coverage-extra.test.ts tests/feature-api.test.ts tests/helpers.test.ts tests/options-adapter.test.ts tests/persist.test.ts tests/react-hooks.test.tsx tests/regressions.test.ts tests/selectors-devfreeze.test.ts tests/ssr-carrier.test.ts tests/store.core.test.ts tests/store.node-env.test.ts tests/strict-missing-features.test.ts tests/sync.core.test.ts tests/testing.test.ts tests/utils.test.ts",
+    "test:coverage": "c8 --check-coverage --lines 80 --branches 80 --functions 80 --statements 80 node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/async-cleanup.test.ts tests/async-revalidate-cleanup.test.ts tests/async.test.ts tests/computed.test.ts tests/coverage-extra.test.ts tests/feature-api.test.ts tests/helpers.test.ts tests/options-adapter.test.ts tests/persist.test.ts tests/react-hooks.test.tsx tests/regressions.test.ts tests/selectors-devfreeze.test.ts tests/ssr-carrier.test.ts tests/store.core.test.ts tests/store.node-env.test.ts tests/strict-missing-features.test.ts tests/sync.core.test.ts tests/testing.test.ts tests/utils.test.ts",
     "test:heavy": "node --import tsx --test tests/heavy/store.heavy.ts",
     "test:types": "npm run build && tsc -p tsconfig.typetests.json",
     "typecheck": "tsc -p tsconfig.types.json",

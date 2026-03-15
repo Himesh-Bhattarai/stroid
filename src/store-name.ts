@@ -1,4 +1,12 @@
-import type { StoreKey, StoreValue } from "./store-lifecycle.js";
+/**
+ * @module store-name
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-name.
+ *
+ * Consumers: Internal imports and public API.
+ */
+import type { StoreKey, StoreValue } from "./store-lifecycle/types.js";
 import { createStore, createStoreStrict, setStore, deleteStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
 
@@ -36,3 +44,5 @@ export const namespace = (ns: string) => {
         reset: (name: string) => resetStore(adaptName(name)),
     };
 };
+
+

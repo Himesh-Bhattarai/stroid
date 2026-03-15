@@ -1,3 +1,11 @@
+/**
+ * @module async-retry
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for async-retry.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { warn } from "./utils.js";
 
 export const MAX_RETRY_ATTEMPTS = 10;
@@ -74,3 +82,5 @@ export const normalizeRetryOptions = (
         retryBackoff: safeRetryBackoff,
     };
 };
+
+

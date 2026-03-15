@@ -1,6 +1,15 @@
+/**
+ * @module feature-registry
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for feature-registry.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import type { NormalizedOptions, StoreValue } from "./adapters/options.js";
 
-export type FeatureName = "persist" | "sync" | "devtools";
+export type BuiltInFeatureName = "persist" | "sync" | "devtools";
+export type FeatureName = BuiltInFeatureName | (string & {});
 
 export interface FeatureMetrics {
     notifyCount: number;
@@ -93,3 +102,5 @@ export const resetRegisteredStoreFeaturesForTests = (): void => {
     _featureFactories.clear();
     _onFeatureRegistered = null;
 };
+
+

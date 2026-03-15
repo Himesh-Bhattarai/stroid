@@ -1,3 +1,11 @@
+/**
+ * @module features/state-helpers
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/state-helpers.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import type { StoreValue } from "../adapters/options.js";
 
 export type FeatureValidation = (next: StoreValue) => { ok: boolean; value?: StoreValue };
@@ -57,3 +65,5 @@ export const resolveUpdatedAtMs = ({
     onInvalid?.();
     return fallbackMs;
 };
+
+

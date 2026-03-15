@@ -1,10 +1,18 @@
+/**
+ * @module hooks-async-suspense
+ *
+ * LAYER: React hooks
+ * OWNS:  Module-level behavior and exports for hooks-async-suspense.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { useMemo } from "react";
 import type { FetchInput, FetchOptions } from "./async-cache.js";
-import { fetchRegistry, inflight } from "./async-cache.js";
+import { getFetchRegistry, inflight } from "./async-cache.js";
 import { fetchStore, refetchStore } from "./async-fetch.js";
 import { useAsyncStore, type AsyncDataFor, type AsyncStoreState } from "./hooks-async.js";
 import { store } from "./store.js";
-import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle.js";
+import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle/types.js";
 
 const EMPTY_OPTIONS: FetchOptions = {};
 
@@ -38,6 +46,7 @@ export function useAsyncStoreSuspense<T = unknown>(
         const active = inflight[cacheSlot]?.promise as Promise<unknown> | undefined;
         if (active) return active;
         if (input !== undefined) return fetchStore(storeHandle, input, resolvedOptions);
+        const fetchRegistry = getFetchRegistry();
         if (fetchRegistry[storeName]) return refetchStore(storeHandle);
         return null;
     }, [cacheSlot, input, storeHandle, storeName, resolvedOptions, pending]);
@@ -46,3 +55,5 @@ export function useAsyncStoreSuspense<T = unknown>(
     if (snapshot.error) throw new Error(snapshot.error);
     return snapshot.data as T;
 }
+
+

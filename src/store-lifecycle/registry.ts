@@ -1,3 +1,11 @@
+/**
+ * @module store-lifecycle/registry
+ *
+ * LAYER: Store lifecycle
+ * OWNS:  Module-level behavior and exports for store-lifecycle/registry.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { devDeepFreeze } from "../devfreeze.js";
 import { isDev } from "../utils.js";
 import {
@@ -12,6 +20,7 @@ import {
     enterRegistry,
     type StoreRegistry,
 } from "../store-registry.js";
+import { registerTestResetHook } from "../internals/test-reset.js";
 import {
     getStoreFeatureFactory,
     getRegisteredFeatureNames,
@@ -28,7 +37,7 @@ export { defaultRegistryScope } from "../store-registry.js";
 
 let _scope = defaultRegistryScope;
 let _defaultRegistry = getStoreRegistry(_scope);
-let _invalidatePathCache: ((name: string) => void) | null = null;
+var _invalidatePathCache: ((name: string) => void) | null = null;
 const initializedRegistries = new WeakSet<StoreRegistry>();
 const initializeRegistryFeatureRuntimes = (registry: StoreRegistry): void => {
     if (initializedRegistries.has(registry)) return;
@@ -55,9 +64,9 @@ export const setRegistryContext = (scope: string, registry: StoreRegistry): void
 
 export const getRegistry = (): StoreRegistry => getActiveRegistry();
 
-export const setPathCacheInvalidator = (fn: (name: string) => void): void => {
+export function setPathCacheInvalidator(fn: (name: string) => void): void {
     _invalidatePathCache = fn;
-};
+}
 
 const createRegistryObjectProxy = <T extends object>(getter: () => T): T =>
     new Proxy(Object.create(null), {
@@ -198,6 +207,9 @@ export const resetFeaturesForTests = (): void => {
     featureRuntimes.clear();
 };
 
+registerTestResetHook("features.reset", resetFeaturesForTests, 10);
+registerTestResetHook("registries.clear", clearAllRegistries, 20);
+
 export const getMetaEntry = (name: string): StoreFeatureMeta | undefined => meta[name];
 
 export const isDeleting = (name: string): boolean =>
@@ -212,3 +224,5 @@ export const resolveScope = (scopeOrRegistry?: string | ReturnType<typeof getSto
         : scopeOrRegistry ?? getStoreRegistry(_scope);
     return { scope: resolvedScope, registry };
 };
+
+

@@ -1,3 +1,11 @@
+/**
+ * @module async-registry
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for async-registry.
+ *
+ * Consumers: Internal imports and public API.
+ */
 export type AsyncStateSnapshot = {
     data?: unknown;
     loading: boolean;
@@ -63,6 +71,7 @@ export type AsyncRegistry = {
     noSignalWarned: Set<string>;
     shapeWarned: Set<string>;
     autoCreateWarned: Set<string>;
+    mutableResultWarned: Set<string>;
     cleanupSubs: Record<string, () => void>;
     storeCleanupFns: Record<string, Set<() => void>>;
     revalidateKeys: Set<string>;
@@ -90,6 +99,7 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     noSignalWarned: new Set<string>(),
     shapeWarned: new Set<string>(),
     autoCreateWarned: new Set<string>(),
+    mutableResultWarned: new Set<string>(),
     cleanupSubs: Object.create(null),
     storeCleanupFns: Object.create(null),
     revalidateKeys: new Set<string>(),
@@ -134,6 +144,7 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     registry.noSignalWarned.clear();
     registry.shapeWarned.clear();
     registry.autoCreateWarned.clear();
+    registry.mutableResultWarned.clear();
     registry.ratePruneState.lastAt = 0;
     if (registry.ratePruneTimer) {
         clearTimeout(registry.ratePruneTimer);
@@ -148,3 +159,5 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     registry.asyncMetrics.avgMs = 0;
     registry.asyncMetrics.lastMs = 0;
 };
+
+

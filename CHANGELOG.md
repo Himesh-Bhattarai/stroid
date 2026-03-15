@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.1 - 2026-03-15
+### Added
+- Public feature installer entrypoints and a features option bag for custom feature registration.
+- Optional structural sharing via `configureStroid({ mutatorProduce })` (supports a global Immer shim).
+- `strictAsyncUsageErrors` to throw on async usage errors when enabled.
+
+### Changed
+- SSR request APIs are now fully typed; `snapshotStrategy` drives the default snapshot mode.
+- Config is registry-scoped to avoid cross-request bleed in SSR.
+- Transaction snapshot caching is scoped to the active batch to reduce repeated cloning.
+- Internal layering tightened without runtime behavior changes; added a guard against restricted lifecycle imports.
+
+### Fixed
+- Chunked flush delivery no longer mixes snapshots within a single notification.
+- Persist sequencing avoids stale writes when debounce timers overlap.
+- Notification queues and batch depth are registry-scoped for SSR safety.
+- DTS build now succeeds with a type-safe internal cast for SSR options merges.
+- `useStore` missing-store warning moved to render time for immediate feedback.
+- Sync warns when authentication is missing or sign is configured without verify.
+
+### Docs
+- Standardized file header JSDoc and polished README guidance.
+
+### Testing
+- Expanded regression coverage across SSR, features, persist, and sync; coverage thresholds now pass.
+
 ## 0.1.0 - 2026-03-14
 ### Added
 - `configureStroid({ strictMissingFeatures: true })` option to hard-fail when a feature is requested without its side-effect registration import.

@@ -14,6 +14,8 @@ export default defineConfig({
         persist: "src/persist.ts",
         sync: "src/sync.ts",
         devtools: "src/devtools.ts",
+        feature: "src/feature.ts",
+        install: "src/install.ts",
         react: "src/hooks.ts",
         testing: "src/testing.ts",
     },

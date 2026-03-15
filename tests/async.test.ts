@@ -1,3 +1,11 @@
+/**
+ * @module tests/async.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/async.test.
+ *
+ * Consumers: Test runner.
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
@@ -69,6 +77,65 @@ test("fetchStore warns when overwriting a non-async store without stateAdapter",
   assert.ok(warnings.some((msg) => msg.includes("non-async store")));
   const state = getStore("profile") as any;
   assert.deepStrictEqual(state, { name: "Alex" });
+});
+
+test("fetchStore returns null on usage errors by default", async () => {
+  clearAllStores();
+  const errors: string[] = [];
+  configureStroid({ asyncAutoCreate: false });
+
+  try {
+    const result = await fetchStore("missingAsync", "https://api.example.com/missing", {
+      onError: (msg) => errors.push(msg),
+    });
+    assert.strictEqual(result, null);
+  } finally {
+    resetConfig();
+  }
+
+  assert.ok(errors.some((msg) => msg.includes('fetchStore("missingAsync") requires an existing backing store')));
+});
+
+test("fetchStore throws on usage errors when strictAsyncUsageErrors is enabled", async () => {
+  clearAllStores();
+  const errors: string[] = [];
+  configureStroid({ asyncAutoCreate: false, strictAsyncUsageErrors: true });
+
+  try {
+    await assert.rejects(
+      () => fetchStore("missingStrict", "https://api.example.com/missing", {
+        onError: (msg) => errors.push(msg),
+      }),
+      /requires an existing backing store/
+    );
+  } finally {
+    resetConfig();
+  }
+
+  assert.ok(errors.some((msg) => msg.includes('fetchStore("missingStrict") requires an existing backing store')));
+});
+
+test("fetchStore warns once when async results are mutable", async () => {
+  clearAllStores();
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+    asyncCloneResult: "none",
+  });
+
+  const controller = new AbortController();
+  try {
+    ensureAsyncStore("mutableAsync");
+    await fetchStore("mutableAsync", Promise.resolve({ value: 1 }), { signal: controller.signal, dedupe: false });
+    await fetchStore("mutableAsync", Promise.resolve({ value: 2 }), { signal: controller.signal, dedupe: false });
+  } finally {
+    resetConfig();
+  }
+
+  const mutableWarnings = warnings.filter((msg) => msg.includes("asyncCloneResult"));
+  assert.strictEqual(mutableWarnings.length, 1);
 });
 
 test("fetchStore dedupes inflight requests", async () => {
@@ -811,3 +878,5 @@ test("fetchStore caps no-signal warning cache size under high-cardinality stores
     clearAllStores();
   }
 });
+
+

@@ -1,12 +1,10 @@
 /**
  * @module computed
  *
- * LAYER: Public Computed API
- * OWNS:  createComputed, invalidateComputed
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for computed.
  *
- * DOES NOT KNOW about: React, async, persist, sync, devtools.
- *
- * Consumers: index.ts, computed-entry.ts
+ * Consumers: Internal imports and public API.
  */
 import { store } from "./store-name.js";
 import { createStore, replaceStore, getStore, hasStore, subscribeStore } from "./internals/store-ops.js";
@@ -19,7 +17,7 @@ import {
 } from "./computed-graph.js";
 import { warn, isDev, log } from "./utils.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
-import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "./store-lifecycle.js";
+import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "./store-lifecycle/types.js";
 
 export type ComputedOptions = {
     autoDispose?: boolean;
@@ -179,3 +177,5 @@ export const _resetComputedForTests = (): void => {
     cleanups.forEach((fn) => fn());
     cleanups.clear();
 };
+
+

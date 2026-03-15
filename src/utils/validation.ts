@@ -1,3 +1,11 @@
+/**
+ * @module utils/validation
+ *
+ * LAYER: Utilities
+ * OWNS:  Module-level behavior and exports for utils/validation.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import {
     error,
     getDateStoreWarningMessage,
@@ -264,3 +272,5 @@ export const isValidStoreName = (name: string): boolean => {
     }
     return true;
 };
+
+

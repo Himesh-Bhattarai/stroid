@@ -1,3 +1,11 @@
+/**
+ * @module store-read
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-read.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import {
     deepClone,
     getByPath,
@@ -7,21 +15,20 @@ import {
 import {
     initialStates,
     meta,
-    nameOf,
-    stores,
     hasStoreEntryInternal,
     getStoreValueRef,
-    getFeatureApi,
-    materializeInitial,
-    exists,
-    type Path,
-    type PathValue,
-    type StoreDefinition,
-    type StoreValue,
-    type StoreKey,
-    type StoreName,
-    type StateFor,
-} from "./store-lifecycle.js";
+} from "./store-lifecycle/registry.js";
+import { materializeInitial } from "./store-lifecycle/validation.js";
+import { nameOf, exists, getFeatureApi } from "./store-lifecycle/identity.js";
+import type {
+    Path,
+    PathValue,
+    StoreDefinition,
+    StoreValue,
+    StoreKey,
+    StoreName,
+    StateFor,
+} from "./store-lifecycle/types.js";
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 
@@ -57,3 +64,5 @@ export const getMetrics = (name: string): (typeof meta)[string]["metrics"] | nul
     if (!metaEntry?.metrics) return null;
     return { ...metaEntry.metrics };
 };
+
+

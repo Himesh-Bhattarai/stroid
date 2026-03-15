@@ -1,3 +1,11 @@
+/**
+ * @module tests/options-adapter.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/options-adapter.test.
+ *
+ * Consumers: Test runner.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -138,3 +146,5 @@ test("normalizeStoreOptions supports persist checksum opt-out", () => {
 
   assert.equal(normalized.persist?.checksum, "none");
 });
+
+

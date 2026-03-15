@@ -1,3 +1,11 @@
+/**
+ * @module features/persist/checksum
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist/checksum.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { hashState } from "../../utils.js";
 
 const toHex = (buffer: ArrayBuffer): string => {
@@ -33,3 +41,5 @@ export const computePersistChecksum = async (
     if (mode === "sha256") return computeSha256(payload);
     return hashFn(payload);
 };
+
+

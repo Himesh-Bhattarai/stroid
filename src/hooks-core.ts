@@ -1,3 +1,11 @@
+/**
+ * @module hooks-core
+ *
+ * LAYER: React hooks
+ * OWNS:  Module-level behavior and exports for hooks-core.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { subscribeStore, getStoreSnapshot, hasStore } from "./store.js";
 import { subscribeWithSelector } from "./selectors.js";
@@ -9,7 +17,7 @@ import type {
     StoreKey,
     StoreName,
     StateFor,
-} from "./store-lifecycle.js";
+} from "./store-lifecycle/types.js";
 import {
     hasBroadUseStoreWarning,
     markBroadUseStoreWarning,
@@ -99,6 +107,17 @@ const warnMissingStoreOnce = (name: string): void => {
     );
 };
 
+const warnBroadUseStoreOnce = (name: string, hasSelector: boolean, path?: string): void => {
+    if (!isDev()) return;
+    if (hasSelector || path) return;
+    if (hasBroadUseStoreWarning(name)) return;
+    markBroadUseStoreWarning(name);
+    warn(
+        `useStore("${name}") without a selector/path subscribes to the entire store and may re-render on every change.\n` +
+        `Prefer useSelector/useStoreField for better performance.`
+    );
+};
+
 export function useStore<Name extends string, State, P extends Path<State>>(
     name: StoreDefinition<Name, State>,
     path: P
@@ -178,6 +197,7 @@ export function useStore<T = unknown, R = unknown>(
     const getSnapshot = useCallback(() => {
         const snap = getStoreSnapshot(storeName);
         warnMissingStoreOnce(storeName);
+        warnBroadUseStoreOnce(storeName, hasSelector, path);
         if (hasSelector) {
             return readSelectedSnapshot(snap as T | null);
         }
@@ -199,13 +219,6 @@ export function useStore<T = unknown, R = unknown>(
             prevSelectorRef.current = selector;
         }
 
-        if (isDev() && !hasSelector && !path && !hasBroadUseStoreWarning(storeName)) {
-            markBroadUseStoreWarning(storeName);
-            warn(
-                `useStore("${storeName}") without a selector/path subscribes to the entire store and may re-render on every change.\n` +
-                `Prefer useSelector/useStoreField for better performance.`
-            );
-        }
     }, [storeName, hasSelector, path, selector]);
 
     return state as StoreSnapshot<T> | R | null;
@@ -313,3 +326,5 @@ export function useStoreStatic(
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
 }
+
+

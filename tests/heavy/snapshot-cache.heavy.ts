@@ -1,3 +1,11 @@
+/**
+ * @module tests/heavy/snapshot-cache.heavy
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/heavy/snapshot-cache.heavy.
+ *
+ * Consumers: Test runner.
+ */
 import assert from "node:assert";
 import test from "node:test";
 
@@ -35,4 +43,6 @@ test("heavy snapshot cache benchmark (update + notify + snapshot read)", async (
 
   store.clearAllStores();
 });
+
+
 

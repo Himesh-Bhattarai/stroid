@@ -1,6 +1,14 @@
+/**
+ * @module tests/computed.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/computed.test.
+ *
+ * Consumers: Test runner.
+ */
 import test from "node:test";
 import assert from "node:assert";
-import { createStore, setStore, replaceStore, getStore } from "../src/store.js";
+import { createStore, setStore, replaceStore, getStore, deleteStore, hasStore } from "../src/store.js";
 import { clearAllStores } from "../src/runtime-admin.js";
 import {
   createComputed,
@@ -223,3 +231,54 @@ test("computed handles 50+ dependencies", async () => {
 
   assert.strictEqual(getStore("sumAll"), expected);
 });
+
+test("computed updates even when base store uses persist", async () => {
+  await import("../src/persist.js");
+  const writes: string[] = [];
+  const driver = {
+    getItem: () => null,
+    setItem: (_key: string, value: string) => {
+      writes.push(value);
+    },
+    removeItem: () => {},
+  };
+
+  createStore("basePersist", { value: 1 }, {
+    persist: {
+      driver,
+      key: "basePersist",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+    },
+  });
+  createComputed("derivedPersist", ["basePersist"], (v) => (v as any).value * 2);
+
+  replaceStore("basePersist", { value: 3 });
+  await wait(20);
+
+  assert.strictEqual(getStore("derivedPersist"), 6);
+  assert.ok(writes.length > 0);
+});
+
+test("computed handles dependency deleted during recomputation", async () => {
+  createStore("dep", { value: 1 });
+  let calls = 0;
+
+  createComputed("depComputed", ["dep"], (value) => {
+    calls += 1;
+    if (calls === 2) {
+      deleteStore("dep");
+    }
+    return value ? (value as any).value * 2 : null;
+  });
+
+  replaceStore("dep", { value: 2 });
+  await wait();
+
+  assert.strictEqual(getStore("depComputed"), 4);
+  assert.strictEqual(hasStore("dep"), false);
+});
+
+

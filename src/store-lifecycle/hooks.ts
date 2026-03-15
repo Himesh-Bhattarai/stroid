@@ -1,6 +1,15 @@
+/**
+ * @module store-lifecycle/hooks
+ *
+ * LAYER: Store lifecycle
+ * OWNS:  Module-level behavior and exports for store-lifecycle/hooks.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { warn, log, hashState, deepClone, sanitize, isDev } from "../utils.js";
 import { runMiddleware, runStoreHook, MIDDLEWARE_ABORT } from "../features/lifecycle.js";
 import { getConfig } from "../internals/config.js";
+import { registerTestResetHook } from "../internals/test-reset.js";
 import {
     hasRegisteredStoreFeature,
     type FeatureDeleteContext,
@@ -57,6 +66,8 @@ const getBaseFeatureContexts = (registry: object): Map<string, BaseFeatureContex
 export const clearFeatureContexts = (): void => {
     getBaseFeatureContexts(getRegistry()).clear();
 };
+
+registerTestResetHook("features.contexts", clearFeatureContexts, 100);
 
 export const createBaseFeatureContext = (name: string): BaseFeatureContext | null => {
     const registry = getRegistry();
@@ -202,3 +213,5 @@ export const resolveFeatureAvailability = (name: string, options: NormalizedOpti
 
     return next;
 };
+
+

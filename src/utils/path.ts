@@ -1,3 +1,11 @@
+/**
+ * @module utils/path
+ *
+ * LAYER: Utilities
+ * OWNS:  Module-level behavior and exports for utils/path.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import {
     critical,
     error,
@@ -137,3 +145,5 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
 
     return applyAt(obj, 0) as T;
 };
+
+

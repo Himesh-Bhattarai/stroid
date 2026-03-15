@@ -1,8 +1,17 @@
+/**
+ * @module tests/utils.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/utils.test.
+ *
+ * Consumers: Test runner.
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { deepClone } from "../src/utils.js";
 
 test("suggestStoreName skips quadratic edit-distance work for hostile long names", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -70,3 +79,19 @@ test("suggestStoreName still suggests close short matches", () => {
 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
+
+test("deepClone handles 100,000+ node state trees", () => {
+  const size = 100_000;
+  const data = Array.from({ length: size }, (_, i) => ({ value: i }));
+  const cloned = deepClone(data);
+
+  assert.notStrictEqual(cloned, data);
+  assert.strictEqual(cloned.length, size);
+  assert.deepStrictEqual(cloned[0], { value: 0 });
+  assert.deepStrictEqual(cloned[size - 1], { value: size - 1 });
+
+  cloned[0].value = 999;
+  assert.strictEqual(data[0].value, 0);
+});
+
+

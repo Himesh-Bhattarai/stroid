@@ -1,14 +1,10 @@
 /**
  * @module store-write
  *
- * LAYER: Public Write API
- * OWNS:  createStore(), createStoreStrict(), setStore(), deleteStore(), resetStore(),
- *        hydrateStores(), clearAllStores().
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-write.
  *
- * DOES NOT KNOW about: React hooks, async caching, or feature internals.
- * Delegates all engine work to store-lifecycle.
- *
- * Consumers: index.ts, core.ts, testing.ts, server.ts.
+ * Consumers: Internal imports and public API.
  */
 import {
     warn,
@@ -27,36 +23,56 @@ import {
 import {
     collectLegacyOptionDeprecationWarnings,
     normalizeStoreOptions,
-    resetLegacyOptionDeprecationWarningsForTests,
     type StoreOptions,
 } from "./adapters/options.js";
 import {
-    // ── Registry state ─────────────────────────────────────────────────────
-    stores, meta, subscribers,
-    initialStates, initialFactories,
-    clearPathValidationCache,
-    storeAdmin, bindRegistry, defaultRegistryScope,
-    // ── Validation ─────────────────────────────────────────────────────────
-    sanitizeValue, normalizeCommittedState,
-    validatePathSafety, invalidatePathCache, materializeInitial,
-    // ── Lifecycle hooks ─────────────────────────────────────────────────────
-    runFeatureCreateHooks, runFeatureWriteHooks, runFeatureDeleteHooks,
-    runMiddlewareForStore, runStoreHookSafe,
-    setStoreValueInternal, getStoreValueRef, resolveFeatureAvailability,
-    // ── Identity & existence ────────────────────────────────────────────────
-    nameOf, exists, hasStoreEntryInternal,
-    reportStoreCreationError, reportStoreError, reportStoreWarning,
-    getSsrWarningIssued, markSsrWarningIssued, resetSsrWarningFlag,
-    clearFeatureContexts, clearAllRegistries, resetFeaturesForTests,
-    // ── Types ───────────────────────────────────────────────────────────────
-    type PartialDeep, type Path, type PathValue,
-    type StoreDefinition, type StoreValue, type StoreKey,
-    type StoreName, type StateFor, type WriteResult,
-} from "./store-lifecycle.js";
-import { resetBroadUseStoreWarnings, resetMissingUseStoreWarnings } from "./internals/hooks-warnings.js";
-import { getConfig, resetConfig } from "./internals/config.js";
-import { clearRegistryScopeOverrideForTests } from "./store-registry.js";
-import { notify, resetNotifyStateForTests } from "./store-notify.js";
+    stores,
+    meta,
+    subscribers,
+    initialStates,
+    initialFactories,
+    storeAdmin,
+    setStoreValueInternal,
+    getStoreValueRef,
+    hasStoreEntryInternal,
+} from "./store-lifecycle/registry.js";
+import {
+    sanitizeValue,
+    normalizeCommittedState,
+    validatePathSafety,
+    invalidatePathCache,
+    materializeInitial,
+} from "./store-lifecycle/validation.js";
+import {
+    runFeatureCreateHooks,
+    runFeatureWriteHooks,
+    runMiddlewareForStore,
+    runStoreHookSafe,
+    resolveFeatureAvailability,
+} from "./store-lifecycle/hooks.js";
+import {
+    nameOf,
+    exists,
+    reportStoreCreationError,
+    reportStoreError,
+    reportStoreWarning,
+    getSsrWarningIssued,
+    markSsrWarningIssued,
+} from "./store-lifecycle/identity.js";
+import type {
+    PartialDeep,
+    Path,
+    PathValue,
+    StoreDefinition,
+    StoreValue,
+    StoreKey,
+    StoreName,
+    StateFor,
+    WriteResult,
+} from "./store-lifecycle/types.js";
+import { getConfig } from "./internals/config.js";
+import { runTestResets } from "./internals/test-reset.js";
+import { notify } from "./store-notify.js";
 import { MIDDLEWARE_ABORT } from "./features/lifecycle.js";
 import {
     isTransactionActive,
@@ -67,11 +83,12 @@ import {
 } from "./store-transaction.js";
 
 type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: any) => void);
-type LooseStoreNames = string extends StoreName ? true : false;
+// If store names are loose (not registered via StoreStateMap), fall back to untyped paths/values.
+type IsStoreNameLoose = string extends StoreName ? true : false;
 type StorePathFor<Name extends StoreName> =
-    LooseStoreNames extends true ? string | string[] : Path<StateFor<Name>>;
+    IsStoreNameLoose extends true ? string | string[] : Path<StateFor<Name>>;
 type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
-    LooseStoreNames extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
+    IsStoreNameLoose extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
 type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
@@ -82,6 +99,7 @@ type HydrationTrust<Snapshot extends Record<string, unknown>> = {
 
 const SLOW_MUTATOR_WARN_MS = 32;
 const slowMutatorWarned = new Set<string>();
+const ssrGlobalAllowWarned = new Set<string>();
 const warnSlowMutator = (storeName: string, elapsedMs: number): void => {
     if (!isDev()) return;
     if (elapsedMs < SLOW_MUTATOR_WARN_MS) return;
@@ -91,6 +109,39 @@ const warnSlowMutator = (storeName: string, elapsedMs: number): void => {
         `setStore("${storeName}", mutator) took ${elapsedMs}ms. ` +
         `Mutator writes clone the entire store; consider path writes or smaller stores for hot paths.`
     );
+};
+
+type CommitAction = "set" | "reset" | "hydrate" | "replace";
+type CommitHookLabel = "onSet" | "onReset";
+type CommitArgs = {
+    name: string;
+    prev: StoreValue;
+    next: StoreValue;
+    action: CommitAction;
+    hookLabel: CommitHookLabel;
+    logMessage: string;
+};
+
+const commitStoreUpdate = ({ name, prev, next, action, hookLabel, logMessage }: CommitArgs): void => {
+    setStoreValueInternal(name, next);
+    invalidatePathCache(name);
+    const updatedAtMs = Date.now();
+    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    meta[name].updatedAtMs = updatedAtMs;
+    meta[name].updateCount++;
+    runFeatureWriteHooks(name, action, prev, next, notify);
+    runStoreHookSafe(name, hookLabel, meta[name].options[hookLabel], [prev, next]);
+    notify(name);
+    log(logMessage);
+};
+
+const stageOrCommitUpdate = (args: CommitArgs): void => {
+    if (isTransactionActive()) {
+        stageTransactionValue(args.name, args.next);
+        registerTransactionCommit(() => commitStoreUpdate(args));
+        return;
+    }
+    commitStoreUpdate(args);
 };
 
 export const createStore = <Name extends string, State>(
@@ -125,7 +176,10 @@ export const createStore = <Name extends string, State>(
         warn(message);
     });
 
-    const normalizedOptions = resolveFeatureAvailability(name, normalizeStoreOptions(option, name));
+    const normalizedOptions = resolveFeatureAvailability(
+        name,
+        normalizeStoreOptions(option, name, getConfig().defaultSnapshotMode)
+    );
 
     if (normalizedOptions.scope === "temp" && option.persist) {
         const message =
@@ -147,6 +201,13 @@ export const createStore = <Name extends string, State>(
             `Call createStoreForRequest(...) inside each request scope or pass { scope: "global" } to opt in.`;
         reportStoreCreationError(msg, option.onError as ((message: string) => void) | undefined);
         return;
+    }
+    if (isProdServer && allowGlobalSSR && !ssrGlobalAllowWarned.has(name)) {
+        ssrGlobalAllowWarned.add(name);
+        warnAlways(
+            `createStore("${name}") is allowed on the server in production because allowSSRGlobalStore is true.\n` +
+            `This can leak data across concurrent requests. Prefer createStoreForRequest(...) or scope: "request" unless you truly need a global SSR store.`
+        );
     }
 
     if (hasStoreEntryInternal(name)) {
@@ -334,7 +395,8 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
             `  setStore("${storeName}", "field", value)\n` +
             `  setStore("${storeName}", "nested.field", value)\n` +
             `  setStore("${storeName}", { field: value })\n` +
-            `  setStore(storeDef, draft => { draft.field = value })`;
+            `  setStore(storeDef, draft => { draft.field = value })\n` +
+            `  replaceStore("${storeName}", value)  // full-store replace`;
         error(message);
         meta[storeName]?.options?.onError?.(message);
         if (isTransactionActive()) markTransactionFailed(message);
@@ -359,37 +421,14 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         return { ok: false, reason: "validate" };
     }
 
-    if (isTransactionActive()) {
-        const nextValue = committed.value;
-        const prevValue = prev;
-        stageTransactionValue(storeName, nextValue);
-        registerTransactionCommit(() => {
-            setStoreValueInternal(storeName, nextValue);
-            invalidatePathCache(storeName);
-            const updatedAtMs = Date.now();
-            meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
-            meta[storeName].updatedAtMs = updatedAtMs;
-            meta[storeName].updateCount++;
-            runFeatureWriteHooks(storeName, "set", prevValue, nextValue, notify);
-            runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prevValue, nextValue]);
-            notify(storeName);
-            log(`Store "${storeName}" updated`);
-        });
-    } else {
-        setStoreValueInternal(storeName, committed.value);
-        invalidatePathCache(storeName);
-        const updatedAtMs = Date.now();
-        meta[storeName].updatedAt = new Date(updatedAtMs).toISOString();
-        meta[storeName].updatedAtMs = updatedAtMs;
-        meta[storeName].updateCount++;
-        runFeatureWriteHooks(storeName, "set", prev, committed.value, notify);
-        runStoreHookSafe(storeName, "onSet", meta[storeName].options.onSet, [prev, committed.value]);
-        notify(storeName);
-    }
-
-    if (!isTransactionActive()) {
-        log(`Store "${storeName}" updated`);
-    }
+    stageOrCommitUpdate({
+        name: storeName,
+        prev,
+        next: committed.value,
+        action: "set",
+        hookLabel: "onSet",
+        logMessage: `Store "${storeName}" updated`,
+    });
     return { ok: true };
 }
 
@@ -455,37 +494,18 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
     const prev = stagedPrev.has ? stagedPrev.value : stores[name];
     const resetValue = deepClone(initialStates[name]);
 
-    if (isTransactionActive()) {
-        stageTransactionValue(name, resetValue);
-        registerTransactionCommit(() => {
-            setStoreValueInternal(name, resetValue);
-            invalidatePathCache(name);
-            const updatedAtMs = Date.now();
-            meta[name].updatedAt = new Date(updatedAtMs).toISOString();
-            meta[name].updatedAtMs = updatedAtMs;
-            meta[name].updateCount++;
-            runFeatureWriteHooks(name, "reset", prev, resetValue, notify);
-            runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
-            notify(name);
-            log(`Store "${name}" reset to initial state/value`);
-        });
-        return { ok: true };
-    }
-
-    setStoreValueInternal(name, resetValue);
-    invalidatePathCache(name);
-    const updatedAtMs = Date.now();
-    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
-    meta[name].updatedAtMs = updatedAtMs;
-    meta[name].updateCount++;
-    runFeatureWriteHooks(name, "reset", prev, resetValue, notify);
-    runStoreHookSafe(name, "onReset", meta[name].options.onReset, [prev, resetValue]);
-    notify(name);
-    log(`Store "${name}" reset to initial state/value`);
+    stageOrCommitUpdate({
+        name,
+        prev,
+        next: resetValue,
+        action: "reset",
+        hookLabel: "onReset",
+        logMessage: `Store "${name}" reset to initial state/value`,
+    });
     return { ok: true };
 }
 
-const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { ok: boolean; reason?: string } => {
+const replaceStoreState = (name: string, data: unknown, action: CommitAction = "hydrate"): { ok: boolean; reason?: string } => {
     if (!exists(name)) return { ok: false, reason: "not-found" };
     const prev = stores[name];
     const nextResult = sanitizeValue(name, data);
@@ -503,16 +523,14 @@ const replaceStoreState = (name: string, data: unknown, action = "hydrate"): { o
     if (final === MIDDLEWARE_ABORT) return { ok: false, reason: "middleware" };
     const committed = normalizeCommittedState(name, final, validateRule);
     if (!committed.ok) return { ok: false, reason: "validate" };
-    setStoreValueInternal(name, committed.value);
-    invalidatePathCache(name);
-    const updatedAtMs = Date.now();
-    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
-    meta[name].updatedAtMs = updatedAtMs;
-    meta[name].updateCount++;
-    runFeatureWriteHooks(name, action, prev, committed.value, notify);
-    runStoreHookSafe(name, "onSet", meta[name].options.onSet, [prev, committed.value]);
-    notify(name);
-    log(`Store "${name}" ${action === "hydrate" ? "hydrated" : "replaced"}`);
+    commitStoreUpdate({
+        name,
+        prev,
+        next: committed.value,
+        action,
+        hookLabel: "onSet",
+        logMessage: `Store "${name}" ${action === "hydrate" ? "hydrated" : "replaced"}`,
+    });
     return { ok: true };
 };
 
@@ -527,18 +545,7 @@ export const clearAllStores = (): void => {
 };
 
 export const _hardResetAllStoresForTest = (): void => {
-    resetFeaturesForTests();
-    clearAllRegistries();
-    resetLegacyOptionDeprecationWarningsForTests();
-    resetNotifyStateForTests();
-    clearPathValidationCache();
-    resetSsrWarningFlag();
-    resetBroadUseStoreWarnings();
-    resetMissingUseStoreWarnings();
-    resetConfig();
-    clearFeatureContexts();
-    clearRegistryScopeOverrideForTests();
-    bindRegistry(defaultRegistryScope);
+    runTestResets();
 };
 
 export const hydrateStores = <Snapshot extends Record<string, unknown> = HydrateSnapshot>(
@@ -608,4 +615,6 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
     return result;
 };
 
-export { useRegistry } from "./store-lifecycle.js";
+export { useRegistry } from "./store-lifecycle/bind.js";
+
+

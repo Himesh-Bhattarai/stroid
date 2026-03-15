@@ -1,3 +1,11 @@
+/**
+ * @module features/persist
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import type { PersistOptions } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
 import { isIdentityCrypto, validateCryptoPair } from "./persist/crypto.js";
@@ -9,6 +17,7 @@ import type {
     PersistWatchState,
     PersistTimers,
     PersistInFlight,
+    PersistSequence,
     PersistMeta,
 } from "./persist/types.js";
 
@@ -30,6 +39,7 @@ const isProdEnv = (): boolean => _resolvedEnv === "production";
 export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
     const persistTimers: PersistTimers = {};
     const persistInFlight: PersistInFlight = {};
+    const persistSequence: PersistSequence = Object.create(null);
     const persistKeys: Record<string, string> = Object.create(null);
     const persistWatchState: PersistWatchState = Object.create(null);
     const plaintextWarningsIssued = new Set<string>();
@@ -118,6 +128,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                                 name: ctx.name,
                                 persistTimers,
                                 persistInFlight,
+                                persistSequence,
                                 persistWatchState,
                                 plaintextWarningsIssued,
                                 exists: () => ctx.hasStore(),
@@ -138,6 +149,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                                 name: ctx.name,
                                 persistTimers,
                                 persistInFlight,
+                                persistSequence,
                                 persistWatchState,
                                 plaintextWarningsIssued,
                                 exists: () => ctx.hasStore(),
@@ -154,6 +166,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                     name: ctx.name,
                     persistTimers,
                     persistInFlight,
+                    persistSequence,
                     persistWatchState,
                     plaintextWarningsIssued,
                     exists: () => ctx.hasStore(),
@@ -170,6 +183,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                         name: ctx.name,
                         persistTimers,
                         persistInFlight,
+                        persistSequence,
                         persistWatchState,
                         plaintextWarningsIssued,
                         exists: () => ctx.hasStore(),
@@ -201,6 +215,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 name: ctx.name,
                 persistTimers,
                 persistInFlight,
+                persistSequence,
                 persistWatchState,
                 plaintextWarningsIssued,
                 exists: () => ctx.hasStore(),
@@ -222,6 +237,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 delete persistTimers[ctx.name];
             }
             persistInFlight[ctx.name] = null;
+            delete persistSequence[ctx.name];
 
             try {
                 cfg.driver.removeItem?.(cfg.key);
@@ -245,6 +261,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
 
             Object.keys(persistTimers).forEach((key) => delete persistTimers[key]);
             Object.keys(persistInFlight).forEach((key) => { persistInFlight[key] = null; delete persistInFlight[key]; });
+            Object.keys(persistSequence).forEach((key) => delete persistSequence[key]);
             Object.keys(persistKeys).forEach((key) => delete persistKeys[key]);
             Object.keys(persistWatchState).forEach((key) => delete persistWatchState[key]);
             Object.keys(persistLoadState).forEach((key) => delete persistLoadState[key]);
@@ -258,3 +275,5 @@ export const registerPersistFeature = (): void => {
     _registered = true;
     registerStoreFeature("persist", createPersistFeatureRuntime);
 };
+
+

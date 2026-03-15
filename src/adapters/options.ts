@@ -1,4 +1,20 @@
+/**
+ * @module adapters/options
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for adapters/options.
+ *
+ * Consumers: Internal imports and public API.
+ */
+import { registerTestResetHook } from "../internals/test-reset.js";
+
 export type StoreValue = unknown;
+
+// Ambient map users can augment to type feature option bags.
+// Example:
+//   declare module "stroid" { interface FeatureOptionsMap { myFeature: { enabled: boolean } } }
+export interface FeatureOptionsMap {}
+export type FeatureOptions = Partial<FeatureOptionsMap> & Record<string, unknown>;
 
 export interface PersistDriver {
     getItem?: (k: string) => string | null | Promise<string | null>;
@@ -203,6 +219,11 @@ export interface StoreOptions<State = StoreValue> {
     allowSSRGlobalStore?: boolean;
     sync?: boolean | SyncOptions;
     /**
+     * Optional feature option bag for third-party plugins.
+     * Keys are plugin names, values are plugin-specific options.
+     */
+    features?: FeatureOptions;
+    /**
      * Snapshot cloning strategy used by subscriptions and selector snapshots.
      *
      * - "deep" (default): deep clone and dev-freeze snapshot values.
@@ -231,6 +252,7 @@ export interface NormalizedOptions {
     historyLimit: number;
     allowSSRGlobalStore?: boolean;
     sync?: boolean | SyncOptions;
+    features?: FeatureOptions;
     snapshot: SnapshotMode;
     explicitPersist: boolean;
     explicitSync: boolean;
@@ -239,9 +261,16 @@ export interface NormalizedOptions {
 
 const warnedLegacyOptions = new Set<string>();
 
+/**
+ * Resets the internal set of legacy options that have been warned
+ * about. Used for testing purposes to prevent warnings from leaking
+ * between tests.
+ */
 export const resetLegacyOptionDeprecationWarningsForTests = (): void => {
     warnedLegacyOptions.clear();
 };
+
+registerTestResetHook("options.legacy-warnings", resetLegacyOptionDeprecationWarningsForTests, 30);
 
 const memoryStorage: PersistDriver = (() => {
     const m = new Map<string, string>();
@@ -253,6 +282,13 @@ const memoryStorage: PersistDriver = (() => {
     };
 })();
 
+/**
+ * Returns a storage driver that attempts to use the given type of storage
+ * (session or local) and falls back to memory storage if it is not available.
+ *
+ * @param {string} type The type of storage to attempt to use.
+ * @returns {PersistDriver} A storage driver that may use memory storage if necessary.
+ */
 const safeStorage = (type: string): PersistDriver => {
     try {
         if (typeof window === "undefined") return memoryStorage;
@@ -263,6 +299,13 @@ const safeStorage = (type: string): PersistDriver => {
     }
 };
 
+/**
+ * Checks if a value is an object.
+ *
+ * This function checks if the value is of type 'object', is not null, and is not an array.
+ *
+ * @returns {boolean} True if the value is an object, false otherwise.
+ */
 const isObject = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -308,6 +351,18 @@ const legacyOptionReplacementMap: Record<string, string> = {
     onDelete: "lifecycle.onDelete",
 };
 
+/**
+ * Normalize persist options for a store.
+ *
+ * This function takes the raw persist options from a store and returns
+ * a normalized PersistConfig object. If the raw persist options are
+ * invalid, this function returns null.
+ *
+ * @template State
+ * @param {StoreOptions<State>["persist"]} persist - The raw persist options for the store.
+ * @param {string} name - The name of the store.
+ * @returns {PersistConfig | null} A normalized PersistConfig object, or null if the raw persist options are invalid.
+ */
 export const normalizePersistOptions = <State>(
     persist: StoreOptions<State>["persist"],
     name: string
@@ -380,6 +435,21 @@ export const normalizePersistOptions = <State>(
     };
 };
 
+/**
+ * Collect deprecation warnings for a store options object.
+ *
+ * This function walks through the store options object and checks if any
+ * deprecated options are present. If a deprecated option is found, a
+ * warning message is added to the warnings array.
+ *
+ * The function returns an array of warning messages. If no deprecated
+ * options are found, an empty array is returned.
+ *
+ * @template State The type of the state stored in the store.
+ * @param option The store options object to check for deprecated options.
+ * @returns An array of warning messages for deprecated options. If no deprecated
+ *          options are found, an empty array is returned.
+ */
 export const collectLegacyOptionDeprecationWarnings = <State>(option: StoreOptions<State>): string[] => {
     if (!isObject(option)) return [];
 
@@ -393,9 +463,17 @@ export const collectLegacyOptionDeprecationWarnings = <State>(option: StoreOptio
     return warnings;
 };
 
+/**
+ * Normalize a store options object, merging default values and performing deprecation checks.
+ * @param option The store options object to normalize.
+ * @param name The name of the store.
+ * @param defaultSnapshotMode The default snapshot mode to use if none is specified.
+ * @returns A normalized store options object.
+ */
 export const normalizeStoreOptions = <State>(
     option: StoreOptions<State> = {},
-    name: string
+    name: string,
+    defaultSnapshotMode: SnapshotMode = "deep"
 ): NormalizedOptions => {
     const normalizedScope: StoreScope = option.scope ?? "request";
     const normalizedLazy = option.lazy === true;
@@ -407,7 +485,12 @@ export const normalizeStoreOptions = <State>(
     const normalizedSnapshot =
         option.snapshot === "shallow" || option.snapshot === "ref"
             ? option.snapshot
-            : "deep";
+            : (defaultSnapshotMode === "shallow" || defaultSnapshotMode === "ref"
+                ? defaultSnapshotMode
+                : "deep");
+    const normalizedFeatures = isObject(option.features)
+        ? { ...(option.features as Record<string, unknown>) }
+        : undefined;
     const explicitPersist = hasOwn(option, "persist");
     const explicitSync = hasOwn(option, "sync");
     const explicitDevtools = hasOwn(option, "devtools") || hasOwn(option, "historyLimit") || hasOwn(option, "redactor");
@@ -462,6 +545,7 @@ export const normalizeStoreOptions = <State>(
         sync: normalizedScope === "temp" && !explicitSync
             ? false
             : (sync ?? false),
+        features: normalizedFeatures,
         allowSSRGlobalStore: normalizedAllowSSRGlobalStore,
         snapshot: normalizedSnapshot,
         explicitPersist,
@@ -469,3 +553,5 @@ export const normalizeStoreOptions = <State>(
         explicitDevtools,
     };
 };
+
+

@@ -1,5 +1,15 @@
-import { registerSyncFeature } from "./features/sync.js";
+/**
+ * @module sync
+ *
+ * LAYER: Public API
+ * OWNS:  Module-level behavior and exports for sync.
+ *
+ * Consumers: Internal imports and public API.
+ */
+import { installSync } from "./install.js";
 
-registerSyncFeature();
+installSync();
 
-export {};
+export { installSync };
+
+

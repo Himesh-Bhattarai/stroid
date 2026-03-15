@@ -1,3 +1,11 @@
+/**
+ * @module runtime-tools
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for runtime-tools.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { deepClone, suggestStoreName } from "./utils.js";
 import {
     getStoreRegistry,
@@ -5,7 +13,8 @@ import {
     defaultRegistryScope,
     getActiveStoreRegistry,
 } from "./store-registry.js";
-import { subscribers, getFeatureApi } from "./store-lifecycle.js";
+import { subscribers } from "./store-lifecycle/registry.js";
+import { getFeatureApi } from "./store-lifecycle/identity.js";
 import { countInflightSlots } from "./async-cache.js";
 import type { StoreFeatureMeta } from "./feature-registry.js";
 import { getFullComputedGraph, getComputedDepsFor } from "./computed-graph.js";
@@ -65,3 +74,5 @@ export const getPersistQueueDepth = (name: string): number => {
 export const getComputedGraph = () => getFullComputedGraph();
 
 export const getComputedDeps = (name: string) => getComputedDepsFor(name);
+
+

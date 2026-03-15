@@ -1,3 +1,11 @@
+/**
+ * @module tests/heavy/sync.heavy
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/heavy/sync.heavy.
+ *
+ * Consumers: Test runner.
+ */
 import assert from "node:assert";
 import test from "node:test";
 import "../src/sync.js";
@@ -601,3 +609,5 @@ test("repeated sync create delete cycles clean up channels and ignore stale hand
     (globalThis as any).BroadcastChannel = originalBroadcastChannel;
   }
 });
+
+

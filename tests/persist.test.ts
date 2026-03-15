@@ -1,3 +1,11 @@
+/**
+ * @module tests/persist.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/persist.test.
+ *
+ * Consumers: Test runner.
+ */
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -49,6 +57,43 @@ test("persist setItem errors surface via onError without throwing", async () => 
   assert.deepStrictEqual(getStore("cart"), { items: [1, 2] });
 
   clearAllStores();
+});
+
+test("persist true surfaces localStorage quota errors without throwing", async () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const originalWindow = (globalThis as any).window;
+
+  const throwingStorage = {
+    getItem: () => null,
+    setItem: () => {
+      const err = new Error("QuotaExceededError");
+      (err as any).name = "QuotaExceededError";
+      throw err;
+    },
+    removeItem: () => {},
+  };
+
+  (globalThis as any).window = {
+    localStorage: throwingStorage,
+    sessionStorage: throwingStorage,
+  };
+
+  try {
+    createStore("quotaStore", { value: 1 }, {
+      persist: true,
+      onError: (msg) => errors.push(msg),
+    });
+
+    setStore("quotaStore", { value: 2 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.deepStrictEqual(getStore("quotaStore"), { value: 2 });
+    assert.ok(errors.some((msg) => msg.includes("QuotaExceededError")));
+  } finally {
+    clearAllStores();
+    (globalThis as any).window = originalWindow;
+  }
 });
 
 test("persist supports async crypto and sha256 checksums", async () => {
@@ -636,6 +681,64 @@ test("10 rapid setStore calls produce exactly 1 persist write in the same tick",
   assert.strictEqual(envelope.data, JSON.stringify({ value: 10 }));
 });
 
+test("persist skips stale queued writes when newer updates arrive during in-flight save", async () => {
+  clearAllStores();
+  const writes: string[] = [];
+  let blockNext = false;
+  let release: (() => void) | null = null;
+
+  const driver = {
+    getItem: () => null,
+    setItem: (_key: string, value: string) => {
+      writes.push(value);
+      if (blockNext) {
+        blockNext = false;
+        return new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      }
+    },
+    removeItem: () => {},
+  };
+
+  createStore("persistQueue", { value: 0 }, {
+    persist: {
+      driver,
+      key: "persist-queue",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+    },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  writes.length = 0;
+
+  blockNext = true;
+  setStore("persistQueue", { value: 1 });
+
+  const startedAt = Date.now();
+  while (!release) {
+    if (Date.now() - startedAt > 200) {
+      throw new Error("persist save did not start in time");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+
+  setStore("persistQueue", { value: 2 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  setStore("persistQueue", { value: 3 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  assert.strictEqual(writes.length, 2);
+  const envelope = JSON.parse(writes[writes.length - 1]);
+  assert.strictEqual(envelope.data, JSON.stringify({ value: 3 }));
+});
+
 test("createStore does not overwrite existing persisted state during init", async () => {
   clearAllStores();
   const writes: string[] = [];
@@ -855,6 +958,7 @@ test("persistSave uses a zero-argument exists callback", async () => {
     name: "existsStore",
     persistTimers: {},
     persistInFlight: {},
+    persistSequence: {},
     persistWatchState: {},
     plaintextWarningsIssued: new Set(),
     exists: (...args: any[]) => {
@@ -870,3 +974,5 @@ test("persistSave uses a zero-argument exists callback", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(calls, [0]);
 });
+
+

@@ -1,3 +1,11 @@
+/**
+ * @module features/persist/save
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist/save.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import type { StoreValue } from "../../adapters/options.js";
 import { warnAlways } from "../../utils.js";
 import { usesDefaultPersistCrypto } from "./crypto.js";
@@ -9,12 +17,14 @@ import type {
     PersistInFlight,
     PersistWatchState,
     PersistSaveArgs,
+    PersistSequence,
 } from "./types.js";
 
 const persistSaveInner = ({
     name,
     persistTimers,
     persistInFlight,
+    persistSequence,
     persistWatchState,
     plaintextWarningsIssued,
     exists,
@@ -26,6 +36,7 @@ const persistSaveInner = ({
     name: string;
     persistTimers: PersistTimers;
     persistInFlight: PersistInFlight;
+    persistSequence: PersistSequence;
     persistWatchState: PersistWatchState;
     plaintextWarningsIssued: Set<string>;
     exists: () => boolean;
@@ -77,9 +88,12 @@ const persistSaveInner = ({
 
     const startWrite = (timer?: ReturnType<typeof setTimeout>): void => {
         const prev = persistInFlight[name];
+        const sequence = (persistSequence[name] ?? 0) + 1;
+        persistSequence[name] = sequence;
         const run = async (): Promise<void> => {
             if (prev) await prev;
             if (timer && persistTimers[name] !== timer) return;
+            if (persistSequence[name] !== sequence) return;
             await writeNow();
         };
 
@@ -111,3 +125,5 @@ export const persistSave = (args: PersistSaveArgs): void => persistSaveInner(arg
 
 export const flushPersistImmediately = (name: string, args: PersistSaveArgs): void =>
     persistSaveInner({ ...args, name }, true);
+
+

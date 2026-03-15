@@ -1,3 +1,11 @@
+/**
+ * @module hooks-form
+ *
+ * LAYER: React hooks
+ * OWNS:  Module-level behavior and exports for hooks-form.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { useCallback } from "react";
 import { useStore } from "./hooks-core.js";
 import { setStore } from "./store.js";
@@ -8,7 +16,7 @@ import type {
     StoreKey,
     StoreName,
     StateFor,
-} from "./store-lifecycle.js";
+} from "./store-lifecycle/types.js";
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 
@@ -39,3 +47,5 @@ export function useFormStore(
     );
     return { value, onChange };
 }
+
+

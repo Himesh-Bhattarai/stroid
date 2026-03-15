@@ -1,9 +1,18 @@
+/**
+ * @module store-lifecycle/identity
+ *
+ * LAYER: Store lifecycle
+ * OWNS:  Module-level behavior and exports for store-lifecycle/identity.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { warn, isDev, suggestStoreName } from "../utils.js";
 import { getConfig, getNamespace } from "../internals/config.js";
 import { reportIssue, type IssueSeverity, type IssueVisibility } from "../internals/reporting.js";
 import { hasStoreEntryInternal, stores, isDeleting, meta, featureRuntimes } from "./registry.js";
 import type { FeatureName } from "../feature-registry.js";
 import type { StoreDefinition } from "./types.js";
+import { registerTestResetHook } from "../internals/test-reset.js";
 
 const _ssrWarningsIssued = new Set<string>();
 export const getSsrWarningIssued = (name?: string): boolean =>
@@ -15,6 +24,8 @@ export const markSsrWarningIssued = (name: string): void => {
 export const resetSsrWarningFlag = (): void => {
     _ssrWarningsIssued.clear();
 };
+
+registerTestResetHook("ssr.warnings", resetSsrWarningFlag, 60);
 
 const _namespaceWarnings = new Set<string>();
 export const qualifyName = (raw: string): string => {
@@ -95,3 +106,5 @@ export const warnMissingFeature = (storeName: string, featureName: FeatureName, 
 };
 
 export const getFeatureApi = (name: FeatureName) => featureRuntimes.get(name)?.api;
+
+

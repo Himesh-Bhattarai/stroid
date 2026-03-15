@@ -1,6 +1,14 @@
+/**
+ * @module integrations/query
+ *
+ * LAYER: Module
+ * OWNS:  Module-level behavior and exports for integrations/query.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { fetchStore } from "../async.js";
 import type { FetchInput, FetchOptions } from "../async-cache.js";
-import type { StoreDefinition, StoreKey, StoreName } from "../store-lifecycle.js";
+import type { StoreDefinition, StoreKey, StoreName } from "../store-lifecycle/types.js";
 
 type StoreTarget = StoreDefinition<string, unknown> | StoreKey<string, unknown> | StoreName;
 const resolveStoreName = (storeName: StoreTarget): string =>
@@ -34,3 +42,5 @@ export const createSwrFetcher = (
     }
     return fetchStore(storeName, input, options);
 };
+
+

@@ -1,8 +1,16 @@
+/**
+ * @module internals/selector-store
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/selector-store.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import {
     stores as _stores,
     subscribers as _subscribers,
-    type StoreValue as SelectorStoreValue,
-} from "../store-lifecycle.js";
+} from "../store-lifecycle/registry.js";
+import type { StoreValue as SelectorStoreValue } from "../store-lifecycle/types.js";
 
 type SelectorSubscriber = (value: SelectorStoreValue | null) => void;
 
@@ -22,3 +30,5 @@ export const subscribeSelectorStore = (name: string, fn: SelectorSubscriber): ((
         if (_subscribers[name]?.size === 0) delete _subscribers[name];
     };
 };
+
+

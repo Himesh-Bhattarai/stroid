@@ -1,3 +1,11 @@
+/**
+ * @module store-lifecycle/validation
+ *
+ * LAYER: Store lifecycle
+ * OWNS:  Module-level behavior and exports for store-lifecycle/validation.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import {
     warn,
     critical,
@@ -27,6 +35,7 @@ import {
     registerTransactionCommit,
     getStagedTransactionValue,
 } from "../store-transaction.js";
+import { registerTestResetHook } from "../internals/test-reset.js";
 import type { StoreValue } from "./types.js";
 
 type PathSafetyVerdict = { ok: true } | { ok: false; reason: string };
@@ -326,6 +335,8 @@ export const clearPathValidationCache = (): void => {
     getPathValidationLru(registry).clear();
 };
 
+registerTestResetHook("validation.path-cache", clearPathValidationCache, 50);
+
 setPathCacheInvalidator(invalidatePathCache);
 
 export const materializeInitial = (name: string): boolean => {
@@ -362,3 +373,5 @@ export const materializeInitial = (name: string): boolean => {
         return false;
     }
 };
+
+

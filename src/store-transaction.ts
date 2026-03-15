@@ -1,3 +1,11 @@
+/**
+ * @module store-transaction
+ *
+ * LAYER: Store runtime
+ * OWNS:  Module-level behavior and exports for store-transaction.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import type { StoreValue } from "./store-lifecycle/types.js";
 import {
     getActiveStoreRegistry,
@@ -23,6 +31,7 @@ export const beginTransaction = (registry?: StoreRegistry): StoreRegistry => {
     if (state.depth === 1) {
         state.pending = [];
         state.stagedValues.clear();
+        state.snapshotCache.clear();
         state.failed = false;
         state.error = undefined;
     }
@@ -46,6 +55,7 @@ export const registerTransactionCommit = (fn: () => void): void => {
 export const stageTransactionValue = (name: string, value: StoreValue): void => {
     const state = getTransactionState();
     state.stagedValues.set(name, value);
+    state.snapshotCache.delete(name);
 };
 
 export const getStagedTransactionValue = (name: string): { has: boolean; value: StoreValue | undefined } => {
@@ -71,8 +81,11 @@ export const endTransaction = (err?: unknown, registry?: StoreRegistry): Error |
 
     state.pending = [];
     state.stagedValues.clear();
+    state.snapshotCache.clear();
     state.failed = false;
     state.error = undefined;
 
     return finalError;
 };
+
+

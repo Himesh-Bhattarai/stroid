@@ -1,4 +1,15 @@
+/**
+ * @module internals/config
+ *
+ * LAYER: Internal subsystem
+ * OWNS:  Module-level behavior and exports for internals/config.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import type { SnapshotMode, MiddlewareCtx, StoreValue } from "../adapters/options.js";
+import { registerTestResetHook } from "./test-reset.js";
+import { warnAlways } from "./diagnostics.js";
+import { getActiveStoreRegistry, getDefaultStoreRegistry, type StoreRegistry } from "../store-registry.js";
 
 export type LogSink = {
     log?: (msg: string, meta?: Record<string, unknown>) => void;
@@ -32,6 +43,15 @@ export type StroidConfig = {
     asyncAutoCreate?: boolean;
     asyncCloneResult?: AsyncCloneMode;
     defaultSnapshotMode?: SnapshotMode;
+    /**
+     * Alias for defaultSnapshotMode.
+     */
+    snapshotStrategy?: SnapshotMode;
+    /**
+     * Throw on async usage errors instead of returning null.
+     * Default: false (usage errors return null and call onError).
+     */
+    strictAsyncUsageErrors?: boolean;
     middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
     /**
      * Allow hydrateStores to accept untrusted snapshots without explicit opt-in.
@@ -40,8 +60,9 @@ export type StroidConfig = {
     allowUntrustedHydration?: boolean;
     /**
      * Optional custom mutator engine (e.g. Immer's produce) to enable structural sharing.
+     * You can pass the produce function directly or use "immer" with a global produce shim.
      */
-    mutatorProduce?: <T>(base: T, recipe: (draft: T) => void) => T;
+    mutatorProduce?: (<T>(base: T, recipe: (draft: T) => void) => T) | "immer";
 };
 
 type ResolvedConfig = {
@@ -55,6 +76,7 @@ type ResolvedConfig = {
     asyncAutoCreate: boolean;
     asyncCloneResult: AsyncCloneMode;
     defaultSnapshotMode: SnapshotMode;
+    strictAsyncUsageErrors: boolean;
     middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
     allowUntrustedHydration: boolean;
     mutatorProduce?: <T>(base: T, recipe: (draft: T) => void) => T;
@@ -100,148 +122,238 @@ const defaultConfig: ResolvedConfig = {
     asyncAutoCreate: false,
     asyncCloneResult: "none",
     defaultSnapshotMode: "deep",
+    strictAsyncUsageErrors: false,
     middleware: [],
     allowUntrustedHydration: false,
     mutatorProduce: undefined,
 };
 
-let _config: ResolvedConfig = { ...defaultConfig };
+const cloneConfig = (base: ResolvedConfig): ResolvedConfig => ({
+    logSink: { ...base.logSink },
+    flush: { ...base.flush },
+    revalidateOnFocus: { ...base.revalidateOnFocus },
+    namespace: base.namespace,
+    strictMissingFeatures: base.strictMissingFeatures,
+    assertRuntime: base.assertRuntime,
+    strictMutatorReturns: base.strictMutatorReturns,
+    asyncAutoCreate: base.asyncAutoCreate,
+    asyncCloneResult: base.asyncCloneResult,
+    defaultSnapshotMode: base.defaultSnapshotMode,
+    strictAsyncUsageErrors: base.strictAsyncUsageErrors,
+    middleware: [...base.middleware],
+    allowUntrustedHydration: base.allowUntrustedHydration,
+    mutatorProduce: base.mutatorProduce,
+});
 
-export const getConfig = (): ResolvedConfig => _config;
+let configByRegistry = new WeakMap<StoreRegistry, ResolvedConfig>();
+let baseConfig = cloneConfig(defaultConfig);
+const getRegistryConfig = (registry: StoreRegistry): ResolvedConfig => {
+    let config = configByRegistry.get(registry);
+    if (!config) {
+        config = cloneConfig(baseConfig);
+        configByRegistry.set(registry, config);
+    }
+    return config;
+};
+
+const IMMER_PRODUCE_KEY = "__STROID_IMMER_PRODUCE__";
+let cachedImmerProduce: (<T>(base: T, recipe: (draft: T) => void) => T) | undefined;
+let immerMissingWarned = false;
+const resolveImmerProduce = (): (<T>(base: T, recipe: (draft: T) => void) => T) | undefined => {
+    if (cachedImmerProduce) return cachedImmerProduce;
+    const globalAny = globalThis as Record<string, unknown> | undefined;
+    const candidate = globalAny ? globalAny[IMMER_PRODUCE_KEY] : undefined;
+    if (typeof candidate === "function") {
+        cachedImmerProduce = candidate as (<T>(base: T, recipe: (draft: T) => void) => T);
+        return cachedImmerProduce;
+    }
+    return undefined;
+};
+
+export const getConfig = (): ResolvedConfig => getRegistryConfig(getActiveStoreRegistry());
 
 export const configureStroid = (next?: StroidConfig): void => {
     if (!next) return;
+    const registry = getActiveStoreRegistry();
+    let config = getRegistryConfig(registry);
 
     if (next.logSink) {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             logSink: {
-                log: next.logSink.log ?? _config.logSink.log,
-                warn: next.logSink.warn ?? _config.logSink.warn,
-                critical: next.logSink.critical ?? _config.logSink.critical,
+                log: next.logSink.log ?? config.logSink.log,
+                warn: next.logSink.warn ?? config.logSink.warn,
+                critical: next.logSink.critical ?? config.logSink.critical,
             },
         };
     }
 
     if (next.flush) {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             flush: {
-                chunkSize: Number.isFinite(next.flush.chunkSize ?? _config.flush.chunkSize)
+                chunkSize: Number.isFinite(next.flush.chunkSize ?? config.flush.chunkSize)
                     ? (next.flush.chunkSize as number)
-                    : _config.flush.chunkSize,
-                chunkDelayMs: Number.isFinite(next.flush.chunkDelayMs ?? _config.flush.chunkDelayMs)
+                    : config.flush.chunkSize,
+                chunkDelayMs: Number.isFinite(next.flush.chunkDelayMs ?? config.flush.chunkDelayMs)
                     ? (next.flush.chunkDelayMs as number)
-                    : _config.flush.chunkDelayMs,
+                    : config.flush.chunkDelayMs,
                 priorityStores: Array.isArray(next.flush.priorityStores)
                     ? next.flush.priorityStores
-                    : _config.flush.priorityStores,
+                    : config.flush.priorityStores,
             },
         };
     }
 
     if (next.revalidateOnFocus) {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             revalidateOnFocus: {
-                debounceMs: Number.isFinite(next.revalidateOnFocus.debounceMs ?? _config.revalidateOnFocus.debounceMs)
+                debounceMs: Number.isFinite(next.revalidateOnFocus.debounceMs ?? config.revalidateOnFocus.debounceMs)
                     ? (next.revalidateOnFocus.debounceMs as number)
-                    : _config.revalidateOnFocus.debounceMs,
-                maxConcurrent: Number.isFinite(next.revalidateOnFocus.maxConcurrent ?? _config.revalidateOnFocus.maxConcurrent)
+                    : config.revalidateOnFocus.debounceMs,
+                maxConcurrent: Number.isFinite(next.revalidateOnFocus.maxConcurrent ?? config.revalidateOnFocus.maxConcurrent)
                     ? Math.max(1, next.revalidateOnFocus.maxConcurrent as number)
-                    : _config.revalidateOnFocus.maxConcurrent,
-                staggerMs: Number.isFinite(next.revalidateOnFocus.staggerMs ?? _config.revalidateOnFocus.staggerMs)
+                    : config.revalidateOnFocus.maxConcurrent,
+                staggerMs: Number.isFinite(next.revalidateOnFocus.staggerMs ?? config.revalidateOnFocus.staggerMs)
                     ? Math.max(0, next.revalidateOnFocus.staggerMs as number)
-                    : _config.revalidateOnFocus.staggerMs,
+                    : config.revalidateOnFocus.staggerMs,
             },
         };
     }
 
     if (typeof next.namespace === "string") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             namespace: next.namespace.trim(),
         };
     }
 
     if (typeof next.strictMissingFeatures === "boolean") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             strictMissingFeatures: next.strictMissingFeatures,
         };
     }
     if (typeof next.strictFeatures === "boolean") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             strictMissingFeatures: next.strictFeatures,
         };
     }
 
     if (typeof next.assertRuntime === "boolean") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             assertRuntime: next.assertRuntime,
         };
     }
 
     if (typeof next.strictMutatorReturns === "boolean") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             strictMutatorReturns: next.strictMutatorReturns,
         };
     }
 
     if (typeof next.asyncAutoCreate === "boolean") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             asyncAutoCreate: next.asyncAutoCreate,
+        };
+    }
+    if (typeof next.strictAsyncUsageErrors === "boolean") {
+        config = {
+            ...config,
+            strictAsyncUsageErrors: next.strictAsyncUsageErrors,
         };
     }
 
     if (next.asyncCloneResult === "none" || next.asyncCloneResult === "shallow" || next.asyncCloneResult === "deep") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             asyncCloneResult: next.asyncCloneResult,
         };
     }
 
+    if (next.snapshotStrategy === "shallow" || next.snapshotStrategy === "ref" || next.snapshotStrategy === "deep") {
+        config = {
+            ...config,
+            defaultSnapshotMode: next.snapshotStrategy,
+        };
+    }
+
     if (next.defaultSnapshotMode === "shallow" || next.defaultSnapshotMode === "ref" || next.defaultSnapshotMode === "deep") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             defaultSnapshotMode: next.defaultSnapshotMode,
         };
     }
 
     if (Array.isArray(next.middleware)) {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             middleware: next.middleware,
         };
     }
 
     if (typeof next.allowUntrustedHydration === "boolean") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             allowUntrustedHydration: next.allowUntrustedHydration,
         };
     }
 
     if (typeof next.mutatorProduce === "function") {
-        _config = {
-            ..._config,
+        config = {
+            ...config,
             mutatorProduce: next.mutatorProduce,
         };
+    } else if (next.mutatorProduce === "immer") {
+        const produce = resolveImmerProduce();
+        if (produce) {
+            config = {
+                ...config,
+                mutatorProduce: produce,
+            };
+        } else {
+            if (!immerMissingWarned) {
+                immerMissingWarned = true;
+                warnAlways(
+                    `configureStroid({ mutatorProduce: "immer" }) requires Immer's produce function.\n` +
+                    `Set globalThis.${IMMER_PRODUCE_KEY} = produce or pass mutatorProduce: produce directly.`
+                );
+            }
+        }
+    }
+
+    configByRegistry.set(registry, config);
+    if (registry === getDefaultStoreRegistry()) {
+        baseConfig = cloneConfig(config);
     }
 };
 
 export const resetConfig = (): void => {
-    _config = { ...defaultConfig };
+    configByRegistry = new WeakMap<StoreRegistry, ResolvedConfig>();
+    baseConfig = cloneConfig(defaultConfig);
+    cachedImmerProduce = undefined;
+    immerMissingWarned = false;
 };
+
+registerTestResetHook("config.reset", resetConfig, 90);
 
 // Back-compat for tests
 export const _resetConfigForTests = (): void => resetConfig();
 
-export const getNamespace = (): string => _config.namespace;
+export const getNamespace = (): string => getConfig().namespace;
 export const setNamespace = (ns: string): void => {
-    _config = { ..._config, namespace: ns.trim() };
+    const registry = getActiveStoreRegistry();
+    const config = getRegistryConfig(registry);
+    const next = { ...config, namespace: ns.trim() };
+    configByRegistry.set(registry, next);
+    if (registry === getDefaultStoreRegistry()) {
+        baseConfig = cloneConfig(next);
+    }
 };
+
+

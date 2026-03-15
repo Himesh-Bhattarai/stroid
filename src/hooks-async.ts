@@ -1,6 +1,14 @@
+/**
+ * @module hooks-async
+ *
+ * LAYER: React hooks
+ * OWNS:  Module-level behavior and exports for hooks-async.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { useStore } from "./hooks-core.js";
 import { store as storeHandle } from "./store-name.js";
-import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle.js";
+import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle/types.js";
 
 export type AsyncStoreState<T = unknown> = {
     data: T | null;
@@ -34,3 +42,5 @@ export function useAsyncStore(
         isEmpty: snapshot?.data == null && !snapshot?.loading && !snapshot?.error,
     };
 }
+
+

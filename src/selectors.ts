@@ -1,3 +1,11 @@
+/**
+ * @module selectors
+ *
+ * LAYER: Selectors
+ * OWNS:  Module-level behavior and exports for selectors.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import {
     getSelectorStoreValueRef,
     hasSelectorStoreEntry,
@@ -6,7 +14,7 @@ import {
 } from "./internals/selector-store.js";
 import { deepClone, shallowClone, getByPath, warn } from "./utils.js";
 import { getStoreSnapshot } from "./store-notify.js";
-import { meta } from "./store-lifecycle.js";
+import { meta } from "./store-lifecycle/registry.js";
 import type { SnapshotMode } from "./adapters/options.js";
 
 type SelectorDependency = string[];
@@ -126,3 +134,5 @@ export const subscribeWithSelector = <R>(
     };
     return subscribeSelectorStore(name, wrapped);
 };
+
+

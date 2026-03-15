@@ -1,4 +1,13 @@
+/**
+ * @module async/errors
+ *
+ * LAYER: Async subsystem
+ * OWNS:  Module-level behavior and exports for async/errors.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import { critical, error, isDev, warn } from "../utils.js";
+import { getConfig } from "../internals/config.js";
 
 export const runAsyncHook = (
     name: string,
@@ -19,6 +28,9 @@ export const reportAsyncUsageError = (
     message: string,
     onError?: (message: string) => void
 ): null => {
+    if (getConfig().strictAsyncUsageErrors) {
+        return throwAsyncUsageError(name, message, onError);
+    }
     runAsyncHook(name, "onError", onError, message);
     if (isDev()) {
         error(message);
@@ -41,3 +53,5 @@ export const throwAsyncUsageError = (
     }
     throw new Error(message);
 };
+
+

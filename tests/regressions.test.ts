@@ -1,9 +1,18 @@
+/**
+ * @module tests/regressions.test
+ *
+ * LAYER: Tests
+ * OWNS:  Test coverage for tests/regressions.test.
+ *
+ * Consumers: Test runner.
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { configureStroid, resetConfig } from "../src/config.js";
 import { clearAllStores } from "../src/runtime-admin.js";
 import {
   createStore,
+  deleteStore,
   getStore,
   hasStore,
   hydrateStores,
@@ -12,13 +21,16 @@ import {
   subscribe,
   useRegistry,
   _getSnapshot,
+  _getStoreValueRef,
 } from "../src/store.js";
 import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
-import { hashState } from "../src/utils.js";
-import { defaultRegistryScope } from "../src/store-registry.js";
-import { stores, validatePathSafety, getStoreAdmin } from "../src/store-lifecycle.js";
+import { hashState, warn } from "../src/utils.js";
+import { createStoreRegistry, defaultRegistryScope, runWithRegistry } from "../src/store-registry.js";
+import { stores, validatePathSafety, pathValidationCache, getStoreAdmin } from "../src/store-lifecycle.js";
 import { createStoreForRequest } from "../src/server.js";
+import { setComputedOrderResolver } from "../src/internals/computed-order.js";
+import { getTopoOrderedComputeds } from "../src/computed-graph.js";
 
 test("validator with side effects runs once per write", () => {
   clearAllStores();
@@ -65,6 +77,36 @@ test("validatePathSafety cache does not bypass type mismatch", () => {
 
   const badString = validatePathSafety("x", base, "count", "nope");
   assert.strictEqual(badString.ok, false);
+});
+
+test("validatePathSafety LRU caps verdict entries under high-cardinality paths", () => {
+  clearAllStores();
+  const items: Record<string, { value: number }> = {};
+  const total = 700;
+  for (let i = 0; i < total; i += 1) {
+    items[`k${i}`] = { value: i };
+  }
+
+  createStore("lru", { items });
+  const base = stores["lru"];
+
+  for (let i = 0; i < total; i += 1) {
+    validatePathSafety("lru", base, `items.k${i}.value`, i);
+  }
+
+  const root = pathValidationCache.get("lru") as any;
+  const countVerdicts = (node: any): number => {
+    if (!node) return 0;
+    let count = 0;
+    if (node.verdicts) count += node.verdicts.size;
+    node.children?.forEach((child: any) => {
+      count += countVerdicts(child);
+    });
+    return count;
+  };
+
+  const verdictCount = countVerdicts(root);
+  assert.ok(verdictCount <= 500, `expected <= 500 verdicts, got ${verdictCount}`);
 });
 
 test("hydrateStores does not materialize lazy stores", () => {
@@ -278,6 +320,9 @@ test("getStoreSnapshot reads staged values inside setStoreBatch", () => {
   clearAllStores();
   createStore("batched", { value: 0 });
 
+  const pre = _getSnapshot("batched");
+  assert.deepStrictEqual(pre, { value: 0 });
+
   let stagedSnapshot: any = null;
   setStoreBatch(() => {
     setStore("batched", "value", 1);
@@ -285,6 +330,192 @@ test("getStoreSnapshot reads staged values inside setStoreBatch", () => {
   });
 
   assert.deepStrictEqual(stagedSnapshot, { value: 1 });
+});
+
+test("configureStroid is registry-scoped", () => {
+  const registryA = createStoreRegistry();
+  const registryB = createStoreRegistry();
+  const warningsA: string[] = [];
+  const warningsB: string[] = [];
+
+  runWithRegistry(registryA, () => {
+    configureStroid({ logSink: { warn: (msg) => warningsA.push(msg) } });
+    warn("A");
+  });
+
+  runWithRegistry(registryB, () => {
+    configureStroid({ logSink: { warn: (msg) => warningsB.push(msg) } });
+    warn("B");
+  });
+
+  runWithRegistry(registryA, () => {
+    warn("A2");
+  });
+
+  assert.deepStrictEqual(warningsA, ["A", "A2"]);
+  assert.deepStrictEqual(warningsB, ["B"]);
+
+  resetConfig();
+});
+
+test("snapshotStrategy sets the default snapshot mode", () => {
+  clearAllStores();
+  configureStroid({ snapshotStrategy: "shallow" });
+
+  try {
+    createStore("snap", { nested: { value: 1 } });
+    const snap = _getSnapshot("snap") as any;
+    const ref = _getStoreValueRef("snap") as any;
+    assert.notStrictEqual(snap, ref);
+    assert.strictEqual(snap.nested, ref.nested);
+  } finally {
+    resetConfig();
+  }
+});
+
+test("mid-flush store deletion does not crash or notify deleted subscribers", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 10 } });
+
+  try {
+    createStore("chaos", { value: 0 });
+    const events: Array<{ id: string; value: unknown }> = [];
+
+    subscribe("chaos", (snap) => {
+      events.push({ id: "first", value: snap });
+      if (snap && (snap as any).value === 1) {
+        deleteStore("chaos");
+      }
+    });
+    subscribe("chaos", (snap) => {
+      events.push({ id: "second", value: snap });
+    });
+
+    setStore("chaos", "value", 1);
+    await new Promise((r) => setTimeout(r, 60));
+
+    assert.ok(events.some((entry) => entry.id === "first" && (entry.value as any)?.value === 1));
+    assert.ok(events.some((entry) => entry.value === null));
+    assert.strictEqual(getStore("chaos"), null);
+  } finally {
+    resetConfig();
+  }
+});
+
+test("chunked flush avoids mixed snapshots when store updates mid-chunk", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 10 } });
+
+  try {
+    createStore("chunkMix", { value: 0 });
+    const calls: Array<[string, number]> = [];
+    let triggered = false;
+
+    subscribe("chunkMix", (snap: any) => {
+      calls.push(["first", snap.value as number]);
+      if (!triggered) {
+        triggered = true;
+        setStore("chunkMix", "value", (snap.value as number) + 1);
+      }
+    });
+    subscribe("chunkMix", (snap: any) => {
+      calls.push(["second", snap.value as number]);
+    });
+
+    setStore("chunkMix", "value", 1);
+    await new Promise((r) => setTimeout(r, 80));
+
+    const secondValues = calls.filter(([id]) => id === "second").map(([, value]) => value);
+    assert.ok(secondValues.length > 0);
+    assert.ok(secondValues.every((value) => value !== 1));
+    assert.ok(secondValues.includes(2));
+  } finally {
+    resetConfig();
+  }
+});
+
+test("notify uses computed order resolver when provided", async () => {
+  clearAllStores();
+  let calls = 0;
+  const defaultResolver = getTopoOrderedComputeds;
+  setComputedOrderResolver((names) => {
+    calls += 1;
+    return names;
+  });
+
+  try {
+    createStore("orderHook", { value: 0 });
+    setStore("orderHook", "value", 1);
+    await Promise.resolve();
+    assert.ok(calls > 0);
+  } finally {
+    setComputedOrderResolver(defaultResolver);
+  }
+});
+
+test("mutatorProduce enables structural sharing", async () => {
+  clearAllStores();
+  const { produce } = await import("immer");
+  configureStroid({ mutatorProduce: produce });
+
+  try {
+    createStore("sharing", { a: { value: 1 }, b: { value: 2 } });
+    const before = _getStoreValueRef("sharing") as any;
+    setStore("sharing", (draft: any) => {
+      draft.a.value = 99;
+    });
+    const after = _getStoreValueRef("sharing") as any;
+    assert.notStrictEqual(before, after);
+    assert.notStrictEqual(before.a, after.a);
+    assert.strictEqual(before.b, after.b);
+  } finally {
+    resetConfig();
+  }
+});
+
+test("mutatorProduce accepts the \"immer\" alias when globally provided", async () => {
+  clearAllStores();
+  const { produce } = await import("immer");
+  (globalThis as any).__STROID_IMMER_PRODUCE__ = produce;
+
+  try {
+    configureStroid({ mutatorProduce: "immer" });
+    createStore("sharingAlias", { a: { value: 1 }, b: { value: 2 } });
+    const before = _getStoreValueRef("sharingAlias") as any;
+    setStore("sharingAlias", (draft: any) => {
+      draft.a.value = 2;
+    });
+    const after = _getStoreValueRef("sharingAlias") as any;
+    assert.notStrictEqual(before, after);
+    assert.notStrictEqual(before.a, after.a);
+    assert.strictEqual(before.b, after.b);
+  } finally {
+    delete (globalThis as any).__STROID_IMMER_PRODUCE__;
+    resetConfig();
+  }
+});
+
+test("getStoreSnapshot caches within a transaction and invalidates on stage", () => {
+  clearAllStores();
+  createStore("batchCache", { value: 0 });
+
+  let first: any = null;
+  let second: any = null;
+  let third: any = null;
+
+  setStoreBatch(() => {
+    setStore("batchCache", "value", 1);
+    first = _getSnapshot("batchCache");
+    second = _getSnapshot("batchCache");
+    assert.strictEqual(first, second);
+
+    setStore("batchCache", "value", 2);
+    third = _getSnapshot("batchCache");
+  });
+
+  assert.deepStrictEqual(first, { value: 1 });
+  assert.deepStrictEqual(third, { value: 2 });
+  assert.notStrictEqual(first, third);
 });
 
 test("critical fires when sync payload is dropped", () => {
@@ -326,3 +557,5 @@ test("assertRuntime throws on warnings to hard-fail tests", () => {
     resetConfig();
   }
 });
+
+

@@ -1,3 +1,11 @@
+/**
+ * @module features/persist/watch
+ *
+ * LAYER: Feature runtime
+ * OWNS:  Module-level behavior and exports for features/persist/watch.
+ *
+ * Consumers: Internal imports and public API.
+ */
 import type { PersistConfig } from "../../adapters/options.js";
 import type { PersistWatchState } from "./types.js";
 
@@ -71,3 +79,5 @@ export const setupPersistWatch = ({
         },
     };
 };
+
+
