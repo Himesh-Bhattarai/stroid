@@ -1,41 +1,47 @@
 # Stroid
 
-[![npm](https://img.shields.io/npm/v/stroid)](https://www.npmjs.com/package/stroid)
-[![npm downloads](https://img.shields.io/npm/dm/stroid)](https://www.npmjs.com/package/stroid)
+[![npm](https://img.shields.io/npm/v/stroid)](https://npmjs.com/package/stroid)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/stroid)](https://bundlephobia.com/package/stroid)
-[![types](https://img.shields.io/npm/types/stroid)](https://www.npmjs.com/package/stroid)
-[![license](https://img.shields.io/npm/l/stroid)](https://github.com/Himesh-Bhattarai/stroid/blob/main/LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/Himesh-Bhattarai/stroid/ci.yml?branch=main)](https://github.com/Himesh-Bhattarai/stroid/actions)
-[![issues](https://img.shields.io/github/issues/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid/issues)
-[![stars](https://img.shields.io/github/stars/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid)
-[![forks](https://img.shields.io/github/forks/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid)
-[![contributors](https://img.shields.io/github/contributors/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid/graphs/contributors)
-[![last commit](https://img.shields.io/github/last-commit/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid/commits/main)
-[![commit activity](https://img.shields.io/github/commit-activity/m/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid/commits/main)
-[![code size](https://img.shields.io/github/languages/code-size/Himesh-Bhattarai/stroid)](https://github.com/Himesh-Bhattarai/stroid)
-[![node](https://img.shields.io/node/v/stroid)](https://www.npmjs.com/package/stroid)
+[![types](https://img.shields.io/npm/types/stroid)](https://npmjs.com/package/stroid)
+[![license](https://img.shields.io/npm/l/stroid)](./LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/Himesh-Bhattarai/stroid/ci.yml)](https://github.com/Himesh-Bhattarai/stroid/actions)
 
-Stroid is a named-store state library for JavaScript and React. Core stays small; optional layers unlock persist, async caching, sync, and devtools.
+**Named-store state engine for TypeScript and React.**  
+Every store has a name. Write to it from anywhere — hooks, utilities, server, tests. Optional layers add persistence, sync, async fetch, SSR isolation, and devtools without touching your core logic.
 
-> **Note:** The `main` branch is reserved for releases and is locked between publishes. Current development happens on the `dev` branch. Please target PRs, pulls, and forks to the active development branch.
+> 🚀 **Power in 4 lines:** Create a store, read/write it, optionally persist, sync, or hydrate for SSR.
 
-> **Commits:** We prefer [STATUS-based commit messages](CONTRIBUTING.md)(STATUS.md) to maintain a clean, narrative, and high-quality git history.
+```tsx
+createStore("user", { name: "Ava", role: "admin" })           // define once
+setStore("user", "name", "Kai")                                // write from anywhere
+const name = useStore("user", s => s.name)                     // React hook
+```
 
-## Table of Contents
+---
 
-- [Install](#install)
-- [Minimal Usage](#minimal-usage)
-- [Module Imports](#module-imports)
-- [Stroid At a Glance](#stroid-at-a-glance)
-- [Public API Index](#public-api-index)
-- [Subpath API Index](#subpath-api-index)
-- [Options Index](#options-index)
-- [Types Index](#types-index)
-- [Behavior Notes](#behavior-notes)
-- [Short Recipes](#short-recipes)
-- [Docs](#docs)
-- [Docs Index (Full)](#docs-index-full)
-- [Changelog and License](#changelog-and-license)
+## Layers
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        your app                         │
+├─────────────────────────────────────────────────────────┤
+│  useStore  useSelector  useAsyncStore  useFormStore      │  stroid/react
+├─────────────────────────────────────────────────────────┤
+│  createStore  setStore  getStore  setStoreBatch          │  stroid  ← core
+│  createComputed  createSelector  createEntityStore       │
+├──────────────┬──────────────┬───────────────────────────┤
+│ stroid/persist│ stroid/sync  │ stroid/async              │  opt-in features
+│ localStorage  │ BroadcastCh  │ fetch + cache + retry     │
+├──────────────┴──────────────┴───────────────────────────┤
+│  stroid/server   createStoreForRequest (AsyncLocalStorage)│  SSR
+├─────────────────────────────────────────────────────────┤
+│  stroid/devtools   stroid/testing   stroid/runtime-tools │  tooling
+└─────────────────────────────────────────────────────────┘
+```
+
+Each row is independent. Use only what you need.
+
+---
 
 ## Install
 
@@ -43,570 +49,420 @@ Stroid is a named-store state library for JavaScript and React. Core stays small
 npm install stroid
 ```
 
-## Minimal Usage
+> **Note:** `main` is locked between releases. Active development is on the `dev` branch — PRs and forks should target `dev`. Commit messages follow [STATUS.md](./STATUS.md) conventions.
+
+---
+
+## Quick API Reference
+
+| API | Purpose |
+|-----|---------|
+| `createStore(name, state, options?)` | Define a store |
+| `setStore(name, path, value)` | Write a value by path |
+| `setStore(name, draft => { })` | Mutate with a function |
+| `getStore(name, path?)` | Read a store (or a path inside it) |
+| `setStoreBatch(fn)` | Atomic multi-store write, rollback on error |
+| `useStore(name, selector?)` | React hook — subscribes to a store |
+| `useSelector(name, fn)` | React hook — fine-grained derived value |
+| `fetchStore(name, url, options?)` | Async fetch wired to store state |
+| `createComputed(name, deps, fn)` | Reactive derived store |
+| `createStoreForRequest(fn)` | Per-request SSR registry |
+| `hydrateStores(snapshot)` | Rehydrate on client from server state |
+
+---
+
+## Quick Start
+
+Three levels. Start where you are.
+
+---
+
+### Level 1 — The Basics
+
+**Create a store. Read it. Write to it.**
 
 ```ts
-import { createStore, getStore, setStore } from "stroid";
+import { createStore, getStore, setStore } from "stroid"
 
-createStore("counter", { count: 0 });
-setStore("counter", "count", 1);
+createStore("counter", { count: 0 })
 
-console.log(getStore("counter"));
+setStore("counter", "count", 1)
+console.log(getStore("counter")) // { count: 1 }
 ```
 
-## Module Imports
+**Use it in React.**
 
-Core (root) entry:
-
-```ts
-import { createStore, setStore, getStore } from "stroid";
-```
-
-Subpath modules:
-
-```ts
-import { useStore } from "stroid/react";
-import { fetchStore } from "stroid/async";
-import { createSelector } from "stroid/selectors";
-import { createComputed } from "stroid/computed";
-import { createEntityStore } from "stroid/helpers";
-import { createMockStore } from "stroid/testing";
-import { listStores } from "stroid/runtime-tools";
-import { clearAllStores } from "stroid/runtime-admin";
-import { createStoreForRequest } from "stroid/server";
-```
-
-Feature registration (side-effect imports):
-
-```ts
-import "stroid/persist";
-import "stroid/sync";
-import "stroid/devtools";
-```
-
-## Stroid At a Glance
-
-Core API:
-- createStore, createStoreStrict, setStore, setStoreBatch, getStore, deleteStore, resetStore, hasStore, hydrateStores
-- store(name) and namespace(ns) helpers for typed handles
-- createComputed, invalidateComputed, deleteComputed, isComputedStore
-- configureStroid and queryIntegrations helpers
-
-Runtime layers:
-- stroid/react: useStore, useStoreField, useSelector, useStoreStatic, useAsyncStore, useFormStore, useAsyncStoreSuspense
-- stroid/async: fetchStore, refetchStore, enableRevalidateOnFocus, getAsyncMetrics
-- stroid/selectors: createSelector, subscribeWithSelector
-
-Store-attached features (side-effect imports):
-- stroid/persist
-- stroid/sync
-- stroid/devtools
-
-Operational tools:
-- stroid/runtime-tools
-- stroid/runtime-admin
-- stroid/server
-- stroid/helpers
-- stroid/testing
-- stroid/computed
-
-## Public API Index
-
-Root export names (stroid and stroid/core):
-- `createStore(name, initialState, options?)`
-- `createStoreStrict(name, initialState, options?)`
-- `setStore(nameOrHandle, updateOrPath, value?)`
-- `setStoreBatch(fn)`
-- `getStore(nameOrHandle, path?)`
-- `deleteStore(nameOrHandle)`
-- `resetStore(nameOrHandle)`
-- `hasStore(nameOrHandle)`
-- `hydrateStores(snapshot, options?, trustOptions?)`
-- `store(name)`
-- `namespace(ns)`
-- `createComputed(name, deps, compute, options?)`
-- `invalidateComputed(name)`
-- `deleteComputed(name)`
-- `isComputedStore(name)`
-- `configureStroid(config)`
-- `queryIntegrations (reactQueryKey, createReactQueryFetcher, swrKey, createSwrFetcher)`
-
-Root exported types:
-- `Path`
-- `PathValue`
-- `PartialDeep`
-- `StoreDefinition`
-- `StoreValue`
-- `StoreKey`
-- `StoreName`
-- `StateFor`
-- `StoreStateMap`
-- `StrictStoreMap`
-- `WriteResult`
-- `PersistOptions`
-- `StoreOptions`
-- `SyncOptions`
-
-## Subpath API Index
-
-### stroid/react
-
-- `useStore`
-- `useStoreField`
-- `useSelector`
-- `useStoreStatic`
-- `useAsyncStore`
-- `useFormStore`
-- `useAsyncStoreSuspense`
-
-### stroid/async
-
-- `fetchStore`
-- `refetchStore`
-- `enableRevalidateOnFocus`
-- `getAsyncMetrics`
-- `_resetAsyncStateForTests`
-- `FetchOptions (type)`
-- `FetchInput (type)`
-- `AsyncStateSnapshot (type)`
-- `AsyncStateAdapter (type)`
-
-### stroid/selectors
-
-- `createSelector`
-- `subscribeWithSelector`
-
-### stroid/computed
-
-- `createComputed`
-- `invalidateComputed`
-- `deleteComputed`
-- `isComputedStore`
-- `_resetComputedForTests`
-- `getFullComputedGraph`
-- `getComputedDepsFor`
-
-### stroid/helpers
-
-- `createCounterStore`
-- `createListStore`
-- `createEntityStore`
-
-### stroid/testing
-
-- `createMockStore`
-- `withMockedTime`
-- `resetAllStoresForTest`
-- `benchmarkStoreSet`
-
-### stroid/runtime-tools
-
-- `listStores`
-- `getStoreMeta`
-- `getInitialState`
-- `getMetrics`
-- `getSubscriberCount`
-- `getAsyncInflightCount`
-- `getPersistQueueDepth`
-- `getComputedGraph`
-- `getComputedDeps`
-
-### stroid/runtime-admin
-
-- `clearAllStores`
-- `clearStores`
-
-### stroid/server
-
-- `createStoreForRequest`
-
-### stroid/persist
-
-- `side-effect only (registers persistence feature)`
-
-### stroid/sync
-
-- `side-effect only (registers sync feature)`
-
-### stroid/devtools
-
-- `side-effect only (registers devtools feature)`
-
-## Behavior Notes
-
-- Feature layers are explicit: persist, sync, and devtools require side-effect imports.
-- Default store scope is request; global stores must be opted in.
-- Snapshot mode defaults to deep cloning for subscriptions and selector snapshots.
-- hydrateStores requires trust options; use allowUntrusted or validate for SSR data.
-- fetchStore writes the AsyncStateSnapshot shape by default unless stateAdapter is provided.
-- Auto-create for fetchStore is controlled by FetchOptions.autoCreate or global config.
-- Persist defaults to localStorage when enabled in the browser.
-- Sync uses BroadcastChannel and warns if unavailable.
-- Computed deps can be store names or handles; missing deps yield null until created.
-- Store option validate replaces legacy schema and validator options.
-
-## Short Recipes
-
-### Create and update a store
-
-```ts
-import { createStore, setStore, getStore } from "stroid";
-
-createStore("profile", { name: "Ava", age: 30 });
-setStore("profile", "age", 31);
-
-console.log(getStore("profile"));
-```
-
-### Use a typed store handle
-
-```ts
-import { createStore, store, setStore, getStore } from "stroid";
-
-const counter = store<"counter", { count: number }>("counter");
-createStore("counter", { count: 0 });
-setStore(counter, (draft) => { draft.count += 1; });
-
-console.log(getStore(counter, "count"));
-```
-
-### Batch multiple writes
-
-```ts
-import { setStoreBatch, setStore } from "stroid";
-
-setStoreBatch(() => {
-  setStore("a", { value: 1 });
-  setStore("b", { value: 2 });
-});
-```
-
-### Path updates with strict keys
-
-```ts
-import { createStore, setStore } from "stroid";
-
-createStore("user", { profile: { name: "Ava" } });
-setStore("user", "profile.name", "Kai");
-```
-
-### Path updates with pathCreate
-
-```ts
-import { createStore, setStore } from "stroid";
-
-createStore("user", { profile: { name: "Ava" } }, { pathCreate: true });
-setStore("user", "profile.age", 32);
-```
-
-### React hooks
-
-```ts
-import { useStore } from "stroid/react";
+```tsx
+import { useStore } from "stroid/react"
 
 function Counter() {
-  const state = useStore("counter");
-  return <div>{state?.count ?? 0}</div>;
+  const count = useStore("counter", s => s.count)
+  return (
+    <button onClick={() => setStore("counter", "count", count + 1)}>
+      {count}
+    </button>
+  )
 }
 ```
 
-### Selectors
+**Batch multiple writes — one notification, atomic rollback.**
 
 ```ts
-import { createSelector } from "stroid/selectors";
+import { setStoreBatch, setStore } from "stroid"
 
-const selectName = createSelector("profile", (state) => state.name);
-console.log(selectName());
+setStoreBatch(() => {
+  setStore("cart",   { items: [{ id: 1, price: 12 }] })
+  setStore("ui",     "loading", false)
+  setStore("user",   "lastSeen", Date.now())
+  // if any write throws → all three roll back
+})
 ```
 
-### Computed stores
+**Typed store handle — trade string keys for compile-time safety.**
 
 ```ts
-import { createComputed } from "stroid/computed";
+import { store, createStore, setStore, getStore } from "stroid"
 
-createComputed("total", ["cart"], (cart) => {
-  return cart ? cart.items.reduce((sum, item) => sum + item.price, 0) : 0;
-});
+const counter = store<"counter", { count: number }>("counter")
+
+createStore("counter", { count: 0 })
+setStore(counter, draft => { draft.count += 1 })
+console.log(getStore(counter, "count")) // 1
 ```
 
-### Persisted store
+---
+
+### Level 2 — Real Features
+
+**Persist to localStorage — survives page reload.**
+
+> ⚡ **Tip:** Add `import "stroid/persist"` once at your app entry (e.g. `main.tsx`) to enable persistence globally. Any store with a `persist` option will activate automatically.
 
 ```ts
-import { createStore } from "stroid";
-import "stroid/persist";
+import { createStore } from "stroid"
+import "stroid/persist"
 
-createStore("prefs", { theme: "dark" }, {
-  persist: { key: "prefs", allowPlaintext: true },
-});
+createStore("settings", { theme: "dark", lang: "en" }, {
+  persist: {
+    key:            "app-settings",
+    allowPlaintext: true,
+    version:        2,
+    migrate:        (old, v) => v === 1 ? { ...old, lang: "en" } : old,
+  }
+})
 ```
 
-### Sync across tabs
+**Sync across browser tabs — zero wiring.**
+
+> ⚡ **Tip:** Add `import "stroid/sync"` once at app entry. Any store with `sync: true` or `sync: { channel }` will start broadcasting automatically.
 
 ```ts
-import { createStore } from "stroid";
-import "stroid/sync";
+import { createStore } from "stroid"
+import "stroid/sync"
 
-createStore("shared", { value: 0 }, { sync: true });
+createStore("presence", { online: true, cursor: null }, {
+  sync: { channel: "presence-sync" }
+  // Lamport clock conflict resolution built in.
+  // Stale messages from closed tabs auto-rejected.
+})
 ```
 
-### Async fetch store
+**Persist + sync together.**
 
 ```ts
-import { createStore } from "stroid";
-import { fetchStore } from "stroid/async";
+import { createStore } from "stroid"
+import "stroid/persist"
+import "stroid/sync"
 
-createStore("user", { data: null, loading: false, error: null, status: "idle" });
-fetchStore("user", "/api/user");
+createStore("settings", { theme: "dark", lang: "en" }, {
+  persist: { key: "app-settings", allowPlaintext: true },
+  sync:    { channel: "settings-sync" },
+})
+// Change in one tab → persisted locally + broadcast to all other tabs.
 ```
 
-### Async fetch with adapter
+**Async fetch — SWR-style, wired directly to store state.**
+
+> ⚡ **Tip:** `fetchStore` manages `loading`, `error`, `data`, and `status` fields automatically. No separate state machine needed — just read `useStore("user")`.
 
 ```ts
-import { fetchStore } from "stroid/async";
+import { createStore }  from "stroid"
+import { fetchStore }   from "stroid/async"
+import { useStore }     from "stroid/react"
+
+createStore("user", { data: null, loading: false, error: null, status: "idle" })
+
+const controller = new AbortController()
 
 fetchStore("user", "/api/user", {
-  stateAdapter: ({ next, set }) => set({ user: next.data, status: next.status }),
-});
+  signal:             controller.signal,
+  ttl:                30_000,             // 30s cache
+  staleWhileRevalidate: true,             // show stale, revalidate in background
+  dedupe:             true,               // concurrent calls share one request
+  retry:              3,                  // auto-retry on failure
+  retryDelay:         400,
+  transform:          res => res.data,    // shape the response
+  onSuccess:          data => console.log("fetched", data),
+  onError:            err  => Sentry.captureException(err),
+})
+
+function UserCard() {
+  const user = useStore("user")
+  if (user?.loading) return <Spinner />
+  if (user?.error)   return <Error message={user.error} />
+  return <div>{user?.data?.name}</div>
+}
 ```
 
-### SSR request scope
+**Computed stores — reactive, cached, cycle-safe.**
 
 ```ts
-import { createStoreForRequest } from "stroid/server";
+import { createStore }   from "stroid"
+import { createComputed } from "stroid/computed"
 
-const requestStore = createStoreForRequest(({ create, set }) => {
-  create("session", { id: null });
-  set("session", (draft) => { draft.id = "abc"; });
-});
+createStore("cart",     { items: [] })
+createStore("discount", { pct: 10 })
 
-requestStore.hydrate(() => renderApp());
+createComputed(
+  "cartTotal",
+  ["cart", "discount"],
+  (cart, discount) => {
+    const raw = cart.items.reduce((sum, i) => sum + i.price, 0)
+    return raw * (1 - discount.pct / 100)
+  }
+)
+
+// cartTotal updates whenever cart or discount changes.
+// Circular dependency detected at definition time.
+// Flush order is topologically sorted — always correct.
 ```
 
-### Helpers
+**Entity store — built-in CRUD for collections.**
 
 ```ts
-import { createEntityStore } from "stroid/helpers";
+import { createEntityStore } from "stroid/helpers"
 
-const users = createEntityStore("users");
-users.upsert({ id: "1", name: "Ava" });
-console.log(users.get("1"));
+const users = createEntityStore("users")
+
+users.upsert({ id: "1", name: "Ava",  role: "admin" })
+users.upsert({ id: "2", name: "Kai",  role: "user"  })
+
+console.log(users.get("1"))       // { id: "1", name: "Ava", role: "admin" }
+console.log(users.getAll())       // [{ id: "1" }, { id: "2" }]
+
+users.remove("2")
 ```
 
-### Runtime inspection
+---
+
+### Level 3 — Production Patterns
+
+**SSR with per-request isolation — no cross-request leaks.**
 
 ```ts
-import { listStores, getMetrics } from "stroid/runtime-tools";
+// app/api/render/route.ts  (Next.js App Router)
+import { createStoreForRequest } from "stroid/server"
+import { renderToString }        from "react-dom/server"
 
-const names = listStores();
-const metrics = getMetrics(names[0]);
-console.log(metrics);
+export async function GET(req: Request) {
+  const session = await getSession(req)
+
+  // Each request gets a fully isolated registry.
+  // AsyncLocalStorage ensures concurrent requests
+  // never share store values or subscribers.
+  const stores = createStoreForRequest((api) => {
+    api.create("user",    { name: session.user.name, role: session.user.role })
+    api.create("cart",    { items: [] })
+    api.create("flags",   session.featureFlags)
+  })
+
+  const html  = stores.hydrate(() => renderToString(<App />))
+  const state = stores.snapshot() // plain JSON → send to client
+
+  return Response.json({ html, state })
+}
+
+// Client: rehydrate from server snapshot
+hydrateStores(window.__STROID_STATE__)
 ```
 
-### Runtime cleanup
+**Middleware — intercept, transform, or veto any write.**
 
 ```ts
-import { clearAllStores } from "stroid/runtime-admin";
-
-clearAllStores();
+createStore("cart", { items: [], total: 0 }, {
+  middleware: (ctx) => {
+    // ctx.action = "set" | "reset" | "hydrate"
+    // ctx.prev   = previous state
+    // ctx.next   = incoming state
+    // return MIDDLEWARE_ABORT to cancel the write
+    if (ctx.action === "set" && ctx.next.items.length > 100) {
+      ctx.options.onError?.("Cart limit exceeded")
+      return MIDDLEWARE_ABORT
+    }
+    // log every write to your analytics
+    analytics.track("cart.updated", { prev: ctx.prev, next: ctx.next })
+    return ctx.next
+  }
+})
 ```
 
-### React Query integration
+**Persist with encryption — no plaintext secrets in localStorage.**
 
 ```ts
-import { queryIntegrations } from "stroid";
+import { createStore } from "stroid"
+import "stroid/persist"
 
-const key = queryIntegrations.reactQueryKey("user", 1);
-const fetcher = queryIntegrations.createReactQueryFetcher("user", "/api/user");
-
-console.log(key, fetcher);
+createStore("vault", { apiKey: "", token: "" }, {
+  persist: {
+    key:     "secure-vault",
+    encrypt: (data)  => myAES.encrypt(JSON.stringify(data)),
+    decrypt: (raw)   => JSON.parse(myAES.decrypt(raw)),
+    // sensitiveData: true blocks persist entirely if no encrypt is provided
+    sensitiveData: true,
+    onStorageCleared: ({ name, reason }) => {
+      // fires when localStorage is cleared externally (another tab, devtools, etc.)
+      console.warn(`${name} storage cleared: ${reason}`)
+      redirectToLogin()
+    },
+  }
+})
 ```
+
+**Observability — inspect any store at runtime.**
+
+> ⚡ **Tip:** Add `import "stroid/devtools"` at app entry to enable time-travel history and store inspection. Use `getMetrics(name)` in production to track notification performance per store.
+
+```ts
+import { getMetrics, getSubscriberCount, getComputedGraph } from "stroid/runtime-tools"
+
+// Per-store performance metrics
+const m = getMetrics("cart")
+// { notifyCount: 42, totalNotifyMs: 8.3, lastNotifyMs: 0.2 }
+
+// How many components are subscribed right now
+console.log(getSubscriberCount("cart")) // 3
+
+// Full computed dependency graph
+console.log(getComputedGraph())
+// { nodes: ["cartTotal"], edges: [{ from: "cart", to: "cartTotal" }] }
+```
+
+**Global flush configuration — tune for your app's load profile.**
+
+```ts
+import { configureStroid } from "stroid"
+
+configureStroid({
+  // Route internal logs to your observability platform
+  logSink: {
+    warn:     msg => Sentry.captureMessage(msg, "warning"),
+    critical: msg => Sentry.captureException(new Error(msg)),
+  },
+
+  // Priority stores notify subscribers first
+  flush: {
+    priorityStores: ["auth", "user"],
+  },
+
+  // Revalidate async stores when tab regains focus
+  revalidateOnFocus: {
+    debounceMs:    500,
+    maxConcurrent: 3,
+    staggerMs:     100,
+  },
+})
+```
+
+**Testing — deterministic, isolated, zero globals.**
+
+```ts
+import { createMockStore, resetAllStoresForTest } from "stroid/testing"
+
+beforeEach(() => resetAllStoresForTest())
+
+test("cart total updates when item added", () => {
+  const cart = createMockStore("cart", { items: [] })
+
+  setStore("cart", "items", [{ id: 1, price: 50 }])
+
+  expect(getStore("cart", "items")).toHaveLength(1)
+  expect(getStore("cartTotal")).toBe(45) // with 10% discount
+})
+```
+
+---
+
+## Module Imports
+
+```ts
+// Core
+import { createStore, setStore, getStore, deleteStore,
+         resetStore, hasStore, setStoreBatch, hydrateStores } from "stroid"
+
+// React
+import { useStore, useSelector, useStoreField,
+         useAsyncStore, useFormStore, useAsyncStoreSuspense } from "stroid/react"
+
+// Async
+import { fetchStore, refetchStore, enableRevalidateOnFocus } from "stroid/async"
+
+// Selectors & Computed
+import { createSelector, subscribeWithSelector } from "stroid/selectors"
+import { createComputed, deleteComputed }         from "stroid/computed"
+
+// Features (side-effect imports — register once at app entry)
+import "stroid/persist"
+import "stroid/sync"
+import "stroid/devtools"
+
+// Server / SSR
+import { createStoreForRequest } from "stroid/server"
+
+// Helpers & Testing
+import { createEntityStore, createCounterStore } from "stroid/helpers"
+import { createMockStore, resetAllStoresForTest } from "stroid/testing"
+
+// Runtime
+import { listStores, getMetrics, getComputedGraph } from "stroid/runtime-tools"
+import { clearAllStores }                            from "stroid/runtime-admin"
+```
+
+---
+
+## Behavior Notes
+
+- **Features are explicit.** `persist`, `sync`, and `devtools` require a side-effect import. Nothing loads you didn't ask for.
+- **Snapshot mode defaults to deep clone.** Subscribers and selectors always receive immutable snapshots.
+- **`setStoreBatch` is transactional.** All writes stage first. Commit happens only if the batch completes without error. On failure, all writes roll back.
+- **SSR stores are request-scoped by default.** Global SSR stores require `{ allowSSRGlobalStore: true }`.
+- **`fetchStore` deduplicates by default.** Concurrent calls with the same store name share one in-flight request.
+- **Computed deps can be store names or handles.** Missing deps yield `null` until the dependency store is created.
+- **Persist defaults to `localStorage`.** Provide a custom `driver` for `sessionStorage`, `IndexedDB`, or any storage adapter.
+- **Sync uses `BroadcastChannel`.** Warns and no-ops gracefully when unavailable (Safari private mode, Node).
+
+---
 
 ## Docs
 
-Quick links:
-- [Book Contents](docs/FRONT_MATTER/CONTENTS.md)
-- [Start Here](docs/BODY_MATTER/BEGINNER_GUIDE/START_HERE.md)
-- [Install and Imports](docs/BODY_MATTER/BEGINNER_GUIDE/INSTALL_AND_IMPORTS.md)
-- [Core of Stroid](docs/BODY_MATTER/CORE_OF_STROID/INTRODUCTION.md)
-- [React Layer](docs/BODY_MATTER/REACT_OF_STROID/INTRODUCTION.md)
-- [Async Layer](docs/BODY_MATTER/ASYNC_OF_STROID/INTRODUCTION.md)
-- [Persistence](docs/BODY_MATTER/PERSIST_OF_STROID/INTRODUCTION.md)
-- [Sync](docs/BODY_MATTER/SYNC_OF_STROID/INTRODUCTION.md)
-- [Runtime Operations](docs/BODY_MATTER/RUNTIME_OPERATIONS_OF_STROID/INTRODUCTION.md)
-- [Server and SSR](docs/BODY_MATTER/SERVER_OF_STROID/INTRODUCTION.md)
-- [Helpers](docs/BODY_MATTER/HELPERS_AND_CHAIN_OF_STROID/INTRODUCTION.md)
-- [Testing](docs/BODY_MATTER/TESTING_OF_STROID/INTRODUCTION.md)
-- [Selectors](docs/BODY_MATTER/SELECTORS_OF_STROID/INTRODUCTION.md)
-- [Devtools](docs/BODY_MATTER/DEVTOOLS_OF_STROID/INTRODUCTION.md)
+Full documentation, architecture guide, and examples:
 
-## Docs Index (Full)
+- [Start Here](./docs/start-here.md)
+- [Core API](./docs/core.md)
+- [React Layer](./docs/react.md)
+- [Async Layer](./docs/async.md)
+- [Persistence](./docs/persist.md)
+- [Cross-tab Sync](./docs/sync.md)
+- [Server & SSR](./docs/server.md)
+- [Computed Stores](./docs/computed.md)
+- [Selectors](./docs/selectors.md)
+- [Testing](./docs/testing.md)
+- [Devtools](./docs/devtools.md)
+- [Runtime Tools](./docs/runtime.md)
 
-### Architecture
+---
 
-- [Architecture](docs/ARCHITECTURE/ARCHITECTURE.md)
+## Changelog & License
 
-### Back Matter
-
-- [Appendices](docs/BACK_MATTER/APPENDICES.md)
-- [Back Cover](docs/BACK_MATTER/BACK_COVER.md)
-- [Bibliography](docs/BACK_MATTER/Bibliography.md)
-- [Colophon](docs/BACK_MATTER/Colophon.md)
-- [Contact Information](docs/BACK_MATTER/Contact_Information.md)
-
-### Body Matter
-
-- [Back Cover](docs/BODY_MATTER/BACK_COVER.md)
-
-### Body Matter - Async Of Stroid
-
-- [Cache And Revalidation](docs/BODY_MATTER/ASYNC_OF_STROID/CACHE_AND_REVALIDATION.md)
-- [Fetch Flow](docs/BODY_MATTER/ASYNC_OF_STROID/FETCH_FLOW.md)
-- [Introduction](docs/BODY_MATTER/ASYNC_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/ASYNC_OF_STROID/REAL_USE.md)
-
-### Body Matter - Beginner Guide
-
-- [First Store](docs/BODY_MATTER/BEGINNER_GUIDE/FIRST_STORE.md)
-- [From Basic To Real](docs/BODY_MATTER/BEGINNER_GUIDE/FROM_BASIC_TO_REAL.md)
-- [Install And Imports](docs/BODY_MATTER/BEGINNER_GUIDE/INSTALL_AND_IMPORTS.md)
-- [React Usage](docs/BODY_MATTER/BEGINNER_GUIDE/REACT_USAGE.md)
-- [Start Here](docs/BODY_MATTER/BEGINNER_GUIDE/START_HERE.md)
-
-### Body Matter - Binary To Being
-
-- [Async Layer](docs/BODY_MATTER/BINARY_TO_BEING/ASYNC_LAYER.md)
-- [Design Principles Of Stroid](docs/BODY_MATTER/BINARY_TO_BEING/DESIGN_PRINCIPLES_OF_STROID.md)
-- [Persistence Layer](docs/BODY_MATTER/BINARY_TO_BEING/PERSISTENCE_LAYER.md)
-- [Production Patterns](docs/BODY_MATTER/BINARY_TO_BEING/PRODUCTION_PATTERNS.md)
-- [React Bindings](docs/BODY_MATTER/BINARY_TO_BEING/REACT_BINDINGS.md)
-- [Runtime Architecture](docs/BODY_MATTER/BINARY_TO_BEING/RUNTIME_ARCHITECTURE.md)
-- [Selectors](docs/BODY_MATTER/BINARY_TO_BEING/SELECTORS.md)
-- [Store System](docs/BODY_MATTER/BINARY_TO_BEING/STORE_SYSTEM.md)
-- [Tooling And Debugging](docs/BODY_MATTER/BINARY_TO_BEING/TOOLING_AND_DEBUGGING.md)
-- [Why State Management Fails In Large Apps](docs/BODY_MATTER/BINARY_TO_BEING/WHY_STATE_MANAGEMENT_FAILS_IN_LARGE_APPS.md)
-
-### Body Matter - Bug As Helper
-
-- [Intentional Bugs](docs/BODY_MATTER/BUG_AS_HELPER/INTENTIONAL_BUGS.md)
-- [Introduction](docs/BODY_MATTER/BUG_AS_HELPER/INTRODUCTION.md)
-- [No Need To Fix](docs/BODY_MATTER/BUG_AS_HELPER/NO_NEED_TO_FIX.md)
-- [Real Use](docs/BODY_MATTER/BUG_AS_HELPER/REAL_USE.md)
-
-### Body Matter - Core Of Stroid
-
-- [Core Options](docs/BODY_MATTER/CORE_OF_STROID/CORE_OPTIONS.md)
-- [Example](docs/BODY_MATTER/CORE_OF_STROID/EXAMPLE.md)
-- [Introduction](docs/BODY_MATTER/CORE_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/CORE_OF_STROID/REAL_USE.md)
-
-### Body Matter - Devtools Of Stroid
-
-- [History And Redaction](docs/BODY_MATTER/DEVTOOLS_OF_STROID/HISTORY_AND_REDACTION.md)
-- [Introduction](docs/BODY_MATTER/DEVTOOLS_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/DEVTOOLS_OF_STROID/REAL_USE.md)
-- [Redux Devtools And Boundaries](docs/BODY_MATTER/DEVTOOLS_OF_STROID/REDUX_DEVTOOLS_AND_BOUNDARIES.md)
-
-### Body Matter - Helpers And Chain Of Stroid
-
-- [Chain Api](docs/BODY_MATTER/HELPERS_AND_CHAIN_OF_STROID/CHAIN_API.md)
-- [Helper Factories](docs/BODY_MATTER/HELPERS_AND_CHAIN_OF_STROID/HELPER_FACTORIES.md)
-- [Introduction](docs/BODY_MATTER/HELPERS_AND_CHAIN_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/HELPERS_AND_CHAIN_OF_STROID/REAL_USE.md)
-
-### Body Matter - Opt In Features Of Stroid
-
-- [Introduction](docs/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/INTRODUCTION.md)
-- [Power Tools](docs/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/POWER_TOOLS.md)
-- [Runtime Layers](docs/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/RUNTIME_LAYERS.md)
-- [Store Features](docs/BODY_MATTER/OPT_IN_FEATURES_OF_STROID/STORE_FEATURES.md)
-
-### Body Matter - Persist Of Stroid
-
-- [Failure And Recovery](docs/BODY_MATTER/PERSIST_OF_STROID/FAILURE_AND_RECOVERY.md)
-- [Introduction](docs/BODY_MATTER/PERSIST_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/PERSIST_OF_STROID/REAL_USE.md)
-- [Storage And Migrations](docs/BODY_MATTER/PERSIST_OF_STROID/STORAGE_AND_MIGRATIONS.md)
-
-### Body Matter - Philosophy Of Stroid
-
-- [Minimal Abstraction](docs/BODY_MATTER/PHILOSOPHY_OF_STROID/MINIMAL_ABSTRACTION.md)
-- [Optional Complexity And Comparison](docs/BODY_MATTER/PHILOSOPHY_OF_STROID/OPTIONAL_COMPLEXITY_AND_COMPARISON.md)
-- [Predictable State Mutation](docs/BODY_MATTER/PHILOSOPHY_OF_STROID/PREDICTABLE_STATE_MUTATION.md)
-- [Runtime Observability](docs/BODY_MATTER/PHILOSOPHY_OF_STROID/RUNTIME_OBSERVABILITY.md)
-- [Why The Mind Needs Structure](docs/BODY_MATTER/PHILOSOPHY_OF_STROID/WHY_THE_MIND_NEEDS_STRUCTURE.md)
-
-### Body Matter - React Of Stroid
-
-- [Form And Async](docs/BODY_MATTER/REACT_OF_STROID/FORM_AND_ASYNC.md)
-- [Hooks](docs/BODY_MATTER/REACT_OF_STROID/HOOKS.md)
-- [Introduction](docs/BODY_MATTER/REACT_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/REACT_OF_STROID/REAL_USE.md)
-
-### Body Matter - Roadmap Of Stroid
-
-- [Roadmap](docs/BODY_MATTER/ROADMAP_OF_STROID/ROADMAP.md)
-
-### Body Matter - Runtime Operations Of Stroid
-
-- [Admin Operations](docs/BODY_MATTER/RUNTIME_OPERATIONS_OF_STROID/ADMIN_OPERATIONS.md)
-- [Inspection Tools](docs/BODY_MATTER/RUNTIME_OPERATIONS_OF_STROID/INSPECTION_TOOLS.md)
-- [Introduction](docs/BODY_MATTER/RUNTIME_OPERATIONS_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/RUNTIME_OPERATIONS_OF_STROID/REAL_USE.md)
-
-### Body Matter - Selectors Of Stroid
-
-- [Create Selector](docs/BODY_MATTER/SELECTORS_OF_STROID/CREATE_SELECTOR.md)
-- [Introduction](docs/BODY_MATTER/SELECTORS_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/SELECTORS_OF_STROID/REAL_USE.md)
-- [Subscribe With Selector](docs/BODY_MATTER/SELECTORS_OF_STROID/SUBSCRIBE_WITH_SELECTOR.md)
-
-### Body Matter - Server Of Stroid
-
-- [Hydrate Flow](docs/BODY_MATTER/SERVER_OF_STROID/HYDRATE_FLOW.md)
-- [Introduction](docs/BODY_MATTER/SERVER_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/SERVER_OF_STROID/REAL_USE.md)
-- [Request Scope](docs/BODY_MATTER/SERVER_OF_STROID/REQUEST_SCOPE.md)
-
-### Body Matter - Sync Of Stroid
-
-- [Conflicts And Recovery](docs/BODY_MATTER/SYNC_OF_STROID/CONFLICTS_AND_RECOVERY.md)
-- [Introduction](docs/BODY_MATTER/SYNC_OF_STROID/INTRODUCTION.md)
-- [Real Use](docs/BODY_MATTER/SYNC_OF_STROID/REAL_USE.md)
-- [Sync Options](docs/BODY_MATTER/SYNC_OF_STROID/SYNC_OPTIONS.md)
-
-### Body Matter - Testing Of Stroid
-
-- [Introduction](docs/BODY_MATTER/TESTING_OF_STROID/INTRODUCTION.md)
-- [Mocks And Time](docs/BODY_MATTER/TESTING_OF_STROID/MOCKS_AND_TIME.md)
-- [Real Use](docs/BODY_MATTER/TESTING_OF_STROID/REAL_USE.md)
-- [Resets And Benchmarks](docs/BODY_MATTER/TESTING_OF_STROID/RESETS_AND_BENCHMARKS.md)
-
-### Body Matter - The Glitch In Matrix
-
-- [Introduction](docs/BODY_MATTER/THE_GLITCH_IN_MATRIX/INTRODUCTION.md)
-- [Performance And Reality](docs/BODY_MATTER/THE_GLITCH_IN_MATRIX/PERFORMANCE_AND_REALITY.md)
-- [Real Use](docs/BODY_MATTER/THE_GLITCH_IN_MATRIX/REAL_USE.md)
-- [Tradeoffs And Limits](docs/BODY_MATTER/THE_GLITCH_IN_MATRIX/TRADEOFFS_AND_LIMITS.md)
-
-### Front Matter
-
-- [About Author](docs/FRONT_MATTER/ABOUT_AUTHOR.md)
-- [Acknowledge](docs/FRONT_MATTER/ACKNOWLEDGE.md)
-- [Contents](docs/FRONT_MATTER/CONTENTS.md)
-- [Copyright](docs/FRONT_MATTER/COPYRIGHT.md)
-- [Dedication](docs/FRONT_MATTER/DEDICATION.md)
-- [Epigraph](docs/FRONT_MATTER/EPIGRAPH.md)
-- [Foreword](docs/FRONT_MATTER/FOREWORD.md)
-- [Front Cover Page](docs/FRONT_MATTER/FRONT_COVER_PAGE.md)
-- [How To Use](docs/FRONT_MATTER/HOW_TO_USE.md)
-- [Introduction](docs/FRONT_MATTER/INTRODUCTION.md)
-- [List Of Table](docs/FRONT_MATTER/LIST_OF_TABLE.md)
-- [Praise](docs/FRONT_MATTER/PRAISE.md)
-- [Preface](docs/FRONT_MATTER/PREFACE.md)
-- [Title Page](docs/FRONT_MATTER/TITLE_PAGE.md)
-
-## Changelog and License
-
-- [CHANGELOG](CHANGELOG.md)
-- [LICENSE](LICENSE)
+- [CHANGELOG](./CHANGELOG.md)
+- [MIT License](./LICENSE)
 - [Issues](https://github.com/Himesh-Bhattarai/stroid/issues)
