@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\index.ts
+ */
 // Root public API barrel. Core store API is defined in store.ts and re-exported here.
 export {
     createStore,
@@ -37,3 +40,4 @@ export type {
 } from "./store.js";
 export { configureStroid } from "./config.js";
 export * as queryIntegrations from "./integrations/query.js";
+

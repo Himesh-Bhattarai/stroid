@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\types\public-api.types.ts
+ */
 import "../../src/persist.js";
 import "../../src/sync.js";
 import "../../src/devtools.js";
@@ -238,3 +241,4 @@ createStore("legacyTyped", { count: 1 }, {
 createStore("badScope", { value: 1 }, { scope: "scoped" });
 // @ts-expect-error invalid sync maxPayloadBytes type should be rejected
 createStore("badSync", { value: 1 }, { sync: { maxPayloadBytes: "big" } });
+

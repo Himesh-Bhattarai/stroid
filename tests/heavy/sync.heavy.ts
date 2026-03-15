@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\heavy\sync.heavy.ts
+ */
 import assert from "node:assert";
 import test from "node:test";
 import "../src/sync.js";
@@ -601,3 +604,4 @@ test("repeated sync create delete cycles clean up channels and ignore stale hand
     (globalThis as any).BroadcastChannel = originalBroadcastChannel;
   }
 });
+

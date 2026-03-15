@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\async-revalidate-cleanup.test.ts
+ */
 import assert from "node:assert";
 import { test } from "node:test";
 import { enableRevalidateOnFocus, _resetAsyncStateForTests } from "../src/async.js";
@@ -68,3 +71,4 @@ test("resetAsyncState cleans up wildcard revalidate listeners", () => {
     ["focus", "online"]
   );
 });
+

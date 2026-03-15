@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\runtime-admin.ts
+ */
 import { resetAsyncState } from "./async-cache.js";
 import { getStoreAdmin } from "./store-lifecycle/registry.js";
 import { clearPathValidationCache } from "./store-lifecycle/validation.js";
@@ -12,3 +15,4 @@ export const clearStores = (pattern?: string): void => {
     getStoreAdmin().clearStores(pattern);
     clearPathValidationCache();
 };
+

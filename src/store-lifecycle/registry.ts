@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\store-lifecycle\registry.ts
+ */
 import { devDeepFreeze } from "../devfreeze.js";
 import { isDev } from "../utils.js";
 import {
@@ -216,3 +219,4 @@ export const resolveScope = (scopeOrRegistry?: string | ReturnType<typeof getSto
         : scopeOrRegistry ?? getStoreRegistry(_scope);
     return { scope: resolvedScope, registry };
 };
+

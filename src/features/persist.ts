@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\persist.ts
+ */
 import type { PersistOptions } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
 import { isIdentityCrypto, validateCryptoPair } from "./persist/crypto.js";
@@ -267,3 +270,4 @@ export const registerPersistFeature = (): void => {
     _registered = true;
     registerStoreFeature("persist", createPersistFeatureRuntime);
 };
+

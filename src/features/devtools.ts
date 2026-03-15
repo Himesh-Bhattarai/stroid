@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\devtools.ts
+ */
 import type { StoreValue } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
 
@@ -255,3 +258,4 @@ export const registerDevtoolsFeature = (): void => {
     _registered = true;
     registerStoreFeature("devtools", createDevtoolsFeatureRuntime);
 };
+

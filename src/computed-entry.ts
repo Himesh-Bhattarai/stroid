@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\computed-entry.ts
+ */
 export {
     createComputed,
     invalidateComputed,
@@ -10,3 +13,4 @@ export {
     getFullComputedGraph,
     getComputedDepsFor,
 } from "./computed-graph.js";
+

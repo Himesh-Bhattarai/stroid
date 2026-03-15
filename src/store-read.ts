@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\store-read.ts
+ */
 import {
     deepClone,
     getByPath,
@@ -56,3 +59,4 @@ export const getMetrics = (name: string): (typeof meta)[string]["metrics"] | nul
     if (!metaEntry?.metrics) return null;
     return { ...metaEntry.metrics };
 };
+

@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\config.ts
+ */
 export { configureStroid, resetConfig } from "./internals/config.js";
 export type {
     LogSink,
@@ -5,3 +8,4 @@ export type {
     FlushConfig,
     RevalidateOnFocusConfig,
 } from "./internals/config.js";
+

@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\sync.core.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import "../src/sync.js";
@@ -324,3 +327,4 @@ test("sync core (serial)", async (t) => {
   }
   });
 });
+

@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\async\clone.ts
+ */
 import type { FetchOptions } from "../async-cache.js";
 import { deepClone, shallowClone } from "../utils.js";
 
@@ -7,3 +10,4 @@ export const cloneAsyncResult = (value: unknown, mode: FetchOptions["cloneResult
     if (mode === "shallow") return shallowClone(value);
     return deepClone(value);
 };
+

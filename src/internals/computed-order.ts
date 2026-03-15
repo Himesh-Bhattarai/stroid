@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\internals\computed-order.ts
+ */
 import { registerTestResetHook } from "./test-reset.js";
 
 export type ComputedOrderResolver = (names: string[]) => string[];
@@ -15,3 +18,4 @@ export const getComputedOrder = (names: string[]): string[] => {
 registerTestResetHook("computed.order-resolver", () => {
     resolver = null;
 }, 105);
+

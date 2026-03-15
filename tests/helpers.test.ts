@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\helpers.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { clearAllStores } from "../src/runtime-admin.js";
@@ -61,3 +64,4 @@ test("createEntityStore supports upsert, get, all, remove, and clear", () => {
   entities.clear();
   assert.deepStrictEqual(entities.all(), []);
 });
+

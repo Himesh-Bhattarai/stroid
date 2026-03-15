@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\utils\hash.ts
+ */
 import { FORBIDDEN_OBJECT_KEYS } from "./validation.js";
 
 // --- hashing / checksum ------------------------------------------------------
@@ -218,3 +221,4 @@ export const hashState = (value: unknown): number => {
 };
 
 export const checksumState = hashState; // alias for clarity
+

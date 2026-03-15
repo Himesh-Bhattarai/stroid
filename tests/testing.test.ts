@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\testing.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { createStore, getStore, hasStore, store } from "../src/store.js";
@@ -153,3 +156,4 @@ test("resetAllStoresForTest runs registered reset hooks", () => {
   resetAllStoresForTest();
   assert.ok(calls > before);
 });
+

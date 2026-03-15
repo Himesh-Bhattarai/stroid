@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\regressions.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { configureStroid, resetConfig } from "../src/config.js";
@@ -489,3 +492,4 @@ test("assertRuntime throws on warnings to hard-fail tests", () => {
     resetConfig();
   }
 });
+

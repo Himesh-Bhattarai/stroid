@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\persist\watch.ts
+ */
 import type { PersistConfig } from "../../adapters/options.js";
 import type { PersistWatchState } from "./types.js";
 
@@ -71,3 +74,4 @@ export const setupPersistWatch = ({
         },
     };
 };
+

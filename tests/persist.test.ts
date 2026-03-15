@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\persist.test.ts
+ */
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -929,3 +932,4 @@ test("persistSave uses a zero-argument exists callback", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(calls, [0]);
 });
+

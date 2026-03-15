@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\internals\diagnostics.ts
+ */
 import { getConfig } from "./config.js";
 const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NODE_ENV === "string"
     ? process.env.NODE_ENV
@@ -171,3 +174,4 @@ export const suggestStoreName = (name: string, existingNames: string[]): void =>
         `Call createStore("${name}", data) first.`
     );
 };
+

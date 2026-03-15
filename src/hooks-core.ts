@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\hooks-core.ts
+ */
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { subscribeStore, getStoreSnapshot, hasStore } from "./store.js";
 import { subscribeWithSelector } from "./selectors.js";
@@ -318,3 +321,4 @@ export function useStoreStatic(
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
 }
+

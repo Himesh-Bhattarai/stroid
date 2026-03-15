@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\async\errors.ts
+ */
 import { critical, error, isDev, warn } from "../utils.js";
 import { getConfig } from "../internals/config.js";
 
@@ -45,3 +48,4 @@ export const throwAsyncUsageError = (
     }
     throw new Error(message);
 };
+

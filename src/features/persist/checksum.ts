@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\persist\checksum.ts
+ */
 import { hashState } from "../../utils.js";
 
 const toHex = (buffer: ArrayBuffer): string => {
@@ -33,3 +36,4 @@ export const computePersistChecksum = async (
     if (mode === "sha256") return computeSha256(payload);
     return hashFn(payload);
 };
+

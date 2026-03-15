@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\devfreeze.ts
+ */
 export const devDeepFreeze = <T>(value: T): T => {
     if (typeof value !== "object" || value === null) return value;
     // Skip React elements, DOM nodes, and complex instances (Maps, Sets, third-party classes, etc.)
@@ -29,3 +32,4 @@ export const devDeepFreeze = <T>(value: T): T => {
     }
     return value;
 };
+

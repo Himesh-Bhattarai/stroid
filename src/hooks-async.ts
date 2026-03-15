@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\hooks-async.ts
+ */
 import { useStore } from "./hooks-core.js";
 import { store as storeHandle } from "./store-name.js";
 import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle/types.js";
@@ -34,3 +37,4 @@ export function useAsyncStore(
         isEmpty: snapshot?.data == null && !snapshot?.loading && !snapshot?.error,
     };
 }
+

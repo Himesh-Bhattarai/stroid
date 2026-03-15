@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\install.ts
+ */
 import { registerPersistFeature } from "./features/persist.js";
 import { registerSyncFeature } from "./features/sync.js";
 import { registerDevtoolsFeature } from "./features/devtools.js";
@@ -19,3 +22,4 @@ export const installAllFeatures = (): void => {
     installSync();
     installDevtools();
 };
+

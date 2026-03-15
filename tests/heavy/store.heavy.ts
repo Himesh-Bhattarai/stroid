@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\heavy\store.heavy.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import "../../src/persist.js";
@@ -1584,4 +1587,5 @@ test("clearAllStores removes stores created during delete hooks", () => {
   assert.strictEqual(hasStore("late"), false);
   assert.deepStrictEqual(listStores(), []);
 });
+
 

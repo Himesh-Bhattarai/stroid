@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\heavy\environment.heavy.ts
+ */
 import assert from "node:assert";
 import test from "node:test";
 import "../../src/sync.js";
@@ -100,3 +103,4 @@ test("heavy repeated sync create delete cycles leave no open channels", async ()
     (globalThis as any).BroadcastChannel = originalBroadcastChannel;
   }
 });
+

@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\persist\load.ts
+ */
 import type { PersistConfig, StoreValue } from "../../adapters/options.js";
 import type { PersistMeta, PersistLoadArgs } from "./types.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "../state-helpers.js";
@@ -326,3 +329,4 @@ const applyMigratedState = ({
 
     return { ok: true, state: validationResult.value ?? parsed };
 };
+

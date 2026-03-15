@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\internals\selector-store.ts
+ */
 import {
     stores as _stores,
     subscribers as _subscribers,
@@ -22,3 +25,4 @@ export const subscribeSelectorStore = (name: string, fn: SelectorSubscriber): ((
         if (_subscribers[name]?.size === 0) delete _subscribers[name];
     };
 };
+

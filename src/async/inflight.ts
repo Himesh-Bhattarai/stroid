@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\async\inflight.ts
+ */
 import { asyncMetrics, inflight, requestVersion } from "../async-cache.js";
 import type { FetchOptions } from "../async-cache.js";
 import { reportAsyncUsageError } from "./errors.js";
@@ -48,3 +51,4 @@ export const tryDedupeRequest = (
     if (!transform || active.transform === transform) return active.promise;
     return active.raw.then((raw) => transform(raw));
 };
+

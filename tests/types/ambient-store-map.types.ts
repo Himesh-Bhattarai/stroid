@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\types\ambient-store-map.types.ts
+ */
 import type { Expect, Equal } from "./assert.js";
 import { createStore, getStore, setStore } from "../../src/store.js";
 
@@ -29,4 +32,5 @@ createStore("validateContext", { count: 0 }, {
     return true;
   },
 });
+
 

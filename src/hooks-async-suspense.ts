@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\hooks-async-suspense.ts
+ */
 import { useMemo } from "react";
 import type { FetchInput, FetchOptions } from "./async-cache.js";
 import { getFetchRegistry, inflight } from "./async-cache.js";
@@ -47,3 +50,4 @@ export function useAsyncStoreSuspense<T = unknown>(
     if (snapshot.error) throw new Error(snapshot.error);
     return snapshot.data as T;
 }
+

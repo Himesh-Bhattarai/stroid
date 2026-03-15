@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\utils\validation.ts
+ */
 import {
     error,
     getDateStoreWarningMessage,
@@ -264,3 +267,4 @@ export const isValidStoreName = (name: string): boolean => {
     }
     return true;
 };
+

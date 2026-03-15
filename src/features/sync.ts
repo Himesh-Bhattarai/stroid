@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\sync.ts
+ */
 import type { StoreValue, SyncMessage, SyncOptions } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "./state-helpers.js";
@@ -589,3 +592,4 @@ export const registerSyncFeature = (): void => {
     _registered = true;
     registerStoreFeature("sync", createSyncFeatureRuntime);
 };
+

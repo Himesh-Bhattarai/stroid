@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\utils\path.ts
+ */
 import {
     critical,
     error,
@@ -137,3 +140,4 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
 
     return applyAt(obj, 0) as T;
 };
+

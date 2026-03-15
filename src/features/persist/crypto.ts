@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\persist\crypto.ts
+ */
 const DEFAULT_PERSIST_CRYPTO_MARK = typeof Symbol === "function"
     ? Symbol.for("stroid.persist.defaultCrypto")
     : "__stroid_persist_defaultCrypto__";
@@ -45,3 +48,4 @@ export const validateCryptoPair = (
     }
     return { ok: true };
 };
+

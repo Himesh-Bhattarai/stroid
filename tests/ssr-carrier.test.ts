@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\ssr-carrier.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { getStore, setStore, setStoreBatch, subscribe } from "../src/store.js";
@@ -243,3 +246,4 @@ test("SSR async registries isolate fetch registry and cache meta", async () => {
     const resultB = await reqB.hydrate(() => refetchStore("asyncScoped"));
     assert.strictEqual(resultB, undefined);
 });
+

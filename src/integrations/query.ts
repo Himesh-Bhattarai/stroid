@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\integrations\query.ts
+ */
 import { fetchStore } from "../async.js";
 import type { FetchInput, FetchOptions } from "../async-cache.js";
 import type { StoreDefinition, StoreKey, StoreName } from "../store-lifecycle/types.js";
@@ -34,3 +37,4 @@ export const createSwrFetcher = (
     }
     return fetchStore(storeName, input, options);
 };
+

@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\async\request.ts
+ */
 import type { FetchOptions } from "../async-cache.js";
 
 export const buildFetchOptions = (options: FetchOptions): RequestInit => {
@@ -48,3 +51,4 @@ export const parseResponseBody = async (
     if (contentType.includes("form-data")) return response.formData();
     return response.arrayBuffer();
 };
+

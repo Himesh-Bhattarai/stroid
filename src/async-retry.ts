@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\async-retry.ts
+ */
 import { warn } from "./utils.js";
 
 export const MAX_RETRY_ATTEMPTS = 10;
@@ -74,3 +77,4 @@ export const normalizeRetryOptions = (
         retryBackoff: safeRetryBackoff,
     };
 };
+

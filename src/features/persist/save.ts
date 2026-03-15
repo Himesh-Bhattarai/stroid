@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\persist\save.ts
+ */
 import type { StoreValue } from "../../adapters/options.js";
 import { warnAlways } from "../../utils.js";
 import { usesDefaultPersistCrypto } from "./crypto.js";
@@ -117,3 +120,4 @@ export const persistSave = (args: PersistSaveArgs): void => persistSaveInner(arg
 
 export const flushPersistImmediately = (name: string, args: PersistSaveArgs): void =>
     persistSaveInner({ ...args, name }, true);
+

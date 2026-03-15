@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\hooks-form.ts
+ */
 import { useCallback } from "react";
 import { useStore } from "./hooks-core.js";
 import { setStore } from "./store.js";
@@ -39,3 +42,4 @@ export function useFormStore(
     );
     return { value, onChange };
 }
+

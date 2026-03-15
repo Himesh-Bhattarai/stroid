@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\async-cache.ts
+ */
 import { subscribe } from "./store-notify.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
 import type { FetchOptions } from "./async-registry.js";
@@ -174,3 +177,4 @@ export const ensureCleanupSubscription = (name: string): void => {
         clearAsyncMeta(name);
     });
 };
+

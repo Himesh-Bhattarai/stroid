@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\store.core.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import {
@@ -164,3 +167,4 @@ test("createComputed derives and updates from dependencies", async () => {
 
   assert.strictEqual(getStore("fullName"), "Jordan Stone");
 });
+

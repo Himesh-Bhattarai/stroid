@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\feature-registry.ts
+ */
 import type { NormalizedOptions, StoreValue } from "./adapters/options.js";
 
 export type BuiltInFeatureName = "persist" | "sync" | "devtools";
@@ -94,3 +97,4 @@ export const resetRegisteredStoreFeaturesForTests = (): void => {
     _featureFactories.clear();
     _onFeatureRegistered = null;
 };
+

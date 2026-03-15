@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Configuration options and normalization logic for stroid stores.
+ * This module defines the shapes for persistence, synchronization, devtools,
+ * and lifecycle hooks, along with utilities to validate and normalize them.
+ */
 import { registerTestResetHook } from "../internals/test-reset.js";
 
 export type StoreValue = unknown;
@@ -253,6 +258,11 @@ export interface NormalizedOptions {
 
 const warnedLegacyOptions = new Set<string>();
 
+/**
+ * Resets the internal set of legacy options that have been warned
+ * about. Used for testing purposes to prevent warnings from leaking
+ * between tests.
+ */
 export const resetLegacyOptionDeprecationWarningsForTests = (): void => {
     warnedLegacyOptions.clear();
 };
@@ -269,6 +279,13 @@ const memoryStorage: PersistDriver = (() => {
     };
 })();
 
+/**
+ * Returns a storage driver that attempts to use the given type of storage
+ * (session or local) and falls back to memory storage if it is not available.
+ *
+ * @param {string} type The type of storage to attempt to use.
+ * @returns {PersistDriver} A storage driver that may use memory storage if necessary.
+ */
 const safeStorage = (type: string): PersistDriver => {
     try {
         if (typeof window === "undefined") return memoryStorage;
@@ -279,6 +296,13 @@ const safeStorage = (type: string): PersistDriver => {
     }
 };
 
+/**
+ * Checks if a value is an object.
+ *
+ * This function checks if the value is of type 'object', is not null, and is not an array.
+ *
+ * @returns {boolean} True if the value is an object, false otherwise.
+ */
 const isObject = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -324,6 +348,18 @@ const legacyOptionReplacementMap: Record<string, string> = {
     onDelete: "lifecycle.onDelete",
 };
 
+/**
+ * Normalize persist options for a store.
+ *
+ * This function takes the raw persist options from a store and returns
+ * a normalized PersistConfig object. If the raw persist options are
+ * invalid, this function returns null.
+ *
+ * @template State
+ * @param {StoreOptions<State>["persist"]} persist - The raw persist options for the store.
+ * @param {string} name - The name of the store.
+ * @returns {PersistConfig | null} A normalized PersistConfig object, or null if the raw persist options are invalid.
+ */
 export const normalizePersistOptions = <State>(
     persist: StoreOptions<State>["persist"],
     name: string
@@ -396,6 +432,21 @@ export const normalizePersistOptions = <State>(
     };
 };
 
+/**
+ * Collect deprecation warnings for a store options object.
+ *
+ * This function walks through the store options object and checks if any
+ * deprecated options are present. If a deprecated option is found, a
+ * warning message is added to the warnings array.
+ *
+ * The function returns an array of warning messages. If no deprecated
+ * options are found, an empty array is returned.
+ *
+ * @template State The type of the state stored in the store.
+ * @param option The store options object to check for deprecated options.
+ * @returns An array of warning messages for deprecated options. If no deprecated
+ *          options are found, an empty array is returned.
+ */
 export const collectLegacyOptionDeprecationWarnings = <State>(option: StoreOptions<State>): string[] => {
     if (!isObject(option)) return [];
 
@@ -409,6 +460,13 @@ export const collectLegacyOptionDeprecationWarnings = <State>(option: StoreOptio
     return warnings;
 };
 
+/**
+ * Normalize a store options object, merging default values and performing deprecation checks.
+ * @param option The store options object to normalize.
+ * @param name The name of the store.
+ * @param defaultSnapshotMode The default snapshot mode to use if none is specified.
+ * @returns A normalized store options object.
+ */
 export const normalizeStoreOptions = <State>(
     option: StoreOptions<State> = {},
     name: string,

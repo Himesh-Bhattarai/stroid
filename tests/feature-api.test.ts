@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\feature-api.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
@@ -70,3 +73,4 @@ test("public feature API registers custom features and forwards feature options"
   const result = runScript(script);
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
+

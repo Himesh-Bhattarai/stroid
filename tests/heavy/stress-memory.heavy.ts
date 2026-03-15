@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\heavy\stress-memory.heavy.ts
+ */
 import assert from "node:assert";
 import test from "node:test";
 import { fetchStore, refetchStore } from "../../src/async.js";
@@ -84,3 +87,4 @@ test("heavy repeated create delete cycles leave no residual stores", () => {
 
   assert.deepStrictEqual(listStores(), []);
 });
+

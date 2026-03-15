@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\helpers.ts
+ */
 import { createStore, setStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
 import { store } from "./store-name.js";
@@ -62,3 +65,4 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
         clear: () => resetStore(handle),
     };
 };
+

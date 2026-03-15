@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\async.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
@@ -870,3 +873,4 @@ test("fetchStore caps no-signal warning cache size under high-cardinality stores
     clearAllStores();
   }
 });
+

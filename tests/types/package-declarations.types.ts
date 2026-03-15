@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\types\package-declarations.types.ts
+ */
 import type { Expect, Equal } from "./assert.js";
 import type { PersistOptions, StoreOptions, SyncOptions } from "../../dist/index.d.ts";
 
@@ -109,3 +112,4 @@ void (0 as unknown as RuntimeAdminClearAllStores);
 // @ts-expect-error package declarations should reject unsupported onMigrationFail literals
 const badPersist: PersistOptions = { onMigrationFail: "ignore" };
 void badPersist;
+

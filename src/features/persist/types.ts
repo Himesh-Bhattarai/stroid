@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\persist\types.ts
+ */
 import type { PersistConfig, StoreValue } from "../../adapters/options.js";
 
 export type PersistWatchEntry = { lastPresent: boolean; dispose: () => void };
@@ -45,3 +48,4 @@ export type PersistSaveArgs = {
     reportStoreError: (name: string, message: string) => void;
     hashState: (value: unknown) => number;
 };
+

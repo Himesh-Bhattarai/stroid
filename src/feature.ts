@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\feature.ts
+ */
 export type {
     BuiltInFeatureName,
     FeatureName,
@@ -17,3 +20,4 @@ export {
     hasRegisteredStoreFeature,
     getRegisteredFeatureNames,
 } from "./feature-registry.js";
+

@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\store-transaction.ts
+ */
 import type { StoreValue } from "./store-lifecycle/types.js";
 import {
     getActiveStoreRegistry,
@@ -79,3 +82,4 @@ export const endTransaction = (err?: unknown, registry?: StoreRegistry): Error |
 
     return finalError;
 };
+

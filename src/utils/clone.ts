@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\utils\clone.ts
+ */
 import { warnAlways } from "../internals/diagnostics.js";
 import { FORBIDDEN_OBJECT_KEYS } from "./validation.js";
 
@@ -112,3 +115,4 @@ export const produceClone = <T>(base: T, recipe: (draft: T) => void): T => {
         );
     }
 };
+

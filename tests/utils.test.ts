@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\utils.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
@@ -70,3 +73,4 @@ test("suggestStoreName still suggests close short matches", () => {
 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
+

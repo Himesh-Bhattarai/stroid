@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\async-registry.ts
+ */
 export type AsyncStateSnapshot = {
     data?: unknown;
     loading: boolean;
@@ -151,3 +154,4 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     registry.asyncMetrics.avgMs = 0;
     registry.asyncMetrics.lastMs = 0;
 };
+

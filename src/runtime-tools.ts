@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\runtime-tools.ts
+ */
 import { deepClone, suggestStoreName } from "./utils.js";
 import {
     getStoreRegistry,
@@ -66,3 +69,4 @@ export const getPersistQueueDepth = (name: string): number => {
 export const getComputedGraph = () => getFullComputedGraph();
 
 export const getComputedDeps = (name: string) => getComputedDepsFor(name);
+

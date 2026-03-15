@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\state-helpers.ts
+ */
 import type { StoreValue } from "../adapters/options.js";
 
 export type FeatureValidation = (next: StoreValue) => { ok: boolean; value?: StoreValue };
@@ -57,3 +60,4 @@ export const resolveUpdatedAtMs = ({
     onInvalid?.();
     return fallbackMs;
 };
+

@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\store-lifecycle\hooks.ts
+ */
 import { warn, log, hashState, deepClone, sanitize, isDev } from "../utils.js";
 import { runMiddleware, runStoreHook, MIDDLEWARE_ABORT } from "../features/lifecycle.js";
 import { getConfig } from "../internals/config.js";
@@ -205,3 +208,4 @@ export const resolveFeatureAvailability = (name: string, options: NormalizedOpti
 
     return next;
 };
+

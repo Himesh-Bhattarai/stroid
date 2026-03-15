@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\selectors.ts
+ */
 import {
     getSelectorStoreValueRef,
     hasSelectorStoreEntry,
@@ -126,3 +129,4 @@ export const subscribeWithSelector = <R>(
     };
     return subscribeSelectorStore(name, wrapped);
 };
+

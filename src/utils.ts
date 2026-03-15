@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\utils.ts
+ */
 export {
     __DEV__,
     isDev,
@@ -21,3 +24,4 @@ export {
     isValidStoreName,
     type SupportedType,
 } from "./utils/validation.js";
+

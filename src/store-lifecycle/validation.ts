@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\store-lifecycle\validation.ts
+ */
 import {
     warn,
     critical,
@@ -365,3 +368,4 @@ export const materializeInitial = (name: string): boolean => {
         return false;
     }
 };
+

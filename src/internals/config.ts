@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\internals\config.ts
+ */
 import type { SnapshotMode, MiddlewareCtx, StoreValue } from "../adapters/options.js";
 import { registerTestResetHook } from "./test-reset.js";
 import { warnAlways } from "./diagnostics.js";
@@ -347,3 +350,4 @@ export const setNamespace = (ns: string): void => {
         baseConfig = cloneConfig(next);
     }
 };
+

@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\store.ts
+ */
 // Public store API barrel. store-* modules are split for organization and re-exported here.
 export type {
     Path,
@@ -57,3 +60,4 @@ export {
 export { clearAllStores, clearStores } from "./runtime-admin.js";
 
 export { store, namespace } from "./store-name.js";
+

@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\store-lifecycle\bind.ts
+ */
 import type { StoreRegistry } from "../store-registry.js";
 import { resolveScope, setRegistryContext, initializeRegisteredFeatureRuntimes, defaultRegistryScope } from "./registry.js";
 import { resetPathValidationCache } from "./validation.js";
@@ -17,3 +20,4 @@ export const bindRegistry = (scopeOrRegistry?: string | StoreRegistry): void => 
 export const useRegistry = (scopeId: string): void => bindRegistry(scopeId);
 
 registerTestResetHook("registry.bind-default", () => bindRegistry(defaultRegistryScope), 120);
+

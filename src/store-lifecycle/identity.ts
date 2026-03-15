@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\store-lifecycle\identity.ts
+ */
 import { warn, isDev, suggestStoreName } from "../utils.js";
 import { getConfig, getNamespace } from "../internals/config.js";
 import { reportIssue, type IssueSeverity, type IssueVisibility } from "../internals/reporting.js";
@@ -98,3 +101,4 @@ export const warnMissingFeature = (storeName: string, featureName: FeatureName, 
 };
 
 export const getFeatureApi = (name: FeatureName) => featureRuntimes.get(name)?.api;
+

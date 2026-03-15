@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\internals\reporting.ts
+ */
 import { critical, warn, warnAlways } from "./diagnostics.js";
 
 export type IssueSeverity = "warn" | "critical";
@@ -31,3 +34,4 @@ export const reportIssue = (message: string, options: IssueOptions = {}): void =
 
     warn(message);
 };
+

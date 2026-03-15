@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\store-name.ts
+ */
 import type { StoreKey, StoreValue } from "./store-lifecycle/types.js";
 import { createStore, createStoreStrict, setStore, deleteStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
@@ -36,3 +39,4 @@ export const namespace = (ns: string) => {
         reset: (name: string) => resetStore(adaptName(name)),
     };
 };
+

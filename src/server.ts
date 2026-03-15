@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\server.ts
+ */
 import { hydrateStores } from "./store.js";
 import { deepClone, produceClone } from "./utils.js";
 import type { StoreOptions } from "./store.js";
@@ -110,3 +113,4 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
         },
     };
 };
+

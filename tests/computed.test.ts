@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\computed.test.ts
+ */
 import test from "node:test";
 import assert from "node:assert";
 import { createStore, setStore, replaceStore, getStore } from "../src/store.js";
@@ -223,3 +226,4 @@ test("computed handles 50+ dependencies", async () => {
 
   assert.strictEqual(getStore("sumAll"), expected);
 });
+

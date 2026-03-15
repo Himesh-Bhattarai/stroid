@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\internals\test-reset.ts
+ */
 type TestResetHook = {
     name: string;
     order: number;
@@ -18,3 +21,4 @@ export const runTestResets = (): void => {
     });
     ordered.forEach((hook) => hook.fn());
 };
+

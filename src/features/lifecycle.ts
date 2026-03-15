@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\features\lifecycle.ts
+ */
 import type { StoreValue } from "../adapters/options.js";
 import { deepClone, isDev } from "../utils.js";
 
@@ -83,3 +86,4 @@ export const runStoreHook = ({
         reportIssue(message, "always");
     }
 };
+

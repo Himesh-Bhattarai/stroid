@@ -1,3 +1,6 @@
+/**
+ * @fileoverview tests\setup.ts
+ */
 import { afterEach } from "node:test";
 import { JSDOM } from "jsdom";
 import { cleanup } from "@testing-library/react";
@@ -50,3 +53,4 @@ afterEach(() => {
   cleanup();
   resetAllStoresForTest();
 });
+

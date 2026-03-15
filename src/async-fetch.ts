@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\async-fetch.ts
+ */
 import { createStore, setStore, hasStore, getStore } from "./internals/store-ops.js";
 import { error, warn, isDev } from "./utils.js";
 import { getConfig } from "./internals/config.js";
@@ -653,3 +656,4 @@ export const cleanupAllRevalidateHandlers = (): void => {
     _wildcardCleanups.forEach(fn => fn());
     _wildcardCleanups.length = 0;
 };
+

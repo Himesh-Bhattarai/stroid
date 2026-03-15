@@ -1,3 +1,6 @@
+/**
+ * @fileoverview src\async.ts
+ */
 export type { FetchOptions, FetchInput, AsyncStateSnapshot, AsyncStateAdapter } from "./async-cache.js";
 export {
     fetchStore,
@@ -6,3 +9,4 @@ export {
     getAsyncMetrics,
     _resetAsyncStateForTests,
 } from "./async-fetch.js";
+
