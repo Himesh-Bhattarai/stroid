@@ -1,4 +1,4 @@
-import { createStore, setStore, hasStore, getStore } from "./store.js";
+import { createStore, setStore, hasStore, getStore } from "./internals/store-ops.js";
 import { error, warn, isDev } from "./utils.js";
 import { getConfig } from "./internals/config.js";
 import { nameOf } from "./store-lifecycle/identity.js";

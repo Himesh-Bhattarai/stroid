@@ -5,7 +5,7 @@
  * OWNS:  Dependency tracking, cycle detection, topological ordering,
  *        computed entry CRUD. Zero React. Zero async.
  *
- * Consumers: computed.ts (public API), store-notify.ts (flush ordering),
+ * Consumers: computed.ts (public API), store-notify.ts (flush ordering via resolver),
  *            store-admin.ts (cleanup on delete), runtime-tools.ts (diagnostics)
  */
 import {
@@ -15,6 +15,7 @@ import {
     type ComputedEntry,
 } from "./store-registry.js";
 import { error } from "./utils.js";
+import { setComputedOrderResolver } from "./internals/computed-order.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
 
@@ -191,6 +192,8 @@ export const getTopoOrderedComputeds = (changedSources: string[]): string[] => {
 
     return sorted;
 };
+
+setComputedOrderResolver(getTopoOrderedComputeds);
 
 export const getFullComputedGraph = (): {
     nodes: string[];

@@ -5,7 +5,8 @@
  * OWNS:  PubSub flushing, batching, chunked delivery, and snapshot caching.
  *
  * DOES NOT KNOW about: createStore(), features (persist/sync/devtools),
- *        validation logic, or path parsing.
+ *        validation logic, or path parsing. Computed ordering is injected
+ *        via a resolver hook.
  *
  * Consumers: store-write (calls notify()), hooks-core (calls subscribe/getSnapshot).
  */
@@ -25,7 +26,7 @@ import {
     getRegistry,
 } from "./store-lifecycle/registry.js";
 import type { StoreValue, Subscriber } from "./store-lifecycle/types.js";
-import { getTopoOrderedComputeds } from "./computed-graph.js";
+import { getComputedOrder } from "./internals/computed-order.js";
 import type { SnapshotMode } from "./adapters/options.js";
 
 const resolveSnapshotMode = (name: string): SnapshotMode => {
@@ -79,7 +80,7 @@ const buildPendingOrder = (state: NotifyState): { names: string[]; sliceSize: nu
         orderedNames.push(...pendingBuffer);
     }
 
-    const computedOrder = getTopoOrderedComputeds(orderedNames);
+    const computedOrder = getComputedOrder(orderedNames);
     const orderedSet = new Set(orderedNames);
     for (const computedName of computedOrder) {
         if (pendingSet.has(computedName) && !orderedSet.has(computedName)) {

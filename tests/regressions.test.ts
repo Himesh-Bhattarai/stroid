@@ -20,6 +20,8 @@ import { hashState } from "../src/utils.js";
 import { defaultRegistryScope } from "../src/store-registry.js";
 import { stores, validatePathSafety, getStoreAdmin } from "../src/store-lifecycle.js";
 import { createStoreForRequest } from "../src/server.js";
+import { setComputedOrderResolver } from "../src/internals/computed-order.js";
+import { getTopoOrderedComputeds } from "../src/computed-graph.js";
 
 test("validator with side effects runs once per write", () => {
   clearAllStores();
@@ -303,6 +305,25 @@ test("snapshotStrategy sets the default snapshot mode", () => {
     assert.strictEqual(snap.nested, ref.nested);
   } finally {
     resetConfig();
+  }
+});
+
+test("notify uses computed order resolver when provided", async () => {
+  clearAllStores();
+  let calls = 0;
+  const defaultResolver = getTopoOrderedComputeds;
+  setComputedOrderResolver((names) => {
+    calls += 1;
+    return names;
+  });
+
+  try {
+    createStore("orderHook", { value: 0 });
+    setStore("orderHook", "value", 1);
+    await Promise.resolve();
+    assert.ok(calls > 0);
+  } finally {
+    setComputedOrderResolver(defaultResolver);
   }
 });
 
