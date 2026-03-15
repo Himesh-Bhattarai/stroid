@@ -41,6 +41,8 @@ const name = useStore("user", s => s.name)                     // React hook
 
 Each row is independent. Use only what you need.
 
+Note: `stroid/core` exports only `createStore`, `setStore`, `getStore`, and `deleteStore`. Import from `stroid` for the full core runtime (batching, reset, hydration, and hooks).
+
 ---
 
 ## Install

@@ -91,7 +91,7 @@ Table B.1: Public Import Paths
 | Import Path | Purpose |
 |---|---|
 | `stroid` | lean default core entry |
-| `stroid/core` | explicit lean core entry |
+| `stroid/core` | minimal core primitives entry |
 | `stroid/persist` | register persistence support |
 | `stroid/sync` | register sync support |
 | `stroid/devtools` | register devtools/history support |

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+### Breaking
+- `stroid/core` now exports only `createStore`, `setStore`, `getStore`, and `deleteStore` (minimal primitives).
+
+### Migration
+- If you relied on `stroid/core` for batching, reset, hydration, or other core APIs, import them from `stroid` instead.
+
 ## 0.1.1 - 2026-03-15
 ### Added
 - Public feature installer entrypoints and a features option bag for custom feature registration.

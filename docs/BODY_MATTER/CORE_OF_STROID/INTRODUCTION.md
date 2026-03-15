@@ -8,7 +8,7 @@ This unit explains the part that matters most: the core runtime. Before persiste
 
 ## Unit Objectives
 
-- Understand what the lean `stroid` and `stroid/core` packages contain.
+- Understand what the lean `stroid` entry contains and how `stroid/core` narrows it further.
 - Learn the core mental model behind `createStore`, `setStore`, `getStore`, and lifecycle rules.
 - See why Stroid keeps one option object instead of many disconnected APIs.
 - Build intuition for when to stay in core and when to import optional feature modules.
@@ -36,7 +36,7 @@ The strongest documentation does not begin with syntax. It begins with a worldvi
 
 Core is the part of Stroid that should matter even if your app never uses persistence, sync, or React.
 
-In practical terms, lean `stroid` and `stroid/core` focus on:
+In practical terms, the root `stroid` entry focuses on:
 
 - named stores
 - creation
@@ -47,6 +47,13 @@ In practical terms, lean `stroid` and `stroid/core` focus on:
 - hydration
 - schema and validation gates
 - lifecycle and middleware hooks
+
+In contrast, `stroid/core` is a minimal entry that only exports:
+
+- `createStore`
+- `setStore`
+- `getStore`
+- `deleteStore`
 
 Core does **not** automatically enable:
 
@@ -72,7 +79,7 @@ const snapshot = getStore("counter");
 
 This example is intentionally boring. Boring is good. A runtime becomes trustworthy when the simple case is unambiguous.
 
-### Example 1.2: The Same Core, Different Entry
+### Example 1.2: The Minimal Core Entry
 
 ```ts
 import { createStore, getStore, setStore } from "stroid/core";
@@ -83,7 +90,7 @@ setStore("session", { step: 2 });
 console.log(getStore("session"));
 ```
 
-Use `stroid` when you want the lean default entry. Use `stroid/core` when you want the same core surface explicitly. Both are now intentionally close.
+Use `stroid` when you want the full core runtime (batching, reset, hydration, and hooks). Use `stroid/core` when you only want the minimal primitives and the smallest bundle surface.
 
 ## 1.2 The Named-Store Mental Model
 
@@ -164,6 +171,7 @@ That continuity is not accidental. It is what makes the library feel stable unde
 - Stroid core is the named-store runtime, not the full optional ecosystem.
 - The main mental model is: create a named store, attach rules once, then read and update it safely.
 - Lean `stroid` and `stroid/core` intentionally avoid auto-enabling persistence, sync, and devtools.
+- `stroid/core` is a stricter subset of the core runtime for size-sensitive consumers.
 - The option object is central because it keeps behavior discoverable and unified.
 
 ## Chapter 1 Review Questions
