@@ -9,12 +9,14 @@ import type {
     PersistInFlight,
     PersistWatchState,
     PersistSaveArgs,
+    PersistSequence,
 } from "./types.js";
 
 const persistSaveInner = ({
     name,
     persistTimers,
     persistInFlight,
+    persistSequence,
     persistWatchState,
     plaintextWarningsIssued,
     exists,
@@ -26,6 +28,7 @@ const persistSaveInner = ({
     name: string;
     persistTimers: PersistTimers;
     persistInFlight: PersistInFlight;
+    persistSequence: PersistSequence;
     persistWatchState: PersistWatchState;
     plaintextWarningsIssued: Set<string>;
     exists: () => boolean;
@@ -77,9 +80,12 @@ const persistSaveInner = ({
 
     const startWrite = (timer?: ReturnType<typeof setTimeout>): void => {
         const prev = persistInFlight[name];
+        const sequence = (persistSequence[name] ?? 0) + 1;
+        persistSequence[name] = sequence;
         const run = async (): Promise<void> => {
             if (prev) await prev;
             if (timer && persistTimers[name] !== timer) return;
+            if (persistSequence[name] !== sequence) return;
             await writeNow();
         };
 

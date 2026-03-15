@@ -4,6 +4,7 @@ export type PersistWatchEntry = { lastPresent: boolean; dispose: () => void };
 export type PersistWatchState = Record<string, PersistWatchEntry>;
 export type PersistTimers = Record<string, ReturnType<typeof setTimeout>>;
 export type PersistInFlight = Record<string, Promise<void> | null>;
+export type PersistSequence = Record<string, number>;
 
 export type PersistMeta = {
     version: number;
@@ -35,6 +36,7 @@ export type PersistSaveArgs = {
     name: string;
     persistTimers: PersistTimers;
     persistInFlight: PersistInFlight;
+    persistSequence: PersistSequence;
     persistWatchState: PersistWatchState;
     plaintextWarningsIssued: Set<string>;
     exists: () => boolean;
