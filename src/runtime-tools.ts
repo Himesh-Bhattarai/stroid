@@ -5,7 +5,8 @@ import {
     defaultRegistryScope,
     getActiveStoreRegistry,
 } from "./store-registry.js";
-import { subscribers, getFeatureApi } from "./store-lifecycle.js";
+import { subscribers } from "./store-lifecycle/registry.js";
+import { getFeatureApi } from "./store-lifecycle/identity.js";
 import { countInflightSlots } from "./async-cache.js";
 import type { StoreFeatureMeta } from "./feature-registry.js";
 import { getFullComputedGraph, getComputedDepsFor } from "./computed-graph.js";

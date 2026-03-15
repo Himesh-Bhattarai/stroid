@@ -19,7 +19,7 @@ import {
 } from "./computed-graph.js";
 import { warn, isDev, log } from "./utils.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
-import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "./store-lifecycle.js";
+import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "./store-lifecycle/types.js";
 
 export type ComputedOptions = {
     autoDispose?: boolean;

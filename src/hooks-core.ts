@@ -9,7 +9,7 @@ import type {
     StoreKey,
     StoreName,
     StateFor,
-} from "./store-lifecycle.js";
+} from "./store-lifecycle/types.js";
 import {
     hasBroadUseStoreWarning,
     markBroadUseStoreWarning,

@@ -1,6 +1,6 @@
 import { useStore } from "./hooks-core.js";
 import { store as storeHandle } from "./store-name.js";
-import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle.js";
+import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle/types.js";
 
 export type AsyncStoreState<T = unknown> = {
     data: T | null;

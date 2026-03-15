@@ -1,7 +1,8 @@
 import { createStore, setStore, hasStore, getStore } from "./store.js";
 import { error, warn, isDev } from "./utils.js";
 import { getConfig } from "./internals/config.js";
-import { nameOf, type StoreDefinition, type StoreKey, type StoreName } from "./store-lifecycle.js";
+import { nameOf } from "./store-lifecycle/identity.js";
+import type { StoreDefinition, StoreKey, StoreName } from "./store-lifecycle/types.js";
 import {
     asyncMetrics,
     cacheMeta,

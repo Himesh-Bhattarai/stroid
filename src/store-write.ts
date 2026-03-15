@@ -30,26 +30,50 @@ import {
     type StoreOptions,
 } from "./adapters/options.js";
 import {
-    // ── Registry state ─────────────────────────────────────────────────────
-    stores, meta, subscribers,
-    initialStates, initialFactories,
+    stores,
+    meta,
+    subscribers,
+    initialStates,
+    initialFactories,
     storeAdmin,
-    // ── Validation ─────────────────────────────────────────────────────────
-    sanitizeValue, normalizeCommittedState,
-    validatePathSafety, invalidatePathCache, materializeInitial,
-    // ── Lifecycle hooks ─────────────────────────────────────────────────────
-    runFeatureCreateHooks, runFeatureWriteHooks, runFeatureDeleteHooks,
-    runMiddlewareForStore, runStoreHookSafe,
-    setStoreValueInternal, getStoreValueRef, resolveFeatureAvailability,
-    // ── Identity & existence ────────────────────────────────────────────────
-    nameOf, exists, hasStoreEntryInternal,
-    reportStoreCreationError, reportStoreError, reportStoreWarning,
-    getSsrWarningIssued, markSsrWarningIssued,
-    // ── Types ───────────────────────────────────────────────────────────────
-    type PartialDeep, type Path, type PathValue,
-    type StoreDefinition, type StoreValue, type StoreKey,
-    type StoreName, type StateFor, type WriteResult,
-} from "./store-lifecycle.js";
+    setStoreValueInternal,
+    getStoreValueRef,
+    hasStoreEntryInternal,
+} from "./store-lifecycle/registry.js";
+import {
+    sanitizeValue,
+    normalizeCommittedState,
+    validatePathSafety,
+    invalidatePathCache,
+    materializeInitial,
+} from "./store-lifecycle/validation.js";
+import {
+    runFeatureCreateHooks,
+    runFeatureWriteHooks,
+    runMiddlewareForStore,
+    runStoreHookSafe,
+    resolveFeatureAvailability,
+} from "./store-lifecycle/hooks.js";
+import {
+    nameOf,
+    exists,
+    reportStoreCreationError,
+    reportStoreError,
+    reportStoreWarning,
+    getSsrWarningIssued,
+    markSsrWarningIssued,
+} from "./store-lifecycle/identity.js";
+import type {
+    PartialDeep,
+    Path,
+    PathValue,
+    StoreDefinition,
+    StoreValue,
+    StoreKey,
+    StoreName,
+    StateFor,
+    WriteResult,
+} from "./store-lifecycle/types.js";
 import { getConfig } from "./internals/config.js";
 import { runTestResets } from "./internals/test-reset.js";
 import { notify } from "./store-notify.js";
@@ -582,4 +606,4 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
     return result;
 };
 
-export { useRegistry } from "./store-lifecycle.js";
+export { useRegistry } from "./store-lifecycle/bind.js";

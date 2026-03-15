@@ -4,7 +4,7 @@ import { fetchRegistry, inflight } from "./async-cache.js";
 import { fetchStore, refetchStore } from "./async-fetch.js";
 import { useAsyncStore, type AsyncDataFor, type AsyncStoreState } from "./hooks-async.js";
 import { store } from "./store.js";
-import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle.js";
+import type { StoreDefinition, StoreKey, StoreName, StateFor } from "./store-lifecycle/types.js";
 
 const EMPTY_OPTIONS: FetchOptions = {};
 

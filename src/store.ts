@@ -12,7 +12,7 @@ export type {
     StoreStateMap,
     StrictStoreMap,
     WriteResult,
-} from "./store-lifecycle.js";
+} from "./store-lifecycle/types.js";
 export type {
     FeatureOptions,
     FeatureOptionsMap,

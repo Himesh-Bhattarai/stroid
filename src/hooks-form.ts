@@ -8,7 +8,7 @@ import type {
     StoreKey,
     StoreName,
     StateFor,
-} from "./store-lifecycle.js";
+} from "./store-lifecycle/types.js";
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 

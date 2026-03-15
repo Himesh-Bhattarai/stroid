@@ -6,7 +6,7 @@ import {
 } from "./internals/selector-store.js";
 import { deepClone, shallowClone, getByPath, warn } from "./utils.js";
 import { getStoreSnapshot } from "./store-notify.js";
-import { meta } from "./store-lifecycle.js";
+import { meta } from "./store-lifecycle/registry.js";
 import type { SnapshotMode } from "./adapters/options.js";
 
 type SelectorDependency = string[];

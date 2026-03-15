@@ -1,4 +1,4 @@
-import type { StoreKey, StoreValue } from "./store-lifecycle.js";
+import type { StoreKey, StoreValue } from "./store-lifecycle/types.js";
 import { createStore, createStoreStrict, setStore, deleteStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
 

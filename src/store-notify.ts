@@ -23,9 +23,8 @@ import {
     hasStoreEntryInternal,
     getStoreValueRef,
     getRegistry,
-    type StoreValue,
-    type Subscriber,
-} from "./store-lifecycle.js";
+} from "./store-lifecycle/registry.js";
+import type { StoreValue, Subscriber } from "./store-lifecycle/types.js";
 import { getTopoOrderedComputeds } from "./computed-graph.js";
 import type { SnapshotMode } from "./adapters/options.js";
 
