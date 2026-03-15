@@ -252,4 +252,80 @@ test("SSR async registries isolate fetch registry and cache meta", async () => {
     assert.strictEqual(resultB, undefined);
 });
 
+test("SSR notifications remain isolated under overlapping writes", async () => {
+    resetAllStoresForTest();
+
+    const reqA = createStoreForRequest(({ create }) => {
+        create("session", { user: "UserA" }, { lazy: false });
+    });
+
+    const reqB = createStoreForRequest(({ create }) => {
+        create("session", { user: "UserB" }, { lazy: false });
+    });
+
+    const callsA: string[] = [];
+    const callsB: string[] = [];
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const promiseA = reqA.hydrate(async () => {
+        subscribe("session", () => callsA.push(String(getStore("session")?.user)));
+        setStore("session", "user", "UserA1");
+        await wait(15);
+        setStore("session", "user", "UserA2");
+    });
+
+    const promiseB = reqB.hydrate(async () => {
+        subscribe("session", () => callsB.push(String(getStore("session")?.user)));
+        await wait(5);
+        setStore("session", "user", "UserB1");
+    });
+
+    await Promise.all([promiseA, promiseB]);
+    await wait(20);
+
+    assert.ok(callsA.length > 0);
+    assert.ok(callsB.length > 0);
+    assert.ok(callsA.every((value) => value.startsWith("UserA")));
+    assert.ok(callsB.every((value) => value.startsWith("UserB")));
+});
+
+test("concurrent setStoreBatch across request registries stays isolated", async () => {
+    resetAllStoresForTest();
+
+    const reqA = createStoreForRequest(({ create }) => {
+        create("session", { user: "UserA" }, { lazy: false });
+    });
+
+    const reqB = createStoreForRequest(({ create }) => {
+        create("session", { user: "UserB" }, { lazy: false });
+    });
+
+    const callsA: string[] = [];
+    const callsB: string[] = [];
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const promiseA = reqA.hydrate(async () => {
+        subscribe("session", () => callsA.push(String(getStore("session")?.user)));
+        await wait(10);
+        setStoreBatch(() => {
+            setStore("session", "user", "UserA1");
+        });
+    });
+
+    const promiseB = reqB.hydrate(async () => {
+        subscribe("session", () => callsB.push(String(getStore("session")?.user)));
+        setStoreBatch(() => {
+            setStore("session", "user", "UserB1");
+        });
+    });
+
+    await Promise.all([promiseA, promiseB]);
+    await wait(20);
+
+    assert.ok(callsA.length > 0);
+    assert.ok(callsB.length > 0);
+    assert.ok(callsA.every((value) => value.startsWith("UserA")));
+    assert.ok(callsB.every((value) => value.startsWith("UserB")));
+});
+
 

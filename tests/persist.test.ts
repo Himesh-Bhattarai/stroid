@@ -59,6 +59,43 @@ test("persist setItem errors surface via onError without throwing", async () => 
   clearAllStores();
 });
 
+test("persist true surfaces localStorage quota errors without throwing", async () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const originalWindow = (globalThis as any).window;
+
+  const throwingStorage = {
+    getItem: () => null,
+    setItem: () => {
+      const err = new Error("QuotaExceededError");
+      (err as any).name = "QuotaExceededError";
+      throw err;
+    },
+    removeItem: () => {},
+  };
+
+  (globalThis as any).window = {
+    localStorage: throwingStorage,
+    sessionStorage: throwingStorage,
+  };
+
+  try {
+    createStore("quotaStore", { value: 1 }, {
+      persist: true,
+      onError: (msg) => errors.push(msg),
+    });
+
+    setStore("quotaStore", { value: 2 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.deepStrictEqual(getStore("quotaStore"), { value: 2 });
+    assert.ok(errors.some((msg) => msg.includes("QuotaExceededError")));
+  } finally {
+    clearAllStores();
+    (globalThis as any).window = originalWindow;
+  }
+});
+
 test("persist supports async crypto and sha256 checksums", async () => {
   clearAllStores();
   let stored: string | null = null;

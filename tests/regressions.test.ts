@@ -12,6 +12,7 @@ import { configureStroid, resetConfig } from "../src/config.js";
 import { clearAllStores } from "../src/runtime-admin.js";
 import {
   createStore,
+  deleteStore,
   getStore,
   hasStore,
   hydrateStores,
@@ -26,7 +27,7 @@ import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
 import { hashState, warn } from "../src/utils.js";
 import { createStoreRegistry, defaultRegistryScope, runWithRegistry } from "../src/store-registry.js";
-import { stores, validatePathSafety, getStoreAdmin } from "../src/store-lifecycle.js";
+import { stores, validatePathSafety, pathValidationCache, getStoreAdmin } from "../src/store-lifecycle.js";
 import { createStoreForRequest } from "../src/server.js";
 import { setComputedOrderResolver } from "../src/internals/computed-order.js";
 import { getTopoOrderedComputeds } from "../src/computed-graph.js";
@@ -76,6 +77,36 @@ test("validatePathSafety cache does not bypass type mismatch", () => {
 
   const badString = validatePathSafety("x", base, "count", "nope");
   assert.strictEqual(badString.ok, false);
+});
+
+test("validatePathSafety LRU caps verdict entries under high-cardinality paths", () => {
+  clearAllStores();
+  const items: Record<string, { value: number }> = {};
+  const total = 700;
+  for (let i = 0; i < total; i += 1) {
+    items[`k${i}`] = { value: i };
+  }
+
+  createStore("lru", { items });
+  const base = stores["lru"];
+
+  for (let i = 0; i < total; i += 1) {
+    validatePathSafety("lru", base, `items.k${i}.value`, i);
+  }
+
+  const root = pathValidationCache.get("lru") as any;
+  const countVerdicts = (node: any): number => {
+    if (!node) return 0;
+    let count = 0;
+    if (node.verdicts) count += node.verdicts.size;
+    node.children?.forEach((child: any) => {
+      count += countVerdicts(child);
+    });
+    return count;
+  };
+
+  const verdictCount = countVerdicts(root);
+  assert.ok(verdictCount <= 500, `expected <= 500 verdicts, got ${verdictCount}`);
 });
 
 test("hydrateStores does not materialize lazy stores", () => {
@@ -337,6 +368,35 @@ test("snapshotStrategy sets the default snapshot mode", () => {
     const ref = _getStoreValueRef("snap") as any;
     assert.notStrictEqual(snap, ref);
     assert.strictEqual(snap.nested, ref.nested);
+  } finally {
+    resetConfig();
+  }
+});
+
+test("mid-flush store deletion does not crash or notify deleted subscribers", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 10 } });
+
+  try {
+    createStore("chaos", { value: 0 });
+    const events: Array<{ id: string; value: unknown }> = [];
+
+    subscribe("chaos", (snap) => {
+      events.push({ id: "first", value: snap });
+      if (snap && (snap as any).value === 1) {
+        deleteStore("chaos");
+      }
+    });
+    subscribe("chaos", (snap) => {
+      events.push({ id: "second", value: snap });
+    });
+
+    setStore("chaos", "value", 1);
+    await new Promise((r) => setTimeout(r, 60));
+
+    assert.ok(events.some((entry) => entry.id === "first" && (entry.value as any)?.value === 1));
+    assert.ok(events.some((entry) => entry.value === null));
+    assert.strictEqual(getStore("chaos"), null);
   } finally {
     resetConfig();
   }
