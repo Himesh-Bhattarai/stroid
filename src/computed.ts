@@ -1,12 +1,5 @@
 /**
- * @module computed
- *
- * LAYER: Public Computed API
- * OWNS:  createComputed, invalidateComputed
- *
- * DOES NOT KNOW about: React, async, persist, sync, devtools.
- *
- * Consumers: index.ts, computed-entry.ts
+ * @fileoverview src\computed.ts
  */
 import { store } from "./store-name.js";
 import { createStore, replaceStore, getStore, hasStore, subscribeStore } from "./internals/store-ops.js";
@@ -179,3 +172,4 @@ export const _resetComputedForTests = (): void => {
     cleanups.forEach((fn) => fn());
     cleanups.clear();
 };
+

@@ -1,7 +1,5 @@
 /**
- * @fileoverview Configuration options and normalization logic for stroid stores.
- * This module defines the shapes for persistence, synchronization, devtools,
- * and lifecycle hooks, along with utilities to validate and normalize them.
+ * @fileoverview src\adapters\options.ts
  */
 import { registerTestResetHook } from "../internals/test-reset.js";
 
@@ -550,3 +548,4 @@ export const normalizeStoreOptions = <State>(
         explicitDevtools,
     };
 };
+

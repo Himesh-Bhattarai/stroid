@@ -1,14 +1,5 @@
 /**
- * @module store-registry
- *
- * LAYER: Dumb Data Container
- * OWNS:  The shape of a StoreRegistry, the global map of all scoped registries,
- *        and the SSR carrier-context injection point.
- *
- * DOES NOT KNOW about: validation, features, hooks, React, or any write logic.
- * It is a plain key-value store factory — nothing more.
- *
- * Consumers: store-lifecycle (binds a registry scope on startup / SSR switch).
+ * @fileoverview src\store-registry.ts
  */
 import type { FeatureName, StoreFeatureMeta, StoreFeatureRuntime } from "./feature-registry.js";
 import type { AsyncRegistry } from "./async-registry.js";
@@ -259,3 +250,4 @@ export const enterRegistry = (registry: StoreRegistry): void => {
         currentRegistryRunner.enterWith(registry);
     }
 };
+

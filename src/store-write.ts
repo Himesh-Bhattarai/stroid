@@ -1,14 +1,5 @@
 /**
- * @module store-write
- *
- * LAYER: Public Write API
- * OWNS:  createStore(), createStoreStrict(), setStore(), deleteStore(), resetStore(),
- *        hydrateStores(), clearAllStores().
- *
- * DOES NOT KNOW about: React hooks, async caching, or feature internals.
- * Delegates all engine work to store-lifecycle.
- *
- * Consumers: index.ts, core.ts, testing.ts, server.ts.
+ * @fileoverview src\store-write.ts
  */
 import {
     warn,
@@ -620,3 +611,4 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
 };
 
 export { useRegistry } from "./store-lifecycle/bind.js";
+

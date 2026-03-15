@@ -1,12 +1,5 @@
 /**
- * @module computed-graph
- *
- * LAYER: Internal graph engine
- * OWNS:  Dependency tracking, cycle detection, topological ordering,
- *        computed entry CRUD. Zero React. Zero async.
- *
- * Consumers: computed.ts (public API), store-notify.ts (flush ordering via resolver),
- *            store-admin.ts (cleanup on delete), runtime-tools.ts (diagnostics)
+ * @fileoverview src\computed-graph.ts
  */
 import {
     getStoreRegistry,
@@ -234,3 +227,4 @@ export const getComputedDepsFor = (name: string): { deps: string[]; dependents: 
         dependents: dependents ? [...dependents] : [],
     };
 };
+

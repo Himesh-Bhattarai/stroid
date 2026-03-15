@@ -1,18 +1,6 @@
 /**
- * @module store-lifecycle
- *
- * LAYER: Core Engine
- * OWNS:  Registry state variables (stores, meta, subscribers, ...) and all
- *        pure primitives that operate on them (sanitize, validate, path-safety,
- *        feature hook dispatch).
- *
- * DOES NOT KNOW about: createStore(), setStore(), React hooks,
- *        or any specific feature plugin by name.
- *
- * Consumers: store-write (write API), store-read, store-notify,
- *            hooks-core.
+ * @fileoverview src\store-lifecycle.ts
  */
-
 export type {
     Path,
     PathDepth,
@@ -90,3 +78,4 @@ export {
 } from "./store-lifecycle/identity.js";
 
 export { bindRegistry, useRegistry } from "./store-lifecycle/bind.js";
+

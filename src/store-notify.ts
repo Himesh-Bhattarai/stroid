@@ -1,14 +1,5 @@
 /**
- * @module store-notify
- *
- * LAYER: Subscriber Notification Engine
- * OWNS:  PubSub flushing, batching, chunked delivery, and snapshot caching.
- *
- * DOES NOT KNOW about: createStore(), features (persist/sync/devtools),
- *        validation logic, or path parsing. Computed ordering is injected
- *        via a resolver hook.
- *
- * Consumers: store-write (calls notify()), hooks-core (calls subscribe/getSnapshot).
+ * @fileoverview src\store-notify.ts
  */
 import { deepClone, shallowClone, warn, warnAlways } from "./utils.js";
 import { devDeepFreeze } from "./devfreeze.js";
@@ -413,3 +404,4 @@ export const resetNotifyStateForTests = (): void => {
 };
 
 registerTestResetHook("notify.reset", resetNotifyStateForTests, 40);
+
