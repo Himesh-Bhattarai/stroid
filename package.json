@@ -1,6 +1,6 @@
 {
   "name": "stroid",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Named-store state engine for JavaScript/React with optional persistence, async caching, sync, and devtools.",
   "keywords": [
     "state-management",
@@ -126,6 +126,7 @@
     "react": ">=18"
   },
   "devDependencies": {
+    "@microsoft/api-extractor": "^7.57.7",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
     "@types/node": "^22.9.0",

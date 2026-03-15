@@ -1,6 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
+    tsconfig: "tsconfig.build.json",
     entry: {
         index: "src/index.ts",
         core: "src/core.ts",
@@ -20,10 +21,11 @@ export default defineConfig({
         testing: "src/testing.ts",
     },
     format: ["esm", "cjs"],
-    dts: true,
+    experimentalDts: true,
+    bundle: true,
     minify: true,
     treeshake: true,
-    sourcemap: false,
+    sourcemap: true,
     clean: true,
     splitting: false,
     drop: ["debugger"],

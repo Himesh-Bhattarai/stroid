@@ -23,7 +23,7 @@ Separate runtime layers without fragmenting the mental model.
 
 Stroid's runtime is organized around:
 
-- core store primitives in `stroid` and `stroid/core`
+- core store primitives in `stroid` (full core) and `stroid/core` (minimal subset)
 - side-effect feature registration in `stroid/persist`, `stroid/sync`, and `stroid/devtools`
 - separate runtime layers like `stroid/react`, `stroid/async`, and `stroid/selectors`
 

@@ -39,8 +39,8 @@ You can also import the core path directly:
 import { createStore, getStore, setStore } from "stroid/core";
 ```
 
-Use the root package if you want the simple start.
-Use `stroid/core` if you want to be very explicit that you are only using the core API.
+Use the root package if you want the full core runtime (batching, reset, hydration, and hooks).
+Use `stroid/core` if you only want the minimal primitives (`createStore`, `setStore`, `getStore`, `deleteStore`).
 
 ## Step 3: Learn The Extra Entry Points
 
