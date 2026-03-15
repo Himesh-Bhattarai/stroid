@@ -71,6 +71,42 @@ test("fetchStore warns when overwriting a non-async store without stateAdapter",
   assert.deepStrictEqual(state, { name: "Alex" });
 });
 
+test("fetchStore returns null on usage errors by default", async () => {
+  clearAllStores();
+  const errors: string[] = [];
+  configureStroid({ asyncAutoCreate: false });
+
+  try {
+    const result = await fetchStore("missingAsync", "https://api.example.com/missing", {
+      onError: (msg) => errors.push(msg),
+    });
+    assert.strictEqual(result, null);
+  } finally {
+    resetConfig();
+  }
+
+  assert.ok(errors.some((msg) => msg.includes('fetchStore("missingAsync") requires an existing backing store')));
+});
+
+test("fetchStore throws on usage errors when strictAsyncUsageErrors is enabled", async () => {
+  clearAllStores();
+  const errors: string[] = [];
+  configureStroid({ asyncAutoCreate: false, strictAsyncUsageErrors: true });
+
+  try {
+    await assert.rejects(
+      () => fetchStore("missingStrict", "https://api.example.com/missing", {
+        onError: (msg) => errors.push(msg),
+      }),
+      /requires an existing backing store/
+    );
+  } finally {
+    resetConfig();
+  }
+
+  assert.ok(errors.some((msg) => msg.includes('fetchStore("missingStrict") requires an existing backing store')));
+});
+
 test("fetchStore warns once when async results are mutable", async () => {
   clearAllStores();
   const warnings: string[] = [];

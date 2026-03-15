@@ -38,6 +38,11 @@ export type StroidConfig = {
      * Alias for defaultSnapshotMode.
      */
     snapshotStrategy?: SnapshotMode;
+    /**
+     * Throw on async usage errors instead of returning null.
+     * Default: false (usage errors return null and call onError).
+     */
+    strictAsyncUsageErrors?: boolean;
     middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
     /**
      * Allow hydrateStores to accept untrusted snapshots without explicit opt-in.
@@ -62,6 +67,7 @@ type ResolvedConfig = {
     asyncAutoCreate: boolean;
     asyncCloneResult: AsyncCloneMode;
     defaultSnapshotMode: SnapshotMode;
+    strictAsyncUsageErrors: boolean;
     middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
     allowUntrustedHydration: boolean;
     mutatorProduce?: <T>(base: T, recipe: (draft: T) => void) => T;
@@ -107,6 +113,7 @@ const defaultConfig: ResolvedConfig = {
     asyncAutoCreate: false,
     asyncCloneResult: "none",
     defaultSnapshotMode: "deep",
+    strictAsyncUsageErrors: false,
     middleware: [],
     allowUntrustedHydration: false,
     mutatorProduce: undefined,
@@ -216,6 +223,12 @@ export const configureStroid = (next?: StroidConfig): void => {
         _config = {
             ..._config,
             asyncAutoCreate: next.asyncAutoCreate,
+        };
+    }
+    if (typeof next.strictAsyncUsageErrors === "boolean") {
+        _config = {
+            ..._config,
+            strictAsyncUsageErrors: next.strictAsyncUsageErrors,
         };
     }
 
