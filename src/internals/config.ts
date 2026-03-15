@@ -1,4 +1,5 @@
 import type { SnapshotMode, MiddlewareCtx, StoreValue } from "../adapters/options.js";
+import { registerTestResetHook } from "./test-reset.js";
 
 export type LogSink = {
     log?: (msg: string, meta?: Record<string, unknown>) => void;
@@ -237,6 +238,8 @@ export const configureStroid = (next?: StroidConfig): void => {
 export const resetConfig = (): void => {
     _config = { ...defaultConfig };
 };
+
+registerTestResetHook("config.reset", resetConfig, 90);
 
 // Back-compat for tests
 export const _resetConfigForTests = (): void => resetConfig();

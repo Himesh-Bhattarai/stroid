@@ -14,6 +14,7 @@ import { devDeepFreeze } from "./devfreeze.js";
 import { getConfig } from "./internals/config.js";
 import { beginTransaction, endTransaction, isTransactionActive } from "./store-transaction.js";
 import { runWithRegistry, type StoreRegistry, type NotifyState } from "./store-registry.js";
+import { registerTestResetHook } from "./internals/test-reset.js";
 import {
     meta,
     subscribers,
@@ -383,3 +384,5 @@ export const resetNotifyStateForTests = (): void => {
     state.notifyScheduled = false;
     state.batchDepth = 0;
 };
+
+registerTestResetHook("notify.reset", resetNotifyStateForTests, 40);

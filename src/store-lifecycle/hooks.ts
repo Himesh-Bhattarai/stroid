@@ -1,6 +1,7 @@
 import { warn, log, hashState, deepClone, sanitize, isDev } from "../utils.js";
 import { runMiddleware, runStoreHook, MIDDLEWARE_ABORT } from "../features/lifecycle.js";
 import { getConfig } from "../internals/config.js";
+import { registerTestResetHook } from "../internals/test-reset.js";
 import {
     hasRegisteredStoreFeature,
     type FeatureDeleteContext,
@@ -57,6 +58,8 @@ const getBaseFeatureContexts = (registry: object): Map<string, BaseFeatureContex
 export const clearFeatureContexts = (): void => {
     getBaseFeatureContexts(getRegistry()).clear();
 };
+
+registerTestResetHook("features.contexts", clearFeatureContexts, 100);
 
 export const createBaseFeatureContext = (name: string): BaseFeatureContext | null => {
     const registry = getRegistry();

@@ -13,6 +13,7 @@
 import type { FeatureName, StoreFeatureMeta, StoreFeatureRuntime } from "./feature-registry.js";
 import type { AsyncRegistry } from "./async-registry.js";
 import { createAsyncRegistry, resetAsyncRegistry } from "./async-registry.js";
+import { registerTestResetHook } from "./internals/test-reset.js";
 
 export type RegistryStoreValue = unknown;
 export type RegistrySubscriber = (value: RegistryStoreValue | null) => void;
@@ -87,6 +88,8 @@ export const clearRegistryScopeOverrideForTests = (): void => {
     _registryOverrideRuntime = undefined;
     _registries.clear();
 };
+
+registerTestResetHook("registry.scope-override", clearRegistryScopeOverrideForTests, 110);
 
 const createNotifyState = (): NotifyState => ({
     pendingNotifications: new Set<string>(),

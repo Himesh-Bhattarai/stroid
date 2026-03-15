@@ -12,6 +12,7 @@ import {
     enterRegistry,
     type StoreRegistry,
 } from "../store-registry.js";
+import { registerTestResetHook } from "../internals/test-reset.js";
 import {
     getStoreFeatureFactory,
     getRegisteredFeatureNames,
@@ -197,6 +198,9 @@ export const resetFeaturesForTests = (): void => {
     });
     featureRuntimes.clear();
 };
+
+registerTestResetHook("features.reset", resetFeaturesForTests, 10);
+registerTestResetHook("registries.clear", clearAllRegistries, 20);
 
 export const getMetaEntry = (name: string): StoreFeatureMeta | undefined => meta[name];
 

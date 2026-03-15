@@ -1,3 +1,5 @@
+import { registerTestResetHook } from "../internals/test-reset.js";
+
 export type StoreValue = unknown;
 
 // Ambient map users can augment to type feature option bags.
@@ -254,6 +256,8 @@ const warnedLegacyOptions = new Set<string>();
 export const resetLegacyOptionDeprecationWarningsForTests = (): void => {
     warnedLegacyOptions.clear();
 };
+
+registerTestResetHook("options.legacy-warnings", resetLegacyOptionDeprecationWarningsForTests, 30);
 
 const memoryStorage: PersistDriver = (() => {
     const m = new Map<string, string>();

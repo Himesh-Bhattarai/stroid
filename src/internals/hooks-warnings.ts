@@ -1,3 +1,5 @@
+import { registerTestResetHook } from "./test-reset.js";
+
 const _broadUseStoreWarnings = new Set<string>();
 const _missingUseStoreWarnings = new Set<string>();
 
@@ -22,3 +24,6 @@ export const resetBroadUseStoreWarnings = (): void => {
 export const resetMissingUseStoreWarnings = (): void => {
     _missingUseStoreWarnings.clear();
 };
+
+registerTestResetHook("hooks.broad-warning", resetBroadUseStoreWarnings, 70);
+registerTestResetHook("hooks.missing-warning", resetMissingUseStoreWarnings, 80);

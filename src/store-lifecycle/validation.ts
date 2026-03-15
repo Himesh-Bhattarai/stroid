@@ -27,6 +27,7 @@ import {
     registerTransactionCommit,
     getStagedTransactionValue,
 } from "../store-transaction.js";
+import { registerTestResetHook } from "../internals/test-reset.js";
 import type { StoreValue } from "./types.js";
 
 type PathSafetyVerdict = { ok: true } | { ok: false; reason: string };
@@ -325,6 +326,8 @@ export const clearPathValidationCache = (): void => {
     getPathValidationCache(registry).clear();
     getPathValidationLru(registry).clear();
 };
+
+registerTestResetHook("validation.path-cache", clearPathValidationCache, 50);
 
 setPathCacheInvalidator(invalidatePathCache);
 

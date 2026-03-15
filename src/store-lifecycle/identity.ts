@@ -4,6 +4,7 @@ import { reportIssue, type IssueSeverity, type IssueVisibility } from "../intern
 import { hasStoreEntryInternal, stores, isDeleting, meta, featureRuntimes } from "./registry.js";
 import type { FeatureName } from "../feature-registry.js";
 import type { StoreDefinition } from "./types.js";
+import { registerTestResetHook } from "../internals/test-reset.js";
 
 const _ssrWarningsIssued = new Set<string>();
 export const getSsrWarningIssued = (name?: string): boolean =>
@@ -15,6 +16,8 @@ export const markSsrWarningIssued = (name: string): void => {
 export const resetSsrWarningFlag = (): void => {
     _ssrWarningsIssued.clear();
 };
+
+registerTestResetHook("ssr.warnings", resetSsrWarningFlag, 60);
 
 const _namespaceWarnings = new Set<string>();
 export const qualifyName = (raw: string): string => {
