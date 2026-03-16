@@ -122,6 +122,13 @@ test("hydrateStores does not materialize lazy stores", () => {
   assert.deepStrictEqual(getStore("lazyHydrate"), { count: 5 });
 });
 
+test("hydrateStores accepts allowHydration trust flag", () => {
+  clearAllStores();
+  const result = hydrateStores({ trustedHydrate: { value: 1 } }, {}, { allowHydration: true });
+  assert.ok(result.created.includes("trustedHydrate"));
+  assert.deepStrictEqual(getStore("trustedHydrate"), { value: 1 });
+});
+
 test("bindRegistry preserves lazy factories across scope switches", () => {
   const scopeA = "test-scope-a";
   const scopeB = "test-scope-b";

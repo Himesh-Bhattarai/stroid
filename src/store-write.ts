@@ -93,6 +93,13 @@ type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
 type HydrationTrust<Snapshot extends Record<string, unknown>> = {
+    /**
+     * Explicitly trust this snapshot and allow hydration.
+     */
+    allowHydration?: boolean;
+    /**
+     * @deprecated Use allowHydration instead.
+     */
     allowUntrusted?: boolean;
     validate?: (snapshot: Snapshot) => boolean;
 };
@@ -570,11 +577,15 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
     };
     if (!snapshot || typeof snapshot !== "object") return result;
 
-    const allowUntrusted = trust.allowUntrusted === true || getConfig().allowUntrustedHydration === true;
-    if (!allowUntrusted) {
+    const allowHydration =
+        trust.allowHydration === true ||
+        trust.allowUntrusted === true ||
+        getConfig().allowUntrustedHydration === true;
+    if (!allowHydration) {
         warnAlways(
             `hydrateStores(...) requires explicit trust. ` +
-            `Pass { allowUntrusted: true } as the third argument or configureStroid({ allowUntrustedHydration: true }).`
+            `Pass { allowHydration: true } as the third argument ` +
+            `or configureStroid({ allowUntrustedHydration: true }).`
         );
         result.failed._hydration = "untrusted";
         return result;

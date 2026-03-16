@@ -59,6 +59,10 @@ export type StroidConfig = {
      */
     allowUntrustedHydration?: boolean;
     /**
+     * Alias for allowUntrustedHydration.
+     */
+    allowHydration?: boolean;
+    /**
      * Optional custom mutator engine (e.g. Immer's produce) to enable structural sharing.
      * You can pass the produce function directly or use "immer" with a global produce shim.
      */
@@ -301,6 +305,12 @@ export const configureStroid = (next?: StroidConfig): void => {
         config = {
             ...config,
             allowUntrustedHydration: next.allowUntrustedHydration,
+        };
+    }
+    if (typeof next.allowHydration === "boolean") {
+        config = {
+            ...config,
+            allowUntrustedHydration: next.allowHydration,
         };
     }
 
