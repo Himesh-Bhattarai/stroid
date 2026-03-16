@@ -13,14 +13,32 @@ All notable changes to this project will be documented in this file.
 ### Added
 - `allowTrusted` hydration flag (aliasing `allowHydration`; `allowUntrusted` deprecated).
 - `allowTrustedHydration` config alias for trusted snapshot hydration.
+- `sync.loopGuard` option to suppress immediate rebroadcasts after an incoming sync update.
+- `acknowledgeLooseTypes` config flag to silence the loose-type dev warning.
+- `pathCacheSize` config to tune per-store path validation cache limits.
+- `HydrateSnapshotFor<Map>` helper type for stricter hydration typing.
 ### Changed
 - `createStoreForRequest` now hydrates with `{ allowTrusted: true }`.
+- `getStore` now respects `snapshot` mode (`deep`/`shallow`/`ref`) for both whole-store and path reads.
+- `setStore` TypeScript overloads consolidated to reduce IntelliSense noise while preserving typed paths/values.
+- Lazy store typings now require `lazy: true` when initial data is a function (and vice versa).
+- Persist `maxSize` warnings now fire only when an unbounded payload is large during hydration.
+- Sync loop guard is enabled by default (opt out with `sync: { loopGuard: false }`).
+- `useStore` warns once in dev when store names are untyped (StoreStateMap not augmented).
 
 ### Fixed
+- Helper store typings now align with the stricter `createStore` overloads.
 
 
 ### Docs
 - Hydration examples now reference `allowTrusted` language.
+- Sync options documentation now includes `loopGuard`.
+- Added notes for `acknowledgeLooseTypes`, `HydrateSnapshotFor`, and `pathCacheSize` in README.
+
+### Testing
+- Added regression coverage for `getStore` snapshot modes and `sync.loopGuard`.
+- Added type-level regression checks for lazy store misuse.
+- Added tests for loose-type warnings, loopGuard defaults, and path cache sizing.
 
 
 ## 0.1.1 - 2026-03-15

@@ -112,6 +112,36 @@ test("validatePathSafety LRU caps verdict entries under high-cardinality paths",
   assert.ok(verdictCount <= 500, `expected <= 500 verdicts, got ${verdictCount}`);
 });
 
+test("configureStroid pathCacheSize limits cached path verdicts per store", () => {
+  clearAllStores();
+  configureStroid({ pathCacheSize: 2 });
+
+  try {
+    createStore("pathLimit", { a: { v: 1 }, b: { v: 2 }, c: { v: 3 } });
+    const base = stores["pathLimit"];
+
+    validatePathSafety("pathLimit", base, "a.v", 1);
+    validatePathSafety("pathLimit", base, "b.v", 2);
+    validatePathSafety("pathLimit", base, "c.v", 3);
+
+    const root = pathValidationCache.get("pathLimit") as any;
+    const readVerdicts = (path: string): number => {
+      const parts = path.split(".");
+      let node = root;
+      for (const part of parts) {
+        node = node?.children?.get(part);
+      }
+      return node?.verdicts?.size ?? 0;
+    };
+
+    const verdicts = [readVerdicts("a.v"), readVerdicts("b.v"), readVerdicts("c.v")];
+    const active = verdicts.filter((count) => count > 0).length;
+    assert.ok(active <= 2, `expected <= 2 cached verdict nodes, got ${active}`);
+  } finally {
+    resetConfig();
+  }
+});
+
 test("hydrateStores does not materialize lazy stores", () => {
   clearAllStores();
   let calls = 0;

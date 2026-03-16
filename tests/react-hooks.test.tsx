@@ -15,6 +15,7 @@ import { getAsyncMetrics } from "../src/async-cache.js";
 import { useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../src/hooks.js";
 import { clearAllStores, createStore, setStore } from "../src/store.js";
 import { resetAllStoresForTest } from "../src/testing.js";
+import { configureStroid, resetConfig } from "../src/config.js";
 
 test("useStore inline primitive selector stays stable through unrelated updates", async () => {
   clearAllStores();
@@ -61,6 +62,67 @@ test("useStore inline primitive selector stays stable through unrelated updates"
   await act(async () => {
     unmount();
   });
+});
+
+test("useStore warns once for loose store names and respects acknowledgeLooseTypes", async () => {
+  resetAllStoresForTest();
+  const warnings: string[] = [];
+
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  createStore("looseWarn", { value: 1 });
+  createStore("looseWarn2", { value: 2 });
+
+  const App = ({ name }: { name: string }) => {
+    const value = useStore<number>(name, "value");
+    return React.createElement("span", null, String(value ?? ""));
+  };
+
+  let unmount!: () => void;
+  await act(async () => {
+    ({ unmount } = render(React.createElement(App, { name: "looseWarn" })));
+  });
+
+  await act(async () => {
+    unmount();
+  });
+
+  await act(async () => {
+    ({ unmount } = render(React.createElement(App, { name: "looseWarn2" })));
+  });
+
+  await act(async () => {
+    unmount();
+  });
+
+  const untypedWarnings = warnings.filter((msg) => msg.includes("store name is untyped"));
+  assert.strictEqual(untypedWarnings.length, 1);
+
+  warnings.length = 0;
+  resetConfig();
+  configureStroid({
+    acknowledgeLooseTypes: true,
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  await act(async () => {
+    ({ unmount } = render(React.createElement(App, { name: "looseWarn" })));
+  });
+
+  await act(async () => {
+    unmount();
+  });
+
+  const acknowledged = warnings.filter((msg) => msg.includes("store name is untyped"));
+  assert.strictEqual(acknowledged.length, 0);
+
+  resetConfig();
 });
 
 test("useStore inline object selector with custom equality does not loop or rerender on unrelated writes", async () => {

@@ -42,6 +42,16 @@ export type StroidConfig = {
     strictMutatorReturns?: boolean;
     asyncAutoCreate?: boolean;
     asyncCloneResult?: AsyncCloneMode;
+    /**
+     * Acknowledge loose store name typing and suppress dev warnings.
+     * Useful when you intentionally skip StoreStateMap augmentation.
+     */
+    acknowledgeLooseTypes?: boolean;
+    /**
+     * Max number of cached path validation verdicts per store.
+     * Default: 500.
+     */
+    pathCacheSize?: number;
     defaultSnapshotMode?: SnapshotMode;
     /**
      * Alias for defaultSnapshotMode.
@@ -83,6 +93,8 @@ type ResolvedConfig = {
     strictMutatorReturns: boolean;
     asyncAutoCreate: boolean;
     asyncCloneResult: AsyncCloneMode;
+    acknowledgeLooseTypes: boolean;
+    pathCacheSize: number;
     defaultSnapshotMode: SnapshotMode;
     strictAsyncUsageErrors: boolean;
     middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
@@ -129,6 +141,8 @@ const defaultConfig: ResolvedConfig = {
     strictMutatorReturns: true,
     asyncAutoCreate: false,
     asyncCloneResult: "none",
+    acknowledgeLooseTypes: false,
+    pathCacheSize: 500,
     defaultSnapshotMode: "deep",
     strictAsyncUsageErrors: false,
     middleware: [],
@@ -146,6 +160,8 @@ const cloneConfig = (base: ResolvedConfig): ResolvedConfig => ({
     strictMutatorReturns: base.strictMutatorReturns,
     asyncAutoCreate: base.asyncAutoCreate,
     asyncCloneResult: base.asyncCloneResult,
+    acknowledgeLooseTypes: base.acknowledgeLooseTypes,
+    pathCacheSize: base.pathCacheSize,
     defaultSnapshotMode: base.defaultSnapshotMode,
     strictAsyncUsageErrors: base.strictAsyncUsageErrors,
     middleware: [...base.middleware],
@@ -281,6 +297,18 @@ export const configureStroid = (next?: StroidConfig): void => {
         config = {
             ...config,
             asyncCloneResult: next.asyncCloneResult,
+        };
+    }
+    if (typeof next.acknowledgeLooseTypes === "boolean") {
+        config = {
+            ...config,
+            acknowledgeLooseTypes: next.acknowledgeLooseTypes,
+        };
+    }
+    if (typeof next.pathCacheSize === "number" && Number.isFinite(next.pathCacheSize)) {
+        config = {
+            ...config,
+            pathCacheSize: Math.max(0, Math.floor(next.pathCacheSize)),
         };
     }
 

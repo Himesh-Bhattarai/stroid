@@ -13,7 +13,7 @@ import type { StoreOptions } from "./adapters/options.js";
 
 let entityIdCounter = 0;
 
-export const createCounterStore = (name: string, initial = 0, options: StoreOptions = {}) => {
+export const createCounterStore = (name: string, initial = 0, options: StoreOptions<{ value: number }> = {}) => {
     const handle = store<string, { value: number }>(name);
     createStore(name, { value: initial }, options);
     return {
@@ -25,7 +25,7 @@ export const createCounterStore = (name: string, initial = 0, options: StoreOpti
     };
 };
 
-export const createListStore = <T>(name: string, initial: T[] = [], options: StoreOptions = {}) => {
+export const createListStore = <T>(name: string, initial: T[] = [], options: StoreOptions<{ items: T[] }> = {}) => {
     const handle = store<string, { items: T[] }>(name);
     createStore(name, { items: initial }, options);
     return {
@@ -40,7 +40,7 @@ export const createListStore = <T>(name: string, initial: T[] = [], options: Sto
     };
 };
 
-export const createEntityStore = <T extends { id?: string; _id?: string }>(name: string, options: StoreOptions = {}) => {
+export const createEntityStore = <T extends { id?: string; _id?: string }>(name: string, options: StoreOptions<{ entities: Record<string, T>; ids: string[] }> = {}) => {
     const handle = store<string, { entities: Record<string, T>; ids: string[] }>(name);
     createStore(name, { entities: {}, ids: [] as string[] }, options);
     return {

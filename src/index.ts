@@ -29,6 +29,7 @@ export type {
     Path,
     PathValue,
     PartialDeep,
+    HydrateSnapshotFor,
     StoreDefinition,
     StoreValue,
     StoreKey,

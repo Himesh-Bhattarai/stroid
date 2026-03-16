@@ -70,6 +70,7 @@ import type {
     StoreName,
     StoreStateMap,
     StrictStoreMap,
+    HydrateSnapshotFor,
     StateFor,
     WriteResult,
 } from "./store-lifecycle/types.js";
@@ -88,18 +89,35 @@ import {
 type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: any) => void);
 // If store names are loose (not registered via StoreStateMap), fall back to untyped paths/values.
 type IsStoreNameLoose = string extends StoreName ? true : false;
-type StorePathFor<Name extends StoreName> =
-    IsStoreNameLoose extends true ? string | string[] : Path<StateFor<Name>>;
-type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
-    IsStoreNameLoose extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
 type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
-type StoreHandle<Name extends string, State> = StoreDefinition<Name, State> | StoreKey<Name, State>;
 type StoreUpdate<State> = State | Partial<State> | PartialDeep<State> | ((draft: State) => void);
-type LooseName<Name extends string> = IsStoreNameLoose extends true ? Name : never;
-type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
-type HydrateOptions<Snapshot extends Record<string, unknown>> =
+type StoreTarget<Name extends string = string, State = StoreValue> =
+    | StoreDefinition<Name, State>
+    | StoreKey<Name, State>
+    | StoreName;
+type StoreStateForTarget<T> =
+    T extends StoreDefinition<any, infer S> ? S
+        : T extends StoreKey<any, infer S> ? S
+            : (T extends StoreName ? StateFor<T> : StoreValue);
+type StorePathForTarget<T> =
+    T extends StoreDefinition<any, infer S> ? Path<S>
+        : T extends StoreKey<any, infer S> ? Path<S>
+            : (IsStoreNameLoose extends true ? string | string[] : (T extends StoreName ? Path<StateFor<T>> : string | string[]));
+type StorePathValueForTarget<T, P> =
+    T extends StoreDefinition<any, infer S>
+        ? (P extends Path<S> ? PathValue<S, P> : never)
+        : T extends StoreKey<any, infer S>
+            ? (P extends Path<S> ? PathValue<S, P> : never)
+            : (IsStoreNameLoose extends true ? unknown : (T extends StoreName ? (P extends Path<StateFor<T>> ? PathValue<StateFor<T>, P> : never) : unknown));
+type StoreUpdateForTarget<T> =
+    T extends StoreDefinition<any, infer S> ? StoreUpdate<S>
+        : T extends StoreKey<any, infer S> ? StoreUpdate<S>
+            : (IsStoreNameLoose extends true ? StoreUpdate<StoreValue> : (T extends StoreName ? StoreUpdate<StateFor<T>> : StoreUpdate<StoreValue>));
+type LazyDisallow<T> = T extends { lazy: true } ? never : T;
+type HydrateSnapshot = HydrateSnapshotFor<StoreStateMap & StrictStoreMap>;
+type HydrateOptions<Snapshot extends object> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
-type HydrationTrust<Snapshot extends Record<string, unknown>> = {
+type HydrationTrust<Snapshot extends object> = {
     /**
      * Explicitly trust this snapshot and allow hydration.
      */
@@ -174,10 +192,10 @@ export function createStore<Name extends string, State>(
     initialData: () => State,
     option: StoreOptions<State> & { lazy: true }
 ): StoreDefinition<Name, State> | undefined;
-export function createStore<Name extends string, State>(
+export function createStore<Name extends string, State, Opt extends StoreOptions<State>>(
     name: Name,
     initialData: NonFunction<State>,
-    option?: StoreOptions<State>
+    option?: LazyDisallow<Opt>
 ): StoreDefinition<Name, State> | undefined;
 export function createStore<Name extends string, State>(
     name: Name,
@@ -302,10 +320,10 @@ export function createStoreStrict<Name extends string, State>(
     initialData: () => State,
     option: StoreOptions<State> & { lazy: true }
 ): StoreDefinition<Name, State>;
-export function createStoreStrict<Name extends string, State>(
+export function createStoreStrict<Name extends string, State, Opt extends StoreOptions<State>>(
     name: Name,
     initialData: NonFunction<State>,
-    option?: StoreOptions<State>
+    option?: LazyDisallow<Opt>
 ): StoreDefinition<Name, State>;
 export function createStoreStrict<Name extends string, State>(
     name: Name,
@@ -322,37 +340,14 @@ export function createStoreStrict<Name extends string, State>(
     );
 }
 
-export function setStore<Name extends string, State, P extends Path<State>>(
-    name: StoreHandle<Name, State>,
+export function setStore<T extends StoreTarget, P extends StorePathForTarget<T>>(
+    name: T,
     path: P,
-    value: PathValue<State, P>
+    value: StorePathValueForTarget<T, P>
 ): WriteResult;
-export function setStore<Name extends string, State>(
-    name: StoreHandle<Name, State>,
-    update: StoreUpdate<State>
-): WriteResult;
-export function setStore<Name extends string, State>(
-    name: LooseName<Name>,
-    path: Path<State>,
-    value: PathValue<State, Path<State>>
-): WriteResult;
-export function setStore<Name extends string, State, P extends Path<State>>(
-    name: LooseName<Name>,
-    path: P,
-    value: PathValue<State, P>
-): WriteResult;
-export function setStore<Name extends string, State>(
-    name: LooseName<Name>,
-    update: StoreUpdate<State>
-): WriteResult;
-export function setStore<Name extends StoreName, P extends Path<StateFor<Name>>>(
-    name: Name,
-    path: P,
-    value: PathValue<StateFor<Name>, P>
-): WriteResult;
-export function setStore<Name extends StoreName>(
-    name: Name,
-    update: StoreUpdate<StateFor<Name>>
+export function setStore<T extends StoreTarget>(
+    name: T,
+    update: StoreUpdateForTarget<T>
 ): WriteResult;
 export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
     const storeName = nameOf(name);
@@ -617,7 +612,7 @@ export const _hardResetAllStoresForTest = (): void => {
     runTestResets();
 };
 
-export const hydrateStores = <Snapshot extends Record<string, unknown> = HydrateSnapshot>(
+export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     snapshot: Snapshot,
     options: HydrateOptions<Snapshot> = {},
     trust: HydrationTrust<Snapshot> = {}
@@ -680,7 +675,7 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
             if (!res.ok) result.failed[storeName] = res.reason ?? "hydrate-failed";
             else result.hydrated.push(storeName);
         } else {
-            const optionMap = options as Record<string, StoreOptions> & { default?: StoreOptions };
+            const optionMap = options as Record<string, StoreOptions<any>> & { default?: StoreOptions<any> };
             const created = createStore(storeName, data, optionMap[storeName] || optionMap.default || {});
             if (created) result.created.push(storeName);
             else result.failed[storeName] = "create-failed";

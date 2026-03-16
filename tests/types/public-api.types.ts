@@ -17,6 +17,7 @@ import {
   getStore,
   hydrateStores,
   type StoreDefinition,
+  type HydrateSnapshotFor,
   type StoreStateMap,
   store,
 } from "../../src/store.js";
@@ -91,6 +92,8 @@ const lazyOkStore = createStore("typedLazy", () => ({ count: 0 }), { lazy: true 
 type LazyCreateStoreReturn = Expect<Equal<typeof lazyOkStore, StoreDefinition<"typedLazy", { count: number }> | undefined>>;
 // @ts-expect-error lazy stores require lazy: true when initialData is a function
 createStore("typedLazyBad", () => ({ count: 1 }));
+// @ts-expect-error lazy stores require function initialData
+createStore("typedLazyBad2", { count: 1 }, { lazy: true });
 
 if (userStore) {
   const wholeUser = getStore(userStore);
@@ -183,6 +186,13 @@ const requestStores = createStoreForRequest<RequestMap>((api) => {
 
 const requestSnapshot = requestStores.snapshot();
 type RequestSnapshotReturn = Expect<Equal<typeof requestSnapshot, Partial<RequestMap>>>;
+
+type RequestHydrateSnapshot = HydrateSnapshotFor<RequestMap>;
+const requestHydrateInput: RequestHydrateSnapshot = {
+  requestUser: { id: "1", name: "Ava" },
+  flags: { beta: false },
+};
+hydrateStores<RequestHydrateSnapshot>(requestHydrateInput);
 
 const counter = createCounterStore("typedCounter", 1);
 counter.inc();

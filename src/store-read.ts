@@ -8,10 +8,12 @@
  */
 import {
     deepClone,
+    shallowClone,
     getByPath,
     validateDepth,
     type PathInput,
 } from "./utils.js";
+import { getConfig } from "./internals/config.js";
 import {
     initialStates,
     meta,
@@ -29,8 +31,20 @@ import type {
     StoreName,
     StateFor,
 } from "./store-lifecycle/types.js";
+import type { SnapshotMode } from "./adapters/options.js";
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
+
+const resolveSnapshotMode = (name: string): SnapshotMode => {
+    const mode = meta[name]?.options?.snapshot ?? getConfig().defaultSnapshotMode;
+    return mode === "shallow" || mode === "ref" ? mode : "deep";
+};
+
+const cloneSnapshot = (value: StoreValue, mode: SnapshotMode): StoreValue => {
+    if (mode === "ref") return value;
+    if (mode === "shallow") return shallowClone(value);
+    return deepClone(value);
+};
 
 export function getStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P): StoreSnapshot<PathValue<State, P>> | null;
 export function getStore<Name extends string, State>(name: StoreDefinition<Name, State>, path?: undefined): StoreSnapshot<State> | null;
@@ -43,14 +57,15 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
     if (!exists(storeName)) return null;
     if (!materializeInitial(storeName)) return null;
     const data = getStoreValueRef(storeName);
+    const snapshotMode = resolveSnapshotMode(storeName);
     if (path === undefined) {
         if (data === null || typeof data !== "object") return data as StoreValue;
-        return deepClone(data);
+        return cloneSnapshot(data, snapshotMode);
     }
     if (!validateDepth(path)) return null;
     const value = getByPath(data, path);
     if (value === null || typeof value !== "object") return value as StoreValue;
-    return deepClone(value);
+    return cloneSnapshot(value, snapshotMode);
 }
 
 export const hasStore = (name: string): boolean => hasStoreEntryInternal(name);

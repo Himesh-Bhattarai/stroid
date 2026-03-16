@@ -154,6 +154,10 @@ declare module "stroid" {
 // If you import from "stroid/core", add the same module augmentation there.
 ```
 
+In dev, stroid warns once when `useStore("name")` is untyped.
+To suppress the warning (if you intentionally stay loose), call:
+`configureStroid({ acknowledgeLooseTypes: true })`.
+
 
 ---
 
@@ -189,6 +193,7 @@ createStore("presence", { online: true, cursor: null }, {
   sync: { channel: "presence-sync" }
   // Lamport clock conflict resolution built in.
   // Stale messages from closed tabs auto-rejected.
+  // loopGuard defaults on; set sync: { loopGuard: false } to opt out.
 })
 ```
 
@@ -312,6 +317,8 @@ hydrateStores(window.__STROID_STATE__)
 
 Tip: For typed SSR APIs, either augment `StoreStateMap` or pass a generic:
 `createStoreForRequest<{ user: UserState }>((api) => { ... })`.
+For stricter snapshot typing, you can also use:
+`hydrateStores<HydrateSnapshotFor<StoreStateMap>>(snapshot)`.
 ```
 
 **Middleware — intercept, transform, or veto any write.**
@@ -398,6 +405,10 @@ configureStroid({
     maxConcurrent: 3,
     staggerMs:     100,
   },
+
+  // Tune the path validation cache for high-cardinality paths
+  // (default: 500 verdicts per store)
+  pathCacheSize: 2000,
 })
 ```
 

@@ -393,6 +393,128 @@ test("sync core (serial)", async (t) => {
   }
   });
 
+  await t.test("sync loopGuard suppresses immediate rebroadcasts", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+    (globalThis as any).window = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    const received: any[] = [];
+
+    try {
+      createStore("syncLoop", { value: 0 }, {
+        sync: { loopGuard: { windowMs: 50 } },
+      });
+
+      const peer = new MockBroadcastChannel("stroid_sync_syncLoop");
+      peer.onmessage = (event: MessageEvent) => {
+        if (event.data?.type !== "sync-state") return;
+        received.push(event.data);
+      };
+
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncLoop",
+        clock: 1,
+        source: "peer",
+        data: { value: 1 },
+        updatedAt: Date.now(),
+      });
+
+      await wait();
+
+      setStore("syncLoop", { value: 2 });
+      await wait();
+
+      assert.strictEqual(received.length, 0);
+
+      await wait(60);
+      setStore("syncLoop", { value: 3 });
+      await wait();
+
+      assert.ok(received.length >= 1);
+    } finally {
+      deleteStore("syncLoop");
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
+  await t.test("sync loopGuard defaults on and can be disabled", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+    (globalThis as any).window = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    const receivedDefault: any[] = [];
+    const receivedDisabled: any[] = [];
+
+    try {
+      createStore("syncLoopDefault", { value: 0 }, { sync: true });
+      const peerDefault = new MockBroadcastChannel("stroid_sync_syncLoopDefault");
+      peerDefault.onmessage = (event: MessageEvent) => {
+        if (event.data?.type === "sync-state") receivedDefault.push(event.data);
+      };
+
+      peerDefault.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncLoopDefault",
+        clock: 1,
+        source: "peer",
+        data: { value: 1 },
+        updatedAt: Date.now(),
+      });
+
+      await wait();
+      setStore("syncLoopDefault", { value: 2 });
+      await wait();
+
+      assert.strictEqual(receivedDefault.length, 0);
+
+      createStore("syncLoopDisabled", { value: 0 }, { sync: { loopGuard: false } });
+      const peerDisabled = new MockBroadcastChannel("stroid_sync_syncLoopDisabled");
+      peerDisabled.onmessage = (event: MessageEvent) => {
+        if (event.data?.type === "sync-state") receivedDisabled.push(event.data);
+      };
+
+      peerDisabled.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncLoopDisabled",
+        clock: 1,
+        source: "peer",
+        data: { value: 1 },
+        updatedAt: Date.now(),
+      });
+
+      await wait();
+      setStore("syncLoopDisabled", { value: 2 });
+      await wait();
+
+      assert.ok(receivedDisabled.length >= 1);
+    } finally {
+      deleteStore("syncLoopDefault");
+      deleteStore("syncLoopDisabled");
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
   await t.test("sync rejects protocol mismatches and leaves state unchanged", async () => {
     const originalWindow = (globalThis as any).window;
     const originalBroadcastChannel = (globalThis as any).BroadcastChannel;

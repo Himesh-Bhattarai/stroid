@@ -25,6 +25,7 @@ Sync options include:
 - `maxPayloadBytes`
 - `authToken`
 - `conflictResolver`
+- `loopGuard`
 - `checksum`
 - `sign` / `verify`
 - `resolveUpdatedAt`
@@ -51,6 +52,7 @@ Table 14.1: Sync Option Roles
 | `maxPayloadBytes` | prevent oversized sync messages |
 | `authToken` | lightweight shared token check for incoming messages |
 | `conflictResolver` | custom decision when local and incoming disagree |
+| `loopGuard` | suppress immediate rebroadcasts to avoid feedback loops |
 | `checksum` | detect accidental corruption (not authentication) |
 | `sign` | attach an auth marker to outgoing payloads |
 | `verify` | accept or reject incoming payloads |
@@ -58,6 +60,7 @@ Table 14.1: Sync Option Roles
 
 Sync does not authenticate messages by default. If you care about origin or tampering, use `authToken` and/or `sign` and `verify`.
 `sign` must be synchronous (returning a Promise is rejected).
+`loopGuard` is enabled by default; set `loopGuard: false` to opt out.
 
 ## 14.2 Ordering Rules
 

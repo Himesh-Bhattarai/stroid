@@ -39,6 +39,9 @@ export type PartialDeep<T> = T extends Primitive
 
 export type StoreValue = unknown;
 
+export type HydrateSnapshotFor<Map extends object> =
+    Partial<{ [K in keyof Map & string]: Map[K] }>;
+
 // Ambient map users can augment to get typed string access to stores.
 // Example:
 //   declare module "stroid" { interface StoreStateMap { user: UserState } }

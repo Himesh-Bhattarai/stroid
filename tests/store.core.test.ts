@@ -154,6 +154,31 @@ test("ref snapshots are frozen to prevent silent mutation", () => {
   assert.deepStrictEqual(getStore("refStore"), { profile: { name: "Alex" } });
 });
 
+test("getStore respects snapshot modes (deep/shallow/ref)", () => {
+  clearAllStores();
+  createStore("snapDeep", { nested: { count: 1 } });
+  createStore("snapShallow", { nested: { count: 1 } }, { snapshot: "shallow" });
+  createStore("snapRef", { nested: { count: 1 } }, { snapshot: "ref" });
+
+  const deep1 = getStore("snapDeep") as { nested: { count: number } };
+  const deep2 = getStore("snapDeep") as { nested: { count: number } };
+  assert.notStrictEqual(deep1, deep2);
+  assert.notStrictEqual(deep1.nested, deep2.nested);
+
+  const shallow1 = getStore("snapShallow") as { nested: { count: number } };
+  const shallow2 = getStore("snapShallow") as { nested: { count: number } };
+  assert.notStrictEqual(shallow1, shallow2);
+  assert.strictEqual(shallow1.nested, shallow2.nested);
+
+  const ref1 = getStore("snapRef") as { nested: { count: number } };
+  const ref2 = getStore("snapRef") as { nested: { count: number } };
+  assert.strictEqual(ref1, ref2);
+
+  const refNested1 = getStore("snapRef", "nested") as { count: number };
+  const refNested2 = getStore("snapRef", "nested") as { count: number };
+  assert.strictEqual(refNested1, refNested2);
+});
+
 test("createComputed derives and updates from dependencies", async () => {
   clearAllStores();
   createStore("firstName", "Alex");

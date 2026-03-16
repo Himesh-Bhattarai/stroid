@@ -11,6 +11,7 @@ import { subscribeStore, getStoreSnapshot } from "./store-notify.js";
 import { hasStore } from "./store-read.js";
 import { subscribeWithSelector } from "./selectors.js";
 import { getByPath, warn, isDev, shallowEqual } from "./utils.js";
+import { getConfig } from "./internals/config.js";
 import type {
     Path,
     PathValue,
@@ -24,6 +25,8 @@ import {
     markBroadUseStoreWarning,
     hasMissingUseStoreWarning,
     markMissingUseStoreWarning,
+    hasLooseUseStoreWarning,
+    markLooseUseStoreWarning,
 } from "./internals/hooks-warnings.js";
 
 const pickPath = (data: any, path?: string) => {
@@ -119,6 +122,19 @@ const warnBroadUseStoreOnce = (name: string, hasSelector: boolean, path?: string
     );
 };
 
+const warnLooseUseStoreOnce = (nameInput: unknown, storeName: string): void => {
+    if (!isDev()) return;
+    if (getConfig().acknowledgeLooseTypes) return;
+    if (hasLooseUseStoreWarning()) return;
+    if (typeof nameInput !== "string") return;
+    markLooseUseStoreWarning();
+    warn(
+        `useStore("${storeName}") - store name is untyped.\n` +
+        `Extend StoreStateMap for full type safety and path inference.\n` +
+        `See: https://stroid.dev/docs/strict-mode`
+    );
+};
+
 export function useStore<Name extends string, State, P extends Path<State>>(
     name: StoreDefinition<Name, State>,
     path: P
@@ -197,6 +213,7 @@ export function useStore<T = unknown, R = unknown>(
 
     const getSnapshot = useCallback(() => {
         const snap = getStoreSnapshot(storeName);
+        warnLooseUseStoreOnce(name, storeName);
         warnMissingStoreOnce(storeName);
         warnBroadUseStoreOnce(storeName, hasSelector, path);
         if (hasSelector) {
