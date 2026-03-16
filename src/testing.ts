@@ -7,8 +7,9 @@
  * Consumers: Internal imports and public API.
  */
 import { _resetAsyncStateForTests } from "./async.js";
-import { createStore, setStore, resetStore, store } from "./store.js";
-import type { PartialDeep, StoreDefinition, StoreKey } from "./store.js";
+import { createStore, setStore, resetStore } from "./store-write.js";
+import { store } from "./store-name.js";
+import type { PartialDeep, StoreDefinition, StoreKey } from "./store-lifecycle/types.js";
 import { _hardResetAllStoresForTest } from "./store-write.js";
 
 type NonFunction<T> = T extends (...args: any[]) => any ? never : T;

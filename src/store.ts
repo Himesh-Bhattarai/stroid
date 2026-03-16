@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-// Public store API barrel. store-* modules are split for organization and re-exported here.
+// Public store API barrel. Internal modules should import from leaf modules directly.
 export type {
     Path,
     PathDepth,

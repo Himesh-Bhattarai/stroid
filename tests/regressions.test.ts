@@ -32,6 +32,7 @@ import { stores, validatePathSafety, pathValidationCache, getStoreAdmin } from "
 import { createStoreForRequest } from "../src/server.js";
 import { setComputedOrderResolver } from "../src/internals/computed-order.js";
 import { getTopoOrderedComputeds } from "../src/computed-graph.js";
+import { registerStoreFeature, resetRegisteredStoreFeaturesForTests } from "../src/feature-registry.js";
 
 test("validator with side effects runs once per write", () => {
   clearAllStores();
@@ -388,6 +389,25 @@ test("configureStroid is registry-scoped", () => {
   assert.deepStrictEqual(warningsB, ["B"]);
 
   resetConfig();
+});
+
+test("feature runtimes initialize before onStoreCreate in new registries", () => {
+  const registry = createStoreRegistry();
+  let created = 0;
+  registerStoreFeature("testFeatureInit", () => ({
+    onStoreCreate: () => {
+      created += 1;
+    },
+  }));
+
+  try {
+    runWithRegistry(registry, () => {
+      createStore("featureInitStore", { value: 1 });
+    });
+    assert.strictEqual(created, 1);
+  } finally {
+    resetRegisteredStoreFeaturesForTests();
+  }
 });
 
 test("snapshotStrategy sets the default snapshot mode", () => {

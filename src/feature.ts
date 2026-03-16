@@ -11,6 +11,7 @@ export type {
     FeatureName,
     StoreFeatureMeta,
     FeatureMetrics,
+    FeatureHookContext,
     BaseFeatureContext,
     FeatureCreateContext,
     FeatureWriteContext,

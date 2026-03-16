@@ -7,7 +7,8 @@
  * Consumers: Internal imports and public API.
  */
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
-import { subscribeStore, getStoreSnapshot, hasStore } from "./store.js";
+import { subscribeStore, getStoreSnapshot } from "./store-notify.js";
+import { hasStore } from "./store-read.js";
 import { subscribeWithSelector } from "./selectors.js";
 import { getByPath, warn, isDev, shallowEqual } from "./utils.js";
 import type {

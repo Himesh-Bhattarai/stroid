@@ -6,9 +6,9 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { hydrateStores } from "./store.js";
+import { hydrateStores } from "./store-write.js";
 import { deepClone, produceClone } from "./utils.js";
-import type { StoreOptions } from "./store.js";
+import type { StoreOptions } from "./adapters/options.js";
 import type { StoreStateMap } from "./store-lifecycle/types.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createStoreRegistry, injectCarrierRunner, injectRegistryRunner, type CarrierContext } from "./store-registry.js";

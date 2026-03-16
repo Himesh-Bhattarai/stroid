@@ -27,7 +27,7 @@ export interface StoreFeatureMeta {
     options: NormalizedOptions;
 }
 
-export interface BaseFeatureContext {
+export interface FeatureHookContext {
     name: string;
     options: NormalizedOptions;
     getMeta: () => StoreFeatureMeta | undefined;
@@ -48,17 +48,20 @@ export interface BaseFeatureContext {
     isDev: () => boolean;
 }
 
-export interface FeatureCreateContext extends BaseFeatureContext {}
+/** @deprecated Use FeatureHookContext instead. */
+export type BaseFeatureContext = FeatureHookContext;
 
-export interface FeatureWriteContext extends BaseFeatureContext {
+export type FeatureCreateContext<Ext extends object = {}> = FeatureHookContext & Ext;
+
+export type FeatureWriteContext<Ext extends object = {}> = FeatureHookContext & Ext & {
     action: string;
     prev: StoreValue;
     next: StoreValue;
-}
+};
 
-export interface FeatureDeleteContext extends BaseFeatureContext {
+export type FeatureDeleteContext<Ext extends object = {}> = FeatureHookContext & Ext & {
     prev: StoreValue;
-}
+};
 
 export interface DevtoolsFeatureApi {
     getHistory?: (name: string, limit?: number) => unknown[];
@@ -66,21 +69,24 @@ export interface DevtoolsFeatureApi {
     getPersistQueueDepth?: (name: string) => number;
 }
 
-export interface StoreFeatureRuntime {
-    onStoreCreate?: (ctx: FeatureCreateContext) => void;
-    onStoreWrite?: (ctx: FeatureWriteContext) => void;
-    beforeStoreDelete?: (ctx: FeatureDeleteContext) => void;
-    afterStoreDelete?: (ctx: FeatureDeleteContext) => void;
+export interface StoreFeatureRuntime<Ext extends object = {}> {
+    onStoreCreate?: (ctx: FeatureCreateContext<Ext>) => void;
+    onStoreWrite?: (ctx: FeatureWriteContext<Ext>) => void;
+    beforeStoreDelete?: (ctx: FeatureDeleteContext<Ext>) => void;
+    afterStoreDelete?: (ctx: FeatureDeleteContext<Ext>) => void;
     resetAll?: () => void;
     api?: DevtoolsFeatureApi;
 }
 
-export type StoreFeatureFactory = () => StoreFeatureRuntime;
+export type StoreFeatureFactory<Ext extends object = {}> = () => StoreFeatureRuntime<Ext>;
 
 const _featureFactories = new Map<FeatureName, StoreFeatureFactory>();
 let _onFeatureRegistered: ((name: FeatureName, factory: StoreFeatureFactory) => void) | null = null;
 
-export const registerStoreFeature = (name: FeatureName, factory: StoreFeatureFactory): void => {
+export const registerStoreFeature = <Ext extends object = {}>(
+    name: FeatureName,
+    factory: StoreFeatureFactory<Ext>
+): void => {
     _featureFactories.set(name, factory);
     _onFeatureRegistered?.(name, factory);
 };

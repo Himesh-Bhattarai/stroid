@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { _getFeatureApi } from "./store.js";
+import { _getFeatureApi } from "./store-read.js";
 import type { HistoryEntry } from "./features/devtools.js";
 
 export const getHistory = (name: string, limit?: number): HistoryEntry[] =>

@@ -6,7 +6,13 @@
  *
  * Consumers: Internal imports and public API.
  */
-import type { FeatureName, StoreFeatureMeta, StoreFeatureRuntime } from "./feature-registry.js";
+import {
+    getRegisteredFeatureNames,
+    getStoreFeatureFactory,
+    type FeatureName,
+    type StoreFeatureMeta,
+    type StoreFeatureRuntime,
+} from "./feature-registry.js";
 import type { AsyncRegistry } from "./async-registry.js";
 import { createAsyncRegistry, resetAsyncRegistry } from "./async-registry.js";
 import { registerTestResetHook } from "./internals/test-reset.js";
@@ -66,6 +72,18 @@ export type StoreRegistry = {
 };
 
 const _registries = new Map<string, StoreRegistry>();
+const initializedRegistries = new WeakSet<StoreRegistry>();
+
+export const initializeRegistryFeatureRuntimes = (registry: StoreRegistry): void => {
+    if (initializedRegistries.has(registry)) return;
+    initializedRegistries.add(registry);
+    getRegisteredFeatureNames().forEach((name) => {
+        if (!registry.featureRuntimes.get(name)) {
+            const factory = getStoreFeatureFactory(name);
+            if (factory) registry.featureRuntimes.set(name, factory());
+        }
+    });
+};
 
 declare const __STROID_REGISTRY_ID__: string | undefined;
 const _registryOverrideEnv =
@@ -111,29 +129,33 @@ const resetNotifyState = (notify: NotifyState): void => {
     notify.batchDepth = 0;
 };
 
-export const createStoreRegistry = (): StoreRegistry => ({
-    stores: Object.create(null),
-    subscribers: Object.create(null),
-    initialStates: Object.create(null),
-    initialFactories: Object.create(null),
-    metaEntries: Object.create(null),
-    snapshotCache: Object.create(null),
-    featureRuntimes: new Map(),
-    deletingStores: new Set(),
-    computedEntries: Object.create(null),
-    computedDependents: Object.create(null),
-    computedCleanups: new Map(),
-    transaction: {
-        depth: 0,
-        pending: [],
-        stagedValues: new Map(),
-        snapshotCache: new Map(),
-        failed: false,
-        error: undefined,
-    },
-    async: createAsyncRegistry(),
-    notify: createNotifyState(),
-});
+export const createStoreRegistry = (): StoreRegistry => {
+    const registry: StoreRegistry = {
+        stores: Object.create(null),
+        subscribers: Object.create(null),
+        initialStates: Object.create(null),
+        initialFactories: Object.create(null),
+        metaEntries: Object.create(null),
+        snapshotCache: Object.create(null),
+        featureRuntimes: new Map(),
+        deletingStores: new Set(),
+        computedEntries: Object.create(null),
+        computedDependents: Object.create(null),
+        computedCleanups: new Map(),
+        transaction: {
+            depth: 0,
+            pending: [],
+            stagedValues: new Map(),
+            snapshotCache: new Map(),
+            failed: false,
+            error: undefined,
+        },
+        async: createAsyncRegistry(),
+        notify: createNotifyState(),
+    };
+    initializeRegistryFeatureRuntimes(registry);
+    return registry;
+};
 
 export const getStoreRegistry = (scope: string): StoreRegistry => {
     const normalizedScope = normalizeStoreRegistryScope(scope);

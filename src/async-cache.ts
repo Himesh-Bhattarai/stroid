@@ -19,65 +19,38 @@ export const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
 export const MAX_WARNED_ENTRIES = 1000;
 
 export const getActiveAsyncRegistry = () => getRegistry().async;
-
-const createAsyncObjectProxy = <T extends object>(getter: () => T): T =>
-    new Proxy(Object.create(null), {
-        get: (_target, prop) => (getter() as any)[prop],
-        set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
-            return true;
-        },
-        deleteProperty: (_target, prop) => {
-            delete (getter() as any)[prop];
-            return true;
-        },
-        has: (_target, prop) => prop in (getter() as any),
-        ownKeys: () => Reflect.ownKeys(getter()),
-        getOwnPropertyDescriptor: (_target, prop) => {
-            const desc = Object.getOwnPropertyDescriptor(getter(), prop);
-            if (!desc) return undefined;
-            return { ...desc, configurable: true };
-        },
-    }) as T;
-
-const createAsyncValueProxy = <T extends object>(getter: () => T): T =>
-    new Proxy({} as T, {
-        get: (_target, prop) => {
-            const target = getter() as any;
-            const value = target[prop];
-            return typeof value === "function" ? value.bind(target) : value;
-        },
-        set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
-            return true;
-        },
-        has: (_target, prop) => prop in (getter() as any),
-        ownKeys: () => Reflect.ownKeys(getter()),
-        getOwnPropertyDescriptor: (_target, prop) => {
-            const desc = Object.getOwnPropertyDescriptor(getter(), prop);
-            if (!desc) return undefined;
-            return { ...desc, configurable: true };
-        },
-    });
-
 export const getFetchRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["fetchRegistry"] =>
     getActiveAsyncRegistry().fetchRegistry;
-export const inflight = createAsyncObjectProxy(() => getActiveAsyncRegistry().inflight);
-export const requestVersion = createAsyncObjectProxy(() => getActiveAsyncRegistry().requestVersion);
+export const getInflightRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["inflight"] =>
+    getActiveAsyncRegistry().inflight;
+export const getRequestVersionRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["requestVersion"] =>
+    getActiveAsyncRegistry().requestVersion;
 export const getCacheMeta = (): ReturnType<typeof getActiveAsyncRegistry>["cacheMeta"] =>
     getActiveAsyncRegistry().cacheMeta;
-export const rateWindowStart = createAsyncObjectProxy(() => getActiveAsyncRegistry().rateWindowStart);
-export const rateCount = createAsyncObjectProxy(() => getActiveAsyncRegistry().rateCount);
-export const ratePruneState = createAsyncValueProxy(() => getActiveAsyncRegistry().ratePruneState);
-export const cleanupSubs = createAsyncObjectProxy(() => getActiveAsyncRegistry().cleanupSubs);
-export const storeCleanupFns = createAsyncObjectProxy(() => getActiveAsyncRegistry().storeCleanupFns);
-export const revalidateHandlers = createAsyncObjectProxy(() => getActiveAsyncRegistry().revalidateHandlers);
-export const noSignalWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().noSignalWarned);
-export const shapeWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().shapeWarned);
-export const autoCreateWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().autoCreateWarned);
-export const mutableResultWarned = createAsyncValueProxy(() => getActiveAsyncRegistry().mutableResultWarned);
-export const revalidateKeys = createAsyncValueProxy(() => getActiveAsyncRegistry().revalidateKeys);
-export const asyncMetrics = createAsyncValueProxy(() => getActiveAsyncRegistry().asyncMetrics);
+export const getRateWindowStartRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["rateWindowStart"] =>
+    getActiveAsyncRegistry().rateWindowStart;
+export const getRateCountRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["rateCount"] =>
+    getActiveAsyncRegistry().rateCount;
+export const getRatePruneState = (): ReturnType<typeof getActiveAsyncRegistry>["ratePruneState"] =>
+    getActiveAsyncRegistry().ratePruneState;
+export const getCleanupSubs = (): ReturnType<typeof getActiveAsyncRegistry>["cleanupSubs"] =>
+    getActiveAsyncRegistry().cleanupSubs;
+export const getStoreCleanupFns = (): ReturnType<typeof getActiveAsyncRegistry>["storeCleanupFns"] =>
+    getActiveAsyncRegistry().storeCleanupFns;
+export const getRevalidateHandlers = (): ReturnType<typeof getActiveAsyncRegistry>["revalidateHandlers"] =>
+    getActiveAsyncRegistry().revalidateHandlers;
+export const getNoSignalWarned = (): ReturnType<typeof getActiveAsyncRegistry>["noSignalWarned"] =>
+    getActiveAsyncRegistry().noSignalWarned;
+export const getShapeWarned = (): ReturnType<typeof getActiveAsyncRegistry>["shapeWarned"] =>
+    getActiveAsyncRegistry().shapeWarned;
+export const getAutoCreateWarned = (): ReturnType<typeof getActiveAsyncRegistry>["autoCreateWarned"] =>
+    getActiveAsyncRegistry().autoCreateWarned;
+export const getMutableResultWarned = (): ReturnType<typeof getActiveAsyncRegistry>["mutableResultWarned"] =>
+    getActiveAsyncRegistry().mutableResultWarned;
+export const getRevalidateKeys = (): ReturnType<typeof getActiveAsyncRegistry>["revalidateKeys"] =>
+    getActiveAsyncRegistry().revalidateKeys;
+export const getAsyncMetrics = (): ReturnType<typeof getActiveAsyncRegistry>["asyncMetrics"] =>
+    getActiveAsyncRegistry().asyncMetrics;
 
 export const markWarned = (set: Set<string>, key: string): void => {
     if (set.has(key)) return;
@@ -107,6 +80,14 @@ export const shouldUseCache = (cacheSlot: string, ttl?: number): boolean => {
 export const clearAsyncMeta = (name: string): void => {
     const fetchRegistry = getFetchRegistry();
     const cacheMeta = getCacheMeta();
+    const inflight = getInflightRegistry();
+    const requestVersion = getRequestVersionRegistry();
+    const rateWindowStart = getRateWindowStartRegistry();
+    const rateCount = getRateCountRegistry();
+    const noSignalWarned = getNoSignalWarned();
+    const shapeWarned = getShapeWarned();
+    const autoCreateWarned = getAutoCreateWarned();
+    const mutableResultWarned = getMutableResultWarned();
     delete fetchRegistry[name];
     noSignalWarned.delete(name);
     shapeWarned.delete(name);
@@ -125,6 +106,7 @@ export const clearAsyncMeta = (name: string): void => {
 export const pruneAsyncCache = (name: string): void => {
     const prefix = `${name}:`;
     const cacheMeta = getCacheMeta();
+    const requestVersion = getRequestVersionRegistry();
     const slots = Object.entries(cacheMeta)
         .filter(([key, meta]) => {
             if (key !== name && !key.startsWith(prefix)) return false;
@@ -146,6 +128,7 @@ export const pruneAsyncCache = (name: string): void => {
 
 export const countInflightSlots = (name: string): number => {
     const prefix = `${name}:`;
+    const inflight = getInflightRegistry();
     let count = 0;
     Object.keys(inflight).forEach((key) => {
         if (key === name || key.startsWith(prefix)) count += 1;
@@ -154,12 +137,14 @@ export const countInflightSlots = (name: string): number => {
 };
 
 export const registerStoreCleanup = (name: string, fn: () => void): void => {
+    const storeCleanupFns = getStoreCleanupFns();
     if (!storeCleanupFns[name]) storeCleanupFns[name] = new Set();
     storeCleanupFns[name].add(fn);
     ensureCleanupSubscription(name);
 };
 
 export const unregisterStoreCleanup = (name: string, fn: () => void): void => {
+    const storeCleanupFns = getStoreCleanupFns();
     const fns = storeCleanupFns[name];
     if (!fns) return;
     fns.delete(fn);
@@ -167,6 +152,8 @@ export const unregisterStoreCleanup = (name: string, fn: () => void): void => {
 };
 
 export const ensureCleanupSubscription = (name: string): void => {
+    const cleanupSubs = getCleanupSubs();
+    const storeCleanupFns = getStoreCleanupFns();
     if (cleanupSubs[name]) return;
     cleanupSubs[name] = subscribe(name, (state) => {
         if (state !== null) return;

@@ -12,23 +12,21 @@ import { getConfig } from "./internals/config.js";
 import { nameOf } from "./store-lifecycle/identity.js";
 import type { StoreDefinition, StoreKey, StoreName } from "./store-lifecycle/types.js";
 import {
-    asyncMetrics,
     getCacheMeta,
-    cleanupSubs,
     countInflightSlots,
+    getAsyncMetrics as getAsyncMetricsRegistry,
+    getAutoCreateWarned,
     getFetchRegistry,
+    getMutableResultWarned,
+    getNoSignalWarned,
+    getRevalidateHandlers,
+    getRevalidateKeys,
+    getShapeWarned,
     MAX_INFLIGHT_SLOTS_PER_STORE,
     markWarned,
-    mutableResultWarned,
-    noSignalWarned,
-    shapeWarned,
-    autoCreateWarned,
     ensureCleanupSubscription,
     pruneAsyncCache,
     registerStoreCleanup,
-    revalidateHandlers,
-    revalidateKeys,
-    storeCleanupFns,
     unregisterStoreCleanup,
     shouldUseCache,
     type FetchInput,
@@ -156,6 +154,11 @@ export async function fetchStore(
     } = options;
     const cacheMeta = getCacheMeta();
     const fetchRegistry = getFetchRegistry();
+    const noSignalWarned = getNoSignalWarned();
+    const autoCreateWarned = getAutoCreateWarned();
+    const shapeWarned = getShapeWarned();
+    const mutableResultWarned = getMutableResultWarned();
+    const asyncMetrics = getAsyncMetricsRegistry();
 
     if (!signal && isDev() && !noSignalWarned.has(name)) {
         markWarned(noSignalWarned, name);
@@ -564,6 +567,8 @@ export function enableRevalidateOnFocus(
     overrides?: Partial<FetchOptions> & { debounceMs?: number; maxConcurrent?: number; staggerMs?: number; priority?: "high" | "normal" }
 ): (() => void) {
     if (typeof window === "undefined" || typeof window.addEventListener !== "function") return () => {};
+    const revalidateKeys = getRevalidateKeys();
+    const revalidateHandlers = getRevalidateHandlers();
     const resolvedName = nameInput === "*" ? "*" : (nameInput ? nameOf(nameInput as StoreDefinition<string, unknown>) : undefined);
     const key = resolvedName ?? "*";
     if (revalidateKeys.has(key)) return revalidateHandlers[key] ?? (() => {});
@@ -651,7 +656,7 @@ export function enableRevalidateOnFocus(
     return cleanup;
 }
 
-export const getAsyncMetrics = () => ({ ...asyncMetrics });
+export const getAsyncMetrics = () => ({ ...getAsyncMetricsRegistry() });
 
 export const _resetAsyncStateForTests = (): void => {
     cleanupAllRevalidateHandlers();

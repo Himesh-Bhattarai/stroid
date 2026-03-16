@@ -8,7 +8,7 @@
  */
 import { useCallback } from "react";
 import { useStoreField } from "./hooks-core.js";
-import { setStore } from "./store.js";
+import { setStore } from "./store-write.js";
 import type {
     Path,
     PathValue,
@@ -21,42 +21,68 @@ import type {
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 
-type AnyState = Record<string, unknown>;
-type AnyPath = Path<AnyState>;
 type StoreInput<Name extends string, State> =
     | StoreDefinition<Name, State>
     | StoreKey<Name, State>;
-const toAnyHandle = (
-    value: StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue> | StoreName
-): StoreDefinition<string, AnyState> | StoreKey<string, AnyState> =>
-    (typeof value === "string" ? { name: value } : value) as StoreDefinition<string, AnyState> | StoreKey<string, AnyState>;
+type FormResult<Value> = { value: StoreSnapshot<Value> | null; onChange: (eOrValue: unknown) => void };
+const resolveInputValue = (eOrValue: unknown): unknown => {
+    const target = (eOrValue as { target?: { type?: string; checked?: boolean; value?: unknown } })?.target;
+    if (!target) return eOrValue;
+    return target.type === "checkbox" ? !!target.checked : target.value;
+};
 
-export function useFormStore<Name extends string, State, P extends Path<State>>(
+const useFormStoreWithHandle = <Name extends string, State, P extends Path<State>>(
     storeName: StoreInput<Name, State>,
     field: P
-): { value: StoreSnapshot<PathValue<State, P>> | null; onChange: (eOrValue: unknown) => void };
-export function useFormStore<Name extends StoreName, P extends Path<StateFor<Name>>>(
-    storeName: Name,
-    field: P
-): { value: StoreSnapshot<PathValue<StateFor<Name>, P>> | null; onChange: (eOrValue: unknown) => void };
-export function useFormStore(
-    storeName: StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue> | StoreName,
-    field: string
-): { value: unknown; onChange: (eOrValue: unknown) => void } {
-    const value = useStoreField(toAnyHandle(storeName), field as AnyPath);
+): FormResult<PathValue<State, P>> => {
+    const value = useStoreField(storeName, field);
     const onChange = useCallback(
         (eOrValue: unknown) => {
-            const target = (eOrValue as { target?: { type?: string; checked?: boolean; value?: unknown } })?.target;
-            const next = target
-                ? target.type === "checkbox"
-                    ? !!target.checked
-                    : target.value
-                : eOrValue;
-            setStore(toAnyHandle(storeName), field as AnyPath, next as PathValue<AnyState, AnyPath>);
+            const next = resolveInputValue(eOrValue) as PathValue<State, P>;
+            setStore(storeName, field, next);
         },
         [storeName, field]
     );
     return { value, onChange };
+};
+
+const useFormStoreWithName = <Name extends StoreName, P extends Path<StateFor<Name>>>(
+    storeName: Name,
+    field: P
+): FormResult<PathValue<StateFor<Name>, P>> => {
+    const value = useStoreField(storeName, field);
+    const onChange = useCallback(
+        (eOrValue: unknown) => {
+            const next = resolveInputValue(eOrValue) as PathValue<StateFor<Name>, P>;
+            setStore(storeName, field, next);
+        },
+        [storeName, field]
+    );
+    return { value, onChange };
+};
+
+export function useFormStore<Name extends string, State, P extends Path<State>>(
+    storeName: StoreInput<Name, State>,
+    field: P
+): FormResult<PathValue<State, P>>;
+export function useFormStore<Name extends StoreName, P extends Path<StateFor<Name>>>(
+    storeName: Name,
+    field: P
+): FormResult<PathValue<StateFor<Name>, P>>;
+export function useFormStore(
+    storeName: StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue> | StoreName,
+    field: string
+): FormResult<unknown> {
+    if (typeof storeName === "string") {
+        return useFormStoreWithName(
+            storeName as StoreName,
+            field as Path<StateFor<StoreName>>
+        );
+    }
+    return useFormStoreWithHandle(
+        storeName as StoreDefinition<string, Record<string, unknown>> | StoreKey<string, Record<string, unknown>>,
+        field as Path<Record<string, unknown>>
+    );
 }
 
 

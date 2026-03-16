@@ -18,6 +18,7 @@ import {
     getRequestCarrier,
     getActiveStoreRegistry,
     enterRegistry,
+    initializeRegistryFeatureRuntimes,
     type StoreRegistry,
 } from "../store-registry.js";
 import { registerTestResetHook } from "../internals/test-reset.js";
@@ -38,17 +39,6 @@ export { defaultRegistryScope } from "../store-registry.js";
 let _scope = defaultRegistryScope;
 let _defaultRegistry = getStoreRegistry(_scope);
 var _invalidatePathCache: ((name: string) => void) | null = null;
-const initializedRegistries = new WeakSet<StoreRegistry>();
-const initializeRegistryFeatureRuntimes = (registry: StoreRegistry): void => {
-    if (initializedRegistries.has(registry)) return;
-    initializedRegistries.add(registry);
-    getRegisteredFeatureNames().forEach((name) => {
-        if (!registry.featureRuntimes.get(name)) {
-            const factory = getStoreFeatureFactory(name);
-            if (factory) registry.featureRuntimes.set(name, factory());
-        }
-    });
-};
 
 const getActiveRegistry = (): StoreRegistry => {
     const registry = getActiveStoreRegistry(_defaultRegistry);

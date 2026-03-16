@@ -18,7 +18,7 @@ import { store, namespace } from "../src/store-name.js";
 import { getMetrics } from "../src/store-read.js";
 import { clearStores } from "../src/runtime-admin.js";
 import { listStores, getStoreMeta, getPersistQueueDepth, getAsyncInflightCount } from "../src/runtime-tools.js";
-import { shouldUseCache, pruneAsyncCache, getCacheMeta, getFetchRegistry, requestVersion } from "../src/async-cache.js";
+import { shouldUseCache, pruneAsyncCache, getCacheMeta, getFetchRegistry, getRequestVersionRegistry } from "../src/async-cache.js";
 import { createAsyncRegistry, resetAsyncRegistry } from "../src/async-registry.js";
 import { delay, normalizeRetryOptions } from "../src/async-retry.js";
 import { fetchStore, refetchStore, enableRevalidateOnFocus } from "../src/async.js";
@@ -61,6 +61,7 @@ test("async cache expiry and prune paths clear expired entries", () => {
 
   cacheMeta["persist"] = { timestamp: now, expiresAt: now + 1000, data: "y" };
   cacheMeta["persist:old"] = { timestamp: now - 5000, expiresAt: now - 1, data: "z" };
+  const requestVersion = getRequestVersionRegistry();
   requestVersion["persist:old"] = 1;
   pruneAsyncCache("persist");
   assert.ok(!("persist:old" in cacheMeta));

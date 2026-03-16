@@ -865,14 +865,14 @@ test("fetchStore caps no-signal warning cache size under high-cardinality stores
       critical: () => {},
     },
   });
-  const { noSignalWarned, MAX_WARNED_ENTRIES } = await import("../src/async-cache.js");
+  const { getNoSignalWarned, MAX_WARNED_ENTRIES } = await import("../src/async-cache.js");
 
   try {
     for (let i = 0; i < MAX_WARNED_ENTRIES + 25; i += 1) {
       await fetchStore(`warnStore${i}`, Promise.resolve(i), { dedupe: false });
     }
 
-    assert.ok(noSignalWarned.size <= MAX_WARNED_ENTRIES);
+    assert.ok(getNoSignalWarned().size <= MAX_WARNED_ENTRIES);
   } finally {
     resetConfig();
     clearAllStores();

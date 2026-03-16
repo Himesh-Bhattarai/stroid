@@ -13,6 +13,7 @@ import { registerTestResetHook } from "../internals/test-reset.js";
 import {
     hasRegisteredStoreFeature,
     type FeatureDeleteContext,
+    type FeatureHookContext,
     type FeatureName,
     type FeatureWriteContext,
     type StoreFeatureMeta,
@@ -26,35 +27,15 @@ import {
     featureRuntimes,
     applyFeatureState,
     getRegistry,
+    initializeRegisteredFeatureRuntimes,
     setStoreValueInternal,
     hasStoreEntryInternal,
 } from "./registry.js";
 import { runValidation, invalidatePathCache } from "./validation.js";
 import { reportStoreError, reportStoreWarning, warnMissingFeature } from "./identity.js";
 
-type BaseFeatureContext = {
-    name: string;
-    options: StoreFeatureMeta["options"];
-    getMeta: () => StoreFeatureMeta | undefined;
-    getStoreValue: () => StoreValue;
-    getAllStores: () => Record<string, StoreValue>;
-    getInitialState: () => StoreValue | undefined;
-    hasStore: () => boolean;
-    setStoreValue: (value: StoreValue) => void;
-    applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
-    notify: () => void;
-    reportStoreError: (message: string) => void;
-    warn: typeof warn;
-    log: typeof log;
-    hashState: typeof hashState;
-    deepClone: typeof deepClone;
-    sanitize: typeof sanitize;
-    validate: (next: StoreValue) => { ok: true; value: StoreValue } | { ok: false };
-    isDev: typeof isDev;
-};
-
-const baseFeatureContextsByRegistry = new WeakMap<object, Map<string, BaseFeatureContext | null>>();
-const getBaseFeatureContexts = (registry: object): Map<string, BaseFeatureContext | null> => {
+const baseFeatureContextsByRegistry = new WeakMap<object, Map<string, FeatureHookContext | null>>();
+const getBaseFeatureContexts = (registry: object): Map<string, FeatureHookContext | null> => {
     let contexts = baseFeatureContextsByRegistry.get(registry);
     if (!contexts) {
         contexts = new Map();
@@ -69,7 +50,7 @@ export const clearFeatureContexts = (): void => {
 
 registerTestResetHook("features.contexts", clearFeatureContexts, 100);
 
-export const createBaseFeatureContext = (name: string): BaseFeatureContext | null => {
+export const createBaseFeatureContext = (name: string): FeatureHookContext | null => {
     const registry = getRegistry();
     const baseFeatureContexts = getBaseFeatureContexts(registry);
     const cached = baseFeatureContexts.get(name);
@@ -81,7 +62,7 @@ export const createBaseFeatureContext = (name: string): BaseFeatureContext | nul
         return null;
     }
 
-    const ctx: BaseFeatureContext = {
+    const ctx: FeatureHookContext = {
         name,
         options: metaEntry.options,
         getMeta: () => meta[name],
@@ -114,16 +95,46 @@ export const createBaseFeatureContext = (name: string): BaseFeatureContext | nul
     return ctx;
 };
 
+const validateFeatureContext = (storeName: string, ctx: FeatureHookContext): void => {
+    const config = getConfig();
+    if (!config.strictMissingFeatures && !config.assertRuntime) return;
+    const missing: string[] = [];
+    if (typeof ctx.getMeta !== "function") missing.push("getMeta");
+    if (typeof ctx.getStoreValue !== "function") missing.push("getStoreValue");
+    if (typeof ctx.getAllStores !== "function") missing.push("getAllStores");
+    if (typeof ctx.getInitialState !== "function") missing.push("getInitialState");
+    if (typeof ctx.hasStore !== "function") missing.push("hasStore");
+    if (typeof ctx.setStoreValue !== "function") missing.push("setStoreValue");
+    if (typeof ctx.applyFeatureState !== "function") missing.push("applyFeatureState");
+    if (typeof ctx.notify !== "function") missing.push("notify");
+    if (typeof ctx.reportStoreError !== "function") missing.push("reportStoreError");
+    if (typeof ctx.warn !== "function") missing.push("warn");
+    if (typeof ctx.log !== "function") missing.push("log");
+    if (typeof ctx.hashState !== "function") missing.push("hashState");
+    if (typeof ctx.deepClone !== "function") missing.push("deepClone");
+    if (typeof ctx.sanitize !== "function") missing.push("sanitize");
+    if (typeof ctx.validate !== "function") missing.push("validate");
+    if (typeof ctx.isDev !== "function") missing.push("isDev");
+    if (missing.length === 0) return;
+    const message =
+        `Feature hook context missing fields for "${storeName}": ${missing.join(", ")}.`;
+    reportStoreError(storeName, message);
+    if (config.assertRuntime) throw new Error(message);
+};
+
 export const runFeatureCreateHooks = (name: string, notify: (name: string) => void): void => {
+    initializeRegisteredFeatureRuntimes();
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     baseContext.notify = () => notify(name);
+    validateFeatureContext(name, baseContext);
     featureRuntimes.forEach((runtime) => {
         runtime.onStoreCreate?.(baseContext);
     });
 };
 
 export const runFeatureWriteHooks = (name: string, action: string, prev: StoreValue, next: StoreValue, notify: (name: string) => void): void => {
+    initializeRegisteredFeatureRuntimes();
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     baseContext.notify = () => notify(name);
@@ -132,6 +143,7 @@ export const runFeatureWriteHooks = (name: string, action: string, prev: StoreVa
         prev,
         next,
     }) as FeatureWriteContext;
+    validateFeatureContext(name, ctx);
 
     featureRuntimes.forEach((runtime) => {
         runtime.onStoreWrite?.(ctx);
@@ -139,12 +151,14 @@ export const runFeatureWriteHooks = (name: string, action: string, prev: StoreVa
 };
 
 export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (name: string) => void): void => {
+    initializeRegisteredFeatureRuntimes();
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     baseContext.notify = () => notify(name);
     const ctx = Object.assign(Object.create(baseContext), {
         prev,
     }) as FeatureDeleteContext;
+    validateFeatureContext(name, ctx);
     featureRuntimes.forEach((runtime) => {
         runtime.beforeStoreDelete?.(ctx);
     });

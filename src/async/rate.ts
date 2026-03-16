@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { getActiveAsyncRegistry, rateCount, ratePruneState, rateWindowStart } from "../async-cache.js";
+import { getActiveAsyncRegistry, getRateCountRegistry, getRateWindowStartRegistry } from "../async-cache.js";
 import type { AsyncRegistry } from "../async-registry.js";
 
 export const RATE_WINDOW_MS = 1000;
@@ -38,6 +38,8 @@ export const scheduleRatePrune = (delayMs = RATE_WINDOW_MS): void => {
 };
 
 export const registerRateHit = (cacheSlot: string, nowTs: number): boolean => {
+    const rateWindowStart = getRateWindowStartRegistry();
+    const rateCount = getRateCountRegistry();
     const windowStart = rateWindowStart[cacheSlot];
     const currentCount = rateCount[cacheSlot] ?? 0;
     if (windowStart !== undefined && nowTs - windowStart < RATE_WINDOW_MS) {

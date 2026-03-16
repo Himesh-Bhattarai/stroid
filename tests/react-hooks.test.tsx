@@ -11,7 +11,7 @@ import assert from "node:assert";
 import React from "react";
 import { act, render } from "@testing-library/react";
 import { fetchStore } from "../src/async.js";
-import { asyncMetrics } from "../src/async-cache.js";
+import { getAsyncMetrics } from "../src/async-cache.js";
 import { useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../src/hooks.js";
 import { clearAllStores, createStore, setStore } from "../src/store.js";
 import { resetAllStoresForTest } from "../src/testing.js";
@@ -231,7 +231,8 @@ test("selector hooks can mount before createStore and update when the store appe
 
 test("useAsyncStoreSuspense does not reissue fetches when options are omitted", async () => {
   resetAllStoresForTest();
-  asyncMetrics.dedupes = 0;
+  const metrics = getAsyncMetrics();
+  metrics.dedupes = 0;
   createStore("suspenseStore", { data: null, loading: false, error: null, status: "idle" });
 
   let resolvePromise!: (value: number) => void;
@@ -260,13 +261,13 @@ test("useAsyncStoreSuspense does not reissue fetches when options are omitted", 
     ({ unmount } = render(React.createElement(Root)));
   });
 
-  const dedupesBefore = asyncMetrics.dedupes;
+  const dedupesBefore = metrics.dedupes;
 
   await act(async () => {
     bump?.();
   });
 
-  assert.strictEqual(asyncMetrics.dedupes, dedupesBefore);
+  assert.strictEqual(metrics.dedupes, dedupesBefore);
 
   await act(async () => {
     resolvePromise(123);
