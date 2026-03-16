@@ -31,3 +31,6 @@ coverage/
 .parcel-cache/
 *.tgz
 *.tgz.sha512
+
+# tests tmp output
+tests/.tmp-*.txt
