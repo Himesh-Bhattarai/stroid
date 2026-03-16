@@ -2,6 +2,9 @@
 node_modules/
 
 AUDIT_REPORT/
+/AUDIT_REPORT.md
+AUDIT_REPORT/
+/AUDIT_REPORT.md
 # silent
 stroid-website/
 coverage/
