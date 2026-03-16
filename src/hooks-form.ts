@@ -20,19 +20,18 @@ import type {
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 
-export function useFormStore<Name extends string, State, P extends Path<State>>(
-    storeName: StoreDefinition<Name, State> | StoreKey<Name, State>,
+type StoreInput<Name extends string, State> =
+    | StoreDefinition<Name, State>
+    | StoreKey<Name, State>
+    | (Name extends StoreName ? Name : never);
+type StoreState<Name extends string, State> =
+    Name extends StoreName ? StateFor<Name> : State;
+
+export function useFormStore<Name extends string, State, P extends Path<StoreState<Name, State>>>(
+    storeName: StoreInput<Name, State>,
     field: P
-): { value: StoreSnapshot<PathValue<State, P>> | null; onChange: (eOrValue: any) => void };
-export function useFormStore<Name extends StoreName, P extends Path<StateFor<Name>>>(
-    storeName: Name,
-    field: P
-): { value: StoreSnapshot<PathValue<StateFor<Name>, P>> | null; onChange: (eOrValue: any) => void };
-export function useFormStore(
-    storeName: StoreDefinition<string, unknown> | StoreKey<string, unknown> | StoreName,
-    field: string
 ) {
-    const value = useStore(storeName as any, field as any);
+    const value = useStore(storeName, field);
     const onChange = useCallback(
         (eOrValue: unknown) => {
             const target = (eOrValue as { target?: { type?: string; checked?: boolean; value?: unknown } })?.target;
@@ -41,7 +40,7 @@ export function useFormStore(
                     ? !!target.checked
                     : target.value
                 : eOrValue;
-            (setStore as any)(storeName, field, next);
+            setStore(storeName, field, next as PathValue<StoreState<Name, State>, P>);
         },
         [storeName, field]
     );
