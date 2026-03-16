@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 
 ## Unreleased
+### Breaking
+- `stroid/core` now exports only `createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, and `deleteStore` (minimal primitives).
+
+### Migration
+
+
 ### Added
 - `allowTrusted` hydration flag (aliasing `allowHydration`; `allowUntrusted` deprecated).
 - `allowTrustedHydration` config alias for trusted snapshot hydration.

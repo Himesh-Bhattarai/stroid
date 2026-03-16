@@ -17,8 +17,8 @@ export const createCounterStore = (name: string, initial = 0, options: StoreOpti
     const handle = store<string, { value: number }>(name);
     createStore(name, { value: initial }, options);
     return {
-        inc: (n = 1) => setStore(handle, (draft) => { draft.value += n; }),
-        dec: (n = 1) => setStore(handle, (draft) => { draft.value -= n; }),
+        inc: (n = 1) => setStore(handle, (draft: { value: number }) => { draft.value += n; }),
+        dec: (n = 1) => setStore(handle, (draft: { value: number }) => { draft.value -= n; }),
         set: (v: number) => setStore(handle, "value", v),
         reset: () => resetStore(handle),
         get: (): number | null => getStore(handle, "value"),
@@ -29,10 +29,10 @@ export const createListStore = <T>(name: string, initial: T[] = [], options: Sto
     const handle = store<string, { items: T[] }>(name);
     createStore(name, { items: initial }, options);
     return {
-        push: (item: T) => setStore(handle, (draft) => { draft.items.push(item); }),
-        removeAt: (index: number) => setStore(handle, (draft) => { draft.items.splice(index, 1); }),
-        clear: () => setStore(handle, (draft) => { draft.items = []; }),
-        replace: (items: T[]) => setStore(handle, (draft) => { draft.items = items; }),
+        push: (item: T) => setStore(handle, (draft: { items: T[] }) => { draft.items.push(item); }),
+        removeAt: (index: number) => setStore(handle, (draft: { items: T[] }) => { draft.items.splice(index, 1); }),
+        clear: () => setStore(handle, (draft: { items: T[] }) => { draft.items = []; }),
+        replace: (items: T[]) => setStore(handle, (draft: { items: T[] }) => { draft.items = items; }),
         all: () => {
             const items = getStore(handle, "items");
             return items ? [...items] : [];
@@ -44,7 +44,7 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
     const handle = store<string, { entities: Record<string, T>; ids: string[] }>(name);
     createStore(name, { entities: {}, ids: [] as string[] }, options);
     return {
-        upsert: (entity: T) => setStore(handle, (draft) => {
+        upsert: (entity: T) => setStore(handle, (draft: { entities: Record<string, T>; ids: string[] }) => {
             const id = entity.id
                 ?? entity._id
                 ?? ((typeof crypto !== "undefined" && (crypto as any).randomUUID)
@@ -53,7 +53,7 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
             if (!draft.ids.includes(id)) draft.ids.push(id);
             draft.entities[id] = entity;
         }),
-        remove: (id: string) => setStore(handle, (draft) => {
+        remove: (id: string) => setStore(handle, (draft: { entities: Record<string, T>; ids: string[] }) => {
             draft.ids = draft.ids.filter((i: string) => i !== id);
             delete draft.entities[id];
         }),

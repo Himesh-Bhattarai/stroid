@@ -92,6 +92,9 @@ type StorePathFor<Name extends StoreName> =
 type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
     IsStoreNameLoose extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
 type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
+type StoreHandle<Name extends string, State> = StoreDefinition<Name, State> | StoreKey<Name, State>;
+type StoreUpdate<State> = State | Partial<State> | PartialDeep<State> | ((draft: State) => void);
+type LooseName<Name extends string> = IsStoreNameLoose extends true ? Name : never;
 type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
