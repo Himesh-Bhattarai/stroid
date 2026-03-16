@@ -443,13 +443,15 @@ export function replaceStore<Name extends string, State>(name: StoreDefinition<N
 export function replaceStore<Name extends string, State>(name: StoreKey<Name, State>, value: State): WriteResult;
 export function replaceStore<Name extends StoreName>(name: Name, value: StateFor<Name>): WriteResult;
 export function replaceStore(nameInput: string | StoreDefinition<string, StoreValue>, value: unknown): WriteResult {
+    const storeName = nameOf(nameInput);
     if (isTransactionActive()) {
-        const message = `replaceStore(...) cannot be called inside setStoreBatch.`;
-        warn(message);
+        const message =
+            `replaceStore("${storeName}") cannot be called inside setStoreBatch. ` +
+            `The entire batch is rolled back when this occurs.`;
+        reportStoreError(storeName, message);
         markTransactionFailed(message);
         return { ok: false, reason: "invalid-args" };
     }
-    const storeName = nameOf(nameInput);
     if (!storeName) return { ok: false, reason: "invalid-args" };
 
     const result = replaceStoreState(storeName, value, "replace");
