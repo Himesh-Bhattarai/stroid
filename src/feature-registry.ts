@@ -40,6 +40,7 @@ export interface FeatureHookContext {
     notify: () => void;
     reportStoreError: (message: string) => void;
     warn: (message: string) => void;
+    warnAlways: (message: string) => void;
     log: (message: string) => void;
     hashState: (value: unknown) => number;
     deepClone: <T>(value: T) => T;

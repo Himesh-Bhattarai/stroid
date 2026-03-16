@@ -11,6 +11,8 @@ import type { PersistMeta, PersistLoadArgs } from "./types.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "../state-helpers.js";
 import { computePersistChecksum } from "./checksum.js";
 
+const MAX_UNBOUNDED_PERSIST_WARN_BYTES = 1_000_000;
+
 const resolveMigrationFailure = ({
     name,
     persisted,
@@ -70,6 +72,7 @@ const persistLoadSync = ({
     getInitialState,
     applyFeatureState,
     reportStoreError,
+    warnMissingMaxSize,
     validate,
     log,
     hashState,
@@ -92,6 +95,9 @@ const persistLoadSync = ({
                 `Provide async decrypt hooks or use an async-capable persist driver.`
             );
             return true;
+        }
+        if (typeof cfg.maxSize !== "number" && raw.length > MAX_UNBOUNDED_PERSIST_WARN_BYTES) {
+            warnMissingMaxSize?.(raw.length);
         }
         if (typeof cfg.maxSize === "number" && raw.length > cfg.maxSize) {
             reportStoreError(
@@ -154,6 +160,7 @@ const persistLoadAsync = async ({
     getInitialState,
     applyFeatureState,
     reportStoreError,
+    warnMissingMaxSize,
     validate,
     log,
     hashState,
@@ -169,6 +176,9 @@ const persistLoadAsync = async ({
     try {
         const raw = await Promise.resolve(cfg.driver.getItem?.(cfg.key) ?? null);
         if (!raw) return false;
+        if (typeof cfg.maxSize !== "number" && typeof raw === "string" && raw.length > MAX_UNBOUNDED_PERSIST_WARN_BYTES) {
+            warnMissingMaxSize?.(raw.length);
+        }
         if (typeof cfg.maxSize === "number" && typeof raw === "string" && raw.length > cfg.maxSize) {
             reportStoreError(
                 name,

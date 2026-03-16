@@ -10,7 +10,7 @@ import { runStoreHook } from "../features/lifecycle.js";
 import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../feature-registry.js";
 import { hasStoreEntry, type StoreRegistry } from "../store-registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
-import { isDev, log, warn } from "./diagnostics.js";
+import { isDev, log, warn, warnAlways } from "./diagnostics.js";
 import { reportIssue } from "./reporting.js";
 import { isComputed } from "../computed-graph.js";
 import { deleteComputed } from "../computed.js";
@@ -71,6 +71,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             });
         },
         warn,
+        warnAlways,
         log,
         hashState,
         deepClone,

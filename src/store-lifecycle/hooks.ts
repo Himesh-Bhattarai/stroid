@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { warn, log, hashState, deepClone, sanitize, isDev } from "../utils.js";
+import { warn, warnAlways, log, hashState, deepClone, sanitize, isDev } from "../utils.js";
 import { runMiddleware, runStoreHook, MIDDLEWARE_ABORT } from "../features/lifecycle.js";
 import { getConfig } from "../internals/config.js";
 import { registerTestResetHook } from "../internals/test-reset.js";
@@ -84,6 +84,7 @@ export const createBaseFeatureContext = (name: string): FeatureHookContext | nul
             reportStoreError(name, message);
         },
         warn,
+        warnAlways,
         log,
         hashState,
         deepClone,
@@ -109,6 +110,7 @@ const validateFeatureContext = (storeName: string, ctx: FeatureHookContext): voi
     if (typeof ctx.notify !== "function") missing.push("notify");
     if (typeof ctx.reportStoreError !== "function") missing.push("reportStoreError");
     if (typeof ctx.warn !== "function") missing.push("warn");
+    if (typeof ctx.warnAlways !== "function") missing.push("warnAlways");
     if (typeof ctx.log !== "function") missing.push("log");
     if (typeof ctx.hashState !== "function") missing.push("hashState");
     if (typeof ctx.deepClone !== "function") missing.push("deepClone");

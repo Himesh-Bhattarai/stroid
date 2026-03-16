@@ -33,6 +33,7 @@ export type PersistLoadArgs = {
     applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
     shouldApply?: () => boolean;
     reportStoreError: (name: string, message: string) => void;
+    warnMissingMaxSize?: (rawLength: number) => void;
     validate: (next: StoreValue) => { ok: boolean; value?: StoreValue };
     log: (message: string) => void;
     hashState: (value: unknown) => number;

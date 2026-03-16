@@ -12,6 +12,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import "../src/persist.js";
+import { configureStroid, resetConfig } from "../src/config.js";
 import { clearAllStores } from "../src/runtime-admin.js";
 import { getStoreMeta } from "../src/runtime-tools.js";
 import { createStore, setStore, getStore, deleteStore, resetStore } from "../src/store.js";
@@ -121,6 +122,43 @@ test("persist skips oversized payloads via maxSize", () => {
 
   assert.deepStrictEqual(getStore("oversized"), { value: 1 });
   assert.ok(errors.some((msg) => msg.includes("maxSize")));
+  clearAllStores();
+});
+
+test("persist warns when maxSize is not configured", () => {
+  clearAllStores();
+  const warnings: string[] = [];
+  configureStroid({ logSink: { warn: (msg) => warnings.push(msg) } });
+
+  const payload = "x".repeat(1_050_000);
+  const serialized = JSON.stringify({ payload });
+  const stored = JSON.stringify({
+    v: 1,
+    checksum: hashState(serialized),
+    data: serialized,
+  });
+
+  const driver = {
+    getItem: () => stored,
+    setItem: () => {},
+    removeItem: () => {},
+  };
+
+  createStore("noMaxSize", { value: 1 }, {
+    persist: {
+      driver,
+      key: "no-max",
+      allowPlaintext: true,
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+    },
+  });
+
+  assert.ok(warnings.some((msg) => msg.includes("maxSize")));
+
+  resetConfig();
   clearAllStores();
 });
 
