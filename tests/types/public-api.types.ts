@@ -114,6 +114,7 @@ const typedUserHandle = store<"typedUser", UserState>("typedUser");
 const typedCounterHandle = store<"typedCounter", { value: number }>("typedCounter");
 const typedFormHandle = store<"typedForm", { profile: { name: string } }>("typedForm");
 const typedAsyncHandle = store<"typedAsync", AsyncStoreState<{ ok: boolean }>>("typedAsync");
+const looseProfileHandle = store<"looseProfile", { profile: { name: string } }>("looseProfile");
 
 const selectName = createSelector<UserState, string>("typedUser", (state) => state.profile.name);
 type CreateSelectorReturn = Expect<Equal<typeof selectName, () => string | null>>;
@@ -138,6 +139,10 @@ type UseStoreStaticReturn = Expect<Equal<IsAssignable<typeof useStoreStatic, Use
 type UseSelectorReturn = Expect<Equal<IsAssignable<typeof useSelector, UseSelectorSig>, true>>;
 type UseFormStoreValue = Expect<Equal<IsAssignable<typeof useFormStore, UseFormStoreSig>, true>>;
 type UseAsyncStoreReturn = Expect<Equal<IsAssignable<typeof useAsyncStore, UseAsyncStoreSig>, true>>;
+
+setStore(looseProfileHandle, "profile.name", "Tess");
+// @ts-expect-error wrong value type should be rejected
+setStore(looseProfileHandle, "profile.name", 123);
 
 type RequestMap = StoreStateMap & {
   requestUser: { id: string; name: string };
