@@ -145,9 +145,10 @@ setStore(looseProfileHandle, "profile.name", "Tess");
 // @ts-expect-error wrong value type should be rejected
 setStore(looseProfileHandle, "profile.name", 123);
 
-setStore<"looseTyped", { value: number }>("looseTyped", "value", 1);
+const looseTypedHandle = store<"looseTyped", { value: number }>("looseTyped");
+setStore(looseTypedHandle, "value", 1);
 // @ts-expect-error wrong value type should be rejected
-setStore<"looseTyped", { value: number }>("looseTyped", "value", "bad");
+setStore(looseTypedHandle, "value", "bad");
 
 type RequestMap = StoreStateMap & {
   requestUser: { id: string; name: string };

@@ -68,6 +68,7 @@ import type {
     StoreKey,
     StoreName,
     StoreStateMap,
+    StrictStoreMap,
     StateFor,
     WriteResult,
 } from "./store-lifecycle/types.js";
@@ -84,16 +85,18 @@ import {
 } from "./store-transaction.js";
 
 type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: any) => void);
-type StoreInput<Name extends string, State> =
+type StoreHandle<Name extends string, State> =
     | StoreDefinition<Name, State>
-    | StoreKey<Name, State>
-    | Name;
-type StoreState<Name extends string, State> =
-    Name extends StoreName ? StateFor<Name> : State;
-type SetStoreArgs<Name extends string, State, P extends Path<StoreState<Name, State>>> =
-    | [name: StoreInput<Name, State>, path: P, value: PathValue<StoreState<Name, State>, P>]
-    | [name: StoreInput<Name, State>, mutator: (draft: StoreState<Name, State>) => void]
-    | [name: StoreInput<Name, State>, data: PartialDeep<StoreState<Name, State>>];
+    | StoreKey<Name, State>;
+type StoreUpdate<State> =
+    | PartialDeep<State>
+    | ((draft: State) => void);
+type AllowLooseNames = keyof StoreStateMap extends never
+    ? keyof StrictStoreMap extends never
+        ? true
+        : false
+    : false;
+type LooseName<Name extends string> = AllowLooseNames extends true ? Name : never;
 type HasStoreStateMap = keyof StoreStateMap extends never ? false : true;
 type HydrateSnapshot = HasStoreStateMap extends true
     ? Partial<{ [K in StoreName]: StateFor<K> }>
@@ -282,8 +285,37 @@ export const createStoreStrict = <Name extends string, State>(
     );
 };
 
-export function setStore<Name extends string, State, P extends Path<StoreState<Name, State>>>(
-    ...args: SetStoreArgs<Name, State, P>
+export function setStore<Name extends string, State, P extends Path<State>>(
+    name: StoreHandle<Name, State>,
+    path: P,
+    value: PathValue<State, P>
+): WriteResult;
+export function setStore<Name extends string, State>(
+    name: StoreHandle<Name, State>,
+    update: StoreUpdate<State>
+): WriteResult;
+export function setStore<Name extends string, State>(
+    name: LooseName<Name>,
+    path: Path<State>,
+    value: PathValue<State, Path<State>>
+): WriteResult;
+export function setStore<Name extends string, State, P extends Path<State>>(
+    name: LooseName<Name>,
+    path: P,
+    value: PathValue<State, P>
+): WriteResult;
+export function setStore<Name extends string, State>(
+    name: LooseName<Name>,
+    update: StoreUpdate<State>
+): WriteResult;
+export function setStore<Name extends StoreName, P extends Path<StateFor<Name>>>(
+    name: Name,
+    path: P,
+    value: PathValue<StateFor<Name>, P>
+): WriteResult;
+export function setStore<Name extends StoreName>(
+    name: Name,
+    update: StoreUpdate<StateFor<Name>>
 ): WriteResult;
 export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
     const storeName = nameOf(name);
