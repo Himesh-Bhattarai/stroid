@@ -15,6 +15,7 @@ import {
   createStoreStrict,
   setStore,
   getStore,
+  hydrateStores,
   type StoreDefinition,
   type StoreStateMap,
   store,
@@ -238,6 +239,14 @@ type BenchmarkReturn = Expect<Equal<typeof benchmark, {
 
 const frozenNow = withMockedTime(123, () => Date.now());
 type WithMockedTimeReturn = Expect<Equal<typeof frozenNow, number>>;
+
+const hydratedLoose = hydrateStores(
+  { hydrateLoose: { value: 1 } },
+  { hydrateLoose: { persist: true }, default: { devtools: false } }
+);
+type HydratedLooseReturn = Expect<Equal<typeof hydratedLoose, { hydrated: string[]; created: string[]; failed: Record<string, string> }>>;
+// @ts-expect-error options should only accept keys from the snapshot
+hydrateStores({ hydrateLoose: { value: 1 } }, { missing: { persist: true } });
 
 createStore("legacyTyped", { count: 1 }, {
   historyLimit: 10,

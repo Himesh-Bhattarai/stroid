@@ -67,6 +67,7 @@ import type {
     StoreValue,
     StoreKey,
     StoreName,
+    StoreStateMap,
     StateFor,
     WriteResult,
 } from "./store-lifecycle/types.js";
@@ -93,7 +94,10 @@ type SetStoreArgs<Name extends string, State, P extends Path<StoreState<Name, St
     | [name: StoreInput<Name, State>, path: P, value: PathValue<StoreState<Name, State>, P>]
     | [name: StoreInput<Name, State>, mutator: (draft: StoreState<Name, State>) => void]
     | [name: StoreInput<Name, State>, data: PartialDeep<StoreState<Name, State>>];
-type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
+type HasStoreStateMap = keyof StoreStateMap extends never ? false : true;
+type HydrateSnapshot = HasStoreStateMap extends true
+    ? Partial<{ [K in StoreName]: StateFor<K> }>
+    : Record<string, StoreValue>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
 type HydrationTrust<Snapshot extends Record<string, unknown>> = {
