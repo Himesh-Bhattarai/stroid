@@ -86,7 +86,7 @@ type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((dr
 type StoreInput<Name extends string, State> =
     | StoreDefinition<Name, State>
     | StoreKey<Name, State>
-    | (Name extends StoreName ? Name : never);
+    | Name;
 type StoreState<Name extends string, State> =
     Name extends StoreName ? StateFor<Name> : State;
 type SetStoreArgs<Name extends string, State, P extends Path<StoreState<Name, State>>> =

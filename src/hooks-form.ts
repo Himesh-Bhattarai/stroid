@@ -23,7 +23,7 @@ type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 type StoreInput<Name extends string, State> =
     | StoreDefinition<Name, State>
     | StoreKey<Name, State>
-    | (Name extends StoreName ? Name : never);
+    | Name;
 type StoreState<Name extends string, State> =
     Name extends StoreName ? StateFor<Name> : State;
 
