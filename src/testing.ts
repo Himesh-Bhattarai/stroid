@@ -11,12 +11,14 @@ import { createStore, setStore, resetStore, store } from "./store.js";
 import type { PartialDeep, StoreDefinition, StoreKey } from "./store.js";
 import { _hardResetAllStoresForTest } from "./store-write.js";
 
+type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
+
 export const createMockStore = <Name extends string, State extends Record<string, unknown> = Record<string, unknown>>(
     name: Name = "mock" as Name,
     initial: State = {} as State
 ) => {
     const handle = store<Name, State>(name);
-    createStore(name, initial);
+    createStore(name, initial as NonFunction<State>);
     return {
         set: (update: PartialDeep<State> | ((draft: State) => void)) => {
             if (typeof update === "function") return setStore(handle, update);

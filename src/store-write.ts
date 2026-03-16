@@ -294,7 +294,9 @@ export function createStoreStrict<Name extends string, State>(
     initialData: State,
     option: StoreOptions<State> = {}
 ): StoreDefinition<Name, State> {
-    const created = createStore(name, initialData, option);
+    const created = option.lazy === true
+        ? createStore(name, initialData as () => State, option as StoreOptions<State> & { lazy: true })
+        : createStore(name, initialData as NonFunction<State>, option);
     if (created) return created;
     throw new Error(
         `createStoreStrict("${String(name)}") failed. ` +
