@@ -116,7 +116,8 @@
     "test:types": "npm run build && tsc -p tsconfig.typetests.json",
     "typecheck": "tsc -p tsconfig.types.json",
     "build": "tsup",
-    "test:all": "npm test && npm run test:types"
+    "test:all": "npm test && npm run test:types",
+    "test:full": "npm run test:coverage && npm run test:types"
   },
   "engines": {
     "node": ">=18"

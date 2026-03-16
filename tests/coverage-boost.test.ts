@@ -324,10 +324,13 @@ test("store-notify chunk scheduling and priority queues", async () => {
   assert.ok(threw);
 
   const originalQueueMicrotask = (globalThis as any).queueMicrotask;
-  (globalThis as any).queueMicrotask = undefined;
-  notify("prioStore");
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  (globalThis as any).queueMicrotask = originalQueueMicrotask;
+  try {
+    (globalThis as any).queueMicrotask = undefined;
+    notify("prioStore");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  } finally {
+    (globalThis as any).queueMicrotask = originalQueueMicrotask;
+  }
 });
 
 test("store registry scope and resets clear registries", () => {
