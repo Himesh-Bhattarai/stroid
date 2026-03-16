@@ -112,14 +112,14 @@ hydrateStores({
     },
     acceptedTerms: true,
   },
-}, {}, { allowUntrusted: true });
+}, {}, { allowTrusted: true });
 
 console.log(getStore("checkout"));
 resetStore("checkout");
 ```
 
 Note:
-`hydrateStores` requires an explicit trust opt-in. Use `allowUntrusted: true` only for trusted snapshots you control, or provide a `validate` function in the third argument.
+`hydrateStores` requires an explicit trust opt-in. Use `allowTrusted: true` only for trusted snapshots you control, or provide a `validate` function in the third argument.
 
 This is still core. No persistence, no sync, no React. But it already expresses:
 

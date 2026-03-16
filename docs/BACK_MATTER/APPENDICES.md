@@ -44,7 +44,7 @@ Examples:
 
 ### Hydration
 
-Loading external or prebuilt state into Stroid stores through `hydrateStores(...)` with explicit trust (`allowUntrusted` or `validate`).
+Loading external or prebuilt state into Stroid stores through `hydrateStores(...)` with explicit trust (`allowTrusted` or `validate`).
 
 ### Revalidation
 

@@ -54,12 +54,16 @@ export type StroidConfig = {
     strictAsyncUsageErrors?: boolean;
     middleware?: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
     /**
-     * Allow hydrateStores to accept untrusted snapshots without explicit opt-in.
+     * Allow hydrateStores to accept trusted snapshots without explicit opt-in.
      * Default: false (hydration requires an explicit trust opt-in).
+     */
+    allowTrustedHydration?: boolean;
+    /**
+     * @deprecated Use allowTrustedHydration instead.
      */
     allowUntrustedHydration?: boolean;
     /**
-     * Alias for allowUntrustedHydration.
+     * Alias for allowTrustedHydration.
      */
     allowHydration?: boolean;
     /**
@@ -311,6 +315,12 @@ export const configureStroid = (next?: StroidConfig): void => {
         config = {
             ...config,
             allowUntrustedHydration: next.allowHydration,
+        };
+    }
+    if (typeof next.allowTrustedHydration === "boolean") {
+        config = {
+            ...config,
+            allowUntrustedHydration: next.allowTrustedHydration,
         };
     }
 

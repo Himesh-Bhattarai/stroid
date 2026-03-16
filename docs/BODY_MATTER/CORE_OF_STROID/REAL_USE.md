@@ -158,7 +158,7 @@ const requestState = createStoreForRequest((api) => {
 });
 
 const snapshot = requestState.snapshot();
-hydrateStores(snapshot, {}, { allowUntrusted: true });
+hydrateStores(snapshot, {}, { allowTrusted: true });
 ```
 
 This is where Stroid becomes especially useful: request scope and hydration let you think about bootstrapping as a controlled state handoff instead of a tangle of ad hoc serialization.

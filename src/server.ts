@@ -118,7 +118,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
                     hydrateStores(
                         buffer,
                         merged as Parameters<typeof hydrateStores>[1],
-                        { allowHydration: true }
+                        { allowTrusted: true }
                     );
                     return renderFn();
                 })

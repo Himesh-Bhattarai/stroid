@@ -123,9 +123,9 @@ test("hydrateStores does not materialize lazy stores", () => {
   assert.deepStrictEqual(getStore("lazyHydrate"), { count: 5 });
 });
 
-test("hydrateStores accepts allowHydration trust flag", () => {
+test("hydrateStores accepts allowTrusted trust flag", () => {
   clearAllStores();
-  const result = hydrateStores({ trustedHydrate: { value: 1 } }, {}, { allowHydration: true });
+  const result = hydrateStores({ trustedHydrate: { value: 1 } }, {}, { allowTrusted: true });
   assert.ok(result.created.includes("trustedHydrate"));
   assert.deepStrictEqual(getStore("trustedHydrate"), { value: 1 });
 });

@@ -99,9 +99,13 @@ type HydrationTrust<Snapshot extends Record<string, unknown>> = {
     /**
      * Explicitly trust this snapshot and allow hydration.
      */
+    allowTrusted?: boolean;
+    /**
+     * Alias for allowTrusted.
+     */
     allowHydration?: boolean;
     /**
-     * @deprecated Use allowHydration instead.
+     * @deprecated Use allowTrusted instead.
      */
     allowUntrusted?: boolean;
     validate?: (snapshot: Snapshot) => boolean;
@@ -624,14 +628,15 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
     if (!snapshot || typeof snapshot !== "object") return result;
 
     const allowHydration =
+        trust.allowTrusted === true ||
         trust.allowHydration === true ||
         trust.allowUntrusted === true ||
         getConfig().allowUntrustedHydration === true;
     if (!allowHydration) {
         warnAlways(
             `hydrateStores(...) requires explicit trust. ` +
-            `Pass { allowHydration: true } as the third argument ` +
-            `or configureStroid({ allowUntrustedHydration: true }).`
+            `Pass { allowTrusted: true } (or { allowHydration: true }) as the third argument ` +
+            `or configureStroid({ allowTrustedHydration: true }).`
         );
         result.failed._hydration = "untrusted";
         return result;
