@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## Unreleased
+### Added
+- `allowTrusted` hydration flag (aliasing `allowHydration`; `allowUntrusted` deprecated).
+- `allowTrustedHydration` config alias for trusted snapshot hydration.
+### Changed
+- `createStoreForRequest` now hydrates with `{ allowTrusted: true }`.
+
+### Fixed
+
+
+### Docs
+- Hydration examples now reference `allowTrusted` language.
+
+
 ## 0.1.1 - 2026-03-15
 ### Breaking
 - `stroid/core` now exports only `createStore`, `setStore`, `getStore`, and `deleteStore` (minimal primitives).
