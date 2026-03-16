@@ -34,6 +34,7 @@ type DepValue<T> = T extends StoreDefinition<string, infer S>
         : T extends StoreName
             ? Readonly<StateFor<T>> | null
             : StoreValue | null;
+type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
 
 export function createComputed<TResult, Deps extends readonly (StoreName | DepHandle)[]>(
     name: string,
@@ -85,7 +86,7 @@ export function createComputed<TResult, Deps extends readonly (StoreName | DepHa
 
     const handle = store<string, TResult>(name);
     if (!hasStore(name)) {
-        createStore(name, initial as TResult);
+        createStore(name, initial as NonFunction<TResult>);
     } else {
         replaceStore(handle, initial as TResult);
     }

@@ -16,6 +16,7 @@ import {
   getStore,
   hasStore,
   hydrateStores,
+  replaceStore,
   setStore,
   setStoreBatch,
   subscribe,
@@ -120,6 +121,37 @@ test("hydrateStores does not materialize lazy stores", () => {
   hydrateStores({ lazyHydrate: { count: 5 } }, {}, { allowUntrusted: true });
   assert.strictEqual(calls, 0);
   assert.deepStrictEqual(getStore("lazyHydrate"), { count: 5 });
+});
+
+test("hydrateStores accepts allowHydration trust flag", () => {
+  clearAllStores();
+  const result = hydrateStores({ trustedHydrate: { value: 1 } }, {}, { allowHydration: true });
+  assert.ok(result.created.includes("trustedHydrate"));
+  assert.deepStrictEqual(getStore("trustedHydrate"), { value: 1 });
+});
+
+test("replaceStore inside batch reports critical and keeps state", () => {
+  clearAllStores();
+  createStore("batchReplace", { value: 1 });
+  const messages: string[] = [];
+  configureStroid({
+    logSink: {
+      critical: (msg: string) => messages.push(msg),
+    },
+  });
+
+  try {
+    let result: any;
+    setStoreBatch(() => {
+      result = replaceStore("batchReplace", { value: 2 });
+    });
+
+    assert.strictEqual(result?.ok, false);
+    assert.deepStrictEqual(getStore("batchReplace"), { value: 1 });
+    assert.ok(messages.some((msg) => msg.includes("replaceStore") && msg.includes("setStoreBatch")));
+  } finally {
+    resetConfig();
+  }
 });
 
 test("bindRegistry preserves lazy factories across scope switches", () => {

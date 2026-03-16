@@ -85,25 +85,24 @@ import {
 } from "./store-transaction.js";
 
 type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: any) => void);
-type StoreHandle<Name extends string, State> =
-    | StoreDefinition<Name, State>
-    | StoreKey<Name, State>;
-type StoreUpdate<State> =
-    | PartialDeep<State>
-    | ((draft: State) => void);
-type AllowLooseNames = keyof StoreStateMap extends never
-    ? keyof StrictStoreMap extends never
-        ? true
-        : false
-    : false;
-type LooseName<Name extends string> = AllowLooseNames extends true ? Name : never;
-type HasStoreStateMap = keyof StoreStateMap extends never ? false : true;
-type HydrateSnapshot = HasStoreStateMap extends true
-    ? Partial<{ [K in StoreName]: StateFor<K> }>
-    : Record<string, StoreValue>;
+// If store names are loose (not registered via StoreStateMap), fall back to untyped paths/values.
+type IsStoreNameLoose = string extends StoreName ? true : false;
+type StorePathFor<Name extends StoreName> =
+    IsStoreNameLoose extends true ? string | string[] : Path<StateFor<Name>>;
+type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
+    IsStoreNameLoose extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
+type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
+type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
 type HydrationTrust<Snapshot extends Record<string, unknown>> = {
+    /**
+     * Explicitly trust this snapshot and allow hydration.
+     */
+    allowHydration?: boolean;
+    /**
+     * @deprecated Use allowHydration instead.
+     */
     allowUntrusted?: boolean;
     validate?: (snapshot: Snapshot) => boolean;
 };
@@ -155,11 +154,21 @@ const stageOrCommitUpdate = (args: CommitArgs): void => {
     commitStoreUpdate(args);
 };
 
-export const createStore = <Name extends string, State>(
+export function createStore<Name extends string, State>(
+    name: Name,
+    initialData: () => State,
+    option: StoreOptions<State> & { lazy: true }
+): StoreDefinition<Name, State> | undefined;
+export function createStore<Name extends string, State>(
+    name: Name,
+    initialData: NonFunction<State>,
+    option?: StoreOptions<State>
+): StoreDefinition<Name, State> | undefined;
+export function createStore<Name extends string, State>(
     name: Name,
     initialData: State,
     option: StoreOptions<State> = {}
-): StoreDefinition<Name, State> | undefined => {
+): StoreDefinition<Name, State> | undefined {
     if (isTransactionActive()) {
         const message =
             `createStore("${String(name)}") cannot be called inside setStoreBatch. ` +
@@ -270,20 +279,32 @@ export const createStore = <Name extends string, State>(
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
     return { name } as StoreDefinition<Name, State>;
-};
+}
 
-export const createStoreStrict = <Name extends string, State>(
+export function createStoreStrict<Name extends string, State>(
+    name: Name,
+    initialData: () => State,
+    option: StoreOptions<State> & { lazy: true }
+): StoreDefinition<Name, State>;
+export function createStoreStrict<Name extends string, State>(
+    name: Name,
+    initialData: NonFunction<State>,
+    option?: StoreOptions<State>
+): StoreDefinition<Name, State>;
+export function createStoreStrict<Name extends string, State>(
     name: Name,
     initialData: State,
     option: StoreOptions<State> = {}
-): StoreDefinition<Name, State> => {
-    const created = createStore(name, initialData, option);
+): StoreDefinition<Name, State> {
+    const created = option.lazy === true
+        ? createStore(name, initialData as () => State, option as StoreOptions<State> & { lazy: true })
+        : createStore(name, initialData as NonFunction<State>, option);
     if (created) return created;
     throw new Error(
         `createStoreStrict("${String(name)}") failed. ` +
         `See earlier warnings/errors or onError callbacks for the cause.`
     );
-};
+}
 
 export function setStore<Name extends string, State, P extends Path<State>>(
     name: StoreHandle<Name, State>,
@@ -466,13 +487,15 @@ export function replaceStore<Name extends string, State>(name: StoreDefinition<N
 export function replaceStore<Name extends string, State>(name: StoreKey<Name, State>, value: State): WriteResult;
 export function replaceStore<Name extends StoreName>(name: Name, value: StateFor<Name>): WriteResult;
 export function replaceStore(nameInput: string | StoreDefinition<string, StoreValue>, value: unknown): WriteResult {
+    const storeName = nameOf(nameInput);
     if (isTransactionActive()) {
-        const message = `replaceStore(...) cannot be called inside setStoreBatch.`;
-        warn(message);
+        const message =
+            `replaceStore("${storeName}") cannot be called inside setStoreBatch. ` +
+            `The entire batch is rolled back when this occurs.`;
+        reportStoreError(storeName, message);
         markTransactionFailed(message);
         return { ok: false, reason: "invalid-args" };
     }
-    const storeName = nameOf(nameInput);
     if (!storeName) return { ok: false, reason: "invalid-args" };
 
     const result = replaceStoreState(storeName, value, "replace");
@@ -600,11 +623,15 @@ export const hydrateStores = <Snapshot extends Record<string, unknown> = Hydrate
     };
     if (!snapshot || typeof snapshot !== "object") return result;
 
-    const allowUntrusted = trust.allowUntrusted === true || getConfig().allowUntrustedHydration === true;
-    if (!allowUntrusted) {
+    const allowHydration =
+        trust.allowHydration === true ||
+        trust.allowUntrusted === true ||
+        getConfig().allowUntrustedHydration === true;
+    if (!allowHydration) {
         warnAlways(
             `hydrateStores(...) requires explicit trust. ` +
-            `Pass { allowUntrusted: true } as the third argument or configureStroid({ allowUntrustedHydration: true }).`
+            `Pass { allowHydration: true } as the third argument ` +
+            `or configureStroid({ allowUntrustedHydration: true }).`
         );
         result.failed._hydration = "untrusted";
         return result;
