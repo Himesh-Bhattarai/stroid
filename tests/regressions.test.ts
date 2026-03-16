@@ -32,6 +32,7 @@ import { stores, validatePathSafety, pathValidationCache, getStoreAdmin } from "
 import { createStoreForRequest } from "../src/server.js";
 import { setComputedOrderResolver } from "../src/internals/computed-order.js";
 import { getTopoOrderedComputeds } from "../src/computed-graph.js";
+import { createComputed } from "../src/computed.js";
 import { registerStoreFeature, resetRegisteredStoreFeaturesForTests } from "../src/feature-registry.js";
 
 test("validator with side effects runs once per write", () => {
@@ -153,6 +154,44 @@ test("replaceStore inside batch reports critical and keeps state", () => {
   } finally {
     resetConfig();
   }
+});
+
+test("setStoreBatch warns on promise-returning callbacks", async () => {
+  clearAllStores();
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  try {
+    setStoreBatch(() => Promise.resolve());
+    await Promise.resolve();
+    assert.ok(warnings.some((msg) => msg.includes("promise-returning")));
+  } finally {
+    resetConfig();
+  }
+});
+
+test("concurrent setStore calls in the same microtask coalesce", async () => {
+  clearAllStores();
+  createStore("micro", { value: 0 });
+  let calls = 0;
+  let last: any = null;
+  subscribe("micro", (value) => {
+    calls += 1;
+    last = value;
+  });
+
+  queueMicrotask(() => {
+    setStore("micro", "value", 1);
+    setStore("micro", "value", 2);
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.strictEqual(calls, 1);
+  assert.deepStrictEqual(last, { value: 2 });
 });
 
 test("bindRegistry preserves lazy factories across scope switches", () => {
@@ -389,6 +428,23 @@ test("configureStroid is registry-scoped", () => {
   assert.deepStrictEqual(warningsB, ["B"]);
 
   resetConfig();
+});
+
+test("computed diamond dependencies recompute once per flush", async () => {
+  clearAllStores();
+  createStore("a", { value: 1 });
+  createComputed("b", ["a"], (a) => ({ value: (a as any)?.value ?? 0 }));
+  createComputed("c", ["a"], (a) => ({ value: (a as any)?.value ?? 0 }));
+  createComputed("d", ["b", "c"], (b, c) => ({ sum: (b as any)?.value + (c as any)?.value }));
+
+  let calls = 0;
+  subscribe("d", () => { calls += 1; });
+
+  setStore("a", "value", 2);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.strictEqual(calls, 1);
 });
 
 test("feature runtimes initialize before onStoreCreate in new registries", () => {

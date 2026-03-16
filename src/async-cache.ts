@@ -39,6 +39,8 @@ export const getStoreCleanupFns = (): ReturnType<typeof getActiveAsyncRegistry>[
     getActiveAsyncRegistry().storeCleanupFns;
 export const getRevalidateHandlers = (): ReturnType<typeof getActiveAsyncRegistry>["revalidateHandlers"] =>
     getActiveAsyncRegistry().revalidateHandlers;
+export const getWildcardCleanups = (): ReturnType<typeof getActiveAsyncRegistry>["wildcardCleanups"] =>
+    getActiveAsyncRegistry().wildcardCleanups;
 export const getNoSignalWarned = (): ReturnType<typeof getActiveAsyncRegistry>["noSignalWarned"] =>
     getActiveAsyncRegistry().noSignalWarned;
 export const getShapeWarned = (): ReturnType<typeof getActiveAsyncRegistry>["shapeWarned"] =>

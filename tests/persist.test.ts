@@ -96,6 +96,34 @@ test("persist true surfaces localStorage quota errors without throwing", async (
   }
 });
 
+test("persist skips oversized payloads via maxSize", () => {
+  clearAllStores();
+  const errors: string[] = [];
+  const driver = {
+    getItem: () => "x".repeat(200),
+    setItem: () => {},
+    removeItem: () => {},
+  };
+
+  createStore("oversized", { value: 1 }, {
+    persist: {
+      driver,
+      key: "oversized-key",
+      maxSize: 50,
+      allowPlaintext: true,
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      encrypt: (v: string) => v,
+      decrypt: (v: string) => v,
+    },
+    onError: (msg) => errors.push(msg),
+  });
+
+  assert.deepStrictEqual(getStore("oversized"), { value: 1 });
+  assert.ok(errors.some((msg) => msg.includes("maxSize")));
+  clearAllStores();
+});
+
 test("persist supports async crypto and sha256 checksums", async () => {
   clearAllStores();
   let stored: string | null = null;

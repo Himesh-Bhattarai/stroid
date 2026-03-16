@@ -17,6 +17,7 @@ import {
 } from "./computed-graph.js";
 import { warn, isDev, log } from "./utils.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
+import type { StoreRegistry } from "./store-registry.js";
 import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "./store-lifecycle/types.js";
 
 export type ComputedOptions = {
@@ -25,6 +26,15 @@ export type ComputedOptions = {
 };
 
 const getComputedCleanups = (): Map<string, () => void> => getRegistry().computedCleanups;
+const computedFlushHistory = new WeakMap<StoreRegistry, Map<string, number>>();
+const getComputedFlushMap = (registry: StoreRegistry): Map<string, number> => {
+    let map = computedFlushHistory.get(registry);
+    if (!map) {
+        map = new Map();
+        computedFlushHistory.set(registry, map);
+    }
+    return map;
+};
 
 type DepHandle = StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue>;
 type DepValue<T> = T extends StoreDefinition<string, infer S>
@@ -140,6 +150,13 @@ const _recomputeAndFlush = (
 ): void => {
     const entry = getComputedEntry(name);
     if (!entry) return;
+    const registry = getRegistry();
+    if (registry.notify.isFlushing) {
+        const flushId = registry.notify.flushId;
+        const map = getComputedFlushMap(registry);
+        if (map.get(name) === flushId) return;
+        map.set(name, flushId);
+    }
 
     const next = _runCompute(name, deps, compute, onError);
     const handle = store(name);

@@ -76,6 +76,7 @@ export type AsyncRegistry = {
     storeCleanupFns: Record<string, Set<() => void>>;
     revalidateKeys: Set<string>;
     revalidateHandlers: Record<string, () => void>;
+    wildcardCleanups: Array<() => void>;
     asyncMetrics: {
         cacheHits: number;
         cacheMisses: number;
@@ -104,6 +105,7 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     storeCleanupFns: Object.create(null),
     revalidateKeys: new Set<string>(),
     revalidateHandlers: Object.create(null),
+    wildcardCleanups: [],
     asyncMetrics: {
         cacheHits: 0,
         cacheMisses: 0,
@@ -141,6 +143,10 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     Object.keys(registry.revalidateHandlers).forEach((key) => delete registry.revalidateHandlers[key]);
 
     registry.revalidateKeys.clear();
+    registry.wildcardCleanups.forEach((fn) => {
+        try { fn(); } catch (_) { /* ignore cleanup errors */ }
+    });
+    registry.wildcardCleanups.length = 0;
     registry.noSignalWarned.clear();
     registry.shapeWarned.clear();
     registry.autoCreateWarned.clear();

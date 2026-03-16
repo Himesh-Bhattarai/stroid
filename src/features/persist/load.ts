@@ -93,6 +93,13 @@ const persistLoadSync = ({
             );
             return true;
         }
+        if (typeof cfg.maxSize === "number" && raw.length > cfg.maxSize) {
+            reportStoreError(
+                name,
+                `Persist payload for "${name}" exceeds maxSize (${raw.length} > ${cfg.maxSize}). Skipping hydration.`
+            );
+            return true;
+        }
         const decrypted = cfg.decrypt(raw);
         const envelope = JSON.parse(decrypted);
         const { v = 1, checksum, data, updatedAt, updatedAtMs } = envelope || {};
@@ -162,6 +169,13 @@ const persistLoadAsync = async ({
     try {
         const raw = await Promise.resolve(cfg.driver.getItem?.(cfg.key) ?? null);
         if (!raw) return false;
+        if (typeof cfg.maxSize === "number" && typeof raw === "string" && raw.length > cfg.maxSize) {
+            reportStoreError(
+                name,
+                `Persist payload for "${name}" exceeds maxSize (${raw.length} > ${cfg.maxSize}). Skipping hydration.`
+            );
+            return true;
+        }
         const decrypted = cfg.decryptAsync
             ? await cfg.decryptAsync(raw)
             : cfg.decrypt(raw);

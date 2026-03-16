@@ -51,6 +51,43 @@ test("hydrateStores surfaces blocked production SSR store creation", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("createStoreForRequest hydrates in production request scope", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const serverPath = path.join(repoRoot, "src", "server.ts");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const server = await import(pathToFileURL(${JSON.stringify(serverPath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    const ctx = server.createStoreForRequest((api) => {
+      api.create("session", { user: "nina" });
+    });
+
+    let inside = null;
+    const rendered = ctx.hydrate(() => {
+      inside = store.getStore("session");
+      return inside;
+    });
+
+    assert.deepStrictEqual(rendered, { user: "nina" });
+    assert.deepStrictEqual(inside, { user: "nina" });
+    assert.strictEqual(store.hasStore("session"), false);
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("allowSSRGlobalStore warns in production server", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const storePath = path.join(repoRoot, "src", "store.ts");

@@ -52,9 +52,14 @@ export type NotifyState = {
     orderedNames: string[];
     notifyScheduled: boolean;
     batchDepth: number;
+    flushId: number;
+    isFlushing: boolean;
 };
 
+export type RegistryScope = "default" | "request";
+
 export type StoreRegistry = {
+    scope: RegistryScope;
     stores: Record<string, RegistryStoreValue>;
     subscribers: Record<string, Set<RegistrySubscriber>>;
     initialStates: Record<string, RegistryStoreValue>;
@@ -119,6 +124,8 @@ const createNotifyState = (): NotifyState => ({
     orderedNames: [],
     notifyScheduled: false,
     batchDepth: 0,
+    flushId: 0,
+    isFlushing: false,
 });
 
 const resetNotifyState = (notify: NotifyState): void => {
@@ -127,10 +134,13 @@ const resetNotifyState = (notify: NotifyState): void => {
     notify.orderedNames.length = 0;
     notify.notifyScheduled = false;
     notify.batchDepth = 0;
+    notify.flushId = 0;
+    notify.isFlushing = false;
 };
 
-export const createStoreRegistry = (): StoreRegistry => {
+export const createStoreRegistry = (scope: RegistryScope = "default"): StoreRegistry => {
     const registry: StoreRegistry = {
+        scope,
         stores: Object.create(null),
         subscribers: Object.create(null),
         initialStates: Object.create(null),

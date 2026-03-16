@@ -124,14 +124,14 @@ test("subscribeWithSelector handles modes, late stores, and deletions", async ()
   assert.strictEqual(shallowInput.nested, shallowRaw.nested);
 
   let lateCalls = 0;
-  let latePair: [number, number] | null = null;
+  const latePairs: Array<[number, number | undefined]> = [];
   subscribeWithSelector(
     "lateStore",
     (state: any) => state.value as number,
     Object.is,
     (next, prev) => {
       lateCalls += 1;
-      latePair = [next as number, prev as number];
+      latePairs.push([next as number, prev as number]);
     }
   );
   createStore("lateStore", { value: 1 });
@@ -139,25 +139,36 @@ test("subscribeWithSelector handles modes, late stores, and deletions", async ()
   await Promise.resolve();
 
   assert.strictEqual(lateCalls, 1);
-  assert.deepStrictEqual(latePair, [2, 2]);
+  assert.deepStrictEqual(latePairs[0], [2, undefined]);
+
+  setStore("lateStore", "value", 3);
+  await Promise.resolve();
+
+  assert.strictEqual(lateCalls, 2);
+  assert.deepStrictEqual(latePairs[1], [3, 2]);
 
   // Deletion should reset selector state without invoking listener.
-  const deleteCalls: number[] = [];
+  const deleteCalls: Array<[number, number | undefined]> = [];
   subscribeWithSelector(
     "toDelete",
     (state: any) => state.value as number,
     Object.is,
     (next, prev) => {
-      deleteCalls.push(next as number, prev as number);
+      deleteCalls.push([next as number, prev as number]);
     }
   );
   createStore("toDelete", { value: 1 });
   setStore("toDelete", "value", 2);
   await Promise.resolve();
+  setStore("toDelete", "value", 3);
+  await Promise.resolve();
   deleteStore("toDelete");
   await Promise.resolve();
 
-  assert.deepStrictEqual(deleteCalls, [2, 2]);
+  assert.deepStrictEqual(deleteCalls, [
+    [2, undefined],
+    [3, 2],
+  ]);
 });
 
 test("runtime-tools report store metadata, patterns, and queue depth", async () => {

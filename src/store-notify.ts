@@ -96,10 +96,13 @@ const buildPendingOrder = (state: NotifyState): { names: string[]; sliceSize: nu
 
 const flush = (registry: StoreRegistry): void => {
     const state = registry.notify;
+    state.isFlushing = true;
+    state.flushId = (state.flushId + 1) >>> 0;
     const { names, sliceSize, chunkDelayMs, runInline, prioritySet } = buildPendingOrder(state);
     const now = () => (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
 
     const finish = () => {
+        state.isFlushing = false;
         state.notifyScheduled = false;
         if (state.pendingNotifications.size > 0) scheduleFlush(registry);
     };

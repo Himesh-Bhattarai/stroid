@@ -80,27 +80,27 @@ export interface StoreFeatureRuntime<Ext extends object = {}> {
 
 export type StoreFeatureFactory<Ext extends object = {}> = () => StoreFeatureRuntime<Ext>;
 
-const _featureFactories = new Map<FeatureName, StoreFeatureFactory>();
-let _onFeatureRegistered: ((name: FeatureName, factory: StoreFeatureFactory) => void) | null = null;
+const _featureFactories = new Map<FeatureName, StoreFeatureFactory<any>>();
+let _onFeatureRegistered: ((name: FeatureName, factory: StoreFeatureFactory<any>) => void) | null = null;
 
 export const registerStoreFeature = <Ext extends object = {}>(
     name: FeatureName,
     factory: StoreFeatureFactory<Ext>
 ): void => {
-    _featureFactories.set(name, factory);
-    _onFeatureRegistered?.(name, factory);
+    _featureFactories.set(name, factory as StoreFeatureFactory<any>);
+    _onFeatureRegistered?.(name, factory as StoreFeatureFactory<any>);
 };
 
 export const hasRegisteredStoreFeature = (name: FeatureName): boolean =>
     _featureFactories.has(name);
 
-export const getStoreFeatureFactory = (name: FeatureName): StoreFeatureFactory | undefined =>
+export const getStoreFeatureFactory = (name: FeatureName): StoreFeatureFactory<any> | undefined =>
     _featureFactories.get(name);
 
 export const getRegisteredFeatureNames = (): FeatureName[] =>
     Array.from(_featureFactories.keys());
 
-export const setFeatureRegistrationHook = (hook: ((name: FeatureName, factory: StoreFeatureFactory) => void) | null): void => {
+export const setFeatureRegistrationHook = (hook: ((name: FeatureName, factory: StoreFeatureFactory<any>) => void) | null): void => {
     _onFeatureRegistered = hook;
 };
 

@@ -446,7 +446,20 @@ export const broadcastSync = ({
             return;
         }
 
-        channel.postMessage(payload);
+        try {
+            channel.postMessage(payload);
+        } catch (err) {
+            if (err && typeof err === "object" && (err as { name?: string }).name === "DataCloneError") {
+                reportStoreError(
+                    name,
+                    `Sync payload for "${name}" could not be cloned (DataCloneError). ` +
+                    `Remove non-serializable values or provide a custom serializer. ` +
+                    `Payload size ~${payloadSize} bytes.`
+                );
+                return;
+            }
+            throw err;
+        }
     } catch (err) {
         reportStoreError(name, `Failed to broadcast sync for "${name}": ${(err as { message?: string })?.message ?? err}`);
     }

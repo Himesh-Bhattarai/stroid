@@ -22,6 +22,7 @@ import {
     getRevalidateHandlers,
     getRevalidateKeys,
     getShapeWarned,
+    getWildcardCleanups,
     MAX_INFLIGHT_SLOTS_PER_STORE,
     markWarned,
     ensureCleanupSubscription,
@@ -48,7 +49,6 @@ import {
 } from "./async/inflight.js";
 import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit, scheduleRatePrune } from "./async/rate.js";
 import { buildFetchOptions, parseResponseBody } from "./async/request.js";
-const _wildcardCleanups: Array<() => void> = [];
 type AsyncState = AsyncStateSnapshot;
 
 const looksLikeAsyncState = (value: unknown): boolean => {
@@ -643,15 +643,16 @@ export function enableRevalidateOnFocus(
         if (key !== "*") {
             unregisterStoreCleanup(key, cleanup);
         } else {
-            const idx = _wildcardCleanups.indexOf(cleanup);
-            if (idx !== -1) _wildcardCleanups.splice(idx, 1);
+            const wildcardCleanups = getWildcardCleanups();
+            const idx = wildcardCleanups.indexOf(cleanup);
+            if (idx !== -1) wildcardCleanups.splice(idx, 1);
         }
     };
     revalidateHandlers[key] = cleanup;
     if (key !== "*") {
         registerStoreCleanup(key, cleanup);
     } else {
-        _wildcardCleanups.push(cleanup);
+        getWildcardCleanups().push(cleanup);
     }
     return cleanup;
 }
@@ -663,8 +664,9 @@ export const _resetAsyncStateForTests = (): void => {
     resetAsyncState();
 };
 export const cleanupAllRevalidateHandlers = (): void => {
-    _wildcardCleanups.forEach(fn => fn());
-    _wildcardCleanups.length = 0;
+    const wildcardCleanups = getWildcardCleanups();
+    wildcardCleanups.forEach((fn) => fn());
+    wildcardCleanups.length = 0;
 };
 
 

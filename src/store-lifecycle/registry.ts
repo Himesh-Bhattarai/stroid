@@ -182,7 +182,11 @@ export const applyFeatureState = (name: string, value: StoreValue, updatedAtMs =
     if (!meta[name]) return;
     meta[name].updatedAt = new Date(updatedAtMs).toISOString();
     meta[name].updatedAtMs = updatedAtMs;
-    meta[name].updateCount++;
+    if (meta[name].updateCount >= Number.MAX_SAFE_INTEGER) {
+        meta[name].updateCount = 0;
+    } else {
+        meta[name].updateCount += 1;
+    }
     _invalidatePathCache?.(name);
 };
 

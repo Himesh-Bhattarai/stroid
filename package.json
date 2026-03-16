@@ -22,67 +22,83 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
     "./core": {
       "types": "./dist/core.d.ts",
-      "import": "./dist/core.js"
+      "import": "./dist/core.js",
+      "require": "./dist/core.cjs"
     },
     "./runtime-tools": {
       "types": "./dist/runtime-tools.d.ts",
-      "import": "./dist/runtime-tools.js"
+      "import": "./dist/runtime-tools.js",
+      "require": "./dist/runtime-tools.cjs"
     },
     "./runtime-admin": {
       "types": "./dist/runtime-admin.d.ts",
-      "import": "./dist/runtime-admin.js"
+      "import": "./dist/runtime-admin.js",
+      "require": "./dist/runtime-admin.cjs"
     },
     "./selectors": {
       "types": "./dist/selectors.d.ts",
-      "import": "./dist/selectors.js"
+      "import": "./dist/selectors.js",
+      "require": "./dist/selectors.cjs"
     },
     "./computed": {
       "types": "./dist/computed.d.ts",
-      "import": "./dist/computed.js"
+      "import": "./dist/computed.js",
+      "require": "./dist/computed.cjs"
     },
     "./helpers": {
       "types": "./dist/helpers.d.ts",
-      "import": "./dist/helpers.js"
+      "import": "./dist/helpers.js",
+      "require": "./dist/helpers.cjs"
     },
     "./server": {
       "types": "./dist/server.d.ts",
-      "import": "./dist/server.js"
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
     },
     "./async": {
       "types": "./dist/async.d.ts",
-      "import": "./dist/async.js"
+      "import": "./dist/async.js",
+      "require": "./dist/async.cjs"
     },
     "./feature": {
       "types": "./dist/feature.d.ts",
-      "import": "./dist/feature.js"
+      "import": "./dist/feature.js",
+      "require": "./dist/feature.cjs"
     },
     "./install": {
       "types": "./dist/install.d.ts",
-      "import": "./dist/install.js"
+      "import": "./dist/install.js",
+      "require": "./dist/install.cjs"
     },
     "./persist": {
       "types": "./dist/persist.d.ts",
-      "import": "./dist/persist.js"
+      "import": "./dist/persist.js",
+      "require": "./dist/persist.cjs"
     },
     "./sync": {
       "types": "./dist/sync.d.ts",
-      "import": "./dist/sync.js"
+      "import": "./dist/sync.js",
+      "require": "./dist/sync.cjs"
     },
     "./devtools": {
       "types": "./dist/devtools.d.ts",
-      "import": "./dist/devtools.js"
+      "import": "./dist/devtools.js",
+      "require": "./dist/devtools.cjs"
     },
     "./react": {
       "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs"
     },
     "./testing": {
       "types": "./dist/testing.d.ts",
-      "import": "./dist/testing.js"
+      "import": "./dist/testing.js",
+      "require": "./dist/testing.cjs"
     },
     "./package.json": "./package.json"
   },

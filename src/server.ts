@@ -64,7 +64,7 @@ type RequestStoreContext<StateMap extends StoreStateMap> = {
 export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStateMap>(
     initializer?: (api: RequestStoreApi<StateMap>) => void
 ): RequestStoreContext<StateMap> => {
-    const registry = createStoreRegistry();
+    const registry = createStoreRegistry("request");
     const buffer: RequestSnapshot<StateMap> = {};
     const bufferedOptions: Record<string, StoreOptions<any>> = {};
     const hasBuffered = (name: RequestStoreName<StateMap>): boolean =>

@@ -41,7 +41,7 @@ const name = useStore("user", s => s.name)                     // React hook
 
 Each row is independent. Use only what you need.
 
-Note: `stroid/core` exports only `createStore`, `setStore`, `getStore`, and `deleteStore`. Import from `stroid` for the full core runtime (batching, reset, hydration, and hooks).
+Note: `stroid/core` exports only `createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, and `deleteStore`. Import from `stroid` for the full core runtime (batching, hydration, and hooks).
 
 ---
 
@@ -471,6 +471,26 @@ import { createMockStore, resetAllStoresForTest } from "stroid/testing"
 import { listStores, getMetrics, getComputedGraph } from "stroid/runtime-tools"
 import { clearAllStores }                            from "stroid/runtime-admin"
 ```
+
+---
+
+## Feature Plugins (Advanced)
+
+Stroid exposes a public feature hook contract for plugin authors via `stroid/feature`:
+
+```ts
+import type { FeatureHookContext, FeatureWriteContext, FeatureDeleteContext } from "stroid/feature"
+import { registerStoreFeature } from "stroid/feature"
+
+registerStoreFeature("myFeature", () => ({
+  onStoreCreate(ctx: FeatureHookContext) {},
+  onStoreWrite(ctx: FeatureWriteContext) {},
+  beforeStoreDelete(ctx: FeatureDeleteContext) {},
+}))
+```
+
+`FeatureHookContext` is the stable base contract. Write/delete contexts extend it with `action`, `prev`, and `next`.
+Third-party authors can target the exported types without reaching into internal modules.
 
 ---
 

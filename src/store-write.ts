@@ -35,6 +35,7 @@ import {
     setStoreValueInternal,
     getStoreValueRef,
     hasStoreEntryInternal,
+    getRegistry,
 } from "./store-lifecycle/registry.js";
 import {
     sanitizeValue,
@@ -117,6 +118,13 @@ type HydrationTrust<Snapshot extends Record<string, unknown>> = {
 const SLOW_MUTATOR_WARN_MS = 32;
 const slowMutatorWarned = new Set<string>();
 const ssrGlobalAllowWarned = new Set<string>();
+const bumpUpdateCount = (entry: { updateCount: number }): void => {
+    if (entry.updateCount >= Number.MAX_SAFE_INTEGER) {
+        entry.updateCount = 0;
+        return;
+    }
+    entry.updateCount += 1;
+};
 const warnSlowMutator = (storeName: string, elapsedMs: number): void => {
     if (!isDev()) return;
     if (elapsedMs < SLOW_MUTATOR_WARN_MS) return;
@@ -145,7 +153,7 @@ const commitStoreUpdate = ({ name, prev, next, action, hookLabel, logMessage }: 
     const updatedAtMs = Date.now();
     meta[name].updatedAt = new Date(updatedAtMs).toISOString();
     meta[name].updatedAtMs = updatedAtMs;
-    meta[name].updateCount++;
+    bumpUpdateCount(meta[name]);
     runFeatureWriteHooks(name, action, prev, next, notify);
     runStoreHookSafe(name, hookLabel, meta[name].options[hookLabel], [prev, next]);
     notify(name);
@@ -221,15 +229,16 @@ export function createStore<Name extends string, State>(
     const nodeEnv = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
     const isProdServer = isServer && nodeEnv === "production";
     const allowGlobalSSR = normalizedOptions.allowSSRGlobalStore ?? false;
+    const isRequestRegistry = getRegistry().scope === "request";
 
-    if (isProdServer && !allowGlobalSSR) {
+    if (isProdServer && !allowGlobalSSR && !isRequestRegistry) {
         const msg =
             `createStore("${name}") is blocked on the server in production to prevent cross-request memory leaks.\n` +
             `Call createStoreForRequest(...) inside each request scope or pass { scope: "global" } to opt in.`;
         reportStoreCreationError(msg, option.onError as ((message: string) => void) | undefined);
         return;
     }
-    if (isProdServer && allowGlobalSSR && !ssrGlobalAllowWarned.has(name)) {
+    if (isProdServer && allowGlobalSSR && !isRequestRegistry && !ssrGlobalAllowWarned.has(name)) {
         ssrGlobalAllowWarned.add(name);
         warnAlways(
             `createStore("${name}") is allowed on the server in production because allowSSRGlobalStore is true.\n` +
@@ -243,7 +252,7 @@ export function createStore<Name extends string, State>(
         return { name } as StoreDefinition<Name, State>;
     }
 
-    if (isServer && !allowGlobalSSR && !getSsrWarningIssued(name) && isDev()) {
+    if (isServer && !allowGlobalSSR && !isRequestRegistry && !getSsrWarningIssued(name) && isDev()) {
         markSsrWarningIssued(name);
         warn(
             `createStore(\"${name}\") called in a server environment. ` +

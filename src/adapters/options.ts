@@ -81,6 +81,11 @@ export interface PersistOptions<State = StoreValue> {
      */
     sensitiveData?: boolean;
     /**
+     * Maximum allowed persisted payload size (in characters).
+     * When exceeded, hydration is skipped and an error is reported.
+     */
+    maxSize?: number;
+    /**
      * Integrity check mode for persisted payloads.
      * - "hash" (default): store and validate a checksum.
      * - "none": skip checksum generation/validation.
@@ -104,6 +109,7 @@ export interface PersistConfig {
     decryptAsync?: (v: string) => Promise<string>;
     allowPlaintext?: boolean;
     sensitiveData?: boolean;
+    maxSize?: number;
     checksum: "hash" | "none" | "sha256";
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
     onStorageCleared?: (info: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
@@ -401,6 +407,9 @@ export const normalizePersistOptions = <State>(
     const decryptAsync = persist.decryptAsync;
     const sensitiveData = persist.sensitiveData === true;
     const allowPlaintext = persist.allowPlaintext === true;
+    const maxSize = typeof persist.maxSize === "number" && Number.isFinite(persist.maxSize) && persist.maxSize > 0
+        ? persist.maxSize
+        : undefined;
     const checksum = persist.checksum === "sha256"
         ? "sha256"
         : (persist.checksum === "none" ? "none" : "hash");
@@ -429,6 +438,7 @@ export const normalizePersistOptions = <State>(
         decryptAsync,
         allowPlaintext,
         sensitiveData,
+        maxSize,
         checksum,
         onMigrationFail: persist.onMigrationFail || "reset",
         onStorageCleared: persist.onStorageCleared,

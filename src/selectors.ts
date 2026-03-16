@@ -120,9 +120,10 @@ export const subscribeWithSelector = <R>(
         }
         const nextSel = selector(getSafeSelectorState(_state));
         if (!hasPrev) {
+            const last = prevSel;
             hasPrev = true;
             prevSel = nextSel;
-            listener(nextSel, nextSel);
+            listener(nextSel, last);
             return;
         }
         const matches = equality(nextSel, prevSel);

@@ -55,6 +55,14 @@ class MockBroadcastChannel {
   }
 }
 
+class DataCloneBroadcastChannel extends MockBroadcastChannel {
+  postMessage(_data: any) {
+    const err = new Error("DataCloneError");
+    (err as any).name = "DataCloneError";
+    throw err;
+  }
+}
+
 test("sync core (serial)", async (t) => {
   await t.test("sync reports missing BroadcastChannel in non-browser environments", () => {
     const errors: string[] = [];
@@ -175,6 +183,36 @@ test("sync core (serial)", async (t) => {
       assert.ok(errors.some((msg) => msg.includes("Failed to broadcast sync")));
     } finally {
       deleteStore("syncClosed");
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
+  await t.test("sync reports DataCloneError with store context", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+    (globalThis as any).window = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    (globalThis as any).BroadcastChannel = DataCloneBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncClone", { value: 1 }, {
+        sync: true,
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      setStore("syncClone", { value: 2 });
+      await wait();
+
+      assert.ok(errors.some((msg) => msg.includes("DataCloneError") && msg.includes("syncClone")));
+    } finally {
+      deleteStore("syncClone");
       (globalThis as any).window = originalWindow;
       (globalThis as any).BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
