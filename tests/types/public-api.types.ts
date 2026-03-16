@@ -86,6 +86,11 @@ type CreateStoreReturn = Expect<Equal<typeof userStore, StoreDefinition<"typedUs
 const strictUserStore = createStoreStrict("typedStrictUser", { value: 1 });
 type StrictCreateStoreReturn = Expect<Equal<typeof strictUserStore, StoreDefinition<"typedStrictUser", { value: number }>>>;
 
+const lazyOkStore = createStore("typedLazy", () => ({ count: 0 }), { lazy: true });
+type LazyCreateStoreReturn = Expect<Equal<typeof lazyOkStore, StoreDefinition<"typedLazy", { count: number }> | undefined>>;
+// @ts-expect-error lazy stores require lazy: true when initialData is a function
+createStore("typedLazyBad", () => ({ count: 1 }));
+
 if (userStore) {
   const wholeUser = getStore(userStore);
   const userName = getStore(userStore, "profile.name");

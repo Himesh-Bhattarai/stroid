@@ -89,6 +89,7 @@ type StorePathFor<Name extends StoreName> =
     IsStoreNameLoose extends true ? string | string[] : Path<StateFor<Name>>;
 type StorePathValueFor<Name extends StoreName, P extends StorePathFor<Name>> =
     IsStoreNameLoose extends true ? unknown : (P extends Path<StateFor<Name>> ? PathValue<StateFor<Name>, P> : never);
+type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
 type HydrateSnapshot = Partial<{ [K in StoreName]: StateFor<K> }>;
 type HydrateOptions<Snapshot extends Record<string, unknown>> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
@@ -151,11 +152,21 @@ const stageOrCommitUpdate = (args: CommitArgs): void => {
     commitStoreUpdate(args);
 };
 
-export const createStore = <Name extends string, State>(
+export function createStore<Name extends string, State>(
+    name: Name,
+    initialData: () => State,
+    option: StoreOptions<State> & { lazy: true }
+): StoreDefinition<Name, State> | undefined;
+export function createStore<Name extends string, State>(
+    name: Name,
+    initialData: NonFunction<State>,
+    option?: StoreOptions<State>
+): StoreDefinition<Name, State> | undefined;
+export function createStore<Name extends string, State>(
     name: Name,
     initialData: State,
     option: StoreOptions<State> = {}
-): StoreDefinition<Name, State> | undefined => {
+): StoreDefinition<Name, State> | undefined {
     if (isTransactionActive()) {
         const message =
             `createStore("${String(name)}") cannot be called inside setStoreBatch. ` +
@@ -266,20 +277,30 @@ export const createStore = <Name extends string, State>(
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
     return { name } as StoreDefinition<Name, State>;
-};
+}
 
-export const createStoreStrict = <Name extends string, State>(
+export function createStoreStrict<Name extends string, State>(
+    name: Name,
+    initialData: () => State,
+    option: StoreOptions<State> & { lazy: true }
+): StoreDefinition<Name, State>;
+export function createStoreStrict<Name extends string, State>(
+    name: Name,
+    initialData: NonFunction<State>,
+    option?: StoreOptions<State>
+): StoreDefinition<Name, State>;
+export function createStoreStrict<Name extends string, State>(
     name: Name,
     initialData: State,
     option: StoreOptions<State> = {}
-): StoreDefinition<Name, State> => {
+): StoreDefinition<Name, State> {
     const created = createStore(name, initialData, option);
     if (created) return created;
     throw new Error(
         `createStoreStrict("${String(name)}") failed. ` +
         `See earlier warnings/errors or onError callbacks for the cause.`
     );
-};
+}
 
 export function setStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P, value: PathValue<State, P>): WriteResult;
 export function setStore<Name extends string, State>(name: StoreDefinition<Name, State>, mutator: (draft: State) => void): WriteResult;
