@@ -8,7 +8,7 @@
  */
 import { getConfig } from "../internals/config.js";
 import { getComputedOrder } from "../internals/computed-order.js";
-import type { NotifyState } from "../store-registry.js";
+import type { NotifyState } from "../core/store-registry.js";
 
 export type FlushPlan = {
     names: string[];
@@ -50,7 +50,7 @@ export const buildFlushPlan = (state: NotifyState): FlushPlan => {
     const computedOrder = getComputedOrder(orderedNames);
     const orderedSet = new Set(orderedNames);
     for (const computedName of computedOrder) {
-        if (pendingSet.has(computedName) && !orderedSet.has(computedName)) {
+        if (!orderedSet.has(computedName)) {
             orderedNames.push(computedName);
             orderedSet.add(computedName);
         }

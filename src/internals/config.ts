@@ -9,7 +9,7 @@
 import type { SnapshotMode, MiddlewareCtx, StoreValue } from "../adapters/options.js";
 import { registerTestResetHook } from "./test-reset.js";
 import { warnAlways } from "./diagnostics.js";
-import { getActiveStoreRegistry, getDefaultStoreRegistry, type StoreRegistry } from "../store-registry.js";
+import { getActiveStoreRegistry, getDefaultStoreRegistry, type StoreRegistry } from "../core/store-registry.js";
 
 export type LogSink = {
     log?: (msg: string, meta?: Record<string, unknown>) => void;

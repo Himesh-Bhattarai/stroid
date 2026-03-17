@@ -7,7 +7,7 @@
  * Consumers: Internal imports and public API.
  */
 import type { StoreValue } from "../adapters/options.js";
-import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
+import { registerStoreFeature, type StoreFeatureRuntime } from "./feature-registry.js";
 
 export type HistoryDiff = { added: string[]; removed: string[]; changed: string[] } | null;
 

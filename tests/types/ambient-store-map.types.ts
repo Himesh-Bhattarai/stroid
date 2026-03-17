@@ -9,7 +9,7 @@
 import type { Expect, Equal } from "./assert.js";
 import { createStore, getStore, setStore } from "../../src/store.js";
 
-declare module "../../src/store-lifecycle/types.js" {
+declare module "../../src/core/store-lifecycle/types.js" {
   interface StoreStateMap {
     ambientUser: {
       name: string;

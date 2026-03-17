@@ -23,7 +23,7 @@ export type {
     StoreStateMap,
     StrictStoreMap,
     WriteResult,
-} from "./store-lifecycle/types.js";
+} from "./core/store-lifecycle/types.js";
 export type {
     FeatureOptions,
     FeatureOptionsMap,
@@ -43,7 +43,7 @@ export {
     deleteStore,
     resetStore,
     hydrateStores,
-} from "./store-write.js";
+} from "./core/store-write.js";
 
 export {
     setStoreBatch,
@@ -52,7 +52,7 @@ export {
     subscribe,
     getStoreSnapshot,
     getSnapshot as _getSnapshot,
-} from "./store-notify.js";
+} from "./core/store-notify.js";
 
 export {
     getStore,
@@ -65,10 +65,10 @@ export {
     _getFeatureApi,
     getInitialState,
     getMetrics,
-} from "./store-read.js";
+} from "./core/store-read.js";
 
-export { clearAllStores, clearStores } from "./runtime-admin.js";
+export { clearAllStores, clearStores } from "./runtime-admin/index.js";
 
-export { store, namespace } from "./store-name.js";
+export { store, namespace } from "./core/store-name.js";
 
 

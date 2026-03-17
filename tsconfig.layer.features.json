@@ -13,7 +13,7 @@
     "src/features/**/*.ts",
     "src/persist.ts",
     "src/sync.ts",
-    "src/devtools.ts",
+    "src/devtools/index.ts",
     "src/feature.ts"
   ],
   "exclude": [

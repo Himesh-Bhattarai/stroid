@@ -19,12 +19,12 @@ export type {
     StoreFeatureRuntime,
     StoreFeatureFactory,
     DevtoolsFeatureApi,
-} from "./feature-registry.js";
+} from "./features/feature-registry.js";
 
 export {
     registerStoreFeature,
     hasRegisteredStoreFeature,
     getRegisteredFeatureNames,
-} from "./feature-registry.js";
+} from "./features/feature-registry.js";
 
 

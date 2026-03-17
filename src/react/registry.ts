@@ -7,7 +7,7 @@
  * Consumers: react/hooks-core.ts, public stroid/react entrypoint.
  */
 import React, { createContext, useContext, type ReactNode } from "react";
-import type { StoreRegistry } from "../store-registry.js";
+import type { StoreRegistry } from "../core/store-registry.js";
 
 const RegistryContext = createContext<StoreRegistry | null>(null);
 

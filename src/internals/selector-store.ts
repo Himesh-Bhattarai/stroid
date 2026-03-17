@@ -9,8 +9,8 @@
 import {
     stores as _stores,
     getRegistry,
-} from "../store-lifecycle/registry.js";
-import type { StoreValue as SelectorStoreValue } from "../store-lifecycle/types.js";
+} from "../core/store-lifecycle/registry.js";
+import type { StoreValue as SelectorStoreValue } from "../core/store-lifecycle/types.js";
 
 type SelectorSubscriber = (value: SelectorStoreValue | null) => void;
 

@@ -8,8 +8,8 @@
  */
 import { useCallback } from "react";
 import { useStoreField } from "./hooks-core.js";
-import { setStore } from "../store-write.js";
-import { getDefaultStoreRegistry, runWithRegistry } from "../store-registry.js";
+import { setStore } from "../core/store-write.js";
+import { getDefaultStoreRegistry, runWithRegistry } from "../core/store-registry.js";
 import { useRegistryContext } from "./registry.js";
 import type {
     Path,
@@ -19,7 +19,7 @@ import type {
     StoreName,
     StoreValue,
     StateFor,
-} from "../store-lifecycle/types.js";
+} from "../core/store-lifecycle/types.js";
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 

@@ -14,17 +14,19 @@
   ],
   "include": [
     "src/index.ts",
-    "src/core.ts",
+    "src/core/index.ts",
     "src/async.ts",
-    "src/server.ts",
-    "src/runtime-tools.ts",
-    "src/runtime-admin.ts",
-    "src/helpers.ts",
-    "src/testing.ts",
+    "src/server/index.ts",
+    "src/runtime-tools/index.ts",
+    "src/runtime-admin/index.ts",
+    "src/helpers/index.ts",
+    "src/helpers/testing.ts",
+    "src/computed/index.ts",
+    "src/selectors/index.ts",
     "src/react/index.ts",
     "src/persist.ts",
     "src/sync.ts",
-    "src/devtools.ts",
+    "src/devtools/index.ts",
     "src/feature.ts"
   ]
 }

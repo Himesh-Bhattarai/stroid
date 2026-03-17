@@ -10,7 +10,6 @@
     "src/utils/**/*.ts",
     "src/types/**/*.ts",
     "src/adapters/**/*.ts",
-    "src/core/**/*.ts",
-    "src/store-shared/**/*.ts"
+    "src/core/**/*.ts"
   ]
 }

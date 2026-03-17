@@ -7,13 +7,13 @@
  * Consumers: Internal imports and public API.
  */
 import { runStoreHook } from "../features/lifecycle.js";
-import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../feature-registry.js";
-import { hasStoreEntry, emitLifecycleEvent, type StoreRegistry } from "../store-registry.js";
+import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../features/feature-registry.js";
+import { hasStoreEntry, emitLifecycleEvent, type StoreRegistry } from "../core/store-registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn, warnAlways } from "./diagnostics.js";
 import { reportIssue } from "./reporting.js";
-import { isComputed } from "../computed-graph.js";
-import { deleteComputed } from "../computed.js";
+import { isComputed } from "../computed/computed-graph.js";
+import { deleteComputed } from "../computed/index.js";
 import { fireHook } from "../core/lifecycle-hooks.js";
 
 type MetaEntry = StoreFeatureMeta;

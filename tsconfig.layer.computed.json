@@ -9,8 +9,8 @@
     { "path": "./tsconfig.layer.core.json" }
   ],
   "include": [
-    "src/computed*.ts",
-    "src/selectors.ts",
+    "src/computed/**/*.ts",
+    "src/selectors/**/*.ts",
     "src/internals/selector-store.ts"
   ]
 }

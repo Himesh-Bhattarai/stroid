@@ -7,14 +7,14 @@
  * Consumers: Internal imports and public API.
  */
 import { useMemo } from "react";
-import type { FetchInput, FetchOptions } from "../async-cache.js";
-import { getFetchRegistry, getInflightRegistry } from "../async-cache.js";
-import { fetchStore, refetchStore } from "../async-fetch.js";
+import type { FetchInput, FetchOptions } from "../async/cache.js";
+import { getFetchRegistry, getInflightRegistry } from "../async/cache.js";
+import { fetchStore, refetchStore } from "../async/fetch.js";
 import { useAsyncStore, type AsyncDataFor, type AsyncStoreState } from "./hooks-async.js";
-import { store } from "../store-name.js";
-import { getDefaultStoreRegistry, runWithRegistry } from "../store-registry.js";
+import { store } from "../core/store-name.js";
+import { getDefaultStoreRegistry, runWithRegistry } from "../core/store-registry.js";
 import { useRegistryContext } from "./registry.js";
-import type { StoreDefinition, StoreKey, StoreName, StateFor } from "../store-lifecycle/types.js";
+import type { StoreDefinition, StoreKey, StoreName, StateFor } from "../core/store-lifecycle/types.js";
 
 const EMPTY_OPTIONS: FetchOptions = {};
 

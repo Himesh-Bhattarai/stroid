@@ -7,8 +7,8 @@
  * Consumers: Internal imports and public API.
  */
 import { fetchStore } from "../async.js";
-import type { FetchInput, FetchOptions } from "../async-cache.js";
-import type { StoreDefinition, StoreKey, StoreName } from "../store-lifecycle/types.js";
+import type { FetchInput, FetchOptions } from "../async/cache.js";
+import type { StoreDefinition, StoreKey, StoreName } from "../core/store-lifecycle/types.js";
 
 type StoreTarget = StoreDefinition<string, unknown> | StoreKey<string, unknown> | StoreName;
 const resolveStoreName = (storeName: StoreTarget): string =>

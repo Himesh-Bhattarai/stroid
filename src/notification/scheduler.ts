@@ -6,7 +6,7 @@
  *
  * Consumers: notification/index.ts, notification/delivery.ts
  */
-import { runWithRegistry, type StoreRegistry } from "../store-registry.js";
+import { runWithRegistry, type StoreRegistry } from "../core/store-registry.js";
 
 export const scheduleChunk = (fn: () => void, delayMs: number): void => {
     if (delayMs > 0 && typeof setTimeout === "function") {

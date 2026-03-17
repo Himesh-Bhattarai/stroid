@@ -6,7 +6,7 @@
  *
  * Consumers: store-notify.ts
  */
-import type { StoreRegistry } from "../store-registry.js";
+import type { StoreRegistry } from "../core/store-registry.js";
 import { buildFlushPlan } from "./priority.js";
 import { deliverFlush } from "./delivery.js";
 import { scheduleFlush as scheduleFlushInternal } from "./scheduler.js";

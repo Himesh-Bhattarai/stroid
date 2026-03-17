@@ -6,8 +6,8 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { getActiveAsyncRegistry, getRateCountRegistry, getRateWindowStartRegistry } from "../async-cache.js";
-import type { AsyncRegistry } from "../async-registry.js";
+import { getActiveAsyncRegistry, getRateCountRegistry, getRateWindowStartRegistry } from "./cache.js";
+import type { AsyncRegistry } from "./registry.js";
 
 export const RATE_WINDOW_MS = 1000;
 export const RATE_MAX = 100;

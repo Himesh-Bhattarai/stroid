@@ -8,7 +8,7 @@
  */
 import { deepClone, shallowClone } from "../utils.js";
 import type { SnapshotMode } from "../adapters/options.js";
-import type { StoreValue } from "../store-lifecycle/types.js";
+import type { StoreValue } from "../core/store-lifecycle/types.js";
 
 export const resolveSnapshotMode = (
     metaEntry: { options?: { snapshot?: SnapshotMode } } | undefined,

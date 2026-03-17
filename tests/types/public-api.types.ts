@@ -8,7 +8,7 @@
  */
 import "../../src/persist.js";
 import "../../src/sync.js";
-import "../../src/devtools.js";
+import "../../src/devtools/index.js";
 import type { Expect, Equal } from "./assert.js";
 import {
   createStore,
@@ -22,13 +22,13 @@ import {
   type StoreStateMap,
   store,
 } from "../../src/store.js";
-import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers.js";
-import { createSelector } from "../../src/selectors.js";
-import { createStoreForRequest } from "../../src/server.js";
+import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers/index.js";
+import { createSelector } from "../../src/selectors/index.js";
+import { createStoreForRequest } from "../../src/server/index.js";
 import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/react/index.js";
 import type { AsyncStoreState } from "../../src/react/hooks-async.js";
 import { fetchStore, getAsyncMetrics } from "../../src/async.js";
-import { createMockStore, benchmarkStoreSet, withMockedTime } from "../../src/testing.js";
+import { createMockStore, benchmarkStoreSet, withMockedTime } from "../../src/helpers/testing.js";
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 type IsAssignable<From, To> = From extends To ? true : false;

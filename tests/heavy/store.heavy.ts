@@ -10,17 +10,17 @@ import test from "node:test";
 import assert from "node:assert";
 import "../../src/persist.js";
 import "../../src/sync.js";
-import "../../src/devtools.js";
+import "../../src/devtools/index.js";
 import { devDeepFreeze } from "../../src/devfreeze.js";
 import { isDev } from "../../src/utils.js";
-import { getHistory, clearHistory } from "../../src/devtools.js";
-import { clearAllStores } from "../../src/runtime-admin.js";
+import { getHistory, clearHistory } from "../../src/devtools/index.js";
+import { clearAllStores } from "../../src/runtime-admin/index.js";
 import {
   listStores,
   getInitialState,
   getStoreMeta,
   getMetrics,
-} from "../../src/runtime-tools.js";
+} from "../../src/runtime-tools/index.js";
 import {
   createStore,
   setStore,
@@ -33,10 +33,10 @@ import {
   hydrateStores,
   setStoreBatch,
 } from "../../src/store.js";
-import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers.js";
+import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers/index.js";
 import { fetchStore, refetchStore } from "../../src/async.js";
-import { subscribeWithSelector, createSelector } from "../../src/selectors.js";
-import { createStoreForRequest } from "../../src/server.js";
+import { subscribeWithSelector, createSelector } from "../../src/selectors/index.js";
+import { createStoreForRequest } from "../../src/server/index.js";
 
 test("createStore with object data", () => {
   clearAllStores();

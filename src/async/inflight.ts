@@ -6,8 +6,8 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { getAsyncMetrics, getInflightRegistry, getRequestVersionRegistry } from "../async-cache.js";
-import type { FetchOptions } from "../async-cache.js";
+import { getAsyncMetrics, getInflightRegistry, getRequestVersionRegistry } from "./cache.js";
+import type { FetchOptions } from "./cache.js";
 import { reportAsyncUsageError } from "./errors.js";
 
 export type InflightEntry = { promise: Promise<unknown>; raw: Promise<unknown>; transform?: FetchOptions["transform"] };

@@ -7,12 +7,12 @@
  * Consumers: Internal imports and public API.
  */
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
-import { subscribeStore, getStoreSnapshot } from "../store-notify.js";
-import { hasStore } from "../store-read.js";
-import { subscribeWithSelector } from "../selectors.js";
+import { subscribeStore, getStoreSnapshot } from "../core/store-notify.js";
+import { hasStore } from "../core/store-read.js";
+import { subscribeWithSelector } from "../selectors/index.js";
 import { getByPath, warn, warnAlways, isDev, shallowEqual } from "../utils.js";
 import { getConfig } from "../internals/config.js";
-import { getDefaultStoreRegistry, runWithRegistry } from "../store-registry.js";
+import { getDefaultStoreRegistry, runWithRegistry } from "../core/store-registry.js";
 import { useRegistryContext } from "./registry.js";
 import type {
     Path,
@@ -21,7 +21,7 @@ import type {
     StoreKey,
     StoreName,
     StateFor,
-} from "../store-lifecycle/types.js";
+} from "../core/store-lifecycle/types.js";
 import {
     hasBroadUseStoreWarning,
     markBroadUseStoreWarning,

@@ -7,7 +7,7 @@
  * Consumers: Internal imports and public API.
  */
 import type { StoreValue, SyncMessage, SyncOptions } from "../adapters/options.js";
-import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
+import { registerStoreFeature, type StoreFeatureRuntime } from "./feature-registry.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "./state-helpers.js";
 import { warnAlways } from "../utils.js";
 

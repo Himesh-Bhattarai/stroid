@@ -7,8 +7,8 @@
  * Consumers: Internal imports and public API.
  */
 import { useStore } from "./hooks-core.js";
-import { store as storeHandle } from "../store-name.js";
-import type { StoreDefinition, StoreKey, StoreName, StateFor } from "../store-lifecycle/types.js";
+import { store as storeHandle } from "../core/store-name.js";
+import type { StoreDefinition, StoreKey, StoreName, StateFor } from "../core/store-lifecycle/types.js";
 
 export type AsyncStoreState<T = unknown> = {
     data: T | null;

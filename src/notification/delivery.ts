@@ -8,9 +8,9 @@
  */
 import { warn } from "../utils.js";
 import { getConfig } from "../internals/config.js";
-import { getRequestCarrier, type StoreRegistry } from "../store-registry.js";
+import { getRequestCarrier, type StoreRegistry } from "../core/store-registry.js";
 import type { SnapshotMode } from "../adapters/options.js";
-import type { StoreValue, Subscriber } from "../store-lifecycle/types.js";
+import type { StoreValue, Subscriber } from "../core/store-lifecycle/types.js";
 import { resolveSnapshotMode, cloneSnapshot } from "./snapshot.js";
 import { createMetrics, recordMetrics, commitMetrics } from "./metrics.js";
 import { scheduleChunk } from "./scheduler.js";

@@ -6,7 +6,7 @@
  *
  * Consumers: notification/delivery.ts
  */
-import type { FeatureMetrics, StoreFeatureMeta } from "../feature-registry.js";
+import type { FeatureMetrics, StoreFeatureMeta } from "../features/feature-registry.js";
 
 export const createMetrics = (metrics?: FeatureMetrics): FeatureMetrics => ({
     notifyCount: metrics?.notifyCount ?? 0,

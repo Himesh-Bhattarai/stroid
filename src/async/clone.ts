@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import type { FetchOptions } from "../async-cache.js";
+import type { FetchOptions } from "./cache.js";
 import { deepClone, shallowClone } from "../utils.js";
 
 export const cloneAsyncResult = (value: unknown, mode: FetchOptions["cloneResult"]): unknown => {

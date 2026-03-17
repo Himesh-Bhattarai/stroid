@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import type { FetchOptions } from "../async-cache.js";
+import type { FetchOptions } from "./cache.js";
 
 export const buildFetchOptions = (options: FetchOptions): RequestInit => {
     const fetchOpts: RequestInit = {};

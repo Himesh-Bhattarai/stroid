@@ -10,9 +10,9 @@ import type { Expect, Equal } from "./assert.js";
 import type { PersistOptions, StoreOptions, SyncOptions } from "../../dist/index.d.ts";
 
 type PackageApi = typeof import("../../dist/index.d.ts");
-type DevtoolsApi = typeof import("../../src/devtools.js");
-type RuntimeToolsApi = typeof import("../../src/runtime-tools.js");
-type RuntimeAdminApi = typeof import("../../src/runtime-admin.js");
+type DevtoolsApi = typeof import("../../src/devtools/index.js");
+type RuntimeToolsApi = typeof import("../../src/runtime-tools/index.js");
+type RuntimeAdminApi = typeof import("../../src/runtime-admin/index.js");
 type ReactApi = typeof import("../../dist/react/index.d.ts");
 
 declare const createStore: PackageApi["createStore"];

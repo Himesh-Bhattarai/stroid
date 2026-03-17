@@ -7,7 +7,7 @@
  * Consumers: Internal imports and public API.
  */
 import type { PersistOptions } from "../adapters/options.js";
-import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
+import { registerStoreFeature, type StoreFeatureRuntime } from "./feature-registry.js";
 import { isIdentityCrypto, validateCryptoPair } from "./persist/crypto.js";
 import { setupPersistWatch } from "./persist/watch.js";
 import { persistLoad } from "./persist/load.js";
