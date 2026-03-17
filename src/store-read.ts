@@ -15,10 +15,9 @@ import {
 } from "./utils.js";
 import { getConfig } from "./internals/config.js";
 import {
-    initialStates,
-    meta,
     hasStoreEntryInternal,
     getStoreValueRef,
+    getRegistry,
 } from "./store-lifecycle/registry.js";
 import { materializeInitial } from "./store-lifecycle/validation.js";
 import { nameOf, exists, getFeatureApi } from "./store-lifecycle/identity.js";
@@ -32,11 +31,15 @@ import type {
     StateFor,
 } from "./store-lifecycle/types.js";
 import type { SnapshotMode } from "./adapters/options.js";
+import type { FeatureMetrics } from "./feature-registry.js";
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 
-const resolveSnapshotMode = (name: string): SnapshotMode => {
-    const mode = meta[name]?.options?.snapshot ?? getConfig().defaultSnapshotMode;
+const resolveSnapshotMode = (
+    metaEntry: { options?: { snapshot?: SnapshotMode } } | undefined,
+    fallback: SnapshotMode
+): SnapshotMode => {
+    const mode = metaEntry?.options?.snapshot ?? fallback;
     return mode === "shallow" || mode === "ref" ? mode : "deep";
 };
 
@@ -55,9 +58,10 @@ export function getStore<Name extends StoreName>(name: Name, path?: undefined): 
 export function getStore(name: string | StoreDefinition<string, StoreValue>, path?: PathInput): StoreValue | null {
     const storeName = nameOf(name);
     if (!exists(storeName)) return null;
-    if (!materializeInitial(storeName)) return null;
-    const data = getStoreValueRef(storeName);
-    const snapshotMode = resolveSnapshotMode(storeName);
+    const registry = getRegistry();
+    if (!materializeInitial(storeName, registry)) return null;
+    const data = getStoreValueRef(storeName, registry);
+    const snapshotMode = resolveSnapshotMode(registry.metaEntries[storeName], getConfig().defaultSnapshotMode);
     if (path === undefined) {
         if (data === null || typeof data !== "object") return data as StoreValue;
         return cloneSnapshot(data, snapshotMode);
@@ -72,10 +76,14 @@ export const hasStore = (name: string): boolean => hasStoreEntryInternal(name);
 
 export { hasStoreEntryInternal as _hasStoreEntryInternal, getStoreValueRef as _getStoreValueRef, getFeatureApi as _getFeatureApi };
 
-export const getInitialState = (): Record<string, StoreValue> => deepClone(initialStates) as Record<string, StoreValue>;
+export const getInitialState = (): Record<string, StoreValue> => {
+    const registry = getRegistry();
+    return deepClone(registry.initialStates) as Record<string, StoreValue>;
+};
 
-export const getMetrics = (name: string): (typeof meta)[string]["metrics"] | null => {
-    const metaEntry = meta[name];
+export const getMetrics = (name: string): FeatureMetrics | null => {
+    const registry = getRegistry();
+    const metaEntry = registry.metaEntries[name];
     if (!metaEntry?.metrics) return null;
     return { ...metaEntry.metrics };
 };

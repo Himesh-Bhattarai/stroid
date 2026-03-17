@@ -152,9 +152,10 @@ setFeatureRegistrationHook((name, factory) => {
 });
 initializeRegisteredFeatureRuntimes();
 
-export const hasStoreEntryInternal = (name: string): boolean => _hasStoreEntry(getActiveRegistry(), name);
+export const hasStoreEntryInternal = (name: string, registry?: StoreRegistry): boolean =>
+    _hasStoreEntry(registry ?? getActiveRegistry(), name);
 
-export const getStoreValueRef = (name: string): StoreValue | undefined => {
+export const getStoreValueRef = (name: string, registry: StoreRegistry = getActiveRegistry()): StoreValue | undefined => {
     if (isTransactionActive()) {
         const staged = getStagedTransactionValue(name);
         if (staged.has) return staged.value;
@@ -163,19 +164,19 @@ export const getStoreValueRef = (name: string): StoreValue | undefined => {
     if (carrier && Object.prototype.hasOwnProperty.call(carrier, name)) {
         return carrier[name] as StoreValue;
     }
-    return stores[name];
+    return registry.stores[name];
 };
 
-export const setStoreValueInternal = (name: string, value: StoreValue): void => {
+export const setStoreValueInternal = (name: string, value: StoreValue, registry: StoreRegistry = getActiveRegistry()): void => {
     const carrier = getRequestCarrier();
     const frozen = isDev() ? devDeepFreeze(value) : value;
     if (carrier) {
         carrier[name] = frozen;
-        if (!Object.prototype.hasOwnProperty.call(stores, name)) {
-            stores[name] = undefined;
+        if (!Object.prototype.hasOwnProperty.call(registry.stores, name)) {
+            registry.stores[name] = undefined;
         }
     } else {
-        stores[name] = frozen;
+        registry.stores[name] = frozen;
     }
 };
 

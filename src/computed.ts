@@ -19,6 +19,7 @@ import { warn, isDev, log } from "./utils.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
 import type { StoreRegistry } from "./store-registry.js";
 import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "./store-lifecycle/types.js";
+import type { NonFunction } from "./types/utility.js";
 
 export type ComputedOptions = {
     autoDispose?: boolean;
@@ -44,8 +45,6 @@ type DepValue<T> = T extends StoreDefinition<string, infer S>
         : T extends StoreName
             ? Readonly<StateFor<T>> | null
             : StoreValue | null;
-type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
-
 export function createComputed<TResult, Deps extends readonly (StoreName | DepHandle)[]>(
     name: string,
     deps: Deps,

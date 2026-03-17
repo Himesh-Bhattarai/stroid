@@ -11,8 +11,7 @@ import { createStore, setStore, resetStore } from "./store-write.js";
 import { store } from "./store-name.js";
 import type { PartialDeep, StoreDefinition, StoreKey } from "./store-lifecycle/types.js";
 import { _hardResetAllStoresForTest } from "./store-write.js";
-
-type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
+import type { NonFunction } from "./types/utility.js";
 
 export const createMockStore = <Name extends string, State extends Record<string, unknown> = Record<string, unknown>>(
     name: Name = "mock" as Name,

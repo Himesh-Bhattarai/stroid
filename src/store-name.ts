@@ -10,6 +10,7 @@ import type { StoreKey, StoreValue } from "./store-lifecycle/types.js";
 import type { StoreOptions } from "./adapters/options.js";
 import { createStore, createStoreStrict, setStore, deleteStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
+import type { NonFunction } from "./types/utility.js";
 
 /**
  * Helper to get an auto-completable, literal-typed store handle without creating it.
@@ -20,8 +21,6 @@ import { getStore } from "./store-read.js";
  */
 export const store = <Name extends string, State = StoreValue>(name: Name): StoreKey<Name, State> =>
     ({ name } as StoreKey<Name, State>);
-
-type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
 
 export const namespace = (ns: string) => {
     const prefix = `${ns}::`;

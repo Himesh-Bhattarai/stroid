@@ -8,7 +8,7 @@
  */
 import { subscribe } from "./store-notify.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
-import type { FetchOptions } from "./async-registry.js";
+import type { FetchOptions, WarnCategory } from "./async-registry.js";
 import { resetAsyncRegistry } from "./async-registry.js";
 export type { FetchOptions, AsyncStateSnapshot, AsyncStateAdapter } from "./async-registry.js";
 
@@ -41,18 +41,22 @@ export const getRevalidateHandlers = (): ReturnType<typeof getActiveAsyncRegistr
     getActiveAsyncRegistry().revalidateHandlers;
 export const getWildcardCleanups = (): ReturnType<typeof getActiveAsyncRegistry>["wildcardCleanups"] =>
     getActiveAsyncRegistry().wildcardCleanups;
-export const getNoSignalWarned = (): ReturnType<typeof getActiveAsyncRegistry>["noSignalWarned"] =>
-    getActiveAsyncRegistry().noSignalWarned;
-export const getShapeWarned = (): ReturnType<typeof getActiveAsyncRegistry>["shapeWarned"] =>
-    getActiveAsyncRegistry().shapeWarned;
-export const getAutoCreateWarned = (): ReturnType<typeof getActiveAsyncRegistry>["autoCreateWarned"] =>
-    getActiveAsyncRegistry().autoCreateWarned;
-export const getMutableResultWarned = (): ReturnType<typeof getActiveAsyncRegistry>["mutableResultWarned"] =>
-    getActiveAsyncRegistry().mutableResultWarned;
+export const getWarnedOnce = (): ReturnType<typeof getActiveAsyncRegistry>["warnedOnce"] =>
+    getActiveAsyncRegistry().warnedOnce;
 export const getRevalidateKeys = (): ReturnType<typeof getActiveAsyncRegistry>["revalidateKeys"] =>
     getActiveAsyncRegistry().revalidateKeys;
 export const getAsyncMetrics = (): ReturnType<typeof getActiveAsyncRegistry>["asyncMetrics"] =>
     getActiveAsyncRegistry().asyncMetrics;
+
+const getWarnedSet = (category: WarnCategory): Set<string> => {
+    const warnedOnce = getWarnedOnce();
+    let set = warnedOnce.get(category);
+    if (!set) {
+        set = new Set<string>();
+        warnedOnce.set(category, set);
+    }
+    return set;
+};
 
 export const markWarned = (set: Set<string>, key: string): void => {
     if (set.has(key)) return;
@@ -62,6 +66,12 @@ export const markWarned = (set: Set<string>, key: string): void => {
     if (oldest !== undefined) set.delete(oldest);
 };
 
+export const warnOnce = (category: WarnCategory, key: string, onWarn: () => void): void => {
+    const set = getWarnedSet(category);
+    if (set.has(key)) return;
+    markWarned(set, key);
+    onWarn();
+};
 
 export const resetAsyncState = (): void => {
     resetAsyncRegistry(getActiveAsyncRegistry());
@@ -86,15 +96,12 @@ export const clearAsyncMeta = (name: string): void => {
     const requestVersion = getRequestVersionRegistry();
     const rateWindowStart = getRateWindowStartRegistry();
     const rateCount = getRateCountRegistry();
-    const noSignalWarned = getNoSignalWarned();
-    const shapeWarned = getShapeWarned();
-    const autoCreateWarned = getAutoCreateWarned();
-    const mutableResultWarned = getMutableResultWarned();
+    const warnedOnce = getWarnedOnce();
     delete fetchRegistry[name];
-    noSignalWarned.delete(name);
-    shapeWarned.delete(name);
-    autoCreateWarned.delete(name);
-    mutableResultWarned.delete(name);
+    warnedOnce.get("noSignal")?.delete(name);
+    warnedOnce.get("shape")?.delete(name);
+    warnedOnce.get("autoCreate")?.delete(name);
+    warnedOnce.get("mutableResult")?.delete(name);
 
     const startsWithName = (key: string) => key === name || key.startsWith(`${name}:`);
 

@@ -29,10 +29,14 @@ All notable changes to this project will be documented in this file.
 - `useStore` warns once in dev when store names are untyped (StoreStateMap not augmented).
 - `useStore` broad-subscription warnings now surface outside dev once per store.
 - `snapshot: "shallow"` now dev-freezes the top-level snapshot to surface accidental mutations.
+- Store operations resolve the active registry once per call (reduced proxy overhead).
+- Async warning deduplication now uses a registry-level map with centralized cleanup.
+- Shared utility types (e.g., `NonFunction`) consolidated into `types/utility`.
 
 ### Fixed
 - Helper store typings now align with the stricter `createStore` overloads.
 - `replaceStore` now participates in `setStoreBatch` transactions instead of hard-failing.
+- Removed dead `runInline` logic from the chunked notify queue.
 
 
 ### Docs

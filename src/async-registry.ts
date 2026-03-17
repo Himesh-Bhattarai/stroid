@@ -22,6 +22,8 @@ export type AsyncStateAdapter = (ctx: {
     set: (value: unknown | ((draft: any) => void)) => void;
 }) => void;
 
+export type WarnCategory = "noSignal" | "shape" | "autoCreate" | "mutableResult";
+
 export interface FetchOptions {
     transform?: (result: unknown) => unknown;
     onSuccess?: (data: unknown) => void;
@@ -68,10 +70,7 @@ export type AsyncRegistry = {
     rateCount: Record<string, number>;
     ratePruneState: { lastAt: number };
     ratePruneTimer: ReturnType<typeof setTimeout> | null;
-    noSignalWarned: Set<string>;
-    shapeWarned: Set<string>;
-    autoCreateWarned: Set<string>;
-    mutableResultWarned: Set<string>;
+    warnedOnce: Map<WarnCategory, Set<string>>;
     cleanupSubs: Record<string, () => void>;
     storeCleanupFns: Record<string, Set<() => void>>;
     revalidateKeys: Set<string>;
@@ -88,6 +87,13 @@ export type AsyncRegistry = {
     };
 };
 
+const createWarnedOnce = (): Map<WarnCategory, Set<string>> => new Map([
+    ["noSignal", new Set<string>()],
+    ["shape", new Set<string>()],
+    ["autoCreate", new Set<string>()],
+    ["mutableResult", new Set<string>()],
+]);
+
 export const createAsyncRegistry = (): AsyncRegistry => ({
     fetchRegistry: Object.create(null),
     inflight: Object.create(null),
@@ -97,10 +103,7 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     rateCount: Object.create(null),
     ratePruneState: { lastAt: 0 },
     ratePruneTimer: null,
-    noSignalWarned: new Set<string>(),
-    shapeWarned: new Set<string>(),
-    autoCreateWarned: new Set<string>(),
-    mutableResultWarned: new Set<string>(),
+    warnedOnce: createWarnedOnce(),
     cleanupSubs: Object.create(null),
     storeCleanupFns: Object.create(null),
     revalidateKeys: new Set<string>(),
@@ -147,10 +150,11 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
         try { fn(); } catch (_) { /* ignore cleanup errors */ }
     });
     registry.wildcardCleanups.length = 0;
-    registry.noSignalWarned.clear();
-    registry.shapeWarned.clear();
-    registry.autoCreateWarned.clear();
-    registry.mutableResultWarned.clear();
+    registry.warnedOnce.forEach((set) => set.clear());
+    registry.warnedOnce.clear();
+    createWarnedOnce().forEach((set, key) => {
+        registry.warnedOnce.set(key, set);
+    });
     registry.ratePruneState.lastAt = 0;
     if (registry.ratePruneTimer) {
         clearTimeout(registry.ratePruneTimer);

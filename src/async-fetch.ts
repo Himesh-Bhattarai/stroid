@@ -15,16 +15,12 @@ import {
     getCacheMeta,
     countInflightSlots,
     getAsyncMetrics as getAsyncMetricsRegistry,
-    getAutoCreateWarned,
     getFetchRegistry,
-    getMutableResultWarned,
-    getNoSignalWarned,
     getRevalidateHandlers,
     getRevalidateKeys,
-    getShapeWarned,
     getWildcardCleanups,
     MAX_INFLIGHT_SLOTS_PER_STORE,
-    markWarned,
+    warnOnce,
     ensureCleanupSubscription,
     pruneAsyncCache,
     registerStoreCleanup,
@@ -154,17 +150,14 @@ export async function fetchStore(
     } = options;
     const cacheMeta = getCacheMeta();
     const fetchRegistry = getFetchRegistry();
-    const noSignalWarned = getNoSignalWarned();
-    const autoCreateWarned = getAutoCreateWarned();
-    const shapeWarned = getShapeWarned();
-    const mutableResultWarned = getMutableResultWarned();
     const asyncMetrics = getAsyncMetricsRegistry();
 
-    if (!signal && isDev() && !noSignalWarned.has(name)) {
-        markWarned(noSignalWarned, name);
-        warn(
-            `fetchStore("${name}") called without an AbortSignal. Provide "signal" to enable cancellation (recommended).`
-        );
+    if (!signal && isDev()) {
+        warnOnce("noSignal", name, () => {
+            warn(
+                `fetchStore("${name}") called without an AbortSignal. Provide "signal" to enable cancellation (recommended).`
+            );
+        });
     }
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
@@ -210,13 +203,14 @@ export async function fetchStore(
                 onError
             );
         }
-        if (isDev() && !autoCreateWarned.has(name)) {
-            markWarned(autoCreateWarned, name);
-            const message =
-                `fetchStore("${name}") auto-created its backing store.\n` +
-                `Call createStore("${name}", ...) first to avoid typos creating phantom stores.`;
-            onError?.(message);
-            warn(message);
+        if (isDev()) {
+            warnOnce("autoCreate", name, () => {
+                const message =
+                    `fetchStore("${name}") auto-created its backing store.\n` +
+                    `Call createStore("${name}", ...) first to avoid typos creating phantom stores.`;
+                onError?.(message);
+                warn(message);
+            });
         }
         createStore(name, {
             data: null,
@@ -238,7 +232,7 @@ export async function fetchStore(
     if (!stateAdapter) {
         const existing = getStore({ name } as StoreDefinition<string, unknown>);
         if (existing && !looksLikeAsyncState(existing)) {
-            if (!shapeWarned.has(name)) markWarned(shapeWarned, name);
+            warnOnce("shape", name, () => {});
             return reportAsyncUsageError(
                 name,
                 `fetchStore("${name}") cannot write AsyncState into an existing non-async store. ` +
@@ -382,14 +376,13 @@ export async function fetchStore(
                 }
 
                 if (cloneMode === "none" && isDev() && transformed && typeof transformed === "object") {
-                    if (!mutableResultWarned.has(name)) {
-                        markWarned(mutableResultWarned, name);
+                    warnOnce("mutableResult", name, () => {
                         warn(
                             `fetchStore("${name}") received a mutable object while asyncCloneResult is "none".\n` +
                             `Async data is stored by reference; mutations will affect cache and subscribers.\n` +
                             `Set cloneResult: "deep" (per call) or configureStroid({ asyncCloneResult: "deep" }).`
                         );
-                    }
+                    });
                 }
 
                 const cloned = cloneAsyncResult(transformed, cloneMode);

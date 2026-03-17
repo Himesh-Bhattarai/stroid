@@ -12,12 +12,8 @@ import {
     normalizeStoreOptions,
     type StoreOptions,
 } from "./adapters/options.js";
+import type { NonFunction } from "./types/utility.js";
 import {
-    stores,
-    meta,
-    subscribers,
-    initialStates,
-    initialFactories,
     setStoreValueInternal,
     hasStoreEntryInternal,
     getRegistry,
@@ -44,7 +40,6 @@ import { notify } from "./store-notify.js";
 import { isTransactionActive, markTransactionFailed } from "./store-transaction.js";
 import { registerTestResetHook } from "./internals/test-reset.js";
 
-type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
 type LazyDisallow<T> = T extends { lazy: true } ? never : T;
 
 const ssrGlobalAllowWarned = new Set<string>();
@@ -124,7 +119,13 @@ export function createStore<Name extends string, State>(
     const nodeEnv = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
     const isProdServer = isServer && nodeEnv === "production";
     const allowGlobalSSR = normalizedOptions.allowSSRGlobalStore ?? false;
-    const isRequestRegistry = getRegistry().scope === "request";
+    const registry = getRegistry();
+    const registryStores = registry.stores;
+    const registrySubscribers = registry.subscribers;
+    const registryInitialStates = registry.initialStates;
+    const registryInitialFactories = registry.initialFactories;
+    const registryMeta = registry.metaEntries;
+    const isRequestRegistry = registry.scope === "request";
 
     if (isProdServer && !allowGlobalSSR && !isRequestRegistry) {
         const msg =
@@ -141,7 +142,7 @@ export function createStore<Name extends string, State>(
         );
     }
 
-    if (hasStoreEntryInternal(name)) {
+    if (hasStoreEntryInternal(name, registry)) {
         const msg = `Store "${name}" already exists. Call setStore("${name}", data) to update instead.`;
         reportStoreWarning(name, msg);
         return { name } as StoreDefinition<Name, State>;
@@ -161,19 +162,19 @@ export function createStore<Name extends string, State>(
     const clean = cleanResult.value;
     const isLazy = normalizedOptions.lazy === true && typeof initialData === "function";
 
-    const hadPreexistingSubscribers = (subscribers[name]?.size ?? 0) > 0;
+    const hadPreexistingSubscribers = (registrySubscribers[name]?.size ?? 0) > 0;
     if (isLazy) {
-        stores[name] = undefined;
-        initialFactories[name] = initialData as () => unknown;
+        registryStores[name] = undefined;
+        registryInitialFactories[name] = initialData as () => unknown;
     } else {
         const validated = normalizeCommittedState(name, clean, normalizedOptions.validate, normalizedOptions.onError);
         if (!validated.ok) return;
-        setStoreValueInternal(name, validated.value);
-        initialStates[name] = deepClone(validated.value);
+        setStoreValueInternal(name, validated.value, registry);
+        registryInitialStates[name] = deepClone(validated.value);
     }
     const createdAtMs = Date.now();
     const createdAtIso = new Date(createdAtMs).toISOString();
-    meta[name] = {
+    registryMeta[name] = {
         createdAt: createdAtIso,
         updatedAt: createdAtIso,
         updatedAtMs: createdAtMs,
@@ -185,7 +186,7 @@ export function createStore<Name extends string, State>(
 
     invalidatePathCache(name);
     runFeatureCreateHooks(name, notify);
-    runStoreHookSafe(name, "onCreate", meta[name].options.onCreate, [clean]);
+    runStoreHookSafe(name, "onCreate", registryMeta[name].options.onCreate, [clean]);
     if (hadPreexistingSubscribers) notify(name);
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);

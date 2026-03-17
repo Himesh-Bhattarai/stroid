@@ -127,7 +127,7 @@ export const getStoreSnapshot = (name: string): StoreValue | null => {
     }
 
     const version = registry.notify.flushId;
-    const source = getStoreValueRef(name);
+    const source = getStoreValueRef(name, registry);
     const cached = registry.snapshotCache[name];
     if (cached && cached.source === source && cached.mode === snapshotMode) {
         const snap = cached.snapshot;

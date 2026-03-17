@@ -354,32 +354,32 @@ registerTestResetHook("validation.path-cache", clearPathValidationCache, 50);
 
 setPathCacheInvalidator(invalidatePathCache);
 
-export const materializeInitial = (name: string): boolean => {
+export const materializeInitial = (name: string, registry = getRegistry()): boolean => {
     const staged = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
     if (staged.has) return true;
-    if (stores[name] !== undefined) return true;
-    const factory = initialFactories[name];
+    if (registry.stores[name] !== undefined) return true;
+    const factory = registry.initialFactories[name];
     if (!factory) return true;
     try {
         const produced = factory();
-        const cleanResult = sanitizeValue(name, produced, meta[name]?.options?.onError);
+        const cleanResult = sanitizeValue(name, produced, registry.metaEntries[name]?.options?.onError);
         if (!cleanResult.ok) return false;
-        const validate = meta[name]?.options?.validate;
-        const normalized = normalizeCommittedState(name, cleanResult.value, validate, meta[name]?.options?.onError);
+        const validate = registry.metaEntries[name]?.options?.validate;
+        const normalized = normalizeCommittedState(name, cleanResult.value, validate, registry.metaEntries[name]?.options?.onError);
         if (!normalized.ok) return false;
         if (isTransactionActive()) {
             const value = normalized.value;
             stageTransactionValue(name, value);
             registerTransactionCommit(() => {
-                setStoreValueInternal(name, value);
-                initialStates[name] = deepClone(value);
-                delete initialFactories[name];
+                setStoreValueInternal(name, value, registry);
+                registry.initialStates[name] = deepClone(value);
+                delete registry.initialFactories[name];
                 invalidatePathCache(name);
             });
         } else {
-            setStoreValueInternal(name, normalized.value);
-            initialStates[name] = deepClone(normalized.value);
-            delete initialFactories[name];
+            setStoreValueInternal(name, normalized.value, registry);
+            registry.initialStates[name] = deepClone(normalized.value);
+            delete registry.initialFactories[name];
             invalidatePathCache(name);
         }
         return true;

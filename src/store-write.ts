@@ -21,13 +21,11 @@ import {
 } from "./utils.js";
 import { type StoreOptions } from "./adapters/options.js";
 import {
-    stores,
-    meta,
-    initialStates,
-    storeAdmin,
     setStoreValueInternal,
     getStoreValueRef,
     hasStoreEntryInternal,
+    getRegistry,
+    getStoreAdmin,
 } from "./store-lifecycle/registry.js";
 import {
     sanitizeValue,
@@ -61,6 +59,7 @@ import type {
     StateFor,
     WriteResult,
 } from "./store-lifecycle/types.js";
+import type { StoreRegistry } from "./store-registry.js";
 import { getConfig } from "./internals/config.js";
 import { runTestResets, registerTestResetHook } from "./internals/test-reset.js";
 import { notify } from "./store-notify.js";
@@ -158,26 +157,27 @@ type CommitArgs = {
     logMessage: string;
 };
 
-const commitStoreUpdate = ({ name, prev, next, action, hookLabel, logMessage }: CommitArgs): void => {
-    setStoreValueInternal(name, next);
+const commitStoreUpdate = (registry: StoreRegistry, { name, prev, next, action, hookLabel, logMessage }: CommitArgs): void => {
+    const registryMeta = registry.metaEntries;
+    setStoreValueInternal(name, next, registry);
     invalidatePathCache(name);
     const updatedAtMs = Date.now();
-    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
-    meta[name].updatedAtMs = updatedAtMs;
-    bumpUpdateCount(meta[name]);
+    registryMeta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    registryMeta[name].updatedAtMs = updatedAtMs;
+    bumpUpdateCount(registryMeta[name]);
     runFeatureWriteHooks(name, action, prev, next, notify);
-    runStoreHookSafe(name, hookLabel, meta[name].options[hookLabel], [prev, next]);
+    runStoreHookSafe(name, hookLabel, registryMeta[name].options[hookLabel], [prev, next]);
     notify(name);
     log(logMessage);
 };
 
-const stageOrCommitUpdate = (args: CommitArgs): void => {
+const stageOrCommitUpdate = (registry: StoreRegistry, args: CommitArgs): void => {
     if (isTransactionActive()) {
         stageTransactionValue(args.name, args.next);
-        registerTransactionCommit(() => commitStoreUpdate(args));
+        registerTransactionCommit(() => commitStoreUpdate(registry, args));
         return;
     }
-    commitStoreUpdate(args);
+    commitStoreUpdate(registry, args);
 };
 
 
@@ -192,8 +192,10 @@ export function setStore<T extends StoreTarget>(
 ): WriteResult;
 export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
     const storeName = nameOf(name);
-    if (!materializeInitial(storeName)) return { ok: false, reason: "validate" };
-    if (!hasStoreEntryInternal(storeName)) {
+    const registry = getRegistry();
+    const registryMeta = registry.metaEntries;
+    if (!materializeInitial(storeName, registry)) return { ok: false, reason: "validate" };
+    if (!hasStoreEntryInternal(storeName, registry)) {
         const message =
             `setStore("${storeName}") called before createStore(). ` +
             `Create the store first or pass a valid StoreDefinition.`;
@@ -203,7 +205,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     }
     let updated: StoreValue;
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(storeName) : { has: false, value: undefined };
-    const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(storeName);
+    const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(storeName, registry);
 
     const usedMutator = typeof keyOrData === "function" && value === undefined;
 
@@ -286,7 +288,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         const sanitizedValue = valueResult.value;
         const safePath = validatePathSafety(storeName, prev, keyOrData as PathInput, sanitizedValue);
         if (!safePath.ok) {
-            meta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
+            registryMeta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
             if (isTransactionActive()) markTransactionFailed(safePath.reason);
             return { ok: false, reason: "path" };
         }
@@ -301,7 +303,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
             `  setStore(storeDef, draft => { draft.field = value })\n` +
             `  replaceStore("${storeName}", value)  // full-store replace`;
         error(message);
-        meta[storeName]?.options?.onError?.(message);
+        registryMeta[storeName]?.options?.onError?.(message);
         if (isTransactionActive()) markTransactionFailed(message);
         return { ok: false, reason: "invalid-args" };
     }
@@ -310,7 +312,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") produced invalid data`);
         return { ok: false, reason: "validate" };
     }
-    const validateRule = meta[storeName]?.options?.validate;
+    const validateRule = registryMeta[storeName]?.options?.validate;
 
     const next = runMiddlewareForStore(storeName, { action: "set", prev, next: updated, path: keyOrData });
     if (next === MIDDLEWARE_ABORT) {
@@ -324,7 +326,7 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         return { ok: false, reason: "validate" };
     }
 
-    stageOrCommitUpdate({
+    stageOrCommitUpdate(registry, {
         name: storeName,
         prev,
         next: committed.value,
@@ -342,7 +344,8 @@ export function replaceStore(nameInput: string | StoreDefinition<string, StoreVa
     const storeName = nameOf(nameInput);
     if (!storeName) return { ok: false, reason: "invalid-args" };
 
-    const result = replaceStoreState(storeName, value, "replace");
+    const registry = getRegistry();
+    const result = replaceStoreState(registry, storeName, value, "replace");
     if (!result.ok) {
         if (result.reason === "not-found") return { ok: false, reason: "not-found" };
         if (result.reason === "middleware") return { ok: false, reason: "middleware" };
@@ -357,7 +360,8 @@ export function deleteStore<Name extends StoreName>(name: Name): void;
 export function deleteStore(nameInput: string | StoreDefinition<string, StoreValue>): void {
     const name = nameOf(nameInput);
     if (!exists(name)) return;
-    if (!materializeInitial(name)) return;
+    const registry = getRegistry();
+    if (!materializeInitial(name, registry)) return;
     if (isTransactionActive()) {
         const message =
             `deleteStore("${name}") cannot be called inside setStoreBatch. ` +
@@ -366,7 +370,7 @@ export function deleteStore(nameInput: string | StoreDefinition<string, StoreVal
         markTransactionFailed(message);
         return;
     }
-    storeAdmin.deleteExistingStore(name);
+    getStoreAdmin().deleteExistingStore(name);
     invalidatePathCache(name);
     slowMutatorWarned.delete(name);
     clearSsrGlobalAllowWarned(name);
@@ -378,8 +382,9 @@ export function resetStore<Name extends StoreName>(name: Name): WriteResult;
 export function resetStore(nameInput: string | StoreDefinition<string, StoreValue>): WriteResult {
     const name = nameOf(nameInput);
     if (!exists(name)) return { ok: false, reason: "not-found" };
-    if (!materializeInitial(name)) return { ok: false, reason: "validate" };
-    if (!initialStates[name]) {
+    const registry = getRegistry();
+    if (!materializeInitial(name, registry)) return { ok: false, reason: "validate" };
+    if (!registry.initialStates[name]) {
         const message =
             `resetStore("${name}") has no initial state to reset to. ` +
             `If this is a lazy store, ensure it has been initialized before calling resetStore.`;
@@ -390,10 +395,10 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         return { ok: false, reason: "not-found" };
     }
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
-    const prev = stagedPrev.has ? stagedPrev.value : stores[name];
-    const resetValue = deepClone(initialStates[name]);
+    const prev = stagedPrev.has ? stagedPrev.value : registry.stores[name];
+    const resetValue = deepClone(registry.initialStates[name]);
 
-    stageOrCommitUpdate({
+    stageOrCommitUpdate(registry, {
         name,
         prev,
         next: resetValue,
@@ -404,7 +409,7 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
     return { ok: true };
 }
 
-const replaceStoreState = (name: string, data: unknown, action: CommitAction = "hydrate"): { ok: boolean; reason?: string } => {
+const replaceStoreState = (registry: StoreRegistry, name: string, data: unknown, action: CommitAction = "hydrate"): { ok: boolean; reason?: string } => {
     const fail = (reason: string, message?: string): { ok: false; reason: string } => {
         if (isTransactionActive()) {
             markTransactionFailed(message ?? reason);
@@ -415,7 +420,7 @@ const replaceStoreState = (name: string, data: unknown, action: CommitAction = "
         return fail("not-found", `replaceStore("${name}") called before createStore().`);
     }
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
-    const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(name);
+    const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(name, registry);
     const nextResult = sanitizeValue(name, data);
     if (!nextResult.ok) return fail("sanitize", `replaceStore("${name}") failed sanitize`);
     const nextValue = nextResult.value;
@@ -425,13 +430,13 @@ const replaceStoreState = (name: string, data: unknown, action: CommitAction = "
         return fail("undefined", message);
     }
 
-    const validateRule = meta[name]?.options?.validate;
+    const validateRule = registry.metaEntries[name]?.options?.validate;
 
     const final = runMiddlewareForStore(name, { action, prev, next: nextValue, path: null });
     if (final === MIDDLEWARE_ABORT) return fail("middleware", `replaceStore("${name}") aborted by middleware`);
     const committed = normalizeCommittedState(name, final, validateRule);
     if (!committed.ok) return fail("validate", `replaceStore("${name}") failed validation`);
-    stageOrCommitUpdate({
+    stageOrCommitUpdate(registry, {
         name,
         prev,
         next: committed.value,
@@ -449,7 +454,7 @@ export const clearAllStores = (): void => {
         markTransactionFailed(message);
         return;
     }
-    storeAdmin.clearAllStores();
+    getStoreAdmin().clearAllStores();
     slowMutatorWarned.clear();
     clearSsrGlobalAllowWarned();
 };
@@ -479,6 +484,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
         failed: Object.create(null) as Record<string, string>,
     };
     if (!snapshot || typeof snapshot !== "object") return result;
+    const registry = getRegistry();
 
     const trustInput = trust ?? {};
     const allowHydration =
@@ -517,8 +523,8 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
             result.failed[storeName] = "invalid-name";
             return;
         }
-        if (hasStoreEntryInternal(storeName)) {
-            const res = replaceStoreState(storeName, data, "hydrate");
+        if (hasStoreEntryInternal(storeName, registry)) {
+            const res = replaceStoreState(registry, storeName, data, "hydrate");
             if (!res.ok) result.failed[storeName] = res.reason ?? "hydrate-failed";
             else result.hydrated.push(storeName);
         } else {

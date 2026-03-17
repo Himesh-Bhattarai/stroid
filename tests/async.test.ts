@@ -138,6 +138,31 @@ test("fetchStore warns once when async results are mutable", async () => {
   assert.strictEqual(mutableWarnings.length, 1);
 });
 
+test("async warning dedupe resets after store deletion", async () => {
+  clearAllStores();
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+    asyncCloneResult: "deep",
+  });
+
+  try {
+    ensureAsyncStore("warnedAsync");
+    await fetchStore("warnedAsync", Promise.resolve({ value: 1 }), { dedupe: false });
+    deleteStore("warnedAsync");
+
+    ensureAsyncStore("warnedAsync");
+    await fetchStore("warnedAsync", Promise.resolve({ value: 2 }), { dedupe: false });
+  } finally {
+    resetConfig();
+  }
+
+  const noSignalWarnings = warnings.filter((msg) => msg.includes("AbortSignal"));
+  assert.strictEqual(noSignalWarnings.length, 2);
+});
+
 test("fetchStore dedupes inflight requests", async () => {
   clearAllStores();
   ensureAsyncStore("dedupeStore");
@@ -865,14 +890,16 @@ test("fetchStore caps no-signal warning cache size under high-cardinality stores
       critical: () => {},
     },
   });
-  const { getNoSignalWarned, MAX_WARNED_ENTRIES } = await import("../src/async-cache.js");
+  const { getWarnedOnce, MAX_WARNED_ENTRIES } = await import("../src/async-cache.js");
 
   try {
     for (let i = 0; i < MAX_WARNED_ENTRIES + 25; i += 1) {
       await fetchStore(`warnStore${i}`, Promise.resolve(i), { dedupe: false });
     }
 
-    assert.ok(getNoSignalWarned().size <= MAX_WARNED_ENTRIES);
+    const warnedOnce = getWarnedOnce();
+    const noSignal = warnedOnce.get("noSignal");
+    assert.ok((noSignal?.size ?? 0) <= MAX_WARNED_ENTRIES);
   } finally {
     resetConfig();
     clearAllStores();

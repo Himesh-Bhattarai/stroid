@@ -225,8 +225,7 @@ const flush = (registry: StoreRegistry): void => {
                     done();
                     return;
                 }
-                if (runInline) processNext();
-                else scheduleChunk(processNext, chunkDelayMs);
+                scheduleChunk(processNext, chunkDelayMs);
                 return;
             }
 
@@ -236,8 +235,7 @@ const flush = (registry: StoreRegistry): void => {
                     done();
                     return;
                 }
-                if (runInline) processNext();
-                else scheduleChunk(processNext, chunkDelayMs);
+                scheduleChunk(processNext, chunkDelayMs);
                 return;
             }
 
@@ -265,8 +263,7 @@ const flush = (registry: StoreRegistry): void => {
                     done();
                     return;
                 }
-                if (runInline) processNext();
-                else scheduleChunk(processNext, chunkDelayMs);
+                scheduleChunk(processNext, chunkDelayMs);
                 return;
             }
 
@@ -294,8 +291,7 @@ const flush = (registry: StoreRegistry): void => {
                 done();
                 return;
             }
-            if (runInline) processNext();
-            else scheduleChunk(processNext, chunkDelayMs);
+            scheduleChunk(processNext, chunkDelayMs);
         };
 
         processNext();
