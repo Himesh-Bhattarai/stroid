@@ -26,6 +26,7 @@ import { createSelector, subscribeWithSelector } from "../src/selectors.js";
 import { namespace } from "../src/store-name.js";
 import { createStoreCore, getActiveAsyncRegistry } from "../src/store-core.js";
 import { createStoreRegistry, runWithRegistry } from "../src/store-registry.js";
+import { notifyStore } from "../src/store-shared/notify.js";
 import {
   listStores,
   getStoreMeta,
@@ -258,6 +259,23 @@ test("store-core async registry resolves per active registry", () => {
   runWithRegistry(registryB, () => {
     assert.strictEqual(getActiveAsyncRegistry(), registryB.async);
   });
+});
+
+test("store-shared notify handler bridges to store-notify", async () => {
+  resetAllStoresForTest();
+  createStore("notifyBridge", { value: 1 });
+  let calls = 0;
+  subscribeWithSelector(
+    "notifyBridge",
+    (state: any) => state.value,
+    Object.is,
+    () => { calls += 1; }
+  );
+
+  notifyStore("notifyBridge");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.strictEqual(calls, 1);
 });
 
 test("runtime-tools persist queue depth reports pending saves", async () => {

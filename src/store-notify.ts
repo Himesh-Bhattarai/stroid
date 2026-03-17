@@ -22,6 +22,7 @@ import type { SnapshotMode } from "./adapters/options.js";
 import { cloneSnapshot, resolveSnapshotMode } from "./notification/snapshot.js";
 import { scheduleFlush } from "./notification/index.js";
 import { getConfig } from "./internals/config.js";
+import { registerNotifyHandler } from "./store-shared/notify.js";
 
 const maybeFreezeSnapshot = (snapshot: StoreValue | null, mode: SnapshotMode): void => {
     if (!snapshot || typeof snapshot !== "object") return;
@@ -40,6 +41,8 @@ export const notify = (name: string): void => {
     state.pendingNotifications.add(name);
     if (state.batchDepth === 0) scheduleFlush(registry);
 };
+
+registerNotifyHandler(notify);
 
 export const setStoreBatch = (fn: () => unknown): void => {
     if (typeof fn !== "function") {

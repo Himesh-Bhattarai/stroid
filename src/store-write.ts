@@ -64,7 +64,7 @@ import type {
 import type { StoreRegistry } from "./store-registry.js";
 import { getConfig } from "./internals/config.js";
 import { runTestResets, registerTestResetHook } from "./internals/test-reset.js";
-import { notify } from "./store-notify.js";
+import { notifyStore } from "./store-shared/notify.js";
 import { MIDDLEWARE_ABORT } from "./features/lifecycle.js";
 import { createStore, createStoreStrict, clearSsrGlobalAllowWarned } from "./store-create.js";
 import { getWriteContext, type WriteContext } from "./internals/write-context.js";
@@ -183,9 +183,9 @@ const commitStoreUpdate = (registry: StoreRegistry, { name, prev, next, action, 
         registryMeta[name].lastTraceContext = null;
     }
     bumpUpdateCount(registryMeta[name]);
-    runFeatureWriteHooks(name, action, prev, next, notify);
+    runFeatureWriteHooks(name, action, prev, next, notifyStore);
     runStoreHookSafe(name, hookLabel, registryMeta[name].options[hookLabel], [prev, next]);
-    notify(name);
+    notifyStore(name);
     log(logMessage);
 };
 

@@ -67,6 +67,7 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - `deepClone` now throws on non-cloneable values and warns in dev when falling back from `structuredClone`.
 - `getStoreMeta` now shallow-clones meta/options to avoid cloning function-heavy configs.
 - Async cache registry access now goes through `store-core` instead of store-lifecycle internals.
+- Store writes now route notifications through a shared handler to reduce store-write/store-notify coupling.
 
 ### Fixed
 - Helper store typings now align with the stricter `createStore` overloads.

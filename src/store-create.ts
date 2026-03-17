@@ -37,7 +37,7 @@ import {
 } from "./store-lifecycle/identity.js";
 import type { StoreDefinition, StoreValue } from "./store-lifecycle/types.js";
 import { getConfig } from "./internals/config.js";
-import { notify } from "./store-notify.js";
+import { notifyStore } from "./store-shared/notify.js";
 import { isTransactionActive, markTransactionFailed } from "./store-transaction.js";
 import { registerTestResetHook } from "./internals/test-reset.js";
 
@@ -193,7 +193,7 @@ export function createStore<Name extends string, State>(
     };
 
     invalidatePathCache(name);
-    runFeatureCreateHooks(name, notify);
+    runFeatureCreateHooks(name, notifyStore);
     runStoreHookSafe(name, "onCreate", registryMeta[name].options.onCreate, [clean]);
     emitStoreLifecycle(registry, {
         type: "created",
@@ -201,7 +201,7 @@ export function createStore<Name extends string, State>(
         isGlobal: normalizedOptions.scope === "global",
         isTemp: normalizedOptions.scope === "temp",
     });
-    if (hadPreexistingSubscribers) notify(name);
+    if (hadPreexistingSubscribers) notifyStore(name);
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
     return { name } as StoreDefinition<Name, State>;
