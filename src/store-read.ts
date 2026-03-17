@@ -17,6 +17,7 @@ import { getConfig } from "./internals/config.js";
 import {
     hasStoreEntryInternal,
     getStoreValueRef,
+    recordStoreRead,
     getRegistry,
 } from "./store-lifecycle/registry.js";
 import { materializeInitial } from "./store-lifecycle/validation.js";
@@ -60,6 +61,7 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
     if (!exists(storeName)) return null;
     const registry = getRegistry();
     if (!materializeInitial(storeName, registry)) return null;
+    recordStoreRead(storeName, registry);
     const data = getStoreValueRef(storeName, registry);
     const snapshotMode = resolveSnapshotMode(registry.metaEntries[storeName], getConfig().defaultSnapshotMode);
     if (path === undefined) {

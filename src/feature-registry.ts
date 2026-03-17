@@ -7,6 +7,7 @@
  * Consumers: Internal imports and public API.
  */
 import type { NormalizedOptions, StoreValue } from "./adapters/options.js";
+import type { TraceContext } from "./types/utility.js";
 
 export type BuiltInFeatureName = "persist" | "sync" | "devtools";
 export type FeatureName = BuiltInFeatureName | (string & {});
@@ -25,6 +26,13 @@ export interface StoreFeatureMeta {
     version: number;
     metrics: FeatureMetrics;
     options: NormalizedOptions;
+    readCount: number;
+    lastReadAt: string | null;
+    lastReadAtMs: number | null;
+    lastCorrelationId: string | null;
+    lastCorrelationAt: string | null;
+    lastCorrelationAtMs: number | null;
+    lastTraceContext: TraceContext | null;
 }
 
 export interface FeatureHookContext {

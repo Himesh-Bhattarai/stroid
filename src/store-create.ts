@@ -182,6 +182,13 @@ export function createStore<Name extends string, State>(
         version: normalizedOptions.version,
         metrics: { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
         options: normalizedOptions,
+        readCount: 0,
+        lastReadAt: null,
+        lastReadAtMs: null,
+        lastCorrelationId: null,
+        lastCorrelationAt: null,
+        lastCorrelationAtMs: null,
+        lastTraceContext: null,
     };
 
     invalidatePathCache(name);

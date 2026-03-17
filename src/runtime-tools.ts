@@ -17,6 +17,7 @@ import { subscribers } from "./store-lifecycle/registry.js";
 import { getFeatureApi } from "./store-lifecycle/identity.js";
 import { countInflightSlots } from "./async-cache.js";
 import type { StoreFeatureMeta } from "./feature-registry.js";
+import { getAsyncMetrics } from "./async-fetch.js";
 import { getFullComputedGraph, getComputedDepsFor } from "./computed-graph.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
@@ -62,6 +63,110 @@ export const getSubscriberCount = (name: string): number => {
 export const getAsyncInflightCount = (name: string): number => {
     if (!exists(name)) return 0;
     return countInflightSlots(name);
+};
+
+export type ColdStoreReport = {
+    name: string;
+    createdAt: string;
+    lastReadAt: string | null;
+    updateCount: number;
+    readCount: number;
+    subscriberCount: number;
+    ageMs: number;
+    verdict: "cold" | "write-only" | "stale" | "active";
+};
+
+export const findColdStores = (options: {
+    unreadThresholdMs?: number;
+    includeWriteOnly?: boolean;
+} = {}): ColdStoreReport[] => {
+    const threshold = options.unreadThresholdMs ?? 60_000;
+    const now = Date.now();
+    return listStores().map((name) => {
+        const meta = getRegistry().metaEntries[name];
+        const createdAtMs = meta?.createdAt ? new Date(meta.createdAt).getTime() : now;
+        const lastReadMs = meta?.lastReadAtMs ?? null;
+        const ageMs = Math.max(0, now - createdAtMs);
+        let verdict: ColdStoreReport["verdict"];
+
+        if ((meta?.readCount ?? 0) === 0 && (meta?.updateCount ?? 0) === 0) {
+            verdict = "cold";
+        } else if ((meta?.readCount ?? 0) === 0) {
+            verdict = "write-only";
+        } else if (lastReadMs && (now - lastReadMs) > threshold) {
+            verdict = "stale";
+        } else {
+            verdict = "active";
+        }
+
+        return {
+            name,
+            createdAt: meta?.createdAt ?? new Date(createdAtMs).toISOString(),
+            lastReadAt: meta?.lastReadAt ?? null,
+            updateCount: meta?.updateCount ?? 0,
+            readCount: meta?.readCount ?? 0,
+            subscriberCount: getSubscriberCount(name),
+            ageMs,
+            verdict,
+        };
+    }).filter((report) =>
+        report.verdict === "cold"
+        || report.verdict === "stale"
+        || (options.includeWriteOnly && report.verdict === "write-only")
+    );
+};
+
+export type StoreHealthEntry = {
+    name: string;
+    meta: StoreFeatureMeta | null;
+    metrics: StoreFeatureMeta["metrics"] | null;
+    async: {
+        inflight: number;
+        lastCorrelationId: string | null;
+        traceContext: StoreFeatureMeta["lastTraceContext"] | null;
+    };
+    persist: {
+        queueDepth: number;
+    };
+};
+
+export type StoreHealthReport = {
+    stores: StoreHealthEntry[];
+    async: ReturnType<typeof getAsyncMetrics>;
+    registry: {
+        totalStores: number;
+        coldStores: ColdStoreReport[];
+    };
+};
+
+export const getStoreHealth = (name?: string): StoreHealthEntry | StoreHealthReport | null => {
+    if (name) {
+        if (!exists(name)) return null;
+        const meta = getStoreMeta(name);
+        return {
+            name,
+            meta,
+            metrics: getMetrics(name),
+            async: {
+                inflight: getAsyncInflightCount(name),
+                lastCorrelationId: meta?.lastCorrelationId ?? null,
+                traceContext: meta?.lastTraceContext ?? null,
+            },
+            persist: {
+                queueDepth: getPersistQueueDepth(name),
+            },
+        };
+    }
+
+    const stores = listStores().map((storeName) => getStoreHealth(storeName) as StoreHealthEntry);
+    return {
+        stores,
+        async: getAsyncMetrics(),
+        registry: {
+            totalStores: stores.length,
+            coldStores: findColdStores({}),
+        },
+    };
 };
 
 export const getPersistQueueDepth = (name: string): number => {

@@ -18,6 +18,9 @@ export {
     hasStore,
     hydrateStores,
 } from "./store.js";
+export { getMetrics } from "./store-read.js";
+export { getAsyncMetrics } from "./async-fetch.js";
+export { getStoreHealth, findColdStores } from "./runtime-tools.js";
 export {
     createComputed,
     invalidateComputed,

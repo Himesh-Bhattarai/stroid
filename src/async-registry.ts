@@ -6,6 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
+import type { TraceContext } from "./types/utility.js";
 export type AsyncStateSnapshot = {
     data?: unknown;
     loading: boolean;
@@ -13,6 +14,8 @@ export type AsyncStateSnapshot = {
     status: "idle" | "loading" | "success" | "error" | "aborted";
     cached?: boolean;
     revalidating?: boolean;
+    correlationId?: string;
+    traceContext?: TraceContext;
 };
 
 export type AsyncStateAdapter = (ctx: {
@@ -45,6 +48,15 @@ export interface FetchOptions {
     signal?: AbortSignal;
     cacheKey?: string;
     responseType?: "auto" | "json" | "text" | "arrayBuffer" | "blob" | "formData";
+    /**
+     * Optional correlation ID for tracing async writes.
+     * When provided, it is propagated into store metadata and middleware context.
+     */
+    correlationId?: string;
+    /**
+     * Optional trace context (e.g. OpenTelemetry).
+     */
+    traceContext?: TraceContext;
     /**
      * Auto-create the backing store if missing.
      * Defaults to the global config setting (true by default).

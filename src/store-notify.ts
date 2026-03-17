@@ -14,6 +14,7 @@ import {
     subscribers,
     hasStoreEntryInternal,
     getStoreValueRef,
+    recordStoreRead,
     getRegistry,
 } from "./store-lifecycle/registry.js";
 import { runWithRegistry } from "./store-registry.js";
@@ -115,6 +116,7 @@ export const subscribe = subscribeStore;
 export const getStoreSnapshot = (name: string): StoreValue | null => {
     if (!hasStoreEntryInternal(name)) return null;
     const registry = getRegistry();
+    recordStoreRead(name, registry);
     const snapshotMode = resolveSnapshotMode(
         registry.metaEntries[name],
         getConfig().defaultSnapshotMode
@@ -158,6 +160,7 @@ export const resetNotifyStateForTests = (): void => {
     state.pendingNotifications.clear();
     state.pendingBuffer.length = 0;
     state.orderedNames.length = 0;
+    state.subscriberBuffer.length = 0;
     state.notifyScheduled = false;
     state.batchDepth = 0;
 };

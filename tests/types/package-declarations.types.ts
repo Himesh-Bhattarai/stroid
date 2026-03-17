@@ -96,8 +96,10 @@ type MissingListStores = PackageApi["listStores"];
 type MissingGetStoreMeta = PackageApi["getStoreMeta"];
 // @ts-expect-error lean root package no longer exports runtime-tools initial snapshot API
 type MissingGetInitialState = PackageApi["getInitialState"];
-// @ts-expect-error lean root package no longer exports runtime-tools metrics API
-type MissingGetMetrics = PackageApi["getMetrics"];
+type RootGetMetrics = PackageApi["getMetrics"];
+type RootGetAsyncMetrics = PackageApi["getAsyncMetrics"];
+type RootGetStoreHealth = PackageApi["getStoreHealth"];
+type RootFindColdStores = PackageApi["findColdStores"];
 
 type DevtoolsGetHistory = DevtoolsApi["getHistory"];
 type DevtoolsClearHistory = DevtoolsApi["clearHistory"];
@@ -113,6 +115,10 @@ void (0 as unknown as RuntimeToolsGetStoreMeta);
 void (0 as unknown as RuntimeToolsGetInitialState);
 void (0 as unknown as RuntimeToolsGetMetrics);
 void (0 as unknown as RuntimeAdminClearAllStores);
+void (0 as unknown as RootGetMetrics);
+void (0 as unknown as RootGetAsyncMetrics);
+void (0 as unknown as RootGetStoreHealth);
+void (0 as unknown as RootFindColdStores);
 
 // @ts-expect-error package declarations should reject unsupported onMigrationFail literals
 const badPersist: PersistOptions = { onMigrationFail: "ignore" };

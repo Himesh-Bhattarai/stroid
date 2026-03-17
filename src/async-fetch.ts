@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { createStore, setStore, hasStore, getStore } from "./internals/store-ops.js";
+import { createStore, setStoreWithContext, hasStore, getStore } from "./internals/store-ops.js";
 import { error, warn, isDev } from "./utils.js";
 import { getConfig } from "./internals/config.js";
 import { nameOf } from "./store-lifecycle/identity.js";
@@ -45,6 +45,7 @@ import {
 } from "./async/inflight.js";
 import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit, scheduleRatePrune } from "./async/rate.js";
 import { buildFetchOptions, parseResponseBody } from "./async/request.js";
+import { runWithWriteContext, type WriteContext } from "./internals/write-context.js";
 type AsyncState = AsyncStateSnapshot;
 
 const looksLikeAsyncState = (value: unknown): boolean => {
@@ -57,27 +58,32 @@ const _applyAsyncState = (
     name: string,
     storeHandle: StoreDefinition<string, AsyncState>,
     next: AsyncStateSnapshot,
-    options: FetchOptions
+    options: FetchOptions,
+    context: WriteContext | null
 ): void => {
     if (!hasStore(name)) return;
     if (options.stateAdapter) {
         try {
             const prev = getStore({ name } as StoreDefinition<string, unknown>);
             const set = (value: unknown | ((draft: any) => void)) => {
-                setStore(storeHandle as StoreDefinition<string, any>, value as any);
+                setStoreWithContext(storeHandle as StoreDefinition<string, any>, value as any, undefined, context);
             };
-            options.stateAdapter({
-                name,
-                prev,
-                next,
-                set,
+            runWithWriteContext(context, () => {
+                options.stateAdapter({
+                    name,
+                    prev,
+                    next,
+                    set,
+                });
             });
         } catch (err) {
             warn(`fetchStore("${name}") stateAdapter failed: ${(err as { message?: string })?.message ?? err}`);
         }
         return;
     }
-    setStore(storeHandle, next as AsyncState);
+    runWithWriteContext(context, () => {
+        setStoreWithContext(storeHandle, next as AsyncState, undefined, context);
+    });
 };
 
 const _settleAbort = (
@@ -151,6 +157,20 @@ export async function fetchStore(
     const cacheMeta = getCacheMeta();
     const fetchRegistry = getFetchRegistry();
     const asyncMetrics = getAsyncMetricsRegistry();
+    const baseContext: WriteContext | null = (() => {
+        const explicit = options.correlationId;
+        const trace = options.traceContext;
+        if (explicit || trace) {
+            return { correlationId: explicit, traceContext: trace };
+        }
+        if (getConfig().autoCorrelationIds) {
+            return {
+                correlationId: `stroid-${name}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+                traceContext: trace,
+            };
+        }
+        return null;
+    })();
 
     if (!signal && isDev()) {
         warnOnce("noSignal", name, () => {
@@ -162,7 +182,13 @@ export async function fetchStore(
 
     const cacheSlot = cacheKey ? `${name}:${cacheKey}` : name;
     const applyState = (next: AsyncStateSnapshot) =>
-        _applyAsyncState(name, storeHandle, next, options);
+        _applyAsyncState(
+            name,
+            storeHandle,
+            baseContext ? { ...next, correlationId: baseContext.correlationId, traceContext: baseContext.traceContext } : next,
+            options,
+            baseContext
+        );
     const isDirectPromiseInput =
         typeof urlOrRequest !== "string"
         && typeof urlOrRequest !== "function"

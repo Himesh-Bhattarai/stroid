@@ -65,6 +65,8 @@ import { runTestResets, registerTestResetHook } from "./internals/test-reset.js"
 import { notify } from "./store-notify.js";
 import { MIDDLEWARE_ABORT } from "./features/lifecycle.js";
 import { createStore, createStoreStrict, clearSsrGlobalAllowWarned } from "./store-create.js";
+import { getWriteContext, type WriteContext } from "./internals/write-context.js";
+import type { TraceContext } from "./types/utility.js";
 
 export { createStore, createStoreStrict };
 import {
@@ -156,15 +158,28 @@ type CommitArgs = {
     action: CommitAction;
     hookLabel: CommitHookLabel;
     logMessage: string;
+    context?: WriteContext | null;
 };
 
-const commitStoreUpdate = (registry: StoreRegistry, { name, prev, next, action, hookLabel, logMessage }: CommitArgs): void => {
+const commitStoreUpdate = (registry: StoreRegistry, { name, prev, next, action, hookLabel, logMessage, context }: CommitArgs): void => {
     const registryMeta = registry.metaEntries;
     setStoreValueInternal(name, next, registry);
     invalidatePathCache(name);
     const updatedAtMs = Date.now();
     registryMeta[name].updatedAt = new Date(updatedAtMs).toISOString();
     registryMeta[name].updatedAtMs = updatedAtMs;
+    const resolvedContext = context ?? getWriteContext();
+    if (resolvedContext && (resolvedContext.correlationId || resolvedContext.traceContext)) {
+        registryMeta[name].lastCorrelationId = resolvedContext.correlationId ?? null;
+        registryMeta[name].lastCorrelationAt = new Date(updatedAtMs).toISOString();
+        registryMeta[name].lastCorrelationAtMs = updatedAtMs;
+        registryMeta[name].lastTraceContext = (resolvedContext.traceContext ?? null) as TraceContext | null;
+    } else {
+        registryMeta[name].lastCorrelationId = null;
+        registryMeta[name].lastCorrelationAt = null;
+        registryMeta[name].lastCorrelationAtMs = null;
+        registryMeta[name].lastTraceContext = null;
+    }
     bumpUpdateCount(registryMeta[name]);
     runFeatureWriteHooks(name, action, prev, next, notify);
     runStoreHookSafe(name, hookLabel, registryMeta[name].options[hookLabel], [prev, next]);
@@ -173,14 +188,17 @@ const commitStoreUpdate = (registry: StoreRegistry, { name, prev, next, action, 
 };
 
 const stageOrCommitUpdate = (registry: StoreRegistry, args: CommitArgs): void => {
+    const resolvedContext = args.context ?? getWriteContext();
     if (isTransactionActive()) {
         stageTransactionValue(args.name, args.next);
-        registerTransactionCommit(() => commitStoreUpdate(registry, args));
+        registerTransactionCommit(() => commitStoreUpdate(registry, { ...args, context: resolvedContext }));
         return;
     }
-    commitStoreUpdate(registry, args);
+    commitStoreUpdate(registry, { ...args, context: resolvedContext });
 };
 
+const resolveWriteContext = (context?: WriteContext | null): WriteContext | null =>
+    context ?? getWriteContext();
 
 export function setStore<T extends StoreTarget, P extends StorePathForTarget<T>>(
     name: T,
@@ -191,7 +209,12 @@ export function setStore<T extends StoreTarget>(
     name: T,
     update: StoreUpdateForTarget<T>
 ): WriteResult;
-export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
+const setStoreInternal = (
+    name: string | StoreDefinition<string, StoreValue>,
+    keyOrData: KeyOrData,
+    value?: unknown,
+    context?: WriteContext | null
+): WriteResult => {
     const storeName = nameOf(name);
     const registry = getRegistry();
     const registryMeta = registry.metaEntries;
@@ -315,7 +338,15 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
     }
     const validateRule = registryMeta[storeName]?.options?.validate;
 
-    const next = runMiddlewareForStore(storeName, { action: "set", prev, next: updated, path: keyOrData });
+    const writeContext = resolveWriteContext(context);
+    const next = runMiddlewareForStore(storeName, {
+        action: "set",
+        prev,
+        next: updated,
+        path: keyOrData,
+        correlationId: writeContext?.correlationId,
+        traceContext: writeContext?.traceContext,
+    });
     if (next === MIDDLEWARE_ABORT) {
         if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") aborted by middleware`);
         return { ok: false, reason: "middleware" };
@@ -334,9 +365,21 @@ export function setStore(name: string | StoreDefinition<string, StoreValue>, key
         action: "set",
         hookLabel: "onSet",
         logMessage: `Store "${storeName}" updated`,
+        context: writeContext,
     });
     return { ok: true };
+};
+
+export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
+    return setStoreInternal(name, keyOrData, value);
 }
+
+export const setStoreWithContext = (
+    name: string | StoreDefinition<string, StoreValue>,
+    keyOrData: KeyOrData,
+    value: unknown,
+    context: WriteContext | null
+): WriteResult => setStoreInternal(name, keyOrData, value, context);
 
 export function replaceStore<Name extends string, State>(name: StoreDefinition<Name, State>, value: State): WriteResult;
 export function replaceStore<Name extends string, State>(name: StoreKey<Name, State>, value: State): WriteResult;
@@ -421,7 +464,13 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
     return { ok: true };
 }
 
-const replaceStoreState = (registry: StoreRegistry, name: string, data: unknown, action: CommitAction = "hydrate"): { ok: boolean; reason?: string } => {
+const replaceStoreState = (
+    registry: StoreRegistry,
+    name: string,
+    data: unknown,
+    action: CommitAction = "hydrate",
+    context?: WriteContext | null
+): { ok: boolean; reason?: string } => {
     const fail = (reason: string, message?: string): { ok: false; reason: string } => {
         if (isTransactionActive()) {
             markTransactionFailed(message ?? reason);
@@ -444,7 +493,15 @@ const replaceStoreState = (registry: StoreRegistry, name: string, data: unknown,
 
     const validateRule = registry.metaEntries[name]?.options?.validate;
 
-    const final = runMiddlewareForStore(name, { action, prev, next: nextValue, path: null });
+    const writeContext = resolveWriteContext(context);
+    const final = runMiddlewareForStore(name, {
+        action,
+        prev,
+        next: nextValue,
+        path: null,
+        correlationId: writeContext?.correlationId,
+        traceContext: writeContext?.traceContext,
+    });
     if (final === MIDDLEWARE_ABORT) return fail("middleware", `replaceStore("${name}") aborted by middleware`);
     const committed = normalizeCommittedState(name, final, validateRule);
     if (!committed.ok) return fail("validate", `replaceStore("${name}") failed validation`);
@@ -455,6 +512,7 @@ const replaceStoreState = (registry: StoreRegistry, name: string, data: unknown,
         action,
         hookLabel: "onSet",
         logMessage: `Store "${name}" ${action === "hydrate" ? "hydrated" : "replaced"}`,
+        context: writeContext,
     });
     return { ok: true };
 };

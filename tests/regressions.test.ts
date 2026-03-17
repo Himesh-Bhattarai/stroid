@@ -14,6 +14,7 @@ import {
   createStore,
   deleteStore,
   getStore,
+  getStoreSnapshot,
   hasStore,
   isLazyStore,
   isStoreMaterialized,
@@ -28,6 +29,8 @@ import {
   _getSnapshot,
   _getStoreValueRef,
 } from "../src/store.js";
+import { fetchStore } from "../src/async-fetch.js";
+import { getStoreMeta, getStoreHealth, findColdStores } from "../src/runtime-tools.js";
 import { clearSsrGlobalAllowWarned } from "../src/store-create.js";
 import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
@@ -362,6 +365,92 @@ test("snapshot cache version batches per flush", async () => {
   assert.strictEqual(cached.version, registry.notify.flushId);
   assert.strictEqual(registry.metaEntries["batchVersion"]?.updateCount, 2);
   assert.notStrictEqual(cached.version, registry.metaEntries["batchVersion"]?.updateCount);
+});
+
+test("fetchStore propagates correlationId through middleware and computed writes", async () => {
+  clearAllStores();
+  const seen: string[] = [];
+  configureStroid({
+    middleware: [({ name, correlationId }) => {
+      if (correlationId) seen.push(`${name}:${correlationId}`);
+    }],
+  });
+
+  try {
+    createStore("orders", { data: null, loading: false, error: null, status: "idle" });
+    createComputed("totals", ["orders"], (state) => ({
+      value: (state as any)?.data?.value ?? 0,
+    }));
+
+    await fetchStore("orders", Promise.resolve({ value: 7 }), { correlationId: "corr-abc" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const meta = getStoreMeta("orders");
+    assert.strictEqual(meta?.lastCorrelationId, "corr-abc");
+    const asyncState = getStore("orders") as any;
+    assert.strictEqual(asyncState?.correlationId, "corr-abc");
+    assert.ok(seen.includes("orders:corr-abc"));
+    assert.ok(seen.includes("totals:corr-abc"));
+  } finally {
+    resetConfig();
+  }
+});
+
+test("fetchStore autoCorrelationIds generates ids when enabled", async () => {
+  clearAllStores();
+  configureStroid({ autoCorrelationIds: true });
+
+  try {
+    createStore("autoCorr", { data: null, loading: false, error: null, status: "idle" });
+    await fetchStore("autoCorr", Promise.resolve({ value: 1 }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const meta = getStoreMeta("autoCorr");
+    assert.ok(meta?.lastCorrelationId);
+    assert.ok((meta?.lastCorrelationId ?? "").startsWith("stroid-autoCorr-"));
+  } finally {
+    resetConfig();
+  }
+});
+
+test("getStoreSnapshot increments read counters", () => {
+  clearAllStores();
+  createStore("snapReads", { value: 1 });
+  const before = getStoreMeta("snapReads");
+  assert.strictEqual(before?.readCount, 0);
+
+  getStoreSnapshot("snapReads");
+  const after = getStoreMeta("snapReads");
+  assert.strictEqual(after?.readCount, 1);
+});
+
+test("findColdStores flags cold and write-only stores", () => {
+  clearAllStores();
+  createStore("coldStore", { value: 0 });
+  createStore("writeOnlyStore", { value: 0 });
+  setStore("writeOnlyStore", "value", 1);
+  createStore("activeStore", { value: 0 });
+  getStore("activeStore");
+
+  const reports = findColdStores({ includeWriteOnly: true, unreadThresholdMs: 60_000 });
+  const byName = new Map(reports.map((r) => [r.name, r]));
+
+  assert.strictEqual(byName.get("coldStore")?.verdict, "cold");
+  assert.strictEqual(byName.get("writeOnlyStore")?.verdict, "write-only");
+  assert.ok(!byName.has("activeStore"));
+});
+
+test("getStoreHealth returns per-store and global metrics", () => {
+  clearAllStores();
+  createStore("healthStore", { value: 1 });
+
+  const entry = getStoreHealth("healthStore") as any;
+  assert.strictEqual(entry?.name, "healthStore");
+  assert.ok(entry?.meta);
+
+  const summary = getStoreHealth() as any;
+  assert.ok(Array.isArray(summary?.stores));
+  assert.ok(summary?.registry?.totalStores >= 1);
 });
 
 test("bindRegistry preserves lazy factories across scope switches", () => {

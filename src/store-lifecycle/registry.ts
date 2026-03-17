@@ -185,12 +185,25 @@ export const applyFeatureState = (name: string, value: StoreValue, updatedAtMs =
     if (!meta[name]) return;
     meta[name].updatedAt = new Date(updatedAtMs).toISOString();
     meta[name].updatedAtMs = updatedAtMs;
+    meta[name].lastCorrelationId = null;
+    meta[name].lastCorrelationAt = null;
+    meta[name].lastCorrelationAtMs = null;
+    meta[name].lastTraceContext = null;
     if (meta[name].updateCount >= Number.MAX_SAFE_INTEGER) {
         meta[name].updateCount = 0;
     } else {
         meta[name].updateCount += 1;
     }
     _invalidatePathCache?.(name);
+};
+
+export const recordStoreRead = (name: string, registry: StoreRegistry = getActiveRegistry()): void => {
+    const metaEntry = registry.metaEntries[name];
+    if (!metaEntry) return;
+    metaEntry.readCount = (metaEntry.readCount ?? 0) + 1;
+    const now = Date.now();
+    metaEntry.lastReadAtMs = now;
+    metaEntry.lastReadAt = new Date(now).toISOString();
 };
 
 export const clearAllRegistries = (): void => {

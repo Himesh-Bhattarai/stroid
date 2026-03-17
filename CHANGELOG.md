@@ -30,6 +30,10 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - `HydrateSnapshotFor<Map>` helper type for stricter hydration typing.
 - Internal lifecycle hook hub for decoupled cross-layer events.
 - Lazy store lifecycle helpers: `isLazyStore`, `isLazyPending`, `isStoreMaterialized`.
+- `autoCorrelationIds` config and `fetchStore` correlation/trace context propagation.
+- `getStoreHealth()` unified observability helper for per-store and global metrics.
+- `findColdStores()` to surface cold/stale/write-only stores.
+- Root exports for `getMetrics` and `getAsyncMetrics` for discoverability.
 ### Changed
 - `createStoreForRequest` now hydrates with `{ allowTrusted: true }`.
 - `getStore` now respects `snapshot` mode (`deep`/`shallow`/`ref`) for both whole-store and path reads.
@@ -51,6 +55,8 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - Transactions now use async-context state (per AsyncLocalStorage) when available to avoid cross-request collisions.
 - `resetStore` now reports `lazy-uninitialized` when called before a lazy store is materialized.
 - `setStoreBatch` throws in production SSR when used on the global registry (requires request scope).
+- Store metadata now tracks read counts and last-read timestamps for cold-store detection.
+- Middleware contexts now include optional `correlationId`/`traceContext` for async tracing.
 
 ### Fixed
 - Helper store typings now align with the stricter `createStore` overloads.

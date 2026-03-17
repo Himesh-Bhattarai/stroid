@@ -7,6 +7,7 @@
  * Consumers: Internal imports and public API.
  */
 import { registerTestResetHook } from "../internals/test-reset.js";
+import type { TraceContext } from "../types/utility.js";
 
 export type StoreValue = unknown;
 
@@ -121,6 +122,8 @@ export interface MiddlewareCtx {
     prev: StoreValue;
     next: StoreValue;
     path: unknown;
+    correlationId?: string;
+    traceContext?: TraceContext;
 }
 
 export interface SyncOptions {

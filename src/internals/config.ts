@@ -43,6 +43,11 @@ export type StroidConfig = {
     asyncAutoCreate?: boolean;
     asyncCloneResult?: AsyncCloneMode;
     /**
+     * Automatically generate correlation IDs for async fetch writes.
+     * Default: false.
+     */
+    autoCorrelationIds?: boolean;
+    /**
      * Acknowledge loose store name typing and suppress dev warnings.
      * Useful when you intentionally skip StoreStateMap augmentation.
      */
@@ -93,6 +98,7 @@ type ResolvedConfig = {
     strictMutatorReturns: boolean;
     asyncAutoCreate: boolean;
     asyncCloneResult: AsyncCloneMode;
+    autoCorrelationIds: boolean;
     acknowledgeLooseTypes: boolean;
     pathCacheSize: number;
     defaultSnapshotMode: SnapshotMode;
@@ -141,6 +147,7 @@ const defaultConfig: ResolvedConfig = {
     strictMutatorReturns: true,
     asyncAutoCreate: false,
     asyncCloneResult: "none",
+    autoCorrelationIds: false,
     acknowledgeLooseTypes: false,
     pathCacheSize: 500,
     defaultSnapshotMode: "shallow",
@@ -160,6 +167,7 @@ const cloneConfig = (base: ResolvedConfig): ResolvedConfig => ({
     strictMutatorReturns: base.strictMutatorReturns,
     asyncAutoCreate: base.asyncAutoCreate,
     asyncCloneResult: base.asyncCloneResult,
+    autoCorrelationIds: base.autoCorrelationIds,
     acknowledgeLooseTypes: base.acknowledgeLooseTypes,
     pathCacheSize: base.pathCacheSize,
     defaultSnapshotMode: base.defaultSnapshotMode,
@@ -301,6 +309,13 @@ export const configureStroid = (next?: StroidConfig): void => {
         config = {
             ...config,
             strictAsyncUsageErrors: next.strictAsyncUsageErrors,
+        };
+    }
+
+    if (typeof next.autoCorrelationIds === "boolean") {
+        config = {
+            ...config,
+            autoCorrelationIds: next.autoCorrelationIds,
         };
     }
 

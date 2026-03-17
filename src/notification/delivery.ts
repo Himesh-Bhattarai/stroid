@@ -15,6 +15,7 @@ import { resolveSnapshotMode, cloneSnapshot } from "./snapshot.js";
 import { createMetrics, recordMetrics, commitMetrics } from "./metrics.js";
 import { scheduleChunk } from "./scheduler.js";
 import { hasHook, fireHook } from "../core/lifecycle-hooks.js";
+import { runWithWriteContext, type WriteContext } from "../internals/write-context.js";
 import type { FlushPlan } from "./priority.js";
 
 export const deliverFlush = (
@@ -55,6 +56,15 @@ export const deliverFlush = (
         fireHook("afterFlush", name, { type: "afterFlush", elapsedMs });
     };
 
+    const resolveWriteContext = (name: string): WriteContext | null => {
+        const metaEntry = registryMeta[name];
+        if (!metaEntry) return null;
+        const correlationId = metaEntry.lastCorrelationId ?? undefined;
+        const traceContext = metaEntry.lastTraceContext ?? undefined;
+        if (!correlationId && !traceContext) return null;
+        return { correlationId, traceContext };
+    };
+
     const fillSubscriberBuffer = (subs: Set<Subscriber>): Subscriber[] => {
         subscriberBuffer.length = 0;
         for (const sub of subs) subscriberBuffer.push(sub);
@@ -85,10 +95,15 @@ export const deliverFlush = (
             fireBefore(name);
             const start = now();
             const subsArray = fillSubscriberBuffer(subs);
-            for (const subscriber of subsArray) {
-                try { subscriber(snapshot); }
-                catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
-            }
+            const context = resolveWriteContext(name);
+            const deliver = () => {
+                for (const subscriber of subsArray) {
+                    try { subscriber(snapshot); }
+                    catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
+                }
+            };
+            if (context) runWithWriteContext(context, deliver);
+            else deliver();
             const elapsed = now() - start;
             fireAfter(name, elapsed);
 
@@ -184,20 +199,25 @@ export const deliverFlush = (
             let sent = 0;
             let versionChanged = false;
             const subsArray = fillSubscriberBuffer(subs);
-            for (let index = 0; index < subsArray.length && sent < sliceSize; index += 1) {
-                const subscriber = subsArray[index];
-                if (task.notified.has(subscriber)) continue;
-                task.notified.add(subscriber);
-                try { subscriber(task.snapshot); }
-                catch (err) { warn(`Subscriber for "${task.name}" threw: ${(err as { message?: string })?.message ?? err}`); }
-                sent += 1;
-                const currentVersion = registryMeta[task.name]?.updateCount ?? task.version;
-                if (currentVersion !== task.version) {
-                    versionChanged = true;
-                    state.pendingNotifications.add(task.name);
-                    break;
+            const context = resolveWriteContext(task.name);
+            const deliverSlice = () => {
+                for (let index = 0; index < subsArray.length && sent < sliceSize; index += 1) {
+                    const subscriber = subsArray[index];
+                    if (task.notified.has(subscriber)) continue;
+                    task.notified.add(subscriber);
+                    try { subscriber(task.snapshot); }
+                    catch (err) { warn(`Subscriber for "${task.name}" threw: ${(err as { message?: string })?.message ?? err}`); }
+                    sent += 1;
+                    const currentVersion = registryMeta[task.name]?.updateCount ?? task.version;
+                    if (currentVersion !== task.version) {
+                        versionChanged = true;
+                        state.pendingNotifications.add(task.name);
+                        break;
+                    }
                 }
-            }
+            };
+            if (context) runWithWriteContext(context, deliverSlice);
+            else deliverSlice();
             task.totalMs += now() - start;
 
             if (versionChanged) {

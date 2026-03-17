@@ -21,13 +21,22 @@ export const runMiddleware = ({
     warn,
 }: {
     name: string;
-    payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown };
+    payload: {
+        action: string;
+        prev: StoreValue;
+        next: StoreValue;
+        path: unknown;
+        correlationId?: string;
+        traceContext?: import("../types/utility.js").TraceContext;
+    };
     middlewares: Array<(ctx: {
         action: string;
         name: string;
         prev: StoreValue;
         next: StoreValue;
         path: unknown;
+        correlationId?: string;
+        traceContext?: import("../types/utility.js").TraceContext;
     }) => StoreValue | void>;
     reportIssue: LifecycleIssueReporter;
     warn: (message: string) => void;
@@ -46,6 +55,8 @@ export const runMiddleware = ({
                 prev: payload.prev,
                 next: middlewareNext,
                 path: payload.path,
+                correlationId: payload.correlationId,
+                traceContext: payload.traceContext,
             });
         } catch (err) {
             const message = `Middleware for "${name}" failed: ${(err as { message?: string })?.message ?? err}`;

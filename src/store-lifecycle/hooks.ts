@@ -172,7 +172,7 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
 
 export const runMiddlewareForStore = (
     name: string,
-    payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; }
+    payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; correlationId?: string; traceContext?: import("../types/utility.js").TraceContext; }
 ): StoreValue | typeof MIDDLEWARE_ABORT =>
     runMiddleware({
         name,
