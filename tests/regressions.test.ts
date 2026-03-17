@@ -40,6 +40,7 @@ import { getTopoOrderedComputeds } from "../src/computed-graph.js";
 import { createComputed } from "../src/computed.js";
 import { registerStoreFeature, resetRegisteredStoreFeaturesForTests } from "../src/feature-registry.js";
 import { registerHook } from "../src/core/lifecycle-hooks.js";
+import { buildFlushPlan } from "../src/notification/priority.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { injectTransactionRunner, beginTransaction, endTransaction, stageTransactionValue, getStagedTransactionValue } from "../src/store-transaction.js";
 
@@ -479,6 +480,37 @@ test("chunked flush snapshots ordered names (orderedNames race)", async () => {
   }
 });
 
+test("inline flush defers subscribers added mid-flush until next write", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkDelayMs: 0, chunkSize: Number.POSITIVE_INFINITY } });
+
+  try {
+    createStore("inlineAdd", { value: 0 });
+    const calls: string[] = [];
+    let added = false;
+
+    subscribe("inlineAdd", () => {
+      calls.push("a");
+      if (!added) {
+        added = true;
+        subscribe("inlineAdd", () => {
+          calls.push("b");
+        });
+      }
+    });
+
+    setStore("inlineAdd", "value", 1);
+    await Promise.resolve();
+    assert.deepStrictEqual(calls, ["a"]);
+
+    setStore("inlineAdd", "value", 2);
+    await Promise.resolve();
+    assert.deepStrictEqual(calls, ["a", "a", "b"]);
+  } finally {
+    resetConfig();
+  }
+});
+
 test("chunked flush notifies subscribers added mid-flush", async () => {
   clearAllStores();
   configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 20 } });
@@ -633,6 +665,15 @@ test("feature runtimes initialize before onStoreCreate in new registries", () =>
   } finally {
     resetRegisteredStoreFeaturesForTests();
   }
+});
+
+test("buildFlushPlan reuses the orderedNames buffer", () => {
+  const registry = createStoreRegistry();
+  registry.notify.pendingNotifications.add("alpha");
+  registry.notify.pendingNotifications.add("beta");
+  const plan = buildFlushPlan(registry.notify);
+  assert.strictEqual(plan.names, registry.notify.orderedNames);
+  assert.deepStrictEqual(plan.names, ["alpha", "beta"]);
 });
 
 test("snapshotStrategy sets the default snapshot mode", () => {

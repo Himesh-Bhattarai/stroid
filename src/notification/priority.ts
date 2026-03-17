@@ -20,17 +20,18 @@ export type FlushPlan = {
 
 export const buildFlushPlan = (state: NotifyState): FlushPlan => {
     const { pendingNotifications, pendingBuffer, orderedNames } = state;
-    pendingBuffer.length = 0;
-    for (const name of pendingNotifications) pendingBuffer.push(name);
-    pendingNotifications.clear();
-
     const cfg = getConfig().flush;
     const priority = cfg.priorityStores || [];
-    const pendingSet = new Set(pendingBuffer);
     const prioritySet = priority.length ? new Set(priority) : null;
 
     orderedNames.length = 0;
+    pendingBuffer.length = 0;
+    const pendingSet = new Set<string>();
     if (prioritySet) {
+        for (const name of pendingNotifications) {
+            pendingBuffer.push(name);
+            pendingSet.add(name);
+        }
         for (const p of priority) {
             if (pendingSet.has(p)) orderedNames.push(p);
         }
@@ -38,8 +39,13 @@ export const buildFlushPlan = (state: NotifyState): FlushPlan => {
             if (!prioritySet.has(name)) orderedNames.push(name);
         }
     } else {
-        orderedNames.push(...pendingBuffer);
+        for (const name of pendingNotifications) {
+            pendingBuffer.push(name);
+            pendingSet.add(name);
+            orderedNames.push(name);
+        }
     }
+    pendingNotifications.clear();
 
     const computedOrder = getComputedOrder(orderedNames);
     const orderedSet = new Set(orderedNames);
@@ -55,6 +61,6 @@ export const buildFlushPlan = (state: NotifyState): FlushPlan => {
         : Number.POSITIVE_INFINITY;
     const chunkDelayMs = cfg.chunkDelayMs;
     const runInline = sliceSize === Number.POSITIVE_INFINITY && chunkDelayMs === 0;
-    const names = orderedNames.slice();
+    const names = orderedNames;
     return { names, sliceSize, chunkDelayMs, runInline, prioritySet };
 };

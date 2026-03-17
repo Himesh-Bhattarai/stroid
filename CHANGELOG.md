@@ -12,6 +12,12 @@ All notable changes to this project will be documented in this file.
 ### Migration
 
 
+###
+Hot-path Proxy avoidance: deliverFlush now captures direct registry references once and reuses them during the flush loop.
+Array.from elimination: replaced per-flush subscriber array allocations with a registry-level reusable buffer.
+buildFlushPlan collapse: reduced passes, preserved pendingBuffer semantics, and removed the terminal orderedNames.slice() allocation.
+New micro-benchmark: added a flush‑overhead benchmark script to isolate scheduler/flush costs with no‑op subscribers.
+
 ### Added
 - `allowTrusted` hydration flag (aliasing `allowHydration`; `allowUntrusted` deprecated).
 - `allowTrustedHydration` config alias for trusted snapshot hydration.

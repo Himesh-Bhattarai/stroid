@@ -26,6 +26,7 @@ export const deliverFlush = (
     const state = registry.notify;
     const { names, sliceSize, chunkDelayMs, runInline, prioritySet } = plan;
     const carrier = getRequestCarrier();
+    const subscriberBuffer = state.subscriberBuffer as Subscriber[];
     const registryStores = registry.stores;
     const registrySubs = registry.subscribers;
     const registryMeta = registry.metaEntries;
@@ -54,6 +55,12 @@ export const deliverFlush = (
         fireHook("afterFlush", name, { type: "afterFlush", elapsedMs });
     };
 
+    const fillSubscriberBuffer = (subs: Set<Subscriber>): Subscriber[] => {
+        subscriberBuffer.length = 0;
+        for (const sub of subs) subscriberBuffer.push(sub);
+        return subscriberBuffer;
+    };
+
     const finish = (): void => {
         onComplete();
     };
@@ -77,7 +84,8 @@ export const deliverFlush = (
             const metrics = createMetrics(registryMeta[name]?.metrics);
             fireBefore(name);
             const start = now();
-            for (const subscriber of subs) {
+            const subsArray = fillSubscriberBuffer(subs);
+            for (const subscriber of subsArray) {
                 try { subscriber(snapshot); }
                 catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
             }
@@ -98,19 +106,12 @@ export const deliverFlush = (
 
     type StoreTask = {
         name: string;
-        subsArray: Subscriber[];
-        index: number;
         snapshot: StoreValue | null;
         version: number;
         notified: Set<Subscriber>;
         metrics: ReturnType<typeof createMetrics>;
         totalMs: number;
         beforeHooked: boolean;
-    };
-
-    const fillSubscribers = (target: Subscriber[], subs: Set<Subscriber>): void => {
-        target.length = 0;
-        for (const sub of subs) target.push(sub);
     };
 
     const buildQueue = (filter?: (name: string) => boolean): StoreTask[] => {
@@ -130,12 +131,8 @@ export const deliverFlush = (
                     registrySnapshotCache[name] = { version: flushVersion, snapshot: nextSnapshot, source, mode: snapshotMode };
                     return nextSnapshot;
                 })();
-            const subsArray: Subscriber[] = [];
-            fillSubscribers(subsArray, subs);
             tasks.push({
                 name,
-                subsArray,
-                index: 0,
                 snapshot,
                 version: storeVersion,
                 notified: new Set(),
@@ -149,17 +146,6 @@ export const deliverFlush = (
 
     const priorityQueue = prioritySet ? buildQueue((name) => prioritySet.has(name)) : [];
     const regularQueue = buildQueue((name) => !prioritySet || !prioritySet.has(name));
-
-    const refreshTaskSubscribers = (task: StoreTask): void => {
-        const subs = registrySubs[task.name];
-        if (!subs || subs.size === 0) {
-            task.subsArray = [];
-            task.index = 0;
-            return;
-        }
-        fillSubscribers(task.subsArray, subs);
-        task.index = 0;
-    };
 
     const runQueue = (queue: StoreTask[], done: () => void): void => {
         const processNext = (): void => {
@@ -179,8 +165,8 @@ export const deliverFlush = (
                 return;
             }
 
-            refreshTaskSubscribers(task);
-            if (task.subsArray.length === 0) {
+            const subs = registrySubs[task.name];
+            if (!subs || subs.size === 0) {
                 if (queue.length === 0) {
                     done();
                     return;
@@ -197,8 +183,9 @@ export const deliverFlush = (
             const start = now();
             let sent = 0;
             let versionChanged = false;
-            while (task.index < task.subsArray.length && sent < sliceSize) {
-                const subscriber = task.subsArray[task.index++];
+            const subsArray = fillSubscriberBuffer(subs);
+            for (let index = 0; index < subsArray.length && sent < sliceSize; index += 1) {
+                const subscriber = subsArray[index];
                 if (task.notified.has(subscriber)) continue;
                 task.notified.add(subscriber);
                 try { subscriber(task.snapshot); }
@@ -222,10 +209,9 @@ export const deliverFlush = (
                 return;
             }
 
-            const currentSubs = registrySubs[task.name];
             let hasUnnotified = false;
-            if (currentSubs) {
-                for (const sub of currentSubs) {
+            if (subs) {
+                for (const sub of subs) {
                     if (!task.notified.has(sub)) {
                         hasUnnotified = true;
                         break;
@@ -233,7 +219,7 @@ export const deliverFlush = (
                 }
             }
 
-            if (task.index < task.subsArray.length || hasUnnotified) {
+            if (hasUnnotified) {
                 queue.push(task);
             } else {
                 recordMetrics(task.metrics, task.totalMs);
