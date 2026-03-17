@@ -35,6 +35,7 @@ import { setComputedOrderResolver } from "../src/internals/computed-order.js";
 import { getTopoOrderedComputeds } from "../src/computed-graph.js";
 import { createComputed } from "../src/computed.js";
 import { registerStoreFeature, resetRegisteredStoreFeaturesForTests } from "../src/feature-registry.js";
+import { registerHook } from "../src/core/lifecycle-hooks.js";
 
 test("validator with side effects runs once per write", () => {
   clearAllStores();
@@ -657,6 +658,32 @@ test("notify uses carrier values inside request registries", async () => {
 
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.ok(seen.some((snap) => snap?.value === 2));
+});
+
+test("lifecycle flush hooks fire once per store flush", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 5 } });
+
+  const events: string[] = [];
+  const stopBefore = registerHook("beforeFlush", (name) => {
+    events.push(`before:${name}`);
+  });
+  const stopAfter = registerHook("afterFlush", (name) => {
+    events.push(`after:${name}`);
+  });
+
+  try {
+    createStore("hooked", { value: 0 });
+    subscribe("hooked", () => {});
+    setStore("hooked", "value", 1);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    assert.deepStrictEqual(events, ["before:hooked", "after:hooked"]);
+  } finally {
+    stopBefore();
+    stopAfter();
+    resetConfig();
+  }
 });
 
 test("mid-flush store deletion does not crash or notify deleted subscribers", async () => {

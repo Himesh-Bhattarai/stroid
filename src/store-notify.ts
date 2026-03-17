@@ -19,7 +19,8 @@ import {
 import { runWithRegistry } from "./store-registry.js";
 import type { StoreValue, Subscriber } from "./store-lifecycle/types.js";
 import type { SnapshotMode } from "./adapters/options.js";
-import { cloneSnapshot, scheduleFlush } from "./store-notify-scheduler.js";
+import { cloneSnapshot, resolveSnapshotMode } from "./notification/snapshot.js";
+import { scheduleFlush } from "./notification/index.js";
 import { getConfig } from "./internals/config.js";
 
 const maybeFreezeSnapshot = (snapshot: StoreValue | null, mode: SnapshotMode): void => {
@@ -106,10 +107,10 @@ export const subscribe = subscribeStore;
 export const getStoreSnapshot = (name: string): StoreValue | null => {
     if (!hasStoreEntryInternal(name)) return null;
     const registry = getRegistry();
-    const snapshotMode = (() => {
-        const mode = registry.metaEntries[name]?.options?.snapshot ?? getConfig().defaultSnapshotMode;
-        return mode === "shallow" || mode === "ref" ? mode : "deep";
-    })();
+    const snapshotMode = resolveSnapshotMode(
+        registry.metaEntries[name],
+        getConfig().defaultSnapshotMode
+    );
     if (isTransactionActive()) {
         const txCache = registry.transaction.snapshotCache;
         const source = getStoreValueRef(name);

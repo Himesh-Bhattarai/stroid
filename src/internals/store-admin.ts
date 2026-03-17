@@ -14,6 +14,7 @@ import { isDev, log, warn, warnAlways } from "./diagnostics.js";
 import { reportIssue } from "./reporting.js";
 import { isComputed } from "../computed-graph.js";
 import { deleteComputed } from "../computed.js";
+import { fireHook } from "../core/lifecycle-hooks.js";
 
 type MetaEntry = StoreFeatureMeta;
 
@@ -190,6 +191,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                 initialState,
                 phase: "after",
             });
+            fireHook("afterStoreDelete", name, { type: "afterStoreDelete", prev });
             log(`Store "${name}" deleted`);
         } finally {
             deletingStores.delete(name);

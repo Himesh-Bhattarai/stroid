@@ -1,114 +1,61 @@
 /**
- * @module store-notify-scheduler
+ * @module notification/delivery
  *
- * LAYER: Store runtime
- * OWNS:  Notification scheduling, ordering, and flush coordination.
+ * LAYER: Notification pipeline
+ * OWNS:  Delivering snapshots to subscribers (inline + chunked).
  *
- * Consumers: store-notify.ts
+ * Consumers: notification/index.ts
  */
-import { deepClone, shallowClone, warn } from "./utils.js";
-import { getConfig } from "./internals/config.js";
-import { runWithRegistry, type StoreRegistry, type NotifyState, getRequestCarrier } from "./store-registry.js";
-import { meta } from "./store-lifecycle/registry.js";
-import type { StoreValue, Subscriber } from "./store-lifecycle/types.js";
-import { getComputedOrder } from "./internals/computed-order.js";
-import type { SnapshotMode } from "./adapters/options.js";
+import { warn } from "../utils.js";
+import { getConfig } from "../internals/config.js";
+import { getRequestCarrier, type StoreRegistry } from "../store-registry.js";
+import type { SnapshotMode } from "../adapters/options.js";
+import type { StoreValue, Subscriber } from "../store-lifecycle/types.js";
+import { resolveSnapshotMode, cloneSnapshot } from "./snapshot.js";
+import { createMetrics, recordMetrics, commitMetrics } from "./metrics.js";
+import { scheduleChunk } from "./scheduler.js";
+import { hasHook, fireHook } from "../core/lifecycle-hooks.js";
+import type { FlushPlan } from "./priority.js";
 
-export const resolveSnapshotMode = (name: string): SnapshotMode => {
-    const mode = meta[name]?.options?.snapshot ?? getConfig().defaultSnapshotMode;
-    return mode === "shallow" || mode === "ref" ? mode : "deep";
-};
-
-const resolveSnapshotModeForMeta = (metaEntry: { options?: { snapshot?: SnapshotMode } } | undefined, fallback: SnapshotMode): SnapshotMode => {
-    const mode = metaEntry?.options?.snapshot ?? fallback;
-    return mode === "shallow" || mode === "ref" ? mode : "deep";
-};
-
-export const cloneSnapshot = (value: StoreValue, mode: SnapshotMode): StoreValue => {
-    if (mode === "ref") return value;
-    if (mode === "shallow") return shallowClone(value);
-    return deepClone(value);
-};
-
-const scheduleChunk = (fn: () => void, delayMs: number): void => {
-    if (delayMs > 0 && typeof setTimeout === "function") {
-        setTimeout(fn, delayMs);
-        return;
-    }
-    if (typeof queueMicrotask === "function") {
-        queueMicrotask(fn);
-        return;
-    }
-    Promise.resolve().then(fn);
-};
-
-const buildPendingOrder = (state: NotifyState): { names: string[]; sliceSize: number; chunkDelayMs: number; runInline: boolean; prioritySet: Set<string> | null } => {
-    const { pendingNotifications, pendingBuffer, orderedNames } = state;
-    pendingBuffer.length = 0;
-    for (const name of pendingNotifications) pendingBuffer.push(name);
-    pendingNotifications.clear();
-
-    const cfg = getConfig().flush;
-    const priority = cfg.priorityStores || [];
-    const pendingSet = new Set(pendingBuffer);
-    const prioritySet = priority.length ? new Set(priority) : null;
-
-    orderedNames.length = 0;
-    if (prioritySet) {
-        for (const p of priority) {
-            if (pendingSet.has(p)) orderedNames.push(p);
-        }
-        for (const name of pendingBuffer) {
-            if (!prioritySet.has(name)) orderedNames.push(name);
-        }
-    } else {
-        orderedNames.push(...pendingBuffer);
-    }
-
-    const computedOrder = getComputedOrder(orderedNames);
-    const orderedSet = new Set(orderedNames);
-    for (const computedName of computedOrder) {
-        if (pendingSet.has(computedName) && !orderedSet.has(computedName)) {
-            orderedNames.push(computedName);
-            orderedSet.add(computedName);
-        }
-    }
-
-    const sliceSize = Number.isFinite(cfg.chunkSize) && (cfg.chunkSize as number) > 0
-        ? (cfg.chunkSize as number)
-        : Number.POSITIVE_INFINITY;
-    const chunkDelayMs = cfg.chunkDelayMs;
-    const runInline = sliceSize === Number.POSITIVE_INFINITY && chunkDelayMs === 0;
-    const names = orderedNames.slice();
-    return { names, sliceSize, chunkDelayMs, runInline, prioritySet };
-};
-
-const flush = (registry: StoreRegistry): void => {
+export const deliverFlush = (
+    registry: StoreRegistry,
+    plan: FlushPlan,
+    flushVersion: number,
+    onComplete: () => void
+): void => {
     const state = registry.notify;
-    state.isFlushing = true;
-    state.flushId = (state.flushId + 1) >>> 0;
-    const flushVersion = state.flushId;
-    const { names, sliceSize, chunkDelayMs, runInline, prioritySet } = buildPendingOrder(state);
+    const { names, sliceSize, chunkDelayMs, runInline, prioritySet } = plan;
     const carrier = getRequestCarrier();
     const registryStores = registry.stores;
     const registrySubs = registry.subscribers;
     const registryMeta = registry.metaEntries;
     const registrySnapshotCache = registry.snapshotCache;
     const defaultSnapshotMode = getConfig().defaultSnapshotMode;
+    const resolveMode = (name: string): SnapshotMode =>
+        resolveSnapshotMode(registryMeta[name], defaultSnapshotMode);
     const getStoreValue = (name: string): StoreValue => {
         if (carrier && Object.prototype.hasOwnProperty.call(carrier, name)) {
             return carrier[name] as StoreValue;
         }
         return registryStores[name] as StoreValue;
     };
-    const resolveMode = (name: string): SnapshotMode =>
-        resolveSnapshotModeForMeta(registryMeta[name], defaultSnapshotMode);
     const now = () => (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
 
-    const finish = () => {
-        state.isFlushing = false;
-        state.notifyScheduled = false;
-        if (state.pendingNotifications.size > 0) scheduleFlush(registry);
+    const hasBeforeHook = hasHook("beforeFlush");
+    const hasAfterHook = hasHook("afterFlush");
+
+    const fireBefore = (name: string): void => {
+        if (!hasBeforeHook) return;
+        fireHook("beforeFlush", name, { type: "beforeFlush" });
+    };
+
+    const fireAfter = (name: string, elapsedMs: number): void => {
+        if (!hasAfterHook) return;
+        fireHook("afterFlush", name, { type: "afterFlush", elapsedMs });
+    };
+
+    const finish = (): void => {
+        onComplete();
     };
 
     if (runInline) {
@@ -127,18 +74,18 @@ const flush = (registry: StoreRegistry): void => {
                     return nextSnapshot;
                 })();
 
+            const metrics = createMetrics(registryMeta[name]?.metrics);
+            fireBefore(name);
             const start = now();
             for (const subscriber of subs) {
                 try { subscriber(snapshot); }
                 catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
             }
             const elapsed = now() - start;
+            fireAfter(name, elapsed);
 
-            const metrics = registryMeta[name]?.metrics || { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 };
-            metrics.notifyCount += 1;
-            metrics.totalNotifyMs += elapsed;
-            metrics.lastNotifyMs = elapsed;
-            if (registryMeta[name]) registryMeta[name].metrics = metrics;
+            recordMetrics(metrics, elapsed);
+            commitMetrics(registryMeta[name], metrics);
 
             const currentVersion = registryMeta[name]?.updateCount ?? storeVersion;
             if (currentVersion !== storeVersion) {
@@ -156,14 +103,16 @@ const flush = (registry: StoreRegistry): void => {
         snapshot: StoreValue | null;
         version: number;
         notified: Set<Subscriber>;
-        metrics: { notifyCount: number; totalNotifyMs: number; lastNotifyMs: number };
+        metrics: ReturnType<typeof createMetrics>;
         totalMs: number;
+        beforeHooked: boolean;
     };
 
     const fillSubscribers = (target: Subscriber[], subs: Set<Subscriber>): void => {
         target.length = 0;
         for (const sub of subs) target.push(sub);
     };
+
     const buildQueue = (filter?: (name: string) => boolean): StoreTask[] => {
         const tasks: StoreTask[] = [];
         for (const name of names) {
@@ -190,8 +139,9 @@ const flush = (registry: StoreRegistry): void => {
                 snapshot,
                 version: storeVersion,
                 notified: new Set(),
-                metrics: registryMeta[name]?.metrics ? { ...registryMeta[name]!.metrics } : { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
+                metrics: createMetrics(registryMeta[name]?.metrics),
                 totalMs: 0,
+                beforeHooked: false,
             });
         }
         return tasks;
@@ -239,6 +189,11 @@ const flush = (registry: StoreRegistry): void => {
                 return;
             }
 
+            if (!task.beforeHooked) {
+                task.beforeHooked = true;
+                fireBefore(task.name);
+            }
+
             const start = now();
             let sent = 0;
             let versionChanged = false;
@@ -281,10 +236,9 @@ const flush = (registry: StoreRegistry): void => {
             if (task.index < task.subsArray.length || hasUnnotified) {
                 queue.push(task);
             } else {
-                task.metrics.notifyCount += 1;
-                task.metrics.totalNotifyMs += task.totalMs;
-                task.metrics.lastNotifyMs = task.totalMs;
-                if (registryMeta[task.name]) registryMeta[task.name].metrics = task.metrics;
+                recordMetrics(task.metrics, task.totalMs);
+                commitMetrics(registryMeta[task.name], task.metrics);
+                fireAfter(task.name, task.totalMs);
             }
 
             if (queue.length === 0) {
@@ -302,13 +256,4 @@ const flush = (registry: StoreRegistry): void => {
     } else {
         runQueue(regularQueue, finish);
     }
-};
-
-export const scheduleFlush = (registry: StoreRegistry): void => {
-    const state = registry.notify;
-    if (state.notifyScheduled) return;
-    state.notifyScheduled = true;
-    const run = () => runWithRegistry(registry, () => flush(registry));
-    if (typeof queueMicrotask === "function") queueMicrotask(run);
-    else Promise.resolve().then(run);
 };

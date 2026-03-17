@@ -6,8 +6,8 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { subscribe } from "./store-notify.js";
 import { getRegistry } from "./store-lifecycle/registry.js";
+import { registerHook } from "./core/lifecycle-hooks.js";
 import type { FetchOptions, WarnCategory } from "./async-registry.js";
 import { resetAsyncRegistry } from "./async-registry.js";
 export type { FetchOptions, AsyncStateSnapshot, AsyncStateAdapter } from "./async-registry.js";
@@ -71,6 +71,29 @@ export const warnOnce = (category: WarnCategory, key: string, onWarn: () => void
     if (set.has(key)) return;
     markWarned(set, key);
     onWarn();
+};
+
+let deleteHookCleanup: (() => void) | null = null;
+
+const ensureDeleteHook = (): void => {
+    if (deleteHookCleanup) return;
+    deleteHookCleanup = registerHook("afterStoreDelete", (name) => {
+        const cleanupSubs = getCleanupSubs();
+        const cleanup = cleanupSubs[name];
+        if (cleanup) {
+            cleanup();
+            return;
+        }
+        const storeCleanupFns = getStoreCleanupFns();
+        const fns = storeCleanupFns[name];
+        if (fns) {
+            fns.forEach((fn) => {
+                try { fn(); } catch (_) { /* ignore cleanup errors */ }
+            });
+            delete storeCleanupFns[name];
+        }
+        clearAsyncMeta(name);
+    });
 };
 
 export const resetAsyncState = (): void => {
@@ -161,11 +184,11 @@ export const unregisterStoreCleanup = (name: string, fn: () => void): void => {
 };
 
 export const ensureCleanupSubscription = (name: string): void => {
+    ensureDeleteHook();
     const cleanupSubs = getCleanupSubs();
     const storeCleanupFns = getStoreCleanupFns();
     if (cleanupSubs[name]) return;
-    cleanupSubs[name] = subscribe(name, (state) => {
-        if (state !== null) return;
+    cleanupSubs[name] = () => {
         const fns = storeCleanupFns[name];
         if (fns) {
             fns.forEach((fn) => {
@@ -173,10 +196,9 @@ export const ensureCleanupSubscription = (name: string): void => {
             });
             delete storeCleanupFns[name];
         }
-        cleanupSubs[name]?.();
         delete cleanupSubs[name];
         clearAsyncMeta(name);
-    });
+    };
 };
 
 
