@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./.tsbuild/layer-features.tsbuildinfo"
+  },
+  "references": [
+    { "path": "./tsconfig.layer.core.json" },
+    { "path": "./tsconfig.layer.async.json" }
+  ],
+  "include": [
+    "src/features/**/*.ts",
+    "src/persist.ts",
+    "src/sync.ts",
+    "src/devtools.ts",
+    "src/feature.ts"
+  ],
+  "exclude": [
+    "src/features/lifecycle.ts"
+  ]
+}

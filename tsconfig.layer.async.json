@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./.tsbuild/layer-async.tsbuildinfo"
+  },
+  "references": [
+    { "path": "./tsconfig.layer.core.json" }
+  ],
+  "include": [
+    "src/async*.ts",
+    "src/async/**/*.ts",
+    "src/async-cache.ts",
+    "src/async-fetch.ts",
+    "src/integrations/**/*.ts"
+  ]
+}

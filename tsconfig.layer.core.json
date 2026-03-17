@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./.tsbuild/layer-core.tsbuildinfo"
+  },
+  "references": [
+    { "path": "./tsconfig.layer.base.json" }
+  ],
+  "include": [
+    "src/store-*.ts",
+    "src/store-lifecycle/**/*.ts",
+    "src/notification/**/*.ts",
+    "src/internals/**/*.ts",
+    "src/devfreeze.ts",
+    "src/runtime-admin.ts",
+    "src/runtime-tools.ts",
+    "src/helpers.ts",
+    "src/testing.ts",
+    "src/feature-registry.ts",
+    "src/features/lifecycle.ts",
+    "src/async-registry.ts"
+  ]
+}

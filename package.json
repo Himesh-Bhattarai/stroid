@@ -143,6 +143,7 @@
     "docs:api": "api-extractor run --local",
     "test:types": "npm run build && npm run check:react-types && npm run docs:api && tsc -p tsconfig.typetests.json",
     "typecheck": "tsc -p tsconfig.types.json",
+    "typecheck:layers": "tsc -b tsconfig.layers.json",
     "build": "tsup",
     "test:all": "npm test && npm run test:types",
     "test:full": "npm run test:coverage && npm run test:types"

@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./.tsbuild/layer-entrypoints.tsbuildinfo"
+  },
+  "references": [
+    { "path": "./tsconfig.layer.core.json" },
+    { "path": "./tsconfig.layer.async.json" },
+    { "path": "./tsconfig.layer.computed.json" },
+    { "path": "./tsconfig.layer.features.json" },
+    { "path": "./tsconfig.layer.react.json" }
+  ],
+  "include": [
+    "src/index.ts",
+    "src/core.ts",
+    "src/async.ts",
+    "src/server.ts",
+    "src/runtime-tools.ts",
+    "src/runtime-admin.ts",
+    "src/helpers.ts",
+    "src/testing.ts",
+    "src/react/index.ts",
+    "src/persist.ts",
+    "src/sync.ts",
+    "src/devtools.ts",
+    "src/feature.ts"
+  ]
+}

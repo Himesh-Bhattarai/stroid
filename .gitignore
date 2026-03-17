@@ -39,6 +39,8 @@ coverage/
 .parcel-cache/
 *.tgz
 *.tgz.sha512
+.tsbuild/
+*.tsbuildinfo
 
 # tests tmp output
 tests/.tmp-*.txt

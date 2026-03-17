@@ -26,6 +26,7 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - API Extractor configuration and `docs:api` script for generating typed API reports.
 - `IStoreCore` shared interface and `store-core` adapter for layer boundaries.
 - ESLint layer guards for async-cache and store-notify imports.
+- Optional TypeScript layer configs (`tsconfig.layers.json`) for build-time dependency checks.
 - `sync.insecure` option to explicitly allow unauthenticated sync in production.
 - `onValidationError` hook for hydrate trust validation failures.
 - `acknowledgeLooseTypes` config flag to silence the loose-type dev warning.

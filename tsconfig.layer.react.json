@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./.tsbuild/layer-react.tsbuildinfo"
+  },
+  "references": [
+    { "path": "./tsconfig.layer.core.json" },
+    { "path": "./tsconfig.layer.async.json" },
+    { "path": "./tsconfig.layer.computed.json" }
+  ],
+  "include": [
+    "src/react/**/*.ts",
+    "src/react/**/*.tsx"
+  ]
+}
