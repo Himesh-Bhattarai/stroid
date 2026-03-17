@@ -82,6 +82,6 @@ export {
     warnMissingFeature,
 } from "./store-lifecycle/identity.js";
 
-export { bindRegistry, useRegistry } from "./store-lifecycle/bind.js";
+export { bindRegistry } from "./store-lifecycle/bind.js";
 
 

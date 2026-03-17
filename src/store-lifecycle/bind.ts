@@ -22,8 +22,6 @@ export const bindRegistry = (scopeOrRegistry?: string | StoreRegistry): void => 
     initializeRegisteredFeatureRuntimes();
 };
 
-export const useRegistry = (scopeId: string): void => bindRegistry(scopeId);
-
 registerTestResetHook("registry.bind-default", () => bindRegistry(defaultRegistryScope), 120);
 
 

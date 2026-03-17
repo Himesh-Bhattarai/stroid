@@ -12,6 +12,8 @@ import { hasStore } from "../store-read.js";
 import { subscribeWithSelector } from "../selectors.js";
 import { getByPath, warn, warnAlways, isDev, shallowEqual } from "../utils.js";
 import { getConfig } from "../internals/config.js";
+import { getDefaultStoreRegistry, runWithRegistry } from "../store-registry.js";
+import { useRegistryContext } from "./registry.js";
 import type {
     Path,
     PathValue,
@@ -182,6 +184,7 @@ export function useStore<T = unknown, R = unknown>(
     const hasSelector = typeof pathOrSelector === "function";
     const path = typeof pathOrSelector === "string" ? pathOrSelector : undefined;
     const selector = hasSelector ? (pathOrSelector as (state: T) => R) : undefined;
+    const registry = useRegistryContext() ?? getDefaultStoreRegistry();
     const selectorRef = useRef<typeof selector>(selector);
     const equalityRef = useRef(equalityFn);
     const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
@@ -199,27 +202,31 @@ export function useStore<T = unknown, R = unknown>(
 
     const subscribe = useCallback(
         (fn: () => void) =>
-            hasSelector
-                ? subscribeWithSelector(
-                    storeName,
-                    (state) => selectorRef.current!(state as T),
-                    (a, b) => equalityRef.current(a, b),
-                    fn
-                )
-                : subscribeStore(storeName, () => fn()),
-        [storeName, hasSelector]
+            runWithRegistry(registry, () =>
+                hasSelector
+                    ? subscribeWithSelector(
+                        storeName,
+                        (state) => selectorRef.current!(state as T),
+                        (a, b) => equalityRef.current(a, b),
+                        fn
+                    )
+                    : subscribeStore(storeName, () => fn())
+            ),
+        [registry, storeName, hasSelector]
     );
 
     const getSnapshot = useCallback(() => {
-        const snap = getStoreSnapshot(storeName);
-        warnLooseUseStoreOnce(name, storeName);
-        warnMissingStoreOnce(storeName);
-        warnBroadUseStoreOnce(storeName, hasSelector, path);
-        if (hasSelector) {
-            return readSelectedSnapshot(snap as T | null);
-        }
-        return pickPath(snap, path);
-    }, [storeName, hasSelector, path, readSelectedSnapshot]);
+        return runWithRegistry(registry, () => {
+            const snap = getStoreSnapshot(storeName);
+            warnLooseUseStoreOnce(name, storeName);
+            warnMissingStoreOnce(storeName);
+            warnBroadUseStoreOnce(storeName, hasSelector, path);
+            if (hasSelector) {
+                return readSelectedSnapshot(snap as T | null);
+            }
+            return pickPath(snap, path);
+        });
+    }, [registry, storeName, hasSelector, path, readSelectedSnapshot, name]);
 
     const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
@@ -269,6 +276,7 @@ export function useSelector<T = unknown, R = unknown>(
     equalityFn: (a: R, b: R) => boolean = shallowEqual
 ): R | null {
     const resolvedName = typeof storeName === "string" ? storeName : storeName.name;
+    const registry = useRegistryContext() ?? getDefaultStoreRegistry();
     const selectorRef = useRef(selectorFn);
     const equalityRef = useRef(equalityFn);
     const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
@@ -285,19 +293,23 @@ export function useSelector<T = unknown, R = unknown>(
     );
 
     const getSnap = useCallback(() => {
-        const data = getStoreSnapshot(resolvedName) as T | null;
-        warnMissingStoreOnce(resolvedName);
-        return selectValue(data);
-    }, [resolvedName, selectValue]);
+        return runWithRegistry(registry, () => {
+            const data = getStoreSnapshot(resolvedName) as T | null;
+            warnMissingStoreOnce(resolvedName);
+            return selectValue(data);
+        });
+    }, [registry, resolvedName, selectValue]);
 
     const subscribe = useCallback((notify: () => void) => {
-        return subscribeWithSelector(
-            resolvedName,
-            (state) => selectorRef.current(state as T),
-            (a, b) => equalityRef.current(a, b),
-            () => notify()
+        return runWithRegistry(registry, () =>
+            subscribeWithSelector(
+                resolvedName,
+                (state) => selectorRef.current(state as T),
+                (a, b) => equalityRef.current(a, b),
+                () => notify()
+            )
         );
-    }, [resolvedName]);
+    }, [registry, resolvedName]);
 
     const selection = useSyncExternalStore(subscribe, getSnap, getSnap);
 
@@ -338,8 +350,12 @@ export function useStoreStatic(
     path?: string
 ): unknown {
     const resolvedName = typeof name === "string" ? name : name.name;
-    const data = getStoreSnapshot(resolvedName);
-    warnMissingStoreOnce(resolvedName);
+    const registry = useRegistryContext() ?? getDefaultStoreRegistry();
+    const data = runWithRegistry(registry, () => {
+        const snap = getStoreSnapshot(resolvedName);
+        warnMissingStoreOnce(resolvedName);
+        return snap;
+    });
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
 }

@@ -12,8 +12,9 @@ import React from "react";
 import { act, render } from "@testing-library/react";
 import { fetchStore } from "../src/async.js";
 import { getAsyncMetrics } from "../src/async-cache.js";
-import { useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../src/react/index.js";
+import { RegistryScope, useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../src/react/index.js";
 import { clearAllStores, createStore, setStore } from "../src/store.js";
+import { createStoreRegistry, runWithRegistry } from "../src/store-registry.js";
 import { resetAllStoresForTest } from "../src/testing.js";
 import { configureStroid, resetConfig } from "../src/config.js";
 
@@ -58,6 +59,60 @@ test("useStore inline primitive selector stays stable through unrelated updates"
 
   assert.strictEqual(renderCount, 2);
   assert.deepStrictEqual(seen, ["Alex", "Jordan"]);
+
+  await act(async () => {
+    unmount();
+  });
+});
+
+test("RegistryScope isolates store access between React trees", async () => {
+  const registryA = createStoreRegistry();
+  const registryB = createStoreRegistry();
+
+  runWithRegistry(registryA, () => {
+    createStore("scopedUser", { name: "A" });
+  });
+  runWithRegistry(registryB, () => {
+    createStore("scopedUser", { name: "B" });
+  });
+
+  const App = ({ label }: { label: string }) => {
+    const name = useStore<any, string>("scopedUser", "name");
+    return React.createElement("span", { "data-testid": label }, name ?? "");
+  };
+
+  const Root = () => React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(
+      RegistryScope,
+      { value: registryA },
+      React.createElement(App, { label: "a" })
+    ),
+    React.createElement(
+      RegistryScope,
+      { value: registryB },
+      React.createElement(App, { label: "b" })
+    )
+  );
+
+  let unmount!: () => void;
+  let getByTestId!: (id: string) => HTMLElement;
+  await act(async () => {
+    ({ unmount, getByTestId } = render(React.createElement(Root)));
+  });
+
+  assert.strictEqual(getByTestId("a").textContent, "A");
+  assert.strictEqual(getByTestId("b").textContent, "B");
+
+  await act(async () => {
+    runWithRegistry(registryA, () => {
+      setStore("scopedUser", "name", "A2");
+    });
+  });
+
+  assert.strictEqual(getByTestId("a").textContent, "A2");
+  assert.strictEqual(getByTestId("b").textContent, "B");
 
   await act(async () => {
     unmount();

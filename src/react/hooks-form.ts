@@ -9,6 +9,8 @@
 import { useCallback } from "react";
 import { useStoreField } from "./hooks-core.js";
 import { setStore } from "../store-write.js";
+import { getDefaultStoreRegistry, runWithRegistry } from "../store-registry.js";
+import { useRegistryContext } from "./registry.js";
 import type {
     Path,
     PathValue,
@@ -40,15 +42,18 @@ export function useFormStore(
     storeName: StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue> | StoreName,
     field: string
 ): FormResult<unknown> {
+    const registry = useRegistryContext() ?? getDefaultStoreRegistry();
     if (typeof storeName === "string") {
         const resolvedPath = field as Path<StateFor<StoreName>>;
         const value = useStoreField(storeName as StoreName, resolvedPath);
         const onChange = useCallback(
             (eOrValue: unknown) => {
                 const next = resolveInputValue(eOrValue) as PathValue<StateFor<StoreName>, typeof resolvedPath>;
-                setStore(storeName as StoreName, resolvedPath, next);
+                runWithRegistry(registry, () => {
+                    setStore(storeName as StoreName, resolvedPath, next);
+                });
             },
-            [storeName, resolvedPath]
+            [registry, storeName, resolvedPath]
         );
         return { value, onChange };
     }
@@ -60,9 +65,11 @@ export function useFormStore(
     const onChange = useCallback(
         (eOrValue: unknown) => {
             const next = resolveInputValue(eOrValue) as PathValue<Record<string, unknown>, typeof handlePath>;
-            setStore(handle, handlePath, next);
+            runWithRegistry(registry, () => {
+                setStore(handle, handlePath, next);
+            });
         },
-        [handle, handlePath]
+        [registry, handle, handlePath]
     );
     return { value, onChange };
 }

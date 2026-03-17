@@ -658,6 +658,5 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     return result;
 };
 
-export { useRegistry } from "./store-lifecycle/bind.js";
 
 

@@ -8,7 +8,7 @@
  */
 import {
     stores as _stores,
-    subscribers as _subscribers,
+    getRegistry,
 } from "../store-lifecycle/registry.js";
 import type { StoreValue as SelectorStoreValue } from "../store-lifecycle/types.js";
 
@@ -23,11 +23,13 @@ export const getSelectorStoreValueRef = (name: string): SelectorStoreValue | und
     _stores[name];
 
 export const subscribeSelectorStore = (name: string, fn: SelectorSubscriber): (() => void) => {
-    if (!_subscribers[name]) _subscribers[name] = new Set();
-    _subscribers[name].add(fn);
+    const registry = getRegistry();
+    const registrySubs = registry.subscribers;
+    if (!registrySubs[name]) registrySubs[name] = new Set();
+    registrySubs[name].add(fn);
     return () => {
-        _subscribers[name]?.delete(fn);
-        if (_subscribers[name]?.size === 0) delete _subscribers[name];
+        registrySubs[name]?.delete(fn);
+        if (registrySubs[name]?.size === 0) delete registrySubs[name];
     };
 };
 

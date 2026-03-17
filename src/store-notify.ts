@@ -11,7 +11,6 @@ import { devDeepFreeze, devShallowFreeze } from "./devfreeze.js";
 import { beginTransaction, endTransaction, isTransactionActive } from "./store-transaction.js";
 import { registerTestResetHook } from "./internals/test-reset.js";
 import {
-    subscribers,
     hasStoreEntryInternal,
     getStoreValueRef,
     recordStoreRead,
@@ -99,11 +98,13 @@ export const setStoreBatch = (fn: () => unknown): void => {
 };
 
 export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {
-    if (!subscribers[name]) subscribers[name] = new Set();
-    subscribers[name].add(fn);
+    const registry = getRegistry();
+    const registrySubs = registry.subscribers;
+    if (!registrySubs[name]) registrySubs[name] = new Set();
+    registrySubs[name].add(fn);
     return () => {
-        subscribers[name]?.delete(fn); // O(1)
-        if (subscribers[name]?.size === 0) delete subscribers[name];
+        registrySubs[name]?.delete(fn); // O(1)
+        if (registrySubs[name]?.size === 0) delete registrySubs[name];
     };
 };
 

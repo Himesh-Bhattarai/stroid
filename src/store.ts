@@ -43,7 +43,6 @@ export {
     deleteStore,
     resetStore,
     hydrateStores,
-    useRegistry,
 } from "./store-write.js";
 
 export {

@@ -25,7 +25,6 @@ import {
   setStore,
   setStoreBatch,
   subscribe,
-  useRegistry,
   _getSnapshot,
   _getStoreValueRef,
 } from "../src/store.js";
@@ -35,7 +34,7 @@ import { clearSsrGlobalAllowWarned } from "../src/store-create.js";
 import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
 import { hashState, warn } from "../src/utils.js";
-import { createStoreRegistry, defaultRegistryScope, runWithRegistry, createTransactionState } from "../src/store-registry.js";
+import { createStoreRegistry, runWithRegistry, createTransactionState } from "../src/store-registry.js";
 import { stores, validatePathSafety, pathValidationCache, getStoreAdmin, getRegistry } from "../src/store-lifecycle.js";
 import { onStoreLifecycle } from "../src/store-lifecycle/registry.js";
 import { createStoreForRequest } from "../src/server.js";
@@ -481,53 +480,49 @@ test("getStoreHealth returns per-store and global metrics", () => {
 });
 
 test("bindRegistry preserves lazy factories across scope switches", () => {
-  const scopeA = "test-scope-a";
-  const scopeB = "test-scope-b";
-
-  useRegistry(scopeA);
-  clearAllStores();
+  const registryA = createStoreRegistry();
+  const registryB = createStoreRegistry();
 
   let calls = 0;
-  createStore("lazy", () => {
-    calls += 1;
-    return { count: 1 };
-  }, { lazy: true });
+  runWithRegistry(registryA, () => {
+    clearAllStores();
+    createStore("lazy", () => {
+      calls += 1;
+      return { count: 1 };
+    }, { lazy: true });
+  });
 
-  useRegistry(scopeB);
-  clearAllStores();
-  createStore("other", { ok: true });
+  runWithRegistry(registryB, () => {
+    clearAllStores();
+    createStore("other", { ok: true });
+  });
 
-  useRegistry(scopeA);
-  assert.deepStrictEqual(getStore("lazy"), { count: 1 });
+  runWithRegistry(registryA, () => {
+    assert.deepStrictEqual(getStore("lazy"), { count: 1 });
+  });
   assert.strictEqual(calls, 1);
-
-  useRegistry(defaultRegistryScope);
 });
 
 test("runtime-admin clearAllStores clears the current registry scope", () => {
-  const scope = "test-admin-scope";
-  useRegistry(scope);
-  clearAllStores();
+  const registry = createStoreRegistry();
+  runWithRegistry(registry, () => {
+    clearAllStores();
+    createStore("scoped", { value: 1 });
+    assert.strictEqual(hasStore("scoped"), true);
 
-  createStore("scoped", { value: 1 });
-  assert.strictEqual(hasStore("scoped"), true);
-
-  clearAllStores();
-  assert.strictEqual(hasStore("scoped"), false);
-
-  useRegistry(defaultRegistryScope);
+    clearAllStores();
+    assert.strictEqual(hasStore("scoped"), false);
+  });
 });
 
 test("getStoreAdmin returns per-registry admin instances", () => {
-  useRegistry("admin-scope-a");
-  const adminA = getStoreAdmin();
+  const registryA = createStoreRegistry();
+  const registryB = createStoreRegistry();
 
-  useRegistry("admin-scope-b");
-  const adminB = getStoreAdmin();
+  const adminA = runWithRegistry(registryA, () => getStoreAdmin());
+  const adminB = runWithRegistry(registryB, () => getStoreAdmin());
 
   assert.notStrictEqual(adminA, adminB);
-
-  useRegistry(defaultRegistryScope);
 });
 
 test("transaction state is registry-scoped across request registries", () => {

@@ -297,22 +297,45 @@ export interface RegistryRunner {
 
 let currentRegistryRunner: RegistryRunner | null = null;
 
+const fallbackRegistryStack: StoreRegistry[] = [];
+const fallbackRegistryRunner: RegistryRunner = {
+    run: <T>(registry: StoreRegistry, fn: () => T): T => {
+        fallbackRegistryStack.push(registry);
+        try {
+            return fn();
+        } finally {
+            fallbackRegistryStack.pop();
+        }
+    },
+    get: (): StoreRegistry | null =>
+        fallbackRegistryStack.length > 0 ? fallbackRegistryStack[fallbackRegistryStack.length - 1] : null,
+    enterWith: (registry: StoreRegistry) => {
+        if (fallbackRegistryStack.length > 0) {
+            fallbackRegistryStack[fallbackRegistryStack.length - 1] = registry;
+            return;
+        }
+        fallbackRegistryStack.push(registry);
+    },
+};
+
 export const injectRegistryRunner = (runner: RegistryRunner): void => {
     currentRegistryRunner = runner;
 };
 
 export const runWithRegistry = <T>(registry: StoreRegistry, fn: () => T): T => {
-    if (currentRegistryRunner?.run) return currentRegistryRunner.run(registry, fn);
-    return fn();
+    const runner = currentRegistryRunner ?? fallbackRegistryRunner;
+    return runner.run(registry, fn);
 };
 
 export const getActiveStoreRegistry = (fallback?: StoreRegistry): StoreRegistry => {
-    return currentRegistryRunner?.get() || fallback || getStoreRegistry(defaultRegistryScope);
+    const runner = currentRegistryRunner ?? fallbackRegistryRunner;
+    return runner.get() || fallback || getStoreRegistry(defaultRegistryScope);
 };
 
 export const enterRegistry = (registry: StoreRegistry): void => {
-    if (currentRegistryRunner?.enterWith) {
-        currentRegistryRunner.enterWith(registry);
+    const runner = currentRegistryRunner ?? fallbackRegistryRunner;
+    if (runner.enterWith) {
+        runner.enterWith(registry);
     }
 };
 

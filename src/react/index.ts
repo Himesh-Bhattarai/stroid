@@ -10,5 +10,6 @@ export { useStore, useStoreField, useSelector, useStoreStatic } from "./hooks-co
 export { useAsyncStore } from "./hooks-async.js";
 export { useFormStore } from "./hooks-form.js";
 export { useAsyncStoreSuspense } from "./hooks-async-suspense.js";
+export { RegistryScope } from "./registry.js";
 
 
