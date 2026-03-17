@@ -24,6 +24,8 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - `sync.loopGuard` option to suppress immediate rebroadcasts after an incoming sync update.
 - `registerMutatorProduce` helper for safely registering Immer (or other mutator engines) without globals.
 - API Extractor configuration and `docs:api` script for generating typed API reports.
+- `IStoreCore` shared interface and `store-core` adapter for layer boundaries.
+- ESLint layer guards for async-cache and store-notify imports.
 - `sync.insecure` option to explicitly allow unauthenticated sync in production.
 - `onValidationError` hook for hydrate trust validation failures.
 - `acknowledgeLooseTypes` config flag to silence the loose-type dev warning.
@@ -64,6 +66,7 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - React hooks now live exclusively under `stroid/react`; main entry types are React-free.
 - `deepClone` now throws on non-cloneable values and warns in dev when falling back from `structuredClone`.
 - `getStoreMeta` now shallow-clones meta/options to avoid cloning function-heavy configs.
+- Async cache registry access now goes through `store-core` instead of store-lifecycle internals.
 
 ### Fixed
 - Helper store typings now align with the stricter `createStore` overloads.

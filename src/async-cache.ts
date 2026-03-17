@@ -6,7 +6,8 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { getRegistry } from "./store-lifecycle/registry.js";
+import { getActiveAsyncRegistry } from "./store-core.js";
+export { getActiveAsyncRegistry } from "./store-core.js";
 import { registerHook } from "./core/lifecycle-hooks.js";
 import type { FetchOptions, WarnCategory } from "./async-registry.js";
 import { resetAsyncRegistry } from "./async-registry.js";
@@ -18,7 +19,6 @@ export const MAX_CACHE_SLOTS_PER_STORE = 100;
 export const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
 export const MAX_WARNED_ENTRIES = 1000;
 
-export const getActiveAsyncRegistry = () => getRegistry().async;
 export const getFetchRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["fetchRegistry"] =>
     getActiveAsyncRegistry().fetchRegistry;
 export const getInflightRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["inflight"] =>

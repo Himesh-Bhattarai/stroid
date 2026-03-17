@@ -24,6 +24,8 @@ import { clearAllStores } from "../src/runtime-admin.js";
 import { resetAllStoresForTest } from "../src/testing.js";
 import { createSelector, subscribeWithSelector } from "../src/selectors.js";
 import { namespace } from "../src/store-name.js";
+import { createStoreCore, getActiveAsyncRegistry } from "../src/store-core.js";
+import { createStoreRegistry, runWithRegistry } from "../src/store-registry.js";
 import {
   listStores,
   getStoreMeta,
@@ -205,6 +207,57 @@ test("runtime-tools report store metadata, patterns, and queue depth", async () 
   const graph = getComputedGraph();
   assert.deepStrictEqual(graph.nodes, []);
   assert.deepStrictEqual(getComputedDeps("missing"), null);
+});
+
+test("store-core adapter scopes reads, writes, and subscriptions", async () => {
+  resetAllStoresForTest();
+  const registryA = createStoreRegistry();
+  const registryB = createStoreRegistry();
+
+  runWithRegistry(registryA, () => {
+    createStore("coreStore", { value: 1 });
+  });
+  runWithRegistry(registryB, () => {
+    createStore("coreStore", { value: 2 });
+  });
+
+  const coreA = createStoreCore<{ value: number }>("coreStore");
+  const coreB = createStoreCore<{ value: number }>("coreStore");
+
+  let seenA: any = null;
+  let seenB: any = null;
+
+  const unsubA = runWithRegistry(registryA, () =>
+    coreA.subscribe((snap) => { seenA = snap; })
+  );
+  const unsubB = runWithRegistry(registryB, () =>
+    coreB.subscribe((snap) => { seenB = snap; })
+  );
+
+  runWithRegistry(registryA, () => coreA.set("value", 10));
+  runWithRegistry(registryB, () => coreB.set("value", 20));
+  await Promise.resolve();
+
+  assert.deepStrictEqual(runWithRegistry(registryA, () => coreA.get()), { value: 10 });
+  assert.deepStrictEqual(runWithRegistry(registryB, () => coreB.get()), { value: 20 });
+  assert.deepStrictEqual(seenA, { value: 10 });
+  assert.deepStrictEqual(seenB, { value: 20 });
+
+  unsubA();
+  unsubB();
+});
+
+test("store-core async registry resolves per active registry", () => {
+  resetAllStoresForTest();
+  const registryA = createStoreRegistry();
+  const registryB = createStoreRegistry();
+
+  runWithRegistry(registryA, () => {
+    assert.strictEqual(getActiveAsyncRegistry(), registryA.async);
+  });
+  runWithRegistry(registryB, () => {
+    assert.strictEqual(getActiveAsyncRegistry(), registryB.async);
+  });
 });
 
 test("runtime-tools persist queue depth reports pending saves", async () => {
