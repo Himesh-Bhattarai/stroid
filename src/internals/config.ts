@@ -143,7 +143,7 @@ const defaultConfig: ResolvedConfig = {
     asyncCloneResult: "none",
     acknowledgeLooseTypes: false,
     pathCacheSize: 500,
-    defaultSnapshotMode: "deep",
+    defaultSnapshotMode: "shallow",
     strictAsyncUsageErrors: false,
     middleware: [],
     allowUntrustedHydration: false,

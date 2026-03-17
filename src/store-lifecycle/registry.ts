@@ -111,7 +111,9 @@ export const subscribers = createRegistryObjectProxy(() => getActiveRegistry().s
 export const initialStates = createRegistryObjectProxy(() => getActiveRegistry().initialStates as Record<string, StoreValue>);
 export const initialFactories = createRegistryObjectProxy(() => getActiveRegistry().initialFactories as Record<string, (() => StoreValue) | undefined>);
 export const meta = createRegistryObjectProxy(() => getActiveRegistry().metaEntries as Record<string, StoreFeatureMeta>);
-export const snapshotCache = createRegistryObjectProxy(() => getActiveRegistry().snapshotCache as Record<string, { version: number; snapshot: StoreValue | null }>);
+export const snapshotCache = createRegistryObjectProxy(
+    () => getActiveRegistry().snapshotCache as Record<string, { version: number; snapshot: StoreValue | null; source?: StoreValue | null; mode?: "deep" | "shallow" | "ref" }>
+);
 export const featureRuntimes = createRegistryMapProxy(() => getActiveRegistry().featureRuntimes as Map<FeatureName, StoreFeatureRuntime>);
 
 const storeAdminByRegistry = new WeakMap<StoreRegistry, ReturnType<typeof createStoreAdmin>>();

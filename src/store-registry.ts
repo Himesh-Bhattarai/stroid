@@ -22,6 +22,8 @@ export type RegistrySubscriber = (value: RegistryStoreValue | null) => void;
 export type RegistrySnapshotEntry = {
     version: number;
     snapshot: RegistryStoreValue | null;
+    source?: RegistryStoreValue | null;
+    mode?: "deep" | "shallow" | "ref";
 };
 
 export type TransactionState = {

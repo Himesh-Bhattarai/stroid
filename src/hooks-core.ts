@@ -10,7 +10,7 @@ import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
 import { subscribeStore, getStoreSnapshot } from "./store-notify.js";
 import { hasStore } from "./store-read.js";
 import { subscribeWithSelector } from "./selectors.js";
-import { getByPath, warn, isDev, shallowEqual } from "./utils.js";
+import { getByPath, warn, warnAlways, isDev, shallowEqual } from "./utils.js";
 import { getConfig } from "./internals/config.js";
 import type {
     Path,
@@ -112,11 +112,10 @@ const warnMissingStoreOnce = (name: string): void => {
 };
 
 const warnBroadUseStoreOnce = (name: string, hasSelector: boolean, path?: string): void => {
-    if (!isDev()) return;
     if (hasSelector || path) return;
     if (hasBroadUseStoreWarning(name)) return;
     markBroadUseStoreWarning(name);
-    warn(
+    warnAlways(
         `useStore("${name}") without a selector/path subscribes to the entire store and may re-render on every change.\n` +
         `Prefer useSelector/useStoreField for better performance.`
     );

@@ -24,11 +24,12 @@ import {
   _getSnapshot,
   _getStoreValueRef,
 } from "../src/store.js";
+import { clearSsrGlobalAllowWarned } from "../src/store-create.js";
 import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
 import { hashState, warn } from "../src/utils.js";
 import { createStoreRegistry, defaultRegistryScope, runWithRegistry } from "../src/store-registry.js";
-import { stores, validatePathSafety, pathValidationCache, getStoreAdmin } from "../src/store-lifecycle.js";
+import { stores, validatePathSafety, pathValidationCache, getStoreAdmin, getRegistry } from "../src/store-lifecycle.js";
 import { createStoreForRequest } from "../src/server.js";
 import { setComputedOrderResolver } from "../src/internals/computed-order.js";
 import { getTopoOrderedComputeds } from "../src/computed-graph.js";
@@ -162,31 +163,44 @@ test("hydrateStores accepts allowTrusted trust flag", () => {
   assert.deepStrictEqual(getStore("trustedHydrate"), { value: 1 });
 });
 
-test("replaceStore inside batch reports critical and keeps state", () => {
+test("replaceStore inside batch commits as part of the transaction", () => {
   clearAllStores();
   createStore("batchReplace", { value: 1 });
-  const messages: string[] = [];
+
+  let result: any;
+  setStoreBatch(() => {
+    result = replaceStore("batchReplace", { value: 2 });
+  });
+
+  assert.strictEqual(result?.ok, true);
+  assert.deepStrictEqual(getStore("batchReplace"), { value: 2 });
+});
+
+test("setStoreBatch warns on promise-returning callbacks", async () => {
+  clearAllStores();
+  createStore("batchPromise", { value: 0 });
+  const warnings: string[] = [];
   configureStroid({
+    namespace: "",
     logSink: {
-      critical: (msg: string) => messages.push(msg),
+      warn: (msg: string) => warnings.push(msg),
     },
   });
 
   try {
-    let result: any;
     setStoreBatch(() => {
-      result = replaceStore("batchReplace", { value: 2 });
+      setStore("batchPromise", "value", 1);
+      return Promise.resolve();
     });
-
-    assert.strictEqual(result?.ok, false);
-    assert.deepStrictEqual(getStore("batchReplace"), { value: 1 });
-    assert.ok(messages.some((msg) => msg.includes("replaceStore") && msg.includes("setStoreBatch")));
+    await Promise.resolve();
+    assert.ok(warnings.some((msg) => msg.includes("promise-returning")));
+    assert.deepStrictEqual(getStore("batchPromise"), { value: 0 });
   } finally {
     resetConfig();
   }
 });
 
-test("setStoreBatch warns on promise-returning callbacks", async () => {
+test("setStoreBatch warns on generator callbacks", () => {
   clearAllStores();
   const warnings: string[] = [];
   configureStroid({
@@ -196,12 +210,100 @@ test("setStoreBatch warns on promise-returning callbacks", async () => {
   });
 
   try {
-    setStoreBatch(() => Promise.resolve());
-    await Promise.resolve();
-    assert.ok(warnings.some((msg) => msg.includes("promise-returning")));
+    const gen = function* () {
+      yield 1;
+    };
+    setStoreBatch(gen as unknown as () => void);
+    assert.ok(warnings.some((msg) => msg.includes("generator")));
   } finally {
     resetConfig();
   }
+});
+
+test("slow mutator warning clears after store deletion", () => {
+  clearAllStores();
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  const realNow = Date.now;
+  let now = 0;
+  Date.now = () => {
+    now += 100;
+    return now;
+  };
+
+  try {
+    createStore("slow", { value: 0 });
+    setStore("slow", (draft: any) => {
+      draft.value += 1;
+    });
+    deleteStore("slow");
+    createStore("slow", { value: 0 });
+    setStore("slow", (draft: any) => {
+      draft.value += 1;
+    });
+  } finally {
+    Date.now = realNow;
+    resetConfig();
+  }
+
+  const slowWarnings = warnings.filter((msg) => msg.includes("mutator") && msg.includes("took"));
+  assert.strictEqual(slowWarnings.length, 2);
+});
+
+test("allowSSRGlobalStore warning can re-fire after delete", () => {
+  clearAllStores();
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+  const originalEnv = process.env.NODE_ENV;
+  const realWindow = (globalThis as any).window;
+  const realDocument = (globalThis as any).document;
+  process.env.NODE_ENV = "production";
+  (globalThis as any).window = undefined;
+  (globalThis as any).document = undefined;
+
+  try {
+    createStore("ssrWarn", { value: 1 }, { scope: "global" });
+    assert.strictEqual(hasStore("ssrWarn"), true);
+    deleteStore("ssrWarn");
+    assert.strictEqual(hasStore("ssrWarn"), false);
+    clearSsrGlobalAllowWarned("ssrWarn");
+    createStore("ssrWarn", { value: 1 }, { scope: "global" });
+  } finally {
+    process.env.NODE_ENV = originalEnv;
+    (globalThis as any).window = realWindow;
+    (globalThis as any).document = realDocument;
+    resetConfig();
+  }
+
+  const ssrWarnings = warnings.filter((msg) => msg.includes("allowSSRGlobalStore"));
+  assert.strictEqual(ssrWarnings.length, 2);
+});
+
+test("snapshot freezing differs by mode", () => {
+  clearAllStores();
+  createStore("snapDeep", { nested: { value: 1 } }, { snapshot: "deep" });
+  createStore("snapRef", { nested: { value: 1 } }, { snapshot: "ref" });
+  createStore("snapShallow", { nested: { value: 1 } }, { snapshot: "shallow" });
+
+  const deepSnap = _getSnapshot("snapDeep");
+  const refSnap = _getSnapshot("snapRef");
+  const shallowSnap = _getSnapshot("snapShallow");
+
+  assert.strictEqual(Object.isFrozen(deepSnap as object), true);
+  assert.strictEqual(Object.isFrozen(refSnap as object), true);
+  assert.strictEqual(Object.isFrozen(shallowSnap as object), true);
+  assert.strictEqual(Object.isFrozen((deepSnap as any).nested), true);
+  assert.strictEqual(Object.isFrozen((refSnap as any).nested), true);
+  assert.strictEqual(Object.isFrozen((shallowSnap as any).nested), true);
 });
 
 test("concurrent setStore calls in the same microtask coalesce", async () => {
@@ -222,6 +324,24 @@ test("concurrent setStore calls in the same microtask coalesce", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.strictEqual(calls, 1);
   assert.deepStrictEqual(last, { value: 2 });
+});
+
+test("snapshot cache version batches per flush", async () => {
+  clearAllStores();
+  createStore("batchVersion", { value: 0 });
+  subscribe("batchVersion", () => {});
+
+  setStore("batchVersion", "value", 1);
+  setStore("batchVersion", "value", 2);
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const registry = getRegistry();
+  const cached = registry.snapshotCache["batchVersion"];
+  assert.ok(cached);
+  assert.strictEqual(cached.version, registry.notify.flushId);
+  assert.strictEqual(registry.metaEntries["batchVersion"]?.updateCount, 2);
+  assert.notStrictEqual(cached.version, registry.metaEntries["batchVersion"]?.updateCount);
 });
 
 test("bindRegistry preserves lazy factories across scope switches", () => {
@@ -509,6 +629,34 @@ test("snapshotStrategy sets the default snapshot mode", () => {
   } finally {
     resetConfig();
   }
+});
+
+test("default snapshot mode is shallow", () => {
+  clearAllStores();
+  createStore("defaultSnap", { nested: { value: 1 } });
+  const snap = _getSnapshot("defaultSnap") as any;
+  const ref = _getStoreValueRef("defaultSnap") as any;
+  assert.notStrictEqual(snap, ref);
+  assert.strictEqual(snap.nested, ref.nested);
+});
+
+test("notify uses carrier values inside request registries", async () => {
+  clearAllStores();
+  const seen: Array<{ value: number } | null> = [];
+  const ctx = createStoreForRequest((api) => {
+    api.create("carrierStore", { value: 1 });
+  });
+
+  ctx.hydrate(() => {
+    subscribe("carrierStore", (snap) => {
+      seen.push((snap as { value: number } | null) ?? null);
+    });
+    setStore("carrierStore", "value", 2);
+    return null;
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(seen.some((snap) => snap?.value === 2));
 });
 
 test("mid-flush store deletion does not crash or notify deleted subscribers", async () => {

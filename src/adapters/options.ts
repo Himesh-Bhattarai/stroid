@@ -491,7 +491,7 @@ export const collectLegacyOptionDeprecationWarnings = <State>(option: StoreOptio
 export const normalizeStoreOptions = <State>(
     option: StoreOptions<State> = {},
     name: string,
-    defaultSnapshotMode: SnapshotMode = "deep"
+    defaultSnapshotMode: SnapshotMode = "shallow"
 ): NormalizedOptions => {
     const normalizedScope: StoreScope = option.scope ?? "request";
     const normalizedLazy = option.lazy === true;
@@ -501,9 +501,9 @@ export const normalizeStoreOptions = <State>(
     const devtoolsGroup = isObject(option.devtools) ? option.devtools as DevtoolsOptions<State> : undefined;
     const normalizedValidate = option.validate ?? option.validator ?? option.schema;
     const normalizedSnapshot =
-        option.snapshot === "shallow" || option.snapshot === "ref"
+        option.snapshot === "shallow" || option.snapshot === "ref" || option.snapshot === "deep"
             ? option.snapshot
-            : (defaultSnapshotMode === "shallow" || defaultSnapshotMode === "ref"
+            : (defaultSnapshotMode === "shallow" || defaultSnapshotMode === "ref" || defaultSnapshotMode === "deep"
                 ? defaultSnapshotMode
                 : "deep");
     const normalizedFeatures = isObject(option.features)

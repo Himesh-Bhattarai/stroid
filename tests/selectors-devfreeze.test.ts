@@ -15,7 +15,7 @@ test("subscribeWithSelector passes a mutable value to selector in dev mode", () 
     import { createStore, setStore } from "./src/store.js";
     import { subscribeWithSelector } from "./src/selectors.js";
 
-    createStore("x", { list: [] });
+    createStore("x", { list: [] }, { snapshot: "deep" });
     subscribeWithSelector(
       "x",
       (state) => {

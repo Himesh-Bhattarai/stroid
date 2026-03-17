@@ -156,7 +156,7 @@ test("ref snapshots are frozen to prevent silent mutation", () => {
 
 test("getStore respects snapshot modes (deep/shallow/ref)", () => {
   clearAllStores();
-  createStore("snapDeep", { nested: { count: 1 } });
+  createStore("snapDeep", { nested: { count: 1 } }, { snapshot: "deep" });
   createStore("snapShallow", { nested: { count: 1 } }, { snapshot: "shallow" });
   createStore("snapRef", { nested: { count: 1 } }, { snapshot: "ref" });
 

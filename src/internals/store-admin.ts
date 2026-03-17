@@ -23,7 +23,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
     const initialStates = registry.initialStates as Record<string, unknown>;
     const initialFactories = registry.initialFactories as Record<string, (() => unknown) | undefined>;
     const metaEntries = registry.metaEntries as Record<string, MetaEntry>;
-    const snapshotCache = registry.snapshotCache as Record<string, { version: number; snapshot: unknown | null }>;
+    const snapshotCache = registry.snapshotCache as Record<string, { version: number; snapshot: unknown | null; source?: unknown | null; mode?: "deep" | "shallow" | "ref" }>;
     const featureRuntimes = registry.featureRuntimes;
     const deletingStores = registry.deletingStores;
 

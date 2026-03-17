@@ -152,7 +152,7 @@ test("history snapshots stay immutable in production", () => {
     const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
     const devtools = await import(pathToFileURL(${JSON.stringify(devtoolsPath)}).href);
 
-    store.createStore("user", { profile: { color: "blue" } }, { allowSSRGlobalStore: true });
+    store.createStore("user", { profile: { color: "blue" } }, { allowSSRGlobalStore: true, snapshot: "deep" });
     store.setStore("user", { profile: { color: "green" } });
 
     const history = devtools.getHistory("user");

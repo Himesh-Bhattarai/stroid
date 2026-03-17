@@ -96,7 +96,7 @@ test("normalizeStoreOptions defaults scope to request", () => {
   assert.equal(normalized.scope, "request");
   assert.equal(normalized.allowSSRGlobalStore, false);
   assert.equal(normalized.historyLimit, 50);
-  assert.equal(normalized.snapshot, "deep");
+  assert.equal(normalized.snapshot, "shallow");
 });
 
 test("normalizeStoreOptions gives temp stores lighter defaults", () => {
@@ -110,7 +110,7 @@ test("normalizeStoreOptions gives temp stores lighter defaults", () => {
   assert.equal(normalized.devtools, false);
   assert.equal(normalized.historyLimit, 0);
   assert.equal(normalized.redactor, undefined);
-  assert.equal(normalized.snapshot, "deep");
+  assert.equal(normalized.snapshot, "shallow");
 });
 
 test("normalizeStoreOptions preserves explicit temp store feature opt-ins", () => {

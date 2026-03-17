@@ -259,7 +259,7 @@ test("store-name namespace helpers qualify and route operations", () => {
 test("hydrateStores enforces trust validation branches", () => {
   resetAllStoresForTest();
 
-  const untrusted = hydrateStores({ a: { value: 1 } });
+  const untrusted = hydrateStores({ a: { value: 1 } }, {}, {} as any);
   assert.strictEqual(untrusted.failed._hydration, "untrusted");
 
   const failed = hydrateStores(

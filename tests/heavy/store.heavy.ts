@@ -460,9 +460,9 @@ test("getStore returns null for missing store", () => {
   assert.strictEqual(getStore("ghost"), null);
 });
 
-test("getStore returns deep-cloned snapshots", () => {
+test("getStore returns deep-cloned snapshots when snapshot mode is deep", () => {
   clearAllStores();
-  createStore("user", { profile: { color: "blue" }, items: [{ id: 1 }] });
+  createStore("user", { profile: { color: "blue" }, items: [{ id: 1 }] }, { snapshot: "deep" });
 
   const snapshot = getStore("user") as any;
   snapshot.profile.color = "red";

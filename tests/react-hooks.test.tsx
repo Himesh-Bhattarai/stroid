@@ -125,6 +125,44 @@ test("useStore warns once for loose store names and respects acknowledgeLooseTyp
   resetConfig();
 });
 
+test("useStore warns once for broad subscriptions without a selector", async () => {
+  resetAllStoresForTest();
+  const warnings: string[] = [];
+
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  createStore("broadWarn", { value: 1 });
+
+  const App = () => {
+    const state = useStore<any>("broadWarn");
+    return React.createElement("span", null, String(state?.value ?? ""));
+  };
+
+  let unmount!: () => void;
+  await act(async () => {
+    ({ unmount } = render(React.createElement(App)));
+  });
+  await act(async () => {
+    unmount();
+  });
+
+  await act(async () => {
+    ({ unmount } = render(React.createElement(App)));
+  });
+  await act(async () => {
+    unmount();
+  });
+
+  const broadWarnings = warnings.filter((msg) => msg.includes("without a selector/path"));
+  assert.strictEqual(broadWarnings.length, 1);
+
+  resetConfig();
+});
+
 test("useStore inline object selector with custom equality does not loop or rerender on unrelated writes", async () => {
   clearAllStores();
   createStore("reactPrefs", {

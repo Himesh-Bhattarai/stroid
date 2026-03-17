@@ -192,7 +192,9 @@ const requestHydrateInput: RequestHydrateSnapshot = {
   requestUser: { id: "1", name: "Ava" },
   flags: { beta: false },
 };
+// @ts-expect-error hydrateStores requires explicit trust
 hydrateStores<RequestHydrateSnapshot>(requestHydrateInput);
+hydrateStores<RequestHydrateSnapshot>(requestHydrateInput, {}, { allowTrusted: true });
 
 const counter = createCounterStore("typedCounter", 1);
 counter.inc();
@@ -258,11 +260,12 @@ type WithMockedTimeReturn = Expect<Equal<typeof frozenNow, number>>;
 
 const hydratedLoose = hydrateStores(
   { hydrateLoose: { value: 1 } },
-  { hydrateLoose: { persist: true }, default: { devtools: false } }
+  { hydrateLoose: { persist: true }, default: { devtools: false } },
+  { allowTrusted: true }
 );
 type HydratedLooseReturn = Expect<Equal<typeof hydratedLoose, { hydrated: string[]; created: string[]; failed: Record<string, string> }>>;
 // @ts-expect-error options should only accept keys from the snapshot
-hydrateStores({ hydrateLoose: { value: 1 } }, { missing: { persist: true } });
+hydrateStores({ hydrateLoose: { value: 1 } }, { missing: { persist: true } }, { allowTrusted: true });
 
 createStore("legacyTyped", { count: 1 }, {
   historyLimit: 10,

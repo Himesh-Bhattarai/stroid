@@ -95,7 +95,7 @@ If middleware changes the next value, Stroid still sanitizes and validates the f
 
 ### Snapshot Strategy (Performance vs Safety)
 
-Snapshots are used by subscriptions and selectors. By default, Stroid deep-clones snapshots for safety.
+Snapshots are used by subscriptions and selectors. By default, Stroid shallow-clones snapshots for speed.
 You can trade some safety for speed on large or frequently updated stores:
 
 ```ts
@@ -105,9 +105,11 @@ createStore("feed", initialFeed, {
 ```
 
 Modes:
-- `deep` (default): deep clone + dev-freeze snapshot values.
-- `shallow`: only clone the top level; nested objects are shared.
-- `ref`: return the live store reference without cloning.
+- `deep`: deep clone + dev-freeze snapshot values (including nested objects).
+- `shallow` (default): only clone the top level; nested objects are shared. In dev, the snapshot's top-level object is frozen to surface accidental mutations.
+- `ref`: return the live store reference without cloning. In dev, the reference is deep-frozen to surface mutation bugs.
+
+Note: In dev, store values are deep-frozen on write. Snapshot freezing governs the snapshot object itself.
 
 Use `shallow` or `ref` only if your updates are immutable and you accept that
 mutating a snapshot can affect other subscribers.

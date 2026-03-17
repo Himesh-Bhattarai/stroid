@@ -17,25 +17,17 @@ import {
     validateDepth,
     setByPath,
     deepClone,
-    produceClone,
     type PathInput,
 } from "./utils.js";
-import {
-    collectLegacyOptionDeprecationWarnings,
-    normalizeStoreOptions,
-    type StoreOptions,
-} from "./adapters/options.js";
+import { type StoreOptions } from "./adapters/options.js";
 import {
     stores,
     meta,
-    subscribers,
     initialStates,
-    initialFactories,
     storeAdmin,
     setStoreValueInternal,
     getStoreValueRef,
     hasStoreEntryInternal,
-    getRegistry,
 } from "./store-lifecycle/registry.js";
 import {
     sanitizeValue,
@@ -45,20 +37,15 @@ import {
     materializeInitial,
 } from "./store-lifecycle/validation.js";
 import {
-    runFeatureCreateHooks,
     runFeatureWriteHooks,
     runMiddlewareForStore,
     runStoreHookSafe,
-    resolveFeatureAvailability,
 } from "./store-lifecycle/hooks.js";
 import {
     nameOf,
     exists,
-    reportStoreCreationError,
     reportStoreError,
     reportStoreWarning,
-    getSsrWarningIssued,
-    markSsrWarningIssued,
 } from "./store-lifecycle/identity.js";
 import type {
     PartialDeep,
@@ -75,9 +62,12 @@ import type {
     WriteResult,
 } from "./store-lifecycle/types.js";
 import { getConfig } from "./internals/config.js";
-import { runTestResets } from "./internals/test-reset.js";
+import { runTestResets, registerTestResetHook } from "./internals/test-reset.js";
 import { notify } from "./store-notify.js";
 import { MIDDLEWARE_ABORT } from "./features/lifecycle.js";
+import { createStore, createStoreStrict, clearSsrGlobalAllowWarned } from "./store-create.js";
+
+export { createStore, createStoreStrict };
 import {
     isTransactionActive,
     getStagedTransactionValue,
@@ -89,7 +79,6 @@ import {
 type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: any) => void);
 // If store names are loose (not registered via StoreStateMap), fall back to untyped paths/values.
 type IsStoreNameLoose = string extends StoreName ? true : false;
-type NonFunction<T> = T extends (...args: any[]) => any ? never : T;
 type StoreUpdate<State> = State | Partial<State> | PartialDeep<State> | ((draft: State) => void);
 type StoreTarget<Name extends string = string, State = StoreValue> =
     | StoreDefinition<Name, State>
@@ -113,11 +102,10 @@ type StoreUpdateForTarget<T> =
     T extends StoreDefinition<any, infer S> ? StoreUpdate<S>
         : T extends StoreKey<any, infer S> ? StoreUpdate<S>
             : (IsStoreNameLoose extends true ? StoreUpdate<StoreValue> : (T extends StoreName ? StoreUpdate<StateFor<T>> : StoreUpdate<StoreValue>));
-type LazyDisallow<T> = T extends { lazy: true } ? never : T;
 type HydrateSnapshot = HydrateSnapshotFor<StoreStateMap & StrictStoreMap>;
 type HydrateOptions<Snapshot extends object> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
-type HydrationTrust<Snapshot extends object> = {
+type HydrationTrustBase<Snapshot extends object> = {
     /**
      * Explicitly trust this snapshot and allow hydration.
      */
@@ -132,10 +120,15 @@ type HydrationTrust<Snapshot extends object> = {
     allowUntrusted?: boolean;
     validate?: (snapshot: Snapshot) => boolean;
 };
+type HydrationTrust<Snapshot extends object> =
+    | (HydrationTrustBase<Snapshot> & { allowTrusted: true })
+    | (HydrationTrustBase<Snapshot> & { allowHydration: true })
+    | (HydrationTrustBase<Snapshot> & { allowUntrusted: true })
+    | (HydrationTrustBase<Snapshot> & { validate: (snapshot: Snapshot) => boolean });
 
 const SLOW_MUTATOR_WARN_MS = 32;
 const slowMutatorWarned = new Set<string>();
-const ssrGlobalAllowWarned = new Set<string>();
+registerTestResetHook("store-write.slow-mutator-warned", () => slowMutatorWarned.clear(), 65);
 const bumpUpdateCount = (entry: { updateCount: number }): void => {
     if (entry.updateCount >= Number.MAX_SAFE_INTEGER) {
         entry.updateCount = 0;
@@ -187,158 +180,6 @@ const stageOrCommitUpdate = (args: CommitArgs): void => {
     commitStoreUpdate(args);
 };
 
-export function createStore<Name extends string, State>(
-    name: Name,
-    initialData: () => State,
-    option: StoreOptions<State> & { lazy: true }
-): StoreDefinition<Name, State> | undefined;
-export function createStore<Name extends string, State, Opt extends StoreOptions<State>>(
-    name: Name,
-    initialData: NonFunction<State>,
-    option?: LazyDisallow<Opt>
-): StoreDefinition<Name, State> | undefined;
-export function createStore<Name extends string, State>(
-    name: Name,
-    initialData: State,
-    option: StoreOptions<State> = {}
-): StoreDefinition<Name, State> | undefined {
-    if (isTransactionActive()) {
-        const message =
-            `createStore("${String(name)}") cannot be called inside setStoreBatch. ` +
-            `Move createStore outside the batch to preserve transaction semantics.`;
-        reportStoreCreationError(message, option.onError as ((message: string) => void) | undefined);
-        markTransactionFailed(message);
-        return;
-    }
-    if (!isValidStoreName(name)) {
-        reportStoreCreationError(`createStore("${String(name)}") is not a valid store name.`, option.onError as ((message: string) => void) | undefined);
-        return;
-    }
-    const lazyRequested = option.lazy === true && typeof initialData === "function";
-    if (!lazyRequested && !isValidData(initialData)) {
-        reportStoreCreationError(`createStore("${name}") received invalid initial data.`, option.onError as ((message: string) => void) | undefined);
-        return;
-    }
-    if (initialData === undefined && isDev()) {
-        warn(
-            `createStore("${name}") received an undefined initial value. This can be indistinguishable from a missing store in some consumers; consider null or an explicit shape if that is intentional.`
-        );
-    }
-
-    collectLegacyOptionDeprecationWarnings(option).forEach((message) => {
-        warn(message);
-    });
-
-    const normalizedOptions = resolveFeatureAvailability(
-        name,
-        normalizeStoreOptions(option, name, getConfig().defaultSnapshotMode)
-    );
-
-    if (normalizedOptions.scope === "temp" && option.persist) {
-        const message =
-            `Store "${name}" has scope: "temp" but persist is enabled. ` +
-            `Temp stores are intended to be ephemeral.`;
-        normalizedOptions.onError?.(message);
-        if (!isDev()) warnAlways(message);
-        error(message);
-    }
-
-    const isServer = typeof window === "undefined";
-    const nodeEnv = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
-    const isProdServer = isServer && nodeEnv === "production";
-    const allowGlobalSSR = normalizedOptions.allowSSRGlobalStore ?? false;
-    const isRequestRegistry = getRegistry().scope === "request";
-
-    if (isProdServer && !allowGlobalSSR && !isRequestRegistry) {
-        const msg =
-            `createStore("${name}") is blocked on the server in production to prevent cross-request memory leaks.\n` +
-            `Call createStoreForRequest(...) inside each request scope or pass { scope: "global" } to opt in.`;
-        reportStoreCreationError(msg, option.onError as ((message: string) => void) | undefined);
-        return;
-    }
-    if (isProdServer && allowGlobalSSR && !isRequestRegistry && !ssrGlobalAllowWarned.has(name)) {
-        ssrGlobalAllowWarned.add(name);
-        warnAlways(
-            `createStore("${name}") is allowed on the server in production because allowSSRGlobalStore is true.\n` +
-            `This can leak data across concurrent requests. Prefer createStoreForRequest(...) or scope: "request" unless you truly need a global SSR store.`
-        );
-    }
-
-    if (hasStoreEntryInternal(name)) {
-        const msg = `Store "${name}" already exists. Call setStore("${name}", data) to update instead.`;
-        reportStoreWarning(name, msg);
-        return { name } as StoreDefinition<Name, State>;
-    }
-
-    if (isServer && !allowGlobalSSR && !isRequestRegistry && !getSsrWarningIssued(name) && isDev()) {
-        markSsrWarningIssued(name);
-        warn(
-            `createStore(\"${name}\") called in a server environment. ` +
-            `Use createStoreForRequest(...) per request to avoid cross-request leaks ` +
-            `or pass { allowSSRGlobalStore: true } if you really want a global store on the server.`
-        );
-    }
-
-    const cleanResult = sanitizeValue(name, initialData, normalizedOptions.onError);
-    if (!cleanResult.ok) return;
-    const clean = cleanResult.value;
-    const isLazy = normalizedOptions.lazy === true && typeof initialData === "function";
-
-    const hadPreexistingSubscribers = (subscribers[name]?.size ?? 0) > 0;
-    if (isLazy) {
-        stores[name] = undefined;
-        initialFactories[name] = initialData as () => unknown;
-    } else {
-        const validated = normalizeCommittedState(name, clean, normalizedOptions.validate, normalizedOptions.onError);
-        if (!validated.ok) return;
-        setStoreValueInternal(name, validated.value);
-        initialStates[name] = deepClone(validated.value);
-    }
-    const createdAtMs = Date.now();
-    const createdAtIso = new Date(createdAtMs).toISOString();
-    meta[name] = {
-        createdAt: createdAtIso,
-        updatedAt: createdAtIso,
-        updatedAtMs: createdAtMs,
-        updateCount: 0,
-        version: normalizedOptions.version,
-        metrics: { notifyCount: 0, totalNotifyMs: 0, lastNotifyMs: 0 },
-        options: normalizedOptions,
-    };
-
-    invalidatePathCache(name);
-    runFeatureCreateHooks(name, notify);
-    runStoreHookSafe(name, "onCreate", meta[name].options.onCreate, [clean]);
-    if (hadPreexistingSubscribers) notify(name);
-
-    log(`Store "${name}" created -> ${JSON.stringify(clean)}`);
-    return { name } as StoreDefinition<Name, State>;
-}
-
-export function createStoreStrict<Name extends string, State>(
-    name: Name,
-    initialData: () => State,
-    option: StoreOptions<State> & { lazy: true }
-): StoreDefinition<Name, State>;
-export function createStoreStrict<Name extends string, State, Opt extends StoreOptions<State>>(
-    name: Name,
-    initialData: NonFunction<State>,
-    option?: LazyDisallow<Opt>
-): StoreDefinition<Name, State>;
-export function createStoreStrict<Name extends string, State>(
-    name: Name,
-    initialData: State,
-    option: StoreOptions<State> = {}
-): StoreDefinition<Name, State> {
-    const created = option.lazy === true
-        ? createStore(name, initialData as () => State, option as StoreOptions<State> & { lazy: true })
-        : createStore(name, initialData as NonFunction<State>, option);
-    if (created) return created;
-    throw new Error(
-        `createStoreStrict("${String(name)}") failed. ` +
-        `See earlier warnings/errors or onError callbacks for the cause.`
-    );
-}
 
 export function setStore<T extends StoreTarget, P extends StorePathForTarget<T>>(
     name: T,
@@ -499,14 +340,6 @@ export function replaceStore<Name extends string, State>(name: StoreKey<Name, St
 export function replaceStore<Name extends StoreName>(name: Name, value: StateFor<Name>): WriteResult;
 export function replaceStore(nameInput: string | StoreDefinition<string, StoreValue>, value: unknown): WriteResult {
     const storeName = nameOf(nameInput);
-    if (isTransactionActive()) {
-        const message =
-            `replaceStore("${storeName}") cannot be called inside setStoreBatch. ` +
-            `The entire batch is rolled back when this occurs.`;
-        reportStoreError(storeName, message);
-        markTransactionFailed(message);
-        return { ok: false, reason: "invalid-args" };
-    }
     if (!storeName) return { ok: false, reason: "invalid-args" };
 
     const result = replaceStoreState(storeName, value, "replace");
@@ -535,6 +368,8 @@ export function deleteStore(nameInput: string | StoreDefinition<string, StoreVal
     }
     storeAdmin.deleteExistingStore(name);
     invalidatePathCache(name);
+    slowMutatorWarned.delete(name);
+    clearSsrGlobalAllowWarned(name);
 }
 
 export function resetStore<Name extends string, State>(name: StoreDefinition<Name, State>): WriteResult;
@@ -570,24 +405,33 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
 }
 
 const replaceStoreState = (name: string, data: unknown, action: CommitAction = "hydrate"): { ok: boolean; reason?: string } => {
-    if (!exists(name)) return { ok: false, reason: "not-found" };
-    const prev = stores[name];
+    const fail = (reason: string, message?: string): { ok: false; reason: string } => {
+        if (isTransactionActive()) {
+            markTransactionFailed(message ?? reason);
+        }
+        return { ok: false, reason };
+    };
+    if (!exists(name)) {
+        return fail("not-found", `replaceStore("${name}") called before createStore().`);
+    }
+    const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
+    const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(name);
     const nextResult = sanitizeValue(name, data);
-    if (!nextResult.ok) return { ok: false, reason: "sanitize" };
+    if (!nextResult.ok) return fail("sanitize", `replaceStore("${name}") failed sanitize`);
     const nextValue = nextResult.value;
     if (nextValue === undefined) {
         const message = `Whole-store undefined replacement is blocked for "${name}". Use null for intentional empty state.`;
         reportStoreWarning(name, message);
-        return { ok: false, reason: "undefined" };
+        return fail("undefined", message);
     }
 
     const validateRule = meta[name]?.options?.validate;
 
     const final = runMiddlewareForStore(name, { action, prev, next: nextValue, path: null });
-    if (final === MIDDLEWARE_ABORT) return { ok: false, reason: "middleware" };
+    if (final === MIDDLEWARE_ABORT) return fail("middleware", `replaceStore("${name}") aborted by middleware`);
     const committed = normalizeCommittedState(name, final, validateRule);
-    if (!committed.ok) return { ok: false, reason: "validate" };
-    commitStoreUpdate({
+    if (!committed.ok) return fail("validate", `replaceStore("${name}") failed validation`);
+    stageOrCommitUpdate({
         name,
         prev,
         next: committed.value,
@@ -606,6 +450,8 @@ export const clearAllStores = (): void => {
         return;
     }
     storeAdmin.clearAllStores();
+    slowMutatorWarned.clear();
+    clearSsrGlobalAllowWarned();
 };
 
 export const _hardResetAllStoresForTest = (): void => {
@@ -615,7 +461,7 @@ export const _hardResetAllStoresForTest = (): void => {
 export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     snapshot: Snapshot,
     options: HydrateOptions<Snapshot> = {},
-    trust: HydrationTrust<Snapshot> = {}
+    trust: HydrationTrust<Snapshot>
 ): { hydrated: string[]; created: string[]; failed: Record<string, string> } => {
     if (isTransactionActive()) {
         const message = `hydrateStores(...) cannot be called inside setStoreBatch.`;
@@ -634,10 +480,11 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     };
     if (!snapshot || typeof snapshot !== "object") return result;
 
+    const trustInput = trust ?? {};
     const allowHydration =
-        trust.allowTrusted === true ||
-        trust.allowHydration === true ||
-        trust.allowUntrusted === true ||
+        trustInput.allowTrusted === true ||
+        trustInput.allowHydration === true ||
+        trustInput.allowUntrusted === true ||
         getConfig().allowUntrustedHydration === true;
     if (!allowHydration) {
         warnAlways(
@@ -648,10 +495,10 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
         result.failed._hydration = "untrusted";
         return result;
     }
-    if (typeof trust.validate === "function") {
+    if (typeof trustInput.validate === "function") {
         let ok = false;
         try {
-            ok = !!trust.validate(snapshot);
+            ok = !!trustInput.validate(snapshot);
         } catch (err) {
             warnAlways(
                 `hydrateStores(...) trust validation threw: ${(err as { message?: string })?.message ?? err}`

@@ -6,16 +6,27 @@
  *
  * Consumers: Internal imports and public API.
  */
-export const devDeepFreeze = <T>(value: T): T => {
-    if (typeof value !== "object" || value === null) return value;
+const isFreezableObject = (value: unknown): value is object => {
+    if (typeof value !== "object" || value === null) return false;
+    const anyValue = value as any;
     // Skip React elements, DOM nodes, and complex instances (Maps, Sets, third-party classes, etc.)
-    if (
-        (value as any).$$typeof || 
-        (typeof window !== "undefined" && value instanceof Element) ||
-        (value.constructor && value.constructor.name !== "Object" && value.constructor.name !== "Array")
-    ) {
-        return value;
+    if (anyValue.$$typeof) return false;
+    if (typeof window !== "undefined" && value instanceof Element) return false;
+    const ctorName = anyValue.constructor?.name;
+    if (ctorName && ctorName !== "Object" && ctorName !== "Array") return false;
+    return true;
+};
+
+export const devShallowFreeze = <T>(value: T): T => {
+    if (!isFreezableObject(value)) return value;
+    if (!Object.isFrozen(value)) {
+        Object.freeze(value);
     }
+    return value;
+};
+
+export const devDeepFreeze = <T>(value: T): T => {
+    if (!isFreezableObject(value)) return value;
     const stack: object[] = [value as object];
     const seen = new WeakSet<object>();
 

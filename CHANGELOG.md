@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 ### Breaking
 - `stroid/core` now exports only `createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, and `deleteStore` (minimal primitives).
+- TypeScript: `hydrateStores` now requires an explicit trust argument (compile-time).
+- Default snapshot mode is now `shallow` (was `deep`).
 
 ### Migration
 
@@ -25,9 +27,12 @@ All notable changes to this project will be documented in this file.
 - Persist `maxSize` warnings now fire only when an unbounded payload is large during hydration.
 - Sync loop guard is enabled by default (opt out with `sync: { loopGuard: false }`).
 - `useStore` warns once in dev when store names are untyped (StoreStateMap not augmented).
+- `useStore` broad-subscription warnings now surface outside dev once per store.
+- `snapshot: "shallow"` now dev-freezes the top-level snapshot to surface accidental mutations.
 
 ### Fixed
 - Helper store typings now align with the stricter `createStore` overloads.
+- `replaceStore` now participates in `setStoreBatch` transactions instead of hard-failing.
 
 
 ### Docs
