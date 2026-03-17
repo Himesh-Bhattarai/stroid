@@ -891,6 +891,7 @@ test("sync runtime reports sanitize errors and setup failures", () => {
     reportStoreError: (message: string) => errors.push(message),
     warn: () => undefined,
     setStoreValue: () => undefined,
+    isDev: () => true,
     sanitize: (value: unknown) => {
       if (typeof value === "bigint") throw new Error("sanitize boom");
       return value;
@@ -1298,6 +1299,7 @@ test("sync runtime handles verify errors, sync requests, and conflict resolution
     reportStoreError: (message: string) => errors.push(message),
     warn: () => undefined,
     setStoreValue: () => undefined,
+    isDev: () => true,
     sanitize: (value: unknown) => value,
     hashState: () => 1,
     deepClone,

@@ -8,7 +8,7 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import { configureStroid, resetConfig } from "../src/config.js";
+import { configureStroid, resetConfig, registerMutatorProduce } from "../src/config.js";
 import { clearAllStores } from "../src/runtime-admin.js";
 import {
   createStore,
@@ -168,6 +168,18 @@ test("hydrateStores accepts allowTrusted trust flag", () => {
   const result = hydrateStores({ trustedHydrate: { value: 1 } }, {}, { allowTrusted: true });
   assert.ok(result.created.includes("trustedHydrate"));
   assert.deepStrictEqual(getStore("trustedHydrate"), { value: 1 });
+});
+
+test("hydrateStores throws when trust.validate throws in dev", () => {
+  clearAllStores();
+  assert.throws(() => {
+    hydrateStores({ badTrust: { value: 1 } }, {}, {
+      allowTrusted: true,
+      validate: () => {
+        throw new Error("validator boom");
+      },
+    });
+  }, /trust\.validate threw/);
 });
 
 test("replaceStore inside batch commits as part of the transaction", () => {
@@ -869,12 +881,12 @@ test("mutatorProduce enables structural sharing", async () => {
   }
 });
 
-test("mutatorProduce accepts the \"immer\" alias when globally provided", async () => {
+test("mutatorProduce accepts the \"immer\" alias after registration", async () => {
   clearAllStores();
   const { produce } = await import("immer");
-  (globalThis as any).__STROID_IMMER_PRODUCE__ = produce;
 
   try {
+    registerMutatorProduce(produce);
     configureStroid({ mutatorProduce: "immer" });
     createStore("sharingAlias", { a: { value: 1 }, b: { value: 2 } });
     const before = _getStoreValueRef("sharingAlias") as any;
@@ -886,9 +898,41 @@ test("mutatorProduce accepts the \"immer\" alias when globally provided", async 
     assert.notStrictEqual(before.a, after.a);
     assert.strictEqual(before.b, after.b);
   } finally {
-    delete (globalThis as any).__STROID_IMMER_PRODUCE__;
     resetConfig();
   }
+});
+
+test("registerMutatorProduce locks and can be force-overridden", async () => {
+  clearAllStores();
+  const { produce } = await import("immer");
+  const warnings: string[] = [];
+  configureStroid({ logSink: { warn: (msg: string) => warnings.push(msg) } });
+
+  const calls: string[] = [];
+  const producerA = <T>(base: T, recipe: (draft: T) => void) => {
+    calls.push("A");
+    return produce(base, recipe);
+  };
+  const producerB = <T>(base: T, recipe: (draft: T) => void) => {
+    calls.push("B");
+    return produce(base, recipe);
+  };
+
+  try {
+    registerMutatorProduce(producerA);
+    registerMutatorProduce(producerB);
+    registerMutatorProduce(producerB, { force: true });
+    createStore("lockTest", { value: 1 });
+    setStore("lockTest", (draft: any) => {
+      draft.value = 2;
+    });
+  } finally {
+    resetConfig();
+  }
+
+  assert.ok(warnings.some((msg) => msg.includes("registerMutatorProduce") && msg.includes("lock")));
+  assert.ok(calls.includes("B"));
+  assert.ok(!calls.includes("A"));
 });
 
 test("getStoreSnapshot caches within a transaction and invalidates on stage", () => {

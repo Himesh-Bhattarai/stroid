@@ -16,6 +16,9 @@ All notable changes to this project will be documented in this file.
 - `allowTrusted` hydration flag (aliasing `allowHydration`; `allowUntrusted` deprecated).
 - `allowTrustedHydration` config alias for trusted snapshot hydration.
 - `sync.loopGuard` option to suppress immediate rebroadcasts after an incoming sync update.
+- `registerMutatorProduce` helper for safely registering Immer (or other mutator engines) without globals.
+- `sync.insecure` option to explicitly allow unauthenticated sync in production.
+- `onValidationError` hook for hydrate trust validation failures.
 - `acknowledgeLooseTypes` config flag to silence the loose-type dev warning.
 - `pathCacheSize` config to tune per-store path validation cache limits.
 - `HydrateSnapshotFor<Map>` helper type for stricter hydration typing.
@@ -28,6 +31,9 @@ All notable changes to this project will be documented in this file.
 - Lazy store typings now require `lazy: true` when initial data is a function (and vice versa).
 - Persist `maxSize` warnings now fire only when an unbounded payload is large during hydration.
 - Sync loop guard is enabled by default (opt out with `sync: { loopGuard: false }`).
+- Unauthenticated `sync` is now blocked in production unless `sync.authToken`, `sync.verify`, or `sync.insecure` is provided.
+- `hydrateStores` now throws in dev when `trust.validate` throws; production routes the error via `onError`.
+- `mutatorProduce: "immer"` now uses `registerMutatorProduce` instead of a global shim.
 - `useStore` warns once in dev when store names are untyped (StoreStateMap not augmented).
 - `useStore` broad-subscription warnings now surface outside dev once per store.
 - `snapshot: "shallow"` now dev-freezes the top-level snapshot to surface accidental mutations.
@@ -49,6 +55,7 @@ All notable changes to this project will be documented in this file.
 ### Docs
 - Hydration examples now reference `allowTrusted` language.
 - Sync options documentation now includes `loopGuard`.
+- README now documents `registerMutatorProduce`, `sync.insecure`, and `onValidationError`.
 - Added notes for `acknowledgeLooseTypes`, `HydrateSnapshotFor`, and `pathCacheSize` in README.
 
 ### Testing
@@ -57,6 +64,8 @@ All notable changes to this project will be documented in this file.
 - Added tests for loose-type warnings, loopGuard defaults, and path cache sizing.
 - Added coverage for lifecycle flush hooks.
 - Added regression coverage for lazy store lifecycle helpers and transaction context isolation.
+- Added regression coverage for `registerMutatorProduce` locking and hydrate trust validation errors.
+- Added production SSR tests for sync auth gating and `onValidationError`.
 
 
 ## 0.1.1 - 2026-03-15

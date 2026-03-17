@@ -78,7 +78,7 @@ export type StroidConfig = {
     allowHydration?: boolean;
     /**
      * Optional custom mutator engine (e.g. Immer's produce) to enable structural sharing.
-     * You can pass the produce function directly or use "immer" with a global produce shim.
+     * You can pass the produce function directly or use "immer" after calling registerMutatorProduce().
      */
     mutatorProduce?: (<T>(base: T, recipe: (draft: T) => void) => T) | "immer";
 };
@@ -180,21 +180,32 @@ const getRegistryConfig = (registry: StoreRegistry): ResolvedConfig => {
     return config;
 };
 
-const IMMER_PRODUCE_KEY = "__STROID_IMMER_PRODUCE__";
-let cachedImmerProduce: (<T>(base: T, recipe: (draft: T) => void) => T) | undefined;
+let registeredMutatorProduce: (<T>(base: T, recipe: (draft: T) => void) => T) | undefined;
+let mutatorProduceLocked = false;
 let immerMissingWarned = false;
-const resolveImmerProduce = (): (<T>(base: T, recipe: (draft: T) => void) => T) | undefined => {
-    if (cachedImmerProduce) return cachedImmerProduce;
-    const globalAny = globalThis as Record<string, unknown> | undefined;
-    const candidate = globalAny ? globalAny[IMMER_PRODUCE_KEY] : undefined;
-    if (typeof candidate === "function") {
-        cachedImmerProduce = candidate as (<T>(base: T, recipe: (draft: T) => void) => T);
-        return cachedImmerProduce;
-    }
-    return undefined;
-};
+const resolveImmerProduce = (): (<T>(base: T, recipe: (draft: T) => void) => T) | undefined =>
+    registeredMutatorProduce;
 
 export const getConfig = (): ResolvedConfig => getRegistryConfig(getActiveStoreRegistry());
+
+export const registerMutatorProduce = (
+    produce: (<T>(base: T, recipe: (draft: T) => void) => T),
+    options: { force?: boolean } = {}
+): void => {
+    if (typeof produce !== "function") {
+        throw new Error("registerMutatorProduce requires a function.");
+    }
+    if (mutatorProduceLocked && !options.force) {
+        warnAlways(
+            "registerMutatorProduce() called after lock. " +
+            "Pass { force: true } only if you intentionally replace the producer."
+        );
+        return;
+    }
+    registeredMutatorProduce = produce;
+    mutatorProduceLocked = true;
+    configureStroid({ mutatorProduce: produce });
+};
 
 export const configureStroid = (next?: StroidConfig): void => {
     if (!next) return;
@@ -369,7 +380,7 @@ export const configureStroid = (next?: StroidConfig): void => {
                 immerMissingWarned = true;
                 warnAlways(
                     `configureStroid({ mutatorProduce: "immer" }) requires Immer's produce function.\n` +
-                    `Set globalThis.${IMMER_PRODUCE_KEY} = produce or pass mutatorProduce: produce directly.`
+                    `Call registerMutatorProduce(produce) or pass mutatorProduce: produce directly.`
                 );
             }
         }
@@ -384,7 +395,8 @@ export const configureStroid = (next?: StroidConfig): void => {
 export const resetConfig = (): void => {
     configByRegistry = new WeakMap<StoreRegistry, ResolvedConfig>();
     baseConfig = cloneConfig(defaultConfig);
-    cachedImmerProduce = undefined;
+    registeredMutatorProduce = undefined;
+    mutatorProduceLocked = false;
     immerMissingWarned = false;
 };
 

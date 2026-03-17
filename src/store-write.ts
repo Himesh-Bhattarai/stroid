@@ -118,6 +118,7 @@ type HydrationTrustBase<Snapshot extends object> = {
      */
     allowUntrusted?: boolean;
     validate?: (snapshot: Snapshot) => boolean;
+    onValidationError?: (error: unknown, snapshot: Snapshot) => boolean;
 };
 type HydrationTrust<Snapshot extends object> =
     | (HydrationTrustBase<Snapshot> & { allowTrusted: true })
@@ -517,11 +518,46 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
         try {
             ok = !!trustInput.validate(snapshot);
         } catch (err) {
-            warnAlways(
-                `hydrateStores(...) trust validation threw: ${(err as { message?: string })?.message ?? err}`
-            );
-            result.failed._hydration = "validation-error";
-            return result;
+            const errorMessage =
+                `hydrateStores() trust.validate threw: ${(err as { message?: string })?.message ?? err}`;
+            if (isDev()) {
+                throw new Error(
+                    `hydrateStores() trust.validate threw an error. ` +
+                    `Fix your validator before this becomes a silent production failure.\n` +
+                    `Original error: ${(err as { message?: string })?.message ?? err}`
+                );
+            }
+            const onError = options?.default?.onError;
+            if (typeof onError === "function") {
+                try {
+                    onError(errorMessage);
+                } catch (hookErr) {
+                    warnAlways(
+                        `hydrateStores(...) onError threw: ${(hookErr as { message?: string })?.message ?? hookErr}`
+                    );
+                }
+            }
+            warnAlways(errorMessage);
+            if (typeof trustInput.onValidationError === "function") {
+                try {
+                    const allow = !!trustInput.onValidationError(err, snapshot);
+                    if (allow) {
+                        ok = true;
+                    } else {
+                        result.failed._hydration = "validation-error";
+                        return result;
+                    }
+                } catch (hookErr) {
+                    warnAlways(
+                        `hydrateStores(...) onValidationError threw: ${(hookErr as { message?: string })?.message ?? hookErr}`
+                    );
+                    result.failed._hydration = "validation-error";
+                    return result;
+                }
+            } else {
+                result.failed._hydration = "validation-error";
+                return result;
+            }
         }
         if (!ok) {
             warnAlways("hydrateStores(...) rejected by trust validation.");

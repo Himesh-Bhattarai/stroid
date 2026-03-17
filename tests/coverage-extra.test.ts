@@ -269,12 +269,13 @@ test("hydrateStores enforces trust validation branches", () => {
   );
   assert.strictEqual(failed.failed._hydration, "validation-failed");
 
-  const threw = hydrateStores(
-    { c: { value: 3 } },
-    {},
-    { allowUntrusted: true, validate: () => { throw new Error("boom"); } }
-  );
-  assert.strictEqual(threw.failed._hydration, "validation-error");
+  assert.throws(() => {
+    hydrateStores(
+      { c: { value: 3 } },
+      {},
+      { allowUntrusted: true, validate: () => { throw new Error("boom"); } }
+    );
+  }, /trust\.validate threw/);
 
   const invalid = hydrateStores(
     { "bad name": { value: 1 } } as any,

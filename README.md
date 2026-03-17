@@ -184,13 +184,16 @@ createStore("settings", { theme: "dark", lang: "en" }, {
 **Sync across browser tabs — zero wiring.**
 
 > ⚡ **Tip:** Add `import "stroid/sync"` once at app entry. Any store with `sync: true` or `sync: { channel }` will start broadcasting automatically.
+>
+> In production, unauthenticated sync is blocked unless you explicitly opt in with `sync: { insecure: true }`
+> or provide `sync.authToken`/`sync.verify`.
 
 ```ts
 import { createStore } from "stroid"
 import "stroid/sync"
 
 createStore("presence", { online: true, cursor: null }, {
-  sync: { channel: "presence-sync" }
+  sync: { channel: "presence-sync", authToken: "app-shared-token" }
   // Lamport clock conflict resolution built in.
   // Stale messages from closed tabs auto-rejected.
   // loopGuard defaults on; set sync: { loopGuard: false } to opt out.
@@ -319,6 +322,9 @@ Tip: For typed SSR APIs, either augment `StoreStateMap` or pass a generic:
 `createStoreForRequest<{ user: UserState }>((api) => { ... })`.
 For stricter snapshot typing, you can also use:
 `hydrateStores<HydrateSnapshotFor<StoreStateMap>>(snapshot, {}, { allowTrusted: true })`.
+
+If your `trust.validate` throws, `hydrateStores` throws in dev and reports via `onError` in production.
+Use `onValidationError` to capture the error and decide whether to proceed with hydration.
 ```
 
 **Middleware — intercept, transform, or veto any write.**
@@ -422,12 +428,14 @@ configureStroid({
 
 ```ts
 import { configureStroid } from "stroid"
+import { registerMutatorProduce } from "stroid/config"
 import { produce } from "immer"
 
-configureStroid({ mutatorProduce: produce })
+registerMutatorProduce(produce)
+configureStroid({ mutatorProduce: "immer" })
 ```
 
-If you prefer a shorthand, set `globalThis.__STROID_IMMER_PRODUCE__ = produce` once and use `configureStroid({ mutatorProduce: "immer" })`.
+You can also pass `mutatorProduce: produce` directly if you prefer not to use the alias.
 
 **Testing — deterministic, isolated, zero globals.**
 

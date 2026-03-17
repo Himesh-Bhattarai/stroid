@@ -143,6 +143,131 @@ test("setStoreBatch throws in production global SSR scope", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("sync blocks unauthenticated stores in production unless explicitly insecure", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const configPath = path.join(repoRoot, "src", "config.ts");
+  const runtimePath = path.join(repoRoot, "src", "runtime-tools.ts");
+  const syncPath = path.join(repoRoot, "src", "sync.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const tools = await import(pathToFileURL(${JSON.stringify(runtimePath)}).href);
+    await import(pathToFileURL(${JSON.stringify(syncPath)}).href);
+
+    config.configureStroid({ logSink: { critical: () => {} } });
+
+    globalThis.window = { addEventListener: () => {}, removeEventListener: () => {} };
+    globalThis.BroadcastChannel = class {
+      constructor() {}
+      postMessage() {}
+      close() {}
+    };
+
+    store.createStore("secure", { value: 1 }, { sync: true });
+    const metaSecure = tools.getStoreMeta("secure");
+    assert.strictEqual(metaSecure?.options?.sync, false);
+    store.createStore("insecure", { value: 1 }, { sync: { insecure: true } });
+    const metaInsecure = tools.getStoreMeta("insecure");
+    assert.notStrictEqual(metaInsecure?.options?.sync, false);
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("hydrateStores trust validation errors surface in production", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const configPath = path.join(repoRoot, "src", "config.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    const warnings = [];
+    const errors = [];
+    config.configureStroid({ logSink: { warn: (msg) => warnings.push(msg) } });
+
+    const result = store.hydrateStores(
+      { user: { value: 1 } },
+      { default: { onError: (msg) => errors.push(msg) } },
+      {
+        allowTrusted: true,
+        validate: () => { throw new Error("boom"); },
+      }
+    );
+
+    assert.strictEqual(result.failed._hydration, "validation-error");
+    assert.strictEqual(store.hasStore("user"), false);
+    assert.ok(errors.some((msg) => msg.includes("trust.validate")));
+    assert.ok(warnings.some((msg) => msg.includes("trust.validate")));
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("hydrateStores onValidationError can allow hydration in production", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const configPath = path.join(repoRoot, "src", "config.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    const warnings = [];
+    config.configureStroid({ logSink: { warn: (msg) => warnings.push(msg) } });
+
+    globalThis.window = {};
+    const result = store.hydrateStores(
+      { profile: { ok: true } },
+      {},
+      {
+        allowTrusted: true,
+        validate: () => { throw new Error("boom"); },
+        onValidationError: () => true,
+      }
+    );
+
+    assert.ok(result.created.includes("profile"));
+    assert.strictEqual(store.hasStore("profile"), true);
+    assert.ok(warnings.some((msg) => msg.includes("trust.validate")));
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("unknown Node env falls back to production mode", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const utilsPath = path.join(repoRoot, "src", "utils.ts");

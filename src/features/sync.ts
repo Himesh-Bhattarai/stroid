@@ -239,13 +239,14 @@ export const setupSync = ({
         reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
         return;
     }
+    const allowInsecure = typeof syncOption === "object" && syncOption.insecure === true;
     const hasAuthToken = typeof syncOption === "object"
         && typeof syncOption.authToken === "string"
         && syncOption.authToken.length > 0;
     const hasVerify = typeof syncOption === "object" && typeof syncOption.verify === "function";
     const hasSign = typeof syncOption === "object" && typeof syncOption.sign === "function";
 
-    if (!hasAuthToken && !hasVerify && !insecureSyncWarned.has(name)) {
+    if (!allowInsecure && !hasAuthToken && !hasVerify && !insecureSyncWarned.has(name)) {
         insecureSyncWarned.add(name);
         warnAlways(
             `Sync for "${name}" is unauthenticated. Any same-origin tab can forge sync messages. ` +
@@ -527,10 +528,24 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
     return {
         onStoreCreate(ctx) {
             if (!ctx.options.sync) return;
+            const syncOption = ctx.options.sync;
+            const allowInsecure = typeof syncOption === "object" && syncOption.insecure === true;
+            const hasAuthToken = typeof syncOption === "object"
+                && typeof syncOption.authToken === "string"
+                && syncOption.authToken.length > 0;
+            const hasVerify = typeof syncOption === "object" && typeof syncOption.verify === "function";
+            if (!ctx.isDev() && syncOption && !allowInsecure && !hasAuthToken && !hasVerify) {
+                ctx.reportStoreError(
+                    `Store "${ctx.name}" has sync enabled in production without authentication. ` +
+                    `Pass sync.authToken or sync.verify. Use sync: { insecure: true } to acknowledge the risk.`
+                );
+                ctx.options.sync = false;
+                return;
+            }
 
             setupSync({
                 name: ctx.name,
-                syncOption: ctx.options.sync,
+                syncOption,
                 syncChannels,
                 syncClocks,
                 syncVersions,

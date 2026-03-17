@@ -131,6 +131,11 @@ export interface SyncOptions {
      * When set, incoming sync messages without a matching token are rejected.
      */
     authToken?: string;
+    /**
+     * Explicitly allow unauthenticated sync in production.
+     * When true, sync will be allowed without authToken/verify.
+     */
+    insecure?: boolean;
     conflictResolver?: (args: {
         local: StoreValue;
         incoming: StoreValue;
