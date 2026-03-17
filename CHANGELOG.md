@@ -23,6 +23,7 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - `allowTrustedHydration` config alias for trusted snapshot hydration.
 - `sync.loopGuard` option to suppress immediate rebroadcasts after an incoming sync update.
 - `registerMutatorProduce` helper for safely registering Immer (or other mutator engines) without globals.
+- API Extractor configuration and `docs:api` script for generating typed API reports.
 - `sync.insecure` option to explicitly allow unauthenticated sync in production.
 - `onValidationError` hook for hydrate trust validation failures.
 - `acknowledgeLooseTypes` config flag to silence the loose-type dev warning.
@@ -74,6 +75,7 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - Hydration examples now reference `allowTrusted` language.
 - Sync options documentation now includes `loopGuard`.
 - README now documents `registerMutatorProduce`, `sync.insecure`, and `onValidationError`.
+- API Extractor output now targets `docs/api` for published API references.
 - Added notes for `acknowledgeLooseTypes`, `HydrateSnapshotFor`, and `pathCacheSize` in README.
 
 ### Testing

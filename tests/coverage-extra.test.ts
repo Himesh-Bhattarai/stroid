@@ -61,6 +61,7 @@ import {
 } from "../src/utils/validation.js";
 import { hashState, crc32 } from "../src/utils/hash.js";
 import { MIDDLEWARE_ABORT } from "../src/features/lifecycle.js";
+import { configureStroid, resetConfig } from "../src/config.js";
 
 test("createSelector caches primitive results and handles missing stores", () => {
   resetAllStoresForTest();
@@ -464,6 +465,29 @@ test("utils/clone covers shallow and deep clone branches", () => {
       throw new Error("boom");
     });
   }, /produceClone failed/);
+});
+
+test("deepClone warns and falls back when structuredClone fails", () => {
+  resetAllStoresForTest();
+  const warnings: string[] = [];
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+  const originalClone = (globalThis as any).structuredClone;
+  try {
+    (globalThis as any).structuredClone = () => {
+      throw new Error("structuredClone boom");
+    };
+    const value = { nested: { value: 1 } };
+    const cloned = deepClone(value);
+    assert.notStrictEqual(cloned, value);
+    assert.ok(warnings.some((msg) => msg.includes("fell back to manual clone")));
+  } finally {
+    (globalThis as any).structuredClone = originalClone;
+    resetConfig();
+  }
 });
 
 test("store-write reset/delete branches for lazy stores and batching", async () => {

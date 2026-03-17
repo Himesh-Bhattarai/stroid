@@ -60,6 +60,7 @@ npm install stroid
 | API | Purpose |
 |-----|---------|
 | `createStore(name, state, options?)` | Define a store |
+| `createStoreStrict(name, state, options?)` | Define a store and throw synchronously on failure |
 | `setStore(name, path, value)` | Write a value by path |
 | `setStore(name, draft => { })` | Mutate with a function |
 | `replaceStore(name, value)` | Replace an entire store |
@@ -71,6 +72,8 @@ npm install stroid
 | `createComputed(name, deps, fn)` | Reactive derived store |
 | `createStoreForRequest(fn)` | Per-request SSR registry |
 | `hydrateStores(snapshot, options?, trust)` | Rehydrate on client from server state |
+
+`createStoreStrict(...)` throws synchronously on failure, so wrap it in `try/catch` if you need a recovery path.
 
 ---
 
