@@ -167,6 +167,7 @@ They are easier to grow than a single primitive value.
 `getStore("user")` returns the whole store.
 `getStore("user", "theme")` returns only one field.
 If you want `createStore(...)` to throw instead of returning `undefined` on failure, use `createStoreStrict(...)`.
+`createStoreStrict(...)` throws synchronously, so wrap it in `try/catch` if you need a recovery path.
 
 ## Warning
 

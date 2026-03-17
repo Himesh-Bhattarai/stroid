@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { deepClone, suggestStoreName } from "./utils.js";
+import { deepClone, shallowClone, suggestStoreName } from "./utils.js";
 import {
     getStoreRegistry,
     hasStoreEntry,
@@ -43,8 +43,28 @@ export const listStores = (pattern?: string): string[] => {
     return Object.keys(registry.stores).filter((name) => matchesPattern(name, pattern));
 };
 
-export const getStoreMeta = (name: string): StoreFeatureMeta | null =>
-    (exists(name) ? deepClone(getRegistry().metaEntries[name]) : null) as StoreFeatureMeta | null;
+export const getStoreMeta = (name: string): StoreFeatureMeta | null => {
+    if (!exists(name)) return null;
+    const meta = getRegistry().metaEntries[name];
+    const cloned = shallowClone(meta) as StoreFeatureMeta;
+    cloned.metrics = shallowClone(meta.metrics) as StoreFeatureMeta["metrics"];
+    const optionsClone = shallowClone(meta.options) as StoreFeatureMeta["options"];
+    const options = optionsClone as Record<string, unknown>;
+    if (options.persist && typeof options.persist === "object") {
+        options.persist = shallowClone(options.persist);
+    }
+    if (options.sync && typeof options.sync === "object") {
+        options.sync = shallowClone(options.sync);
+    }
+    if (options.devtools && typeof options.devtools === "object") {
+        options.devtools = shallowClone(options.devtools);
+    }
+    if (options.lifecycle && typeof options.lifecycle === "object") {
+        options.lifecycle = shallowClone(options.lifecycle);
+    }
+    cloned.options = optionsClone;
+    return cloned;
+};
 
 export const getInitialState = (): Record<string, unknown> =>
     deepClone(getRegistry().initialStates) as Record<string, unknown>;

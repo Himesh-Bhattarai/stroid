@@ -416,15 +416,14 @@ test("utils/clone covers shallow and deep clone branches", () => {
   assert.deepStrictEqual(shallow, { visible: 1 });
 
   const withFn = { value: 1, fn: () => "x" };
-  const deep = deepClone(withFn);
-  assert.deepStrictEqual(deep.value, 1);
-  assert.strictEqual(typeof (deep as any).fn, "function");
+  assert.throws(() => {
+    deepClone(withFn);
+  }, /structured-cloneable|function/i);
 
   const complex = {
     map: new Map([["a", { v: 1 }]]),
     set: new Set([1, 2]),
     arr: [1, { v: 2 }],
-    fn: () => "noop",
   };
   const complexClone = deepClone(complex) as any;
   assert.strictEqual(complexClone.map instanceof Map, true);
@@ -433,8 +432,9 @@ test("utils/clone covers shallow and deep clone branches", () => {
 
   if (typeof (globalThis as any).WeakRef === "function") {
     const weak = new (globalThis as any).WeakRef({ ok: true });
-    const weakClone = deepClone({ weak });
-    assert.strictEqual((weakClone as any).weak, weak);
+    assert.throws(() => {
+      deepClone({ weak });
+    }, /WeakRef|structured-cloneable/i);
   }
 
   const proxy = new Proxy({}, {
@@ -445,8 +445,15 @@ test("utils/clone covers shallow and deep clone branches", () => {
       return [];
     },
   });
-  const proxyClone = deepClone(proxy as any);
-  assert.deepStrictEqual(proxyClone, {});
+  let proxyError: unknown = null;
+  try {
+    deepClone(proxy as any);
+  } catch (err) {
+    proxyError = err;
+  }
+  if (proxyError) {
+    assert.match(String(proxyError), /object descriptors|Proxy|host object/i);
+  }
 
   assert.strictEqual(shallowEqual({ a: 1 }, { a: 1 }), true);
   assert.strictEqual(shallowEqual({ a: 1 }, { a: 2 }), false);

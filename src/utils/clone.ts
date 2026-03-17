@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { warnAlways } from "../internals/diagnostics.js";
+import { warn } from "../internals/diagnostics.js";
 import { FORBIDDEN_OBJECT_KEYS } from "./validation.js";
 
 // --- cloning / equality helpers ------------------------------------------------
@@ -30,7 +30,49 @@ export const shallowClone = <T>(value: T): T => {
     return clone as T;
 };
 
+const getNonCloneableReason = (value: unknown): string | null => {
+    if (typeof value === "function") return "function";
+    if (typeof value === "symbol") return "symbol";
+    if (value === null || typeof value !== "object") return null;
+
+    const checks: Array<[string, unknown]> = [
+        ["WeakMap", (globalThis as any).WeakMap],
+        ["WeakSet", (globalThis as any).WeakSet],
+        ["WeakRef", (globalThis as any).WeakRef],
+        ["Promise", (globalThis as any).Promise],
+        ["ReadableStream", (globalThis as any).ReadableStream],
+        ["WritableStream", (globalThis as any).WritableStream],
+        ["TransformStream", (globalThis as any).TransformStream],
+        ["EventTarget", (globalThis as any).EventTarget],
+    ];
+
+    for (const [label, ctor] of checks) {
+        if (typeof ctor === "function" && value instanceof (ctor as any)) {
+            return label;
+        }
+    }
+
+    const NodeCtor = (globalThis as any).Node;
+    if (typeof NodeCtor === "function" && value instanceof NodeCtor) {
+        return "DOM Node";
+    }
+
+    return null;
+};
+
+const isStructuredCloneable = (value: unknown): boolean => getNonCloneableReason(value) === null;
+
+const assertCloneable = (value: unknown): void => {
+    const reason = getNonCloneableReason(value);
+    if (!reason) return;
+    throw new Error(
+        `deepClone failed: value is not structured-cloneable (${reason}). ` +
+        `Avoid storing this type in stroid state.`
+    );
+};
+
 const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()): T => {
+    assertCloneable(value);
     if (value === null || typeof value !== "object") return value;
     if (seen.has(value as object)) return seen.get(value as object) as T;
 
@@ -60,23 +102,16 @@ const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()):
         return clone as T;
     }
 
-    const WeakRefCtor = (globalThis as any)?.WeakRef as (new (...args: any[]) => any) | undefined;
-    if (WeakRefCtor && value instanceof WeakRefCtor) {
-        warnAlways("WeakRef values cannot be deep-cloned. Returning the original reference.");
-        return value;
-    }
-
     const clone: Record<string, unknown> = {};
     seen.set(value as object, clone);
     let descriptors: Record<string, PropertyDescriptor>;
     try {
         descriptors = Object.getOwnPropertyDescriptors(value as Record<string, unknown>);
     } catch (err) {
-        warnAlways(
-            `deepClone failed to read object descriptors (possible Proxy or host object). ` +
-            `Returning the original reference.`
+        throw new Error(
+            `deepClone failed to read object descriptors (possible Proxy or host object): ` +
+            `${(err as { message?: string })?.message ?? err}`
         );
-        return value;
     }
     Object.entries(descriptors).forEach(([key, descriptor]) => {
         if (!descriptor.enumerable || FORBIDDEN_OBJECT_KEYS.has(key)) return;
@@ -87,10 +122,23 @@ const _deepCloneFallback = <T>(value: T, seen = new WeakMap<object, unknown>()):
 };
 
 export const deepClone = <T>(value: T): T => {
-    try {
-        if (hasStructuredClone) return (structuredClone as <X>(v: X) => X)(value);
-    } catch (_) {
-        // Fall through to the manual clone path below.
+    if (hasStructuredClone) {
+        try {
+            return (structuredClone as <X>(v: X) => X)(value);
+        } catch (err) {
+            if (!isStructuredCloneable(value)) {
+                const reason = getNonCloneableReason(value) ?? "unknown";
+                throw new Error(
+                    `deepClone failed: value is not structured-cloneable (${reason}). ` +
+                    `Avoid storing this type in stroid state.`
+                );
+            }
+            warn(
+                `deepClone fell back to manual clone after structuredClone failed: ` +
+                `${(err as { message?: string })?.message ?? err}`
+            );
+            return _deepCloneFallback(value);
+        }
     }
     return _deepCloneFallback(value);
 };

@@ -61,6 +61,8 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - Store metadata now tracks read counts and last-read timestamps for cold-store detection.
 - Middleware contexts now include optional `correlationId`/`traceContext` for async tracing.
 - React hooks now live exclusively under `stroid/react`; main entry types are React-free.
+- `deepClone` now throws on non-cloneable values and warns in dev when falling back from `structuredClone`.
+- `getStoreMeta` now shallow-clones meta/options to avoid cloning function-heavy configs.
 
 ### Fixed
 - Helper store typings now align with the stricter `createStore` overloads.

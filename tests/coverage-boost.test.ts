@@ -618,8 +618,9 @@ test("deepClone returns original when descriptor lookup fails", () => {
       throw new Error("no descriptors");
     },
   });
-  const cloned = deepClone(proxy as unknown as { value: number });
-  assert.strictEqual(cloned, proxy);
+  assert.throws(() => {
+    deepClone(proxy as unknown as { value: number });
+  }, /object descriptors|Proxy|host object/i);
 });
 
 test("sanitize rejects circular references and accessors", () => {
