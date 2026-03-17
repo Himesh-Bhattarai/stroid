@@ -11,6 +11,7 @@ import { subscribeWithSelector } from "../src/selectors.js";
 import { listStores } from "../src/runtime-tools.js";
 import { fetchStore } from "../src/async.js";
 import "../src/sync.js";
+import "../src/devtools.js";
 
 type ScaleRow = {
   count: number;

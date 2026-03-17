@@ -6,6 +6,7 @@ import {
   setStore,
 } from "../src/store.js";
 import { subscribeWithSelector } from "../src/selectors.js";
+import "../src/devtools.js";
 
 type Row = {
   count: number;

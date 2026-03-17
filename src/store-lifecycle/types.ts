@@ -71,7 +71,7 @@ export interface StoreDefinition<Name extends string = string, State = StoreValu
 
 export type WriteResult =
     | { ok: true }
-    | { ok: false; reason: "not-found" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" };
+    | { ok: false; reason: "not-found" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" | "lazy-uninitialized" };
 
 export type Subscriber = (value: StoreValue | null) => void;
 

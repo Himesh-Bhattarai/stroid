@@ -11,10 +11,12 @@ import { deepClone, produceClone } from "./utils.js";
 import type { StoreOptions } from "./adapters/options.js";
 import type { StoreStateMap } from "./store-lifecycle/types.js";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createStoreRegistry, injectCarrierRunner, injectRegistryRunner, type CarrierContext } from "./store-registry.js";
+import { createStoreRegistry, injectCarrierRunner, injectRegistryRunner, type CarrierContext, type TransactionState } from "./store-registry.js";
+import { injectTransactionRunner } from "./store-transaction.js";
 
 const serverAsyncContext = new AsyncLocalStorage<CarrierContext>();
 const serverRegistryContext = new AsyncLocalStorage<ReturnType<typeof createStoreRegistry>>();
+const serverTransactionContext = new AsyncLocalStorage<TransactionState>();
 
 injectCarrierRunner({
     run: (carrier, fn) => serverAsyncContext.run(carrier, fn),
@@ -25,6 +27,12 @@ injectRegistryRunner({
     run: (registry, fn) => serverRegistryContext.run(registry, fn),
     get: () => serverRegistryContext.getStore() || null,
     enterWith: (registry) => serverRegistryContext.enterWith(registry),
+});
+
+injectTransactionRunner({
+    run: (state, fn) => serverTransactionContext.run(state, fn),
+    get: () => serverTransactionContext.getStore() || null,
+    enterWith: (state) => serverTransactionContext.enterWith(state),
 });
 
 type RequestStoreName<StateMap> =

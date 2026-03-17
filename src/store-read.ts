@@ -74,6 +74,22 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
 
 export const hasStore = (name: string): boolean => hasStoreEntryInternal(name);
 
+export const isLazyStore = (name: string): boolean => {
+    const registry = getRegistry();
+    return registry.metaEntries[name]?.options?.lazy === true;
+};
+
+export const isStoreMaterialized = (name: string): boolean => {
+    const registry = getRegistry();
+    if (!hasStoreEntryInternal(name, registry)) return false;
+    return !registry.initialFactories[name];
+};
+
+export const isLazyPending = (name: string): boolean => {
+    const registry = getRegistry();
+    return registry.metaEntries[name]?.options?.lazy === true && !!registry.initialFactories[name];
+};
+
 export { hasStoreEntryInternal as _hasStoreEntryInternal, getStoreValueRef as _getStoreValueRef, getFeatureApi as _getFeatureApi };
 
 export const getInitialState = (): Record<string, StoreValue> => {

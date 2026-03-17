@@ -1,5 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { pathToFileURL } from "node:url";
+import "../src/sync.js";
 
 type SyncRow = {
   peers: number;

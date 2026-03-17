@@ -3,6 +3,7 @@ import { createStore as createReduxStore } from "redux";
 import { produce } from "immer";
 import { createStore as createZustandStore } from "zustand/vanilla";
 import { _subscribe, clearAllStores, createStore, setStore } from "../src/store.js";
+import "../src/devtools.js";
 
 type Library = "stroid" | "redux-plain" | "redux-immer" | "zustand";
 

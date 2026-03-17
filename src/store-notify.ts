@@ -57,6 +57,14 @@ export const setStoreBatch = (fn: () => unknown): void => {
     }
 
     const registry = getRegistry();
+    const isServer = typeof window === "undefined";
+    const nodeEnv = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
+    if (isServer && nodeEnv === "production" && registry.scope !== "request") {
+        throw new Error(
+            `setStoreBatch() called in a global SSR context. ` +
+            `Use createStoreForRequest() to ensure transaction isolation.`
+        );
+    }
     const state = registry.notify;
     state.batchDepth = Math.max(0, state.batchDepth + 1);
     beginTransaction(registry);

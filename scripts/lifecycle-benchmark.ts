@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { _subscribe, clearAllStores, createStore, setStore } from "../src/store.js";
 import { fetchStore } from "../src/async.js";
+import "../src/devtools.js";
 
 const round = (value: number): number => Number(value.toFixed(3));
 let sink = 0;

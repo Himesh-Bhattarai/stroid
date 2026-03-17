@@ -383,6 +383,17 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
     const name = nameOf(nameInput);
     if (!exists(name)) return { ok: false, reason: "not-found" };
     const registry = getRegistry();
+    const lazyPending = registry.metaEntries[name]?.options?.lazy === true && !!registry.initialFactories[name];
+    if (lazyPending) {
+        const message =
+            `resetStore("${name}") cannot run on a lazy store before it is initialized. ` +
+            `Read the store once (getStore) to materialize it before resetting.`;
+        reportStoreWarning(name, message);
+        if (isTransactionActive()) {
+            markTransactionFailed(message);
+        }
+        return { ok: false, reason: "lazy-uninitialized" };
+    }
     if (!materializeInitial(name, registry)) return { ok: false, reason: "validate" };
     if (!registry.initialStates[name]) {
         const message =

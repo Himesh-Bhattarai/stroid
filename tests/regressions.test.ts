@@ -15,8 +15,12 @@ import {
   deleteStore,
   getStore,
   hasStore,
+  isLazyStore,
+  isStoreMaterialized,
+  isLazyPending,
   hydrateStores,
   replaceStore,
+  resetStore,
   setStore,
   setStoreBatch,
   subscribe,
@@ -28,7 +32,7 @@ import { clearSsrGlobalAllowWarned } from "../src/store-create.js";
 import { subscribeWithSelector } from "../src/selectors.js";
 import { broadcastSync } from "../src/features/sync.js";
 import { hashState, warn } from "../src/utils.js";
-import { createStoreRegistry, defaultRegistryScope, runWithRegistry } from "../src/store-registry.js";
+import { createStoreRegistry, defaultRegistryScope, runWithRegistry, createTransactionState } from "../src/store-registry.js";
 import { stores, validatePathSafety, pathValidationCache, getStoreAdmin, getRegistry } from "../src/store-lifecycle.js";
 import { createStoreForRequest } from "../src/server.js";
 import { setComputedOrderResolver } from "../src/internals/computed-order.js";
@@ -36,6 +40,8 @@ import { getTopoOrderedComputeds } from "../src/computed-graph.js";
 import { createComputed } from "../src/computed.js";
 import { registerStoreFeature, resetRegisteredStoreFeaturesForTests } from "../src/feature-registry.js";
 import { registerHook } from "../src/core/lifecycle-hooks.js";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { injectTransactionRunner, beginTransaction, endTransaction, stageTransactionValue, getStagedTransactionValue } from "../src/store-transaction.js";
 
 test("validator with side effects runs once per write", () => {
   clearAllStores();
@@ -660,6 +666,26 @@ test("notify uses carrier values inside request registries", async () => {
   assert.ok(seen.some((snap) => snap?.value === 2));
 });
 
+test("lazy store lifecycle helpers report pending vs materialized", () => {
+  clearAllStores();
+  createStore("lazyLife", () => ({ value: 1 }), { lazy: true });
+
+  assert.strictEqual(isLazyStore("lazyLife"), true);
+  assert.strictEqual(isStoreMaterialized("lazyLife"), false);
+  assert.strictEqual(isLazyPending("lazyLife"), true);
+
+  const pendingReset = resetStore("lazyLife");
+  assert.deepStrictEqual(pendingReset, { ok: false, reason: "lazy-uninitialized" });
+
+  const value = getStore("lazyLife");
+  assert.deepStrictEqual(value, { value: 1 });
+  assert.strictEqual(isStoreMaterialized("lazyLife"), true);
+  assert.strictEqual(isLazyPending("lazyLife"), false);
+
+  const resetResult = resetStore("lazyLife");
+  assert.deepStrictEqual(resetResult, { ok: true });
+});
+
 test("lifecycle flush hooks fire once per store flush", async () => {
   clearAllStores();
   configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 5 } });
@@ -684,6 +710,63 @@ test("lifecycle flush hooks fire once per store flush", async () => {
     stopAfter();
     resetConfig();
   }
+});
+
+test("transaction state isolates concurrent async contexts on a shared registry", async () => {
+  const txContext = new AsyncLocalStorage<ReturnType<typeof createTransactionState>>();
+  injectTransactionRunner({
+    run: (state, fn) => txContext.run(state, fn),
+    get: () => txContext.getStore() || null,
+    enterWith: (state) => txContext.enterWith(state),
+  });
+
+  const registry = createStoreRegistry();
+  runWithRegistry(registry, () => {
+    createStore("txShared", { value: 0 });
+  });
+
+  const results: Array<{ ctx: string; value: number }> = [];
+  const runContext = (label: string, value: number, delay: number) =>
+    new Promise<void>((resolve) => {
+      txContext.run(createTransactionState(), () => {
+        beginTransaction(registry);
+        stageTransactionValue("txShared", { value });
+        results.push({ ctx: label, value: (getStagedTransactionValue("txShared").value as any)?.value });
+        setTimeout(() => {
+          results.push({ ctx: label, value: (getStagedTransactionValue("txShared").value as any)?.value });
+          endTransaction(undefined, registry);
+          resolve();
+        }, delay);
+      });
+    });
+
+  await Promise.all([
+    runContext("A", 1, 20),
+    runContext("B", 2, 5),
+  ]);
+
+  const valuesByCtx = results.reduce<Record<string, number[]>>((acc, entry) => {
+    if (!acc[entry.ctx]) acc[entry.ctx] = [];
+    acc[entry.ctx].push(entry.value);
+    return acc;
+  }, {});
+
+  assert.deepStrictEqual(valuesByCtx.A, [1, 1]);
+  assert.deepStrictEqual(valuesByCtx.B, [2, 2]);
+
+  const stressResults: Array<{ ctx: string; value: number }> = [];
+  const stressTasks = Array.from({ length: 8 }, (_, index) =>
+    runContext(`S${index}`, index + 10, (index % 3) * 4).then(() => {
+      const entries = results.filter((entry) => entry.ctx === `S${index}`);
+      entries.forEach((entry) => stressResults.push(entry));
+    })
+  );
+  await Promise.all(stressTasks);
+  stressResults.forEach((entry) => {
+    assert.strictEqual(entry.value, Number(entry.ctx.slice(1)) + 10);
+  });
+
+  injectTransactionRunner(null);
 });
 
 test("mid-flush store deletion does not crash or notify deleted subscribers", async () => {

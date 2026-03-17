@@ -118,6 +118,31 @@ test("allowSSRGlobalStore warns in production server", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("setStoreBatch throws in production global SSR scope", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    assert.throws(() => {
+      store.setStoreBatch(() => {});
+    }, /global SSR context/);
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("unknown Node env falls back to production mode", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const utilsPath = path.join(repoRoot, "src", "utils.ts");

@@ -140,6 +140,15 @@ const resetNotifyState = (notify: NotifyState): void => {
     notify.isFlushing = false;
 };
 
+export const createTransactionState = (): TransactionState => ({
+    depth: 0,
+    pending: [],
+    stagedValues: new Map(),
+    snapshotCache: new Map(),
+    failed: false,
+    error: undefined,
+});
+
 export const createStoreRegistry = (scope: RegistryScope = "default"): StoreRegistry => {
     const registry: StoreRegistry = {
         scope,
@@ -154,14 +163,7 @@ export const createStoreRegistry = (scope: RegistryScope = "default"): StoreRegi
         computedEntries: Object.create(null),
         computedDependents: Object.create(null),
         computedCleanups: new Map(),
-        transaction: {
-            depth: 0,
-            pending: [],
-            stagedValues: new Map(),
-            snapshotCache: new Map(),
-            failed: false,
-            error: undefined,
-        },
+        transaction: createTransactionState(),
         async: createAsyncRegistry(),
         notify: createNotifyState(),
     };

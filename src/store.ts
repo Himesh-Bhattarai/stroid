@@ -56,6 +56,9 @@ export {
 export {
     getStore,
     hasStore,
+    isLazyStore,
+    isStoreMaterialized,
+    isLazyPending,
     _hasStoreEntryInternal,
     _getStoreValueRef,
     _getFeatureApi,

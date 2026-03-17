@@ -12,10 +12,33 @@ import {
     runWithRegistry,
     type StoreRegistry,
     type TransactionState,
+    createTransactionState,
 } from "./store-registry.js";
+import { registerTestResetHook } from "./internals/test-reset.js";
 
-const getTransactionState = (registry?: StoreRegistry): TransactionState =>
-    (registry ?? getActiveStoreRegistry()).transaction;
+export type TransactionRunner = {
+    run: <T>(state: TransactionState, fn: () => T) => T;
+    get: () => TransactionState | null;
+    enterWith?: (state: TransactionState) => void;
+};
+
+let currentTransactionRunner: TransactionRunner | null = null;
+
+export const injectTransactionRunner = (runner: TransactionRunner | null): void => {
+    currentTransactionRunner = runner;
+};
+
+const clearTransactionRunner = (): void => {
+    currentTransactionRunner = null;
+};
+
+registerTestResetHook("transaction.runner", clearTransactionRunner, 120);
+
+const getTransactionState = (registry?: StoreRegistry): TransactionState => {
+    const runnerState = currentTransactionRunner?.get();
+    if (runnerState) return runnerState;
+    return (registry ?? getActiveStoreRegistry()).transaction;
+};
 
 const coerceError = (err?: unknown): Error => {
     if (err instanceof Error) return err;
@@ -26,7 +49,12 @@ const coerceError = (err?: unknown): Error => {
 
 export const beginTransaction = (registry?: StoreRegistry): StoreRegistry => {
     const resolvedRegistry = registry ?? getActiveStoreRegistry();
-    const state = getTransactionState(resolvedRegistry);
+    let state = currentTransactionRunner?.get();
+    if (!state && currentTransactionRunner?.enterWith) {
+        state = createTransactionState();
+        currentTransactionRunner.enterWith(state);
+    }
+    if (!state) state = getTransactionState(resolvedRegistry);
     state.depth += 1;
     if (state.depth === 1) {
         state.pending = [];
@@ -38,7 +66,12 @@ export const beginTransaction = (registry?: StoreRegistry): StoreRegistry => {
     return resolvedRegistry;
 };
 
-export const isTransactionActive = (): boolean => getTransactionState().depth > 0;
+export const isTransactionActive = (): boolean => {
+    if (currentTransactionRunner) {
+        return (currentTransactionRunner.get()?.depth ?? 0) > 0;
+    }
+    return getTransactionState().depth > 0;
+};
 
 export const markTransactionFailed = (err?: unknown, registry?: StoreRegistry): void => {
     const state = getTransactionState(registry);

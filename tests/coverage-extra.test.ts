@@ -462,7 +462,9 @@ test("store-write reset/delete branches for lazy stores and batching", async () 
 
   createStore("lazyReset", () => ({ value: 1 }), { lazy: true });
   const resetResult = resetStore("lazyReset");
-  assert.strictEqual(resetResult.ok, true);
+  assert.deepStrictEqual(resetResult, { ok: false, reason: "lazy-uninitialized" });
+  assert.deepStrictEqual(getStore("lazyReset"), { value: 1 });
+  assert.deepStrictEqual(resetStore("lazyReset"), { ok: true });
 
   createStore("toDeleteBatch", { value: 1 });
   setStoreBatch(() => {

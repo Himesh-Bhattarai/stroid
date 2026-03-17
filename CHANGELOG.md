@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - `pathCacheSize` config to tune per-store path validation cache limits.
 - `HydrateSnapshotFor<Map>` helper type for stricter hydration typing.
 - Internal lifecycle hook hub for decoupled cross-layer events.
+- Lazy store lifecycle helpers: `isLazyStore`, `isLazyPending`, `isStoreMaterialized`.
 ### Changed
 - `createStoreForRequest` now hydrates with `{ allowTrusted: true }`.
 - `getStore` now respects `snapshot` mode (`deep`/`shallow`/`ref`) for both whole-store and path reads.
@@ -35,6 +36,9 @@ All notable changes to this project will be documented in this file.
 - Shared utility types (e.g., `NonFunction`) consolidated into `types/utility`.
 - Notification pipeline split into `notification/*` modules with a thin orchestration layer.
 - Async cache cleanup hooks now register through lifecycle hooks instead of notification imports.
+- Transactions now use async-context state (per AsyncLocalStorage) when available to avoid cross-request collisions.
+- `resetStore` now reports `lazy-uninitialized` when called before a lazy store is materialized.
+- `setStoreBatch` throws in production SSR when used on the global registry (requires request scope).
 
 ### Fixed
 - Helper store typings now align with the stricter `createStore` overloads.
@@ -52,6 +56,7 @@ All notable changes to this project will be documented in this file.
 - Added type-level regression checks for lazy store misuse.
 - Added tests for loose-type warnings, loopGuard defaults, and path cache sizing.
 - Added coverage for lifecycle flush hooks.
+- Added regression coverage for lazy store lifecycle helpers and transaction context isolation.
 
 
 ## 0.1.1 - 2026-03-15
