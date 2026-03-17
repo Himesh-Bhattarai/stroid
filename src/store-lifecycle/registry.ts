@@ -20,6 +20,10 @@ import {
     enterRegistry,
     initializeRegistryFeatureRuntimes,
     type StoreRegistry,
+    type StoreLifecycleEvent,
+    type StoreLifecycleListener,
+    emitLifecycleEvent,
+    setLifecycleListener,
 } from "../store-registry.js";
 import { registerTestResetHook } from "../internals/test-reset.js";
 import {
@@ -35,6 +39,7 @@ import type { StoreValue, Subscriber } from "./types.js";
 import { getStagedTransactionValue, isTransactionActive } from "../store-transaction.js";
 
 export { defaultRegistryScope } from "../store-registry.js";
+export type { StoreLifecycleEvent } from "../store-registry.js";
 
 let _scope = defaultRegistryScope;
 let _defaultRegistry = getStoreRegistry(_scope);
@@ -53,6 +58,20 @@ export const setRegistryContext = (scope: string, registry: StoreRegistry): void
 };
 
 export const getRegistry = (): StoreRegistry => getActiveRegistry();
+
+export const onStoreLifecycle = (fn: StoreLifecycleListener | null): (() => void) => {
+    const registry = getActiveRegistry();
+    setLifecycleListener(registry, fn);
+    return () => {
+        if (registry.lifecycleListener === fn) {
+            setLifecycleListener(registry, null);
+        }
+    };
+};
+
+export const emitStoreLifecycle = (registry: StoreRegistry, event: StoreLifecycleEvent): void => {
+    emitLifecycleEvent(registry, event);
+};
 
 export function setPathCacheInvalidator(fn: (name: string) => void): void {
     _invalidatePathCache = fn;

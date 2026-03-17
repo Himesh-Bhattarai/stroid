@@ -42,6 +42,24 @@ export type StoreValue = unknown;
 export type HydrateSnapshotFor<Map extends object> =
     Partial<{ [K in keyof Map & string]: Map[K] }>;
 
+export type HydrationFailureReason = "invalid-name" | "create-failed" | "merge-failed";
+
+export type HydrationFailure = {
+    name: string;
+    reason: HydrationFailureReason;
+    cause?: unknown;
+    received?: unknown;
+};
+
+export type HydrationBlockReason = "transaction" | "untrusted" | "validation-error" | "validation-failed";
+
+export type HydrationResult = {
+    hydrated: string[];
+    created: string[];
+    failed: HydrationFailure[];
+    blocked?: { reason: HydrationBlockReason; cause?: unknown };
+};
+
 // Ambient map users can augment to get typed string access to stores.
 // Example:
 //   declare module "stroid" { interface StoreStateMap { user: UserState } }

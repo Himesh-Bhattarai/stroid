@@ -26,6 +26,12 @@ export type RegistrySnapshotEntry = {
     mode?: "deep" | "shallow" | "ref";
 };
 
+export type StoreLifecycleEvent =
+    | { type: "created"; name: string; isGlobal: boolean; isTemp: boolean }
+    | { type: "deleted"; name: string };
+
+export type StoreLifecycleListener = (event: StoreLifecycleEvent) => void;
+
 export type TransactionState = {
     depth: number;
     pending: Array<() => void>;
@@ -77,6 +83,7 @@ export type StoreRegistry = {
     transaction: TransactionState;
     async: AsyncRegistry;
     notify: NotifyState;
+    lifecycleListener: StoreLifecycleListener | null;
 };
 
 const _registries = new Map<string, StoreRegistry>();
@@ -169,6 +176,7 @@ export const createStoreRegistry = (scope: RegistryScope = "default"): StoreRegi
         transaction: createTransactionState(),
         async: createAsyncRegistry(),
         notify: createNotifyState(),
+        lifecycleListener: null,
     };
     initializeRegistryFeatureRuntimes(registry);
     return registry;
@@ -217,6 +225,19 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
     registry.transaction.error = undefined;
     resetNotifyState(registry.notify);
     resetAsyncRegistry(registry.async);
+    registry.lifecycleListener = null;
+};
+
+export const setLifecycleListener = (registry: StoreRegistry, listener: StoreLifecycleListener | null): void => {
+    registry.lifecycleListener = listener;
+};
+
+export const emitLifecycleEvent = (registry: StoreRegistry, event: StoreLifecycleEvent): void => {
+    try {
+        registry.lifecycleListener?.(event);
+    } catch (_) {
+        // Listener errors are intentionally ignored to avoid crashing core flows.
+    }
 };
 
 export const resetAllStoreRegistriesForTests = (): void => {

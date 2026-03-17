@@ -35,6 +35,7 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - `findColdStores()` to surface cold/stale/write-only stores.
 - Root exports for `getMetrics` and `getAsyncMetrics` for discoverability.
 - Reserved `stroid/vue` and `stroid/svelte` entry points (adapter placeholders).
+- `onStoreLifecycle` registry hook for single-listener lifecycle events (devtools-oriented).
 ### Changed
 - `createStoreForRequest` now hydrates with `{ allowTrusted: true }`.
 - `getStore` now respects `snapshot` mode (`deep`/`shallow`/`ref`) for both whole-store and path reads.
@@ -44,6 +45,7 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - Sync loop guard is enabled by default (opt out with `sync: { loopGuard: false }`).
 - Unauthenticated `sync` is now blocked in production unless `sync.authToken`, `sync.verify`, or `sync.insecure` is provided.
 - `hydrateStores` now throws in dev when `trust.validate` throws; production routes the error via `onError`.
+- `hydrateStores` now returns structured `failed` entries with `blocked` reasons instead of string maps.
 - `mutatorProduce: "immer"` now uses `registerMutatorProduce` instead of a global shim.
 - `useStore` warns once in dev when store names are untyped (StoreStateMap not augmented).
 - `useStore` broad-subscription warnings now surface outside dev once per store.

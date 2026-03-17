@@ -8,7 +8,7 @@
  */
 import { runStoreHook } from "../features/lifecycle.js";
 import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../feature-registry.js";
-import { hasStoreEntry, type StoreRegistry } from "../store-registry.js";
+import { hasStoreEntry, emitLifecycleEvent, type StoreRegistry } from "../store-registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn, warnAlways } from "./diagnostics.js";
 import { reportIssue } from "./reporting.js";
@@ -192,6 +192,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                 phase: "after",
             });
             fireHook("afterStoreDelete", name, { type: "afterStoreDelete", prev });
+            emitLifecycleEvent(registry, { type: "deleted", name });
             log(`Store "${name}" deleted`);
         } finally {
             deletingStores.delete(name);

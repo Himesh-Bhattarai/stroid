@@ -37,6 +37,7 @@ import { broadcastSync } from "../src/features/sync.js";
 import { hashState, warn } from "../src/utils.js";
 import { createStoreRegistry, defaultRegistryScope, runWithRegistry, createTransactionState } from "../src/store-registry.js";
 import { stores, validatePathSafety, pathValidationCache, getStoreAdmin, getRegistry } from "../src/store-lifecycle.js";
+import { onStoreLifecycle } from "../src/store-lifecycle/registry.js";
 import { createStoreForRequest } from "../src/server.js";
 import { setComputedOrderResolver } from "../src/internals/computed-order.js";
 import { getTopoOrderedComputeds } from "../src/computed-graph.js";
@@ -184,6 +185,32 @@ test("hydrateStores throws when trust.validate throws in dev", () => {
       },
     });
   }, /trust\.validate threw/);
+});
+
+test("onStoreLifecycle emits created/deleted events and respects unsubscribe", () => {
+  clearAllStores();
+  const events: any[] = [];
+  const off = onStoreLifecycle((event) => {
+    events.push(event);
+  });
+
+  createStore("lifeGlobal", { value: 1 }, { scope: "global" });
+  createStore("lifeTemp", { value: 2 }, { scope: "temp" });
+  deleteStore("lifeGlobal");
+
+  off();
+  createStore("lifeIgnored", { value: 3 });
+
+  const createdGlobal = events.find((entry) => entry.type === "created" && entry.name === "lifeGlobal");
+  const createdTemp = events.find((entry) => entry.type === "created" && entry.name === "lifeTemp");
+  const deletedGlobal = events.find((entry) => entry.type === "deleted" && entry.name === "lifeGlobal");
+
+  assert.strictEqual(createdGlobal?.isGlobal, true);
+  assert.strictEqual(createdGlobal?.isTemp, false);
+  assert.strictEqual(createdTemp?.isGlobal, false);
+  assert.strictEqual(createdTemp?.isTemp, true);
+  assert.strictEqual(deletedGlobal?.name, "lifeGlobal");
+  assert.ok(!events.some((entry) => entry.name === "lifeIgnored"));
 });
 
 test("replaceStore inside batch commits as part of the transaction", () => {
@@ -660,7 +687,9 @@ test("hydrateStores accepts undefined values in snapshots", () => {
 
   assert.deepStrictEqual(result.hydrated.slice().sort(), []);
   assert.deepStrictEqual(result.created.slice().sort(), ["missing"]);
-  assert.strictEqual(result.failed.defined, "undefined");
+  const definedFailure = result.failed.find((entry) => entry.name === "defined");
+  assert.strictEqual(definedFailure?.reason, "merge-failed");
+  assert.strictEqual(definedFailure?.cause, "undefined");
   assert.strictEqual(hasStore("missing"), true);
   assert.deepStrictEqual(getStore("defined"), { value: 1 });
   assert.strictEqual(getStore("missing"), undefined);

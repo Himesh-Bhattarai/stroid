@@ -17,6 +17,7 @@ import {
     setStoreValueInternal,
     hasStoreEntryInternal,
     getRegistry,
+    emitStoreLifecycle,
 } from "./store-lifecycle/registry.js";
 import {
     sanitizeValue,
@@ -194,6 +195,12 @@ export function createStore<Name extends string, State>(
     invalidatePathCache(name);
     runFeatureCreateHooks(name, notify);
     runStoreHookSafe(name, "onCreate", registryMeta[name].options.onCreate, [clean]);
+    emitStoreLifecycle(registry, {
+        type: "created",
+        name,
+        isGlobal: normalizedOptions.scope === "global",
+        isTemp: normalizedOptions.scope === "temp",
+    });
     if (hadPreexistingSubscribers) notify(name);
 
     log(`Store "${name}" created -> ${JSON.stringify(clean)}`);

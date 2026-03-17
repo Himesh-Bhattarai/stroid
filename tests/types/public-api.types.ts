@@ -18,6 +18,7 @@ import {
   hydrateStores,
   type StoreDefinition,
   type HydrateSnapshotFor,
+  type HydrationResult,
   type StoreStateMap,
   store,
 } from "../../src/store.js";
@@ -263,7 +264,7 @@ const hydratedLoose = hydrateStores(
   { hydrateLoose: { persist: true }, default: { devtools: false } },
   { allowTrusted: true }
 );
-type HydratedLooseReturn = Expect<Equal<typeof hydratedLoose, { hydrated: string[]; created: string[]; failed: Record<string, string> }>>;
+type HydratedLooseReturn = Expect<Equal<typeof hydratedLoose, HydrationResult>>;
 // @ts-expect-error options should only accept keys from the snapshot
 hydrateStores({ hydrateLoose: { value: 1 } }, { missing: { persist: true } }, { allowTrusted: true });
 

@@ -209,7 +209,7 @@ test("hydrateStores trust validation errors surface in production", () => {
       }
     );
 
-    assert.strictEqual(result.failed._hydration, "validation-error");
+    assert.strictEqual(result.blocked?.reason, "validation-error");
     assert.strictEqual(store.hasStore("user"), false);
     assert.ok(errors.some((msg) => msg.includes("trust.validate")));
     assert.ok(warnings.some((msg) => msg.includes("trust.validate")));

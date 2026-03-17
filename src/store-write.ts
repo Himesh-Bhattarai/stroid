@@ -56,6 +56,8 @@ import type {
     StoreStateMap,
     StrictStoreMap,
     HydrateSnapshotFor,
+    HydrationFailure,
+    HydrationResult,
     StateFor,
     WriteResult,
 } from "./store-lifecycle/types.js";
@@ -536,7 +538,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     snapshot: Snapshot,
     options: HydrateOptions<Snapshot> = {},
     trust: HydrationTrust<Snapshot>
-): { hydrated: string[]; created: string[]; failed: Record<string, string> } => {
+): HydrationResult => {
     if (isTransactionActive()) {
         const message = `hydrateStores(...) cannot be called inside setStoreBatch.`;
         warn(message);
@@ -544,13 +546,14 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
         return {
             hydrated: [],
             created: [],
-            failed: { _batch: "transaction" },
+            failed: [],
+            blocked: { reason: "transaction" },
         };
     }
-    const result = {
-        hydrated: [] as string[],
-        created: [] as string[],
-        failed: Object.create(null) as Record<string, string>,
+    const result: HydrationResult = {
+        hydrated: [],
+        created: [],
+        failed: [],
     };
     if (!snapshot || typeof snapshot !== "object") return result;
     const registry = getRegistry();
@@ -567,7 +570,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
             `Pass { allowTrusted: true } (or { allowHydration: true }) as the third argument ` +
             `or configureStroid({ allowTrustedHydration: true }).`
         );
-        result.failed._hydration = "untrusted";
+        result.blocked = { reason: "untrusted" };
         return result;
     }
     if (typeof trustInput.validate === "function") {
@@ -601,41 +604,55 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
                     if (allow) {
                         ok = true;
                     } else {
-                        result.failed._hydration = "validation-error";
+                        result.blocked = { reason: "validation-error", cause: err };
                         return result;
                     }
                 } catch (hookErr) {
                     warnAlways(
                         `hydrateStores(...) onValidationError threw: ${(hookErr as { message?: string })?.message ?? hookErr}`
                     );
-                    result.failed._hydration = "validation-error";
+                    result.blocked = { reason: "validation-error", cause: hookErr };
                     return result;
                 }
             } else {
-                result.failed._hydration = "validation-error";
+                result.blocked = { reason: "validation-error", cause: err };
                 return result;
             }
         }
         if (!ok) {
             warnAlways("hydrateStores(...) rejected by trust validation.");
-            result.failed._hydration = "validation-failed";
+            result.blocked = { reason: "validation-failed" };
             return result;
         }
     }
     Object.entries(snapshot).forEach(([storeName, data]) => {
         if (!isValidStoreName(storeName)) {
-            result.failed[storeName] = "invalid-name";
+            result.failed.push({
+                name: storeName,
+                reason: "invalid-name",
+            });
             return;
         }
         if (hasStoreEntryInternal(storeName, registry)) {
             const res = replaceStoreState(registry, storeName, data, "hydrate");
-            if (!res.ok) result.failed[storeName] = res.reason ?? "hydrate-failed";
+            if (!res.ok) {
+                result.failed.push({
+                    name: storeName,
+                    reason: "merge-failed",
+                    cause: res.reason,
+                    received: data,
+                });
+            }
             else result.hydrated.push(storeName);
         } else {
             const optionMap = options as Record<string, StoreOptions<any>> & { default?: StoreOptions<any> };
             const created = createStore(storeName, data, optionMap[storeName] || optionMap.default || {});
             if (created) result.created.push(storeName);
-            else result.failed[storeName] = "create-failed";
+            else result.failed.push({
+                name: storeName,
+                reason: "create-failed",
+                received: data,
+            });
         }
     });
     return result;

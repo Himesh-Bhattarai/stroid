@@ -13,6 +13,8 @@ export type {
     PathValue,
     PartialDeep,
     HydrateSnapshotFor,
+    HydrationFailure,
+    HydrationResult,
     StoreDefinition,
     StoreValue,
     StoreKey,

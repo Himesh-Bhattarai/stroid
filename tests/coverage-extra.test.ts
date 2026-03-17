@@ -260,14 +260,14 @@ test("hydrateStores enforces trust validation branches", () => {
   resetAllStoresForTest();
 
   const untrusted = hydrateStores({ a: { value: 1 } }, {}, {} as any);
-  assert.strictEqual(untrusted.failed._hydration, "untrusted");
+  assert.strictEqual(untrusted.blocked?.reason, "untrusted");
 
   const failed = hydrateStores(
     { b: { value: 2 } },
     {},
     { allowUntrusted: true, validate: () => false }
   );
-  assert.strictEqual(failed.failed._hydration, "validation-failed");
+  assert.strictEqual(failed.blocked?.reason, "validation-failed");
 
   assert.throws(() => {
     hydrateStores(
@@ -282,7 +282,8 @@ test("hydrateStores enforces trust validation branches", () => {
     {},
     { allowUntrusted: true }
   );
-  assert.strictEqual(invalid.failed["bad name"], "invalid-name");
+  const invalidEntry = invalid.failed.find((entry) => entry.name === "bad name");
+  assert.strictEqual(invalidEntry?.reason, "invalid-name");
 });
 
 test("setStoreBatch guards invalid callbacks and transaction errors", async () => {
@@ -481,7 +482,7 @@ test("store-write reset/delete branches for lazy stores and batching", async () 
   setStoreBatch(() => {
     hydrateResult = hydrateStores({ hydrated: { value: 1 } } as any, {}, { allowUntrusted: true });
   });
-  assert.strictEqual(hydrateResult?.failed?._batch, "transaction");
+  assert.strictEqual(hydrateResult?.blocked?.reason, "transaction");
 
   createStore("missingInit", { value: 1 });
   delete (initialStates as Record<string, unknown>)["missingInit"];
@@ -499,7 +500,7 @@ test("store-write guards fire inside manual transaction", () => {
     deleteStore("txGuard");
     clearAllStoresInternal();
     const hydrateResult = hydrateStores({ txHydrate: { value: 1 } } as any, {}, { allowUntrusted: true });
-    assert.strictEqual(hydrateResult.failed._batch, "transaction");
+    assert.strictEqual(hydrateResult.blocked?.reason, "transaction");
   } finally {
     endTransaction();
   }
