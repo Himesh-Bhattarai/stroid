@@ -209,6 +209,9 @@ export function setStore<T extends StoreTarget>(
     name: T,
     update: StoreUpdateForTarget<T>
 ): WriteResult;
+export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
+    return setStoreInternal(name, keyOrData, value);
+}
 const setStoreInternal = (
     name: string | StoreDefinition<string, StoreValue>,
     keyOrData: KeyOrData,
@@ -369,10 +372,6 @@ const setStoreInternal = (
     });
     return { ok: true };
 };
-
-export function setStore(name: string | StoreDefinition<string, StoreValue>, keyOrData: KeyOrData, value?: unknown): WriteResult {
-    return setStoreInternal(name, keyOrData, value);
-}
 
 export const setStoreWithContext = (
     name: string | StoreDefinition<string, StoreValue>,

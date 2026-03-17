@@ -34,6 +34,7 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - `getStoreHealth()` unified observability helper for per-store and global metrics.
 - `findColdStores()` to surface cold/stale/write-only stores.
 - Root exports for `getMetrics` and `getAsyncMetrics` for discoverability.
+- Reserved `stroid/vue` and `stroid/svelte` entry points (adapter placeholders).
 ### Changed
 - `createStoreForRequest` now hydrates with `{ allowTrusted: true }`.
 - `getStore` now respects `snapshot` mode (`deep`/`shallow`/`ref`) for both whole-store and path reads.
@@ -57,6 +58,7 @@ New micro-benchmark: added a flush‑overhead benchmark script to isolate schedu
 - `setStoreBatch` throws in production SSR when used on the global registry (requires request scope).
 - Store metadata now tracks read counts and last-read timestamps for cold-store detection.
 - Middleware contexts now include optional `correlationId`/`traceContext` for async tracing.
+- React hooks now live exclusively under `stroid/react`; main entry types are React-free.
 
 ### Fixed
 - Helper store typings now align with the stricter `createStore` overloads.

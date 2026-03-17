@@ -1,17 +1,17 @@
 /**
- * @module hooks-core
+ * @module react/hooks-core
  *
  * LAYER: React hooks
- * OWNS:  Module-level behavior and exports for hooks-core.
+ * OWNS:  Module-level behavior and exports for react/hooks-core.
  *
  * Consumers: Internal imports and public API.
  */
 import { useEffect, useCallback, useSyncExternalStore, useRef } from "react";
-import { subscribeStore, getStoreSnapshot } from "./store-notify.js";
-import { hasStore } from "./store-read.js";
-import { subscribeWithSelector } from "./selectors.js";
-import { getByPath, warn, warnAlways, isDev, shallowEqual } from "./utils.js";
-import { getConfig } from "./internals/config.js";
+import { subscribeStore, getStoreSnapshot } from "../store-notify.js";
+import { hasStore } from "../store-read.js";
+import { subscribeWithSelector } from "../selectors.js";
+import { getByPath, warn, warnAlways, isDev, shallowEqual } from "../utils.js";
+import { getConfig } from "../internals/config.js";
 import type {
     Path,
     PathValue,
@@ -19,7 +19,7 @@ import type {
     StoreKey,
     StoreName,
     StateFor,
-} from "./store-lifecycle/types.js";
+} from "../store-lifecycle/types.js";
 import {
     hasBroadUseStoreWarning,
     markBroadUseStoreWarning,
@@ -27,7 +27,7 @@ import {
     markMissingUseStoreWarning,
     hasLooseUseStoreWarning,
     markLooseUseStoreWarning,
-} from "./internals/hooks-warnings.js";
+} from "../internals/hooks-warnings.js";
 
 const pickPath = (data: any, path?: string) => {
     if (!path) return data;

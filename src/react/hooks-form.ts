@@ -1,14 +1,14 @@
 /**
- * @module hooks-form
+ * @module react/hooks-form
  *
  * LAYER: React hooks
- * OWNS:  Module-level behavior and exports for hooks-form.
+ * OWNS:  Module-level behavior and exports for react/hooks-form.
  *
  * Consumers: Internal imports and public API.
  */
 import { useCallback } from "react";
 import { useStoreField } from "./hooks-core.js";
-import { setStore } from "./store-write.js";
+import { setStore } from "../store-write.js";
 import type {
     Path,
     PathValue,
@@ -17,7 +17,7 @@ import type {
     StoreName,
     StoreValue,
     StateFor,
-} from "./store-lifecycle/types.js";
+} from "../store-lifecycle/types.js";
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 

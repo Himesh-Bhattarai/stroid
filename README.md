@@ -14,7 +14,7 @@ Every store has a name. Write to it from anywhere — hooks, utilities, server, 
 ```tsx
 createStore("user", { name: "Ava", role: "admin" })           // define once
 setStore("user", "name", "Kai")                                // write from anywhere
-const name = useStore("user", s => s.name)                     // React hook
+const name = useStore("user", s => s.name)                     // React hook (stroid/react)
 ```
 
 ---
@@ -41,7 +41,7 @@ const name = useStore("user", s => s.name)                     // React hook
 
 Each row is independent. Use only what you need.
 
-Note: `stroid/core` exports only `createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, and `deleteStore`. Import from `stroid` for the full core runtime (batching, hydration, and hooks).
+Note: `stroid/core` exports only `createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, and `deleteStore`. Import from `stroid` for the full core runtime (batching, hydration). React hooks live in `stroid/react`.
 
 ---
 
@@ -65,7 +65,7 @@ npm install stroid
 | `replaceStore(name, value)` | Replace an entire store |
 | `getStore(name, path?)` | Read a store (or a path inside it) |
 | `setStoreBatch(fn)` | Atomic multi-store write, rollback on error |
-| `useStore(name, selector?)` | React hook — subscribes to a store |
+| `useStore(name, selector?)` | React hook (stroid/react) — subscribes to a store |
 | `useSelector(name, fn)` | React hook — fine-grained derived value |
 | `fetchStore(name, url, options?)` | Async fetch wired to store state |
 | `createComputed(name, deps, fn)` | Reactive derived store |

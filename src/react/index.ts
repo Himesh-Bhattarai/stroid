@@ -1,8 +1,8 @@
 /**
- * @module hooks
+ * @module react
  *
  * LAYER: React hooks
- * OWNS:  Module-level behavior and exports for hooks.
+ * OWNS:  Module-level behavior and exports for stroid/react.
  *
  * Consumers: Internal imports and public API.
  */

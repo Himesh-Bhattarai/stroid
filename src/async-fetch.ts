@@ -62,14 +62,15 @@ const _applyAsyncState = (
     context: WriteContext | null
 ): void => {
     if (!hasStore(name)) return;
-    if (options.stateAdapter) {
+    const stateAdapter = options.stateAdapter;
+    if (stateAdapter) {
         try {
             const prev = getStore({ name } as StoreDefinition<string, unknown>);
             const set = (value: unknown | ((draft: any) => void)) => {
                 setStoreWithContext(storeHandle as StoreDefinition<string, any>, value as any, undefined, context);
             };
             runWithWriteContext(context, () => {
-                options.stateAdapter({
+                stateAdapter({
                     name,
                     prev,
                     next,

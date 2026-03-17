@@ -12,7 +12,7 @@ import React from "react";
 import { act, render } from "@testing-library/react";
 import { fetchStore } from "../src/async.js";
 import { getAsyncMetrics } from "../src/async-cache.js";
-import { useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../src/hooks.js";
+import { useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../src/react/index.js";
 import { clearAllStores, createStore, setStore } from "../src/store.js";
 import { resetAllStoresForTest } from "../src/testing.js";
 import { configureStroid, resetConfig } from "../src/config.js";

@@ -13,6 +13,7 @@ type PackageApi = typeof import("../../dist/index.d.ts");
 type DevtoolsApi = typeof import("../../src/devtools.js");
 type RuntimeToolsApi = typeof import("../../src/runtime-tools.js");
 type RuntimeAdminApi = typeof import("../../src/runtime-admin.js");
+type ReactApi = typeof import("../../dist/react/index.d.ts");
 
 declare const createStore: PackageApi["createStore"];
 declare const createStoreStrict: PackageApi["createStoreStrict"];
@@ -76,8 +77,20 @@ type MissingCreateListStore = PackageApi["createListStore"];
 type MissingCreateSelector = PackageApi["createSelector"];
 // @ts-expect-error lean root package no longer exports selector subscriptions
 type MissingSubscribeWithSelector = PackageApi["subscribeWithSelector"];
+// @ts-expect-error lean root package no longer exports React hooks
+type MissingUseStore = PackageApi["useStore"];
+// @ts-expect-error lean root package no longer exports React hooks
+type MissingUseSelector = PackageApi["useSelector"];
+// @ts-expect-error lean root package no longer exports React hooks
+type MissingUseStoreField = PackageApi["useStoreField"];
+// @ts-expect-error lean root package no longer exports React hooks
+type MissingUseStoreStatic = PackageApi["useStoreStatic"];
+// @ts-expect-error lean root package no longer exports form hooks
+type MissingUseFormStore = PackageApi["useFormStore"];
 // @ts-expect-error lean root package no longer exports async hooks
 type MissingUseAsyncStore = PackageApi["useAsyncStore"];
+// @ts-expect-error lean root package no longer exports async suspense hooks
+type MissingUseAsyncStoreSuspense = PackageApi["useAsyncStoreSuspense"];
 // @ts-expect-error lean root package no longer exports async helpers
 type MissingFetchStore = PackageApi["fetchStore"];
 // @ts-expect-error lean root package no longer exports mergeStore
@@ -119,6 +132,13 @@ void (0 as unknown as RootGetMetrics);
 void (0 as unknown as RootGetAsyncMetrics);
 void (0 as unknown as RootGetStoreHealth);
 void (0 as unknown as RootFindColdStores);
+
+type ReactUseStore = ReactApi["useStore"];
+type ReactUseSelector = ReactApi["useSelector"];
+type ReactUseAsyncStore = ReactApi["useAsyncStore"];
+void (0 as unknown as ReactUseStore);
+void (0 as unknown as ReactUseSelector);
+void (0 as unknown as ReactUseAsyncStore);
 
 // @ts-expect-error package declarations should reject unsupported onMigrationFail literals
 const badPersist: PersistOptions = { onMigrationFail: "ignore" };

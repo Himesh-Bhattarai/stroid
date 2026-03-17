@@ -24,8 +24,8 @@ import {
 import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers.js";
 import { createSelector } from "../../src/selectors.js";
 import { createStoreForRequest } from "../../src/server.js";
-import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/hooks.js";
-import type { AsyncStoreState } from "../../src/hooks-async.js";
+import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/react/index.js";
+import type { AsyncStoreState } from "../../src/react/hooks-async.js";
 import { fetchStore, getAsyncMetrics } from "../../src/async.js";
 import { createMockStore, benchmarkStoreSet, withMockedTime } from "../../src/testing.js";
 
