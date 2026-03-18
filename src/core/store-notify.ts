@@ -26,11 +26,11 @@ import { registerNotifyHandler } from "./store-shared/notify.js";
 
 const maybeFreezeSnapshot = (snapshot: StoreValue | null, mode: SnapshotMode): void => {
     if (!snapshot || typeof snapshot !== "object") return;
-    if (mode === "shallow") {
+    if (mode === "ref" || mode === "shallow") {
         devShallowFreeze(snapshot);
         return;
     }
-    if (mode === "deep" || mode === "ref") {
+    if (mode === "deep") {
         devDeepFreeze(snapshot);
     }
 };

@@ -6,7 +6,7 @@
  *
  * Consumers: notification/index.ts
  */
-import { warn } from "../utils.js";
+import { warn, deepClone, isDev } from "../utils.js";
 import { getConfig } from "../internals/config.js";
 import { getRequestCarrier, type StoreRegistry } from "../core/store-registry.js";
 import type { SnapshotMode } from "../adapters/options.js";
@@ -17,6 +17,12 @@ import { scheduleChunk } from "./scheduler.js";
 import { hasHook, fireHook } from "../core/lifecycle-hooks.js";
 import { runWithWriteContext, type WriteContext } from "../internals/write-context.js";
 import type { FlushPlan } from "./priority.js";
+
+const isMutationError = (err: unknown): boolean => {
+    if (!(err instanceof TypeError)) return false;
+    const message = (err as { message?: string })?.message ?? String(err);
+    return /read only|readonly|cannot assign|cannot add property|cannot delete property/i.test(message);
+};
 
 export const deliverFlush = (
     registry: StoreRegistry,
@@ -99,7 +105,31 @@ export const deliverFlush = (
             const deliver = () => {
                 for (const subscriber of subsArray) {
                     try { subscriber(snapshot); }
-                    catch (err) { warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`); }
+                    catch (err) {
+                        const safety = registryMeta[name]?.options?.snapshotSafety ?? "warn";
+                        const mutationError = isDev()
+                            && (snapshotMode === "ref" || snapshotMode === "shallow")
+                            && isMutationError(err);
+
+                        if (mutationError) {
+                            if (safety === "throw") throw err;
+                            if (safety === "auto-clone") {
+                                try {
+                                    const cloned = deepClone(snapshot);
+                                    warn(`Snapshot mutation detected for "${name}". Delivered a cloned snapshot to the subscriber.`);
+                                    try { subscriber(cloned); }
+                                    catch (err2) { warn(`Subscriber for "${name}" threw on cloned snapshot: ${(err2 as { message?: string })?.message ?? err2}`); }
+                                    continue;
+                                } catch (_) {
+                                    // If cloning failed, fall through to warning path below.
+                                }
+                            }
+                            warn(`Snapshot mutation detected for "${name}": ${(err as { message?: string })?.message ?? err}`);
+                            continue;
+                        }
+
+                        warn(`Subscriber for "${name}" threw: ${(err as { message?: string })?.message ?? err}`);
+                    }
                 }
             };
             if (context) runWithWriteContext(context, deliver);
@@ -206,7 +236,41 @@ export const deliverFlush = (
                     if (task.notified.has(subscriber)) continue;
                     task.notified.add(subscriber);
                     try { subscriber(task.snapshot); }
-                    catch (err) { warn(`Subscriber for "${task.name}" threw: ${(err as { message?: string })?.message ?? err}`); }
+                    catch (err) {
+                        const safety = registryMeta[task.name]?.options?.snapshotSafety ?? "warn";
+                        const mode = resolveMode(task.name);
+                        const mutationError = isDev()
+                            && (mode === "ref" || mode === "shallow")
+                            && isMutationError(err);
+
+                        if (mutationError) {
+                            if (safety === "throw") throw err;
+                            if (safety === "auto-clone") {
+                                try {
+                                    const cloned = deepClone(task.snapshot);
+                                    warn(`Snapshot mutation detected for "${task.name}". Delivered a cloned snapshot to the subscriber.`);
+                                    try { subscriber(cloned); }
+                                    catch (err2) { warn(`Subscriber for "${task.name}" threw on cloned snapshot: ${(err2 as { message?: string })?.message ?? err2}`); }
+                                    // record that this subscriber was notified with a cloned snapshot
+                                    task.notified.add(subscriber);
+                                    sent += 1;
+                                    const currentVersion = registryMeta[task.name]?.updateCount ?? task.version;
+                                    if (currentVersion !== task.version) {
+                                        versionChanged = true;
+                                        state.pendingNotifications.add(task.name);
+                                        break;
+                                    }
+                                    continue;
+                                } catch (_) {
+                                    // failed to clone - fall through to warning path below
+                                }
+                            }
+                            warn(`Snapshot mutation detected for "${task.name}": ${(err as { message?: string })?.message ?? err}`);
+                            continue;
+                        }
+
+                        warn(`Subscriber for "${task.name}" threw: ${(err as { message?: string })?.message ?? err}`);
+                    }
                     sent += 1;
                     const currentVersion = registryMeta[task.name]?.updateCount ?? task.version;
                     if (currentVersion !== task.version) {

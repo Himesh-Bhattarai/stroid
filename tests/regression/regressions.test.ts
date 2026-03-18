@@ -1,8 +1,8 @@
 /**
- * @module tests/regressions.test
+ * @module tests/regression/regressions
  *
- * LAYER: Tests
- * OWNS:  Test coverage for tests/regressions.test.
+ * LAYER: Regression
+ * OWNS:  Regression coverage for fixed production issues.
  *
  * Consumers: Test runner.
  */
@@ -351,8 +351,8 @@ test("snapshot freezing differs by mode", () => {
   assert.strictEqual(Object.isFrozen(refSnap as object), true);
   assert.strictEqual(Object.isFrozen(shallowSnap as object), true);
   assert.strictEqual(Object.isFrozen((deepSnap as any).nested), true);
-  assert.strictEqual(Object.isFrozen((refSnap as any).nested), true);
-  assert.strictEqual(Object.isFrozen((shallowSnap as any).nested), true);
+  assert.strictEqual(Object.isFrozen((refSnap as any).nested), false);
+  assert.strictEqual(Object.isFrozen((shallowSnap as any).nested), false);
 });
 
 test("concurrent setStore calls in the same microtask coalesce", async () => {
@@ -804,13 +804,13 @@ test("snapshotStrategy sets the default snapshot mode", () => {
   }
 });
 
-test("default snapshot mode is shallow", () => {
+test("default snapshot mode is deep", () => {
   clearAllStores();
   createStore("defaultSnap", { nested: { value: 1 } });
   const snap = _getSnapshot("defaultSnap") as any;
   const ref = _getStoreValueRef("defaultSnap") as any;
   assert.notStrictEqual(snap, ref);
-  assert.strictEqual(snap.nested, ref.nested);
+  assert.notStrictEqual(snap.nested, ref.nested);
 });
 
 test("notify uses carrier values inside request registries", async () => {

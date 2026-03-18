@@ -2,7 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": true,
-    "noEmit": true,
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./.tsbuild/types",
     "tsBuildInfoFile": "./.tsbuild/layer-core.tsbuildinfo"
   },
   "references": [
@@ -18,5 +21,10 @@
     "src/features/feature-registry.ts",
     "src/features/lifecycle.ts",
     "src/async/registry.ts"
+  ],
+  "exclude": [
+    "src/internals/test-reset.ts",
+    "src/internals/computed-order.ts",
+    "src/internals/selector-store.ts"
   ]
 }

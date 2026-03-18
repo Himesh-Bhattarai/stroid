@@ -2,7 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": true,
-    "noEmit": true,
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./.tsbuild/types",
     "tsBuildInfoFile": "./.tsbuild/layer-features.tsbuildinfo"
   },
   "references": [
@@ -17,6 +20,7 @@
     "src/feature.ts"
   ],
   "exclude": [
+    "src/features/feature-registry.ts",
     "src/features/lifecycle.ts"
   ]
 }

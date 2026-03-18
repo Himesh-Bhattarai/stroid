@@ -1,41 +1,21 @@
 /**
- * @module tests/heavy/sync.heavy
+ * @module tests/performance/sync
  *
- * LAYER: Tests
- * OWNS:  Test coverage for tests/heavy/sync.heavy.
+ * LAYER: Performance
+ * OWNS:  Test coverage for tests/performance/sync.
  *
  * Consumers: Test runner.
  */
 import assert from "node:assert";
 import test from "node:test";
-import "../src/sync.js";
+import "../../src/sync.js";
+import "../../src/devtools/index.js";
+import { withMockedTime } from "../../src/helpers/testing.js";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const withMockedNow = async (timestamp: number, fn: () => Promise<void> | void) => {
-  const RealDate = Date;
-  class MockDate extends Date {
-    constructor(value?: string | number | Date) {
-      super(value ?? timestamp);
-    }
-
-    static now() {
-      return timestamp;
-    }
-
-    static parse = RealDate.parse;
-    static UTC = RealDate.UTC;
-  }
-
-  // @ts-ignore
-  globalThis.Date = MockDate;
-  try {
-    await fn();
-  } finally {
-    // @ts-ignore
-    globalThis.Date = RealDate;
-  }
-};
+const withMockedNow = async (timestamp: number, fn: () => Promise<void> | void) =>
+  withMockedTime(timestamp, () => Promise.resolve(fn()));
 
 class MockBroadcastChannel {
   static channels = new Map<string, Set<MockBroadcastChannel>>();
@@ -86,7 +66,7 @@ test("sync broadcasts updates and rejects oversized payloads", async () => {
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const { createStore, setStore, clearAllStores } = await import(`../src/store.js?sync-${Date.now()}`);
+  const { createStore, setStore, clearAllStores } = await import(`../../src/store.js?sync-${Date.now()}`);
   const errors: string[] = [];
 
   try {
@@ -140,8 +120,8 @@ test("sync ordering prefers monotonic clocks over wall-clock skew", async () => 
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const a = await import(`../src/store.js?sync-a-${Date.now()}`);
-  const b = await import(`../src/store.js?sync-b-${Date.now()}`);
+  const a = await import(`../../src/store.js?sync-a-${Date.now()}`);
+  const b = await import(`../../src/store.js?sync-b-${Date.now()}`);
 
   try {
     a.createStore("shared", { value: "seed" }, { sync: true });
@@ -183,8 +163,8 @@ test("sync requests the latest snapshot when a tab reconnects", async () => {
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const a = await import(`../src/store.js?sync-reopen-a-${Date.now()}`);
-  const b = await import(`../src/store.js?sync-reopen-b-${Date.now()}`);
+  const a = await import(`../../src/store.js?sync-reopen-a-${Date.now()}`);
+  const b = await import(`../../src/store.js?sync-reopen-b-${Date.now()}`);
 
   try {
     a.createStore("shared", { value: "seed" }, { sync: true });
@@ -215,8 +195,8 @@ test("sync broadcasts canonical state even when a redactor is configured", async
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const a = await import(`../src/store.js?sync-redactor-a-${Date.now()}`);
-  const b = await import(`../src/store.js?sync-redactor-b-${Date.now()}`);
+  const a = await import(`../../src/store.js?sync-redactor-a-${Date.now()}`);
+  const b = await import(`../../src/store.js?sync-redactor-b-${Date.now()}`);
 
   try {
     a.createStore("shared", { visible: "seed", secret: "keep" }, {
@@ -253,7 +233,7 @@ test("late sync messages after delete are ignored safely", async () => {
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const store = await import(`../src/store.js?sync-late-delete-${Date.now()}`);
+  const store = await import(`../../src/store.js?sync-late-delete-${Date.now()}`);
 
   try {
     store.createStore("shared", { value: "seed" }, { sync: true });
@@ -294,7 +274,7 @@ test("conflictResolver can resolve contested incoming sync state against local s
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const store = await import(`../src/store.js?sync-conflict-${Date.now()}`);
+  const store = await import(`../../src/store.js?sync-conflict-${Date.now()}`);
 
   try {
     store.createStore("shared", { local: "seed", remote: "seed" }, {
@@ -348,9 +328,9 @@ test("conflictResolver rebroadcasts resolved state so peers converge", async () 
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const a = await import(`../src/store.js?sync-conflict-a-${Date.now()}`);
-  const b = await import(`../src/store.js?sync-conflict-b-${Date.now()}`);
-  const c = await import(`../src/store.js?sync-conflict-c-${Date.now()}`);
+  const a = await import(`../../src/store.js?sync-conflict-a-${Date.now()}`);
+  const b = await import(`../../src/store.js?sync-conflict-b-${Date.now()}`);
+  const c = await import(`../../src/store.js?sync-conflict-c-${Date.now()}`);
 
   try {
     a.createStore("shared", { local: "seed", remote: "seed", resolved: false }, {
@@ -422,7 +402,7 @@ test("sync ignores protocol-mismatched messages", async () => {
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const store = await import(`../src/store.js?sync-protocol-${Date.now()}`);
+  const store = await import(`../../src/store.js?sync-protocol-${Date.now()}`);
   const errors: string[] = [];
 
   try {
@@ -469,7 +449,7 @@ test("incoming sync state is sanitized and validated before commit", async () =>
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const store = await import(`../src/store.js?sync-sanitize-${Date.now()}`);
+  const store = await import(`../../src/store.js?sync-sanitize-${Date.now()}`);
 
   try {
     store.createStore("shared", { when: "seed" }, {
@@ -514,8 +494,8 @@ test("sync convergence is stable for equal-clock equal-timestamp writes delivere
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const first = await import(`../src/store.js?sync-order-first-${Date.now()}`);
-  const second = await import(`../src/store.js?sync-order-second-${Date.now()}`);
+  const first = await import(`../../src/store.js?sync-order-first-${Date.now()}`);
+  const second = await import(`../../src/store.js?sync-order-second-${Date.now()}`);
 
   try {
     first.createStore("shared", { value: "seed" }, { sync: true });
@@ -574,7 +554,7 @@ test("repeated sync create delete cycles clean up channels and ignore stale hand
   };
   (globalThis as any).BroadcastChannel = MockBroadcastChannel;
 
-  const store = await import(`../src/store.js?sync-recreate-${Date.now()}`);
+  const store = await import(`../../src/store.js?sync-recreate-${Date.now()}`);
 
   try {
     for (let i = 0; i < 5; i++) {

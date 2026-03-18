@@ -150,7 +150,7 @@ const defaultConfig: ResolvedConfig = {
     autoCorrelationIds: false,
     acknowledgeLooseTypes: false,
     pathCacheSize: 500,
-    defaultSnapshotMode: "shallow",
+    defaultSnapshotMode: "deep",
     strictAsyncUsageErrors: false,
     middleware: [],
     allowUntrustedHydration: false,

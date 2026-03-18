@@ -142,18 +142,16 @@ test("mutator draft becomes the committed value", () => {
   assert.strictEqual(_getStoreValueRef("draftReuse"), draftRef);
 });
 
-test("ref snapshots are frozen to prevent silent mutation", () => {
+test("ref snapshots are shallowly frozen in dev", () => {
   clearAllStores();
   createStore("refStore", { profile: { name: "Alex" } }, { snapshot: "ref" });
 
   const snapshot = _getSnapshot("refStore") as any;
   assert.ok(Object.isFrozen(snapshot));
+  assert.strictEqual(Object.isFrozen(snapshot.profile), false);
 
-  assert.throws(() => {
-    snapshot.profile.name = "Jordan";
-  }, /TypeError/);
-
-  assert.deepStrictEqual(getStore("refStore"), { profile: { name: "Alex" } });
+  snapshot.profile.name = "Jordan";
+  assert.deepStrictEqual(getStore("refStore"), { profile: { name: "Jordan" } });
 });
 
 test("getStore respects snapshot modes (deep/shallow/ref)", () => {

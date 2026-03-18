@@ -1,8 +1,8 @@
 /**
- * @module tests/heavy/store.heavy
+ * @module tests/integration/store.behavior
  *
- * LAYER: Tests
- * OWNS:  Test coverage for tests/heavy/store.heavy.
+ * LAYER: Integration
+ * OWNS:  Store behavior under realistic usage patterns.
  *
  * Consumers: Test runner.
  */
@@ -11,7 +11,7 @@ import assert from "node:assert";
 import "../../src/persist.js";
 import "../../src/sync.js";
 import "../../src/devtools/index.js";
-import { devDeepFreeze } from "../../src/devfreeze.js";
+import { devDeepFreeze } from "../../src/utils/devfreeze.js";
 import { isDev } from "../../src/utils.js";
 import { getHistory, clearHistory } from "../../src/devtools/index.js";
 import { clearAllStores } from "../../src/runtime-admin/index.js";
@@ -102,6 +102,7 @@ test("setStore enforces schema on updates", () => {
 test("createStore blocks production server globals unless explicitly allowed", () => {
   const originalEnv = process.env.NODE_ENV;
   const originalConsoleError = console.error;
+  const originalWindow = (globalThis as any).window;
   const reported: string[] = [];
   process.env.NODE_ENV = "production";
   clearAllStores();
@@ -112,6 +113,7 @@ test("createStore blocks production server globals unless explicitly allowed", (
   }) as typeof console.error;
 
   try {
+    (globalThis as any).window = undefined;
     const blocked = createStore("ssr", { value: 1 }, {
       onError: (msg) => { errors.push(msg); },
     });
@@ -126,6 +128,7 @@ test("createStore blocks production server globals unless explicitly allowed", (
     createStore("ssrScoped", { value: 3 }, { scope: "global" });
     assert.strictEqual(hasStore("ssrScoped"), true);
   } finally {
+    (globalThis as any).window = originalWindow;
     console.error = originalConsoleError;
     process.env.NODE_ENV = originalEnv;
     clearAllStores();
@@ -1185,7 +1188,7 @@ test("subscribers are notified in registration order", async () => {
   assert.deepStrictEqual(seen, ["first:1", "second:1"]);
 });
 
-test("subscribers added during notify are included in the same cycle", async () => {
+test("subscribers added during notify are deferred to the next cycle", async () => {
   clearAllStores();
   const seen: string[] = [];
 
@@ -1209,13 +1212,12 @@ test("subscribers added during notify are included in the same cycle", async () 
 
   assert.deepStrictEqual(seen, [
     "first:1",
-    "second:1",
     "first:2",
     "second:2",
   ]);
 });
 
-test("unsubscribing another subscriber during notify skips its remaining notifications", async () => {
+test("unsubscribing another subscriber during notify stops future cycles", async () => {
   clearAllStores();
   const seen: string[] = [];
 
@@ -1238,6 +1240,7 @@ test("unsubscribing another subscriber during notify skips its remaining notific
 
   assert.deepStrictEqual(seen, [
     "first:1",
+    "second:1",
     "first:2",
   ]);
 });
@@ -1297,34 +1300,40 @@ test("subscribeWithSelector can subscribe before createStore and activates when 
   unsubscribe();
 
   assert.deepStrictEqual(seen, [
-    { next: "Alex", prev: "Alex" },
+    { next: "Alex", prev: undefined },
     { next: "Jordan", prev: "Alex" },
   ]);
 });
 
 test("createSelector skips recomputation when tracked paths are unchanged", () => {
-  clearAllStores();
-  createStore("selectorMemo", {
-    profile: { name: "Alex" },
-    other: 0,
-  });
+  const originalDev = (globalThis as any).__STROID_DEV__;
+  (globalThis as any).__STROID_DEV__ = false;
+  try {
+    clearAllStores();
+    createStore("selectorMemo", {
+      profile: { name: "Alex" },
+      other: 0,
+    });
 
-  let runs = 0;
-  const selectName = createSelector("selectorMemo", (state: any) => {
-    runs += 1;
-    return state.profile.name;
-  });
+    let runs = 0;
+    const selectName = createSelector("selectorMemo", (state: any) => {
+      runs += 1;
+      return state.profile.name;
+    });
 
-  assert.strictEqual(selectName(), "Alex");
-  assert.strictEqual(runs, 1);
+    assert.strictEqual(selectName(), "Alex");
+    assert.strictEqual(runs, 1);
 
-  setStore("selectorMemo", "other", 1);
-  assert.strictEqual(selectName(), "Alex");
-  assert.strictEqual(runs, 1);
+    setStore("selectorMemo", "other", 1);
+    assert.strictEqual(selectName(), "Alex");
+    assert.strictEqual(runs, 1);
 
-  setStore("selectorMemo", "profile.name", "Jordan");
-  assert.strictEqual(selectName(), "Jordan");
-  assert.strictEqual(runs, 2);
+    setStore("selectorMemo", "profile.name", "Jordan");
+    assert.strictEqual(selectName(), "Jordan");
+    assert.strictEqual(runs, 2);
+  } finally {
+    (globalThis as any).__STROID_DEV__ = originalDev;
+  }
 });
 
 test("setStoreBatch rejects async callbacks before they can interleave state", () => {

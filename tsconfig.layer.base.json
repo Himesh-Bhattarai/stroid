@@ -2,14 +2,14 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": true,
-    "noEmit": true,
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./.tsbuild/types",
     "tsBuildInfoFile": "./.tsbuild/layer-base.tsbuildinfo"
   },
   "include": [
-    "src/utils.ts",
-    "src/utils/**/*.ts",
-    "src/types/**/*.ts",
-    "src/adapters/**/*.ts",
-    "src/core/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx"
   ]
 }

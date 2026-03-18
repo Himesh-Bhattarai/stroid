@@ -1,8 +1,8 @@
 ﻿/**
- * @module tests/store.node-env.test
+ * @module tests/regression/store.node-env
  *
- * LAYER: Tests
- * OWNS:  Test coverage for tests/store.node-env.test.
+ * LAYER: Regression
+ * OWNS:  Node/SSR environment guardrails.
  *
  * Consumers: Test runner.
  */

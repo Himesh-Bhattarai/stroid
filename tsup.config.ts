@@ -23,7 +23,7 @@ export default defineConfig({
         testing: "src/helpers/testing.ts",
     },
     format: ["esm", "cjs"],
-    experimentalDts: true,
+    dts: { resolve: true },
     bundle: true,
     minify: true,
     treeshake: true,

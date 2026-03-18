@@ -1,11 +1,11 @@
 /**
  * @module async-cache
- *
- * LAYER: Module
- * OWNS:  Module-level behavior and exports for async-cache.
- *
- * Consumers: Internal imports and public API.
- */
+*
+* LAYER: Module
+* OWNS:  Module-level behavior and exports for async-cache.
+*
+* Consumers: Internal imports and public API.
+*/
 import { getActiveAsyncRegistry } from "../core/store-core.js";
 export { getActiveAsyncRegistry } from "../core/store-core.js";
 import { registerHook } from "../core/lifecycle-hooks.js";

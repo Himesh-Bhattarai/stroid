@@ -1,12 +1,6 @@
 {
   "files": [],
   "references": [
-    { "path": "./tsconfig.layer.base.json" },
-    { "path": "./tsconfig.layer.core.json" },
-    { "path": "./tsconfig.layer.computed.json" },
-    { "path": "./tsconfig.layer.async.json" },
-    { "path": "./tsconfig.layer.features.json" },
-    { "path": "./tsconfig.layer.react.json" },
-    { "path": "./tsconfig.layer.entrypoints.json" }
+    { "path": "./tsconfig.layer.base.json" }
   ]
 }

@@ -1,8 +1,8 @@
 /**
- * @module tests/heavy/stress-memory.heavy
+ * @module tests/performance/stress-memory
  *
- * LAYER: Tests
- * OWNS:  Test coverage for tests/heavy/stress-memory.heavy.
+ * LAYER: Performance
+ * OWNS:  Test coverage for tests/performance/stress-memory.
  *
  * Consumers: Test runner.
  */

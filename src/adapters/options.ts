@@ -130,13 +130,19 @@ export interface SyncOptions {
     channel?: string;
     maxPayloadBytes?: number;
     /**
+     * Authentication policy for sync.
+     * - "strict": require authToken or verify (blocks sync if missing)
+     * - "insecure": allow unauthenticated sync (explicit opt-out)
+     */
+    policy?: "strict" | "insecure";
+    /**
      * Optional shared token for lightweight cross-tab authentication.
      * When set, incoming sync messages without a matching token are rejected.
      */
     authToken?: string;
     /**
-     * Explicitly allow unauthenticated sync in production.
-     * When true, sync will be allowed without authToken/verify.
+     * Explicitly allow unauthenticated sync.
+     * Deprecated in favor of policy: "insecure".
      */
     insecure?: boolean;
     conflictResolver?: (args: {
@@ -250,9 +256,17 @@ export interface StoreOptions<State = StoreValue> {
      *
      * - "deep" (default): deep clone and dev-freeze snapshot values.
      * - "shallow": shallow clone (top-level) only; nested references are shared.
-     * - "ref": return the live store reference (no cloning).
+     * - "ref": return the live store reference (dev-freeze by default).
      */
     snapshot?: SnapshotMode;
+    /**
+     * Safety policy for snapshot deliveries when using "ref" or "shallow" modes.
+     * - "warn": (default) log a warning in dev when mutation is detected.
+     * - "throw": throw an error in dev when mutation is detected.
+     * - "auto-clone": in dev, if a subscriber mutates a frozen snapshot, deliver a cloned
+     *   snapshot to that subscriber so the mutation does not affect other subscribers or the store.
+     */
+    snapshotSafety?: 'warn' | 'throw' | 'auto-clone';
 }
 
 export interface NormalizedOptions {
@@ -276,6 +290,8 @@ export interface NormalizedOptions {
     sync?: boolean | SyncOptions;
     features?: FeatureOptions;
     snapshot: SnapshotMode;
+    /** normalized snapshotSafety value */
+    snapshotSafety?: 'warn' | 'throw' | 'auto-clone';
     explicitPersist: boolean;
     explicitSync: boolean;
     explicitDevtools: boolean;
@@ -499,7 +515,7 @@ export const collectLegacyOptionDeprecationWarnings = <State>(option: StoreOptio
 export const normalizeStoreOptions = <State>(
     option: StoreOptions<State> = {},
     name: string,
-    defaultSnapshotMode: SnapshotMode = "shallow"
+    defaultSnapshotMode: SnapshotMode = "deep"
 ): NormalizedOptions => {
     const normalizedScope: StoreScope = option.scope ?? "request";
     const normalizedLazy = option.lazy === true;
@@ -514,6 +530,10 @@ export const normalizeStoreOptions = <State>(
             : (defaultSnapshotMode === "shallow" || defaultSnapshotMode === "ref" || defaultSnapshotMode === "deep"
                 ? defaultSnapshotMode
                 : "deep");
+    const normalizedSnapshotSafety =
+        option.snapshotSafety === "warn" || option.snapshotSafety === "throw" || option.snapshotSafety === "auto-clone"
+            ? option.snapshotSafety
+            : undefined;
     const normalizedFeatures = isObject(option.features)
         ? { ...(option.features as Record<string, unknown>) }
         : undefined;
@@ -574,10 +594,9 @@ export const normalizeStoreOptions = <State>(
         features: normalizedFeatures,
         allowSSRGlobalStore: normalizedAllowSSRGlobalStore,
         snapshot: normalizedSnapshot,
+        snapshotSafety: normalizedSnapshotSafety,
         explicitPersist,
         explicitSync,
         explicitDevtools,
     };
 };
-
-

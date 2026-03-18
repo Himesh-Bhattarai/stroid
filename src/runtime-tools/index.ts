@@ -49,7 +49,7 @@ export const getStoreMeta = (name: string): StoreFeatureMeta | null => {
     const cloned = shallowClone(meta) as StoreFeatureMeta;
     cloned.metrics = shallowClone(meta.metrics) as StoreFeatureMeta["metrics"];
     const optionsClone = shallowClone(meta.options) as StoreFeatureMeta["options"];
-    const options = optionsClone as Record<string, unknown>;
+    const options = optionsClone as unknown as Record<string, unknown>;
     if (options.persist && typeof options.persist === "object") {
         options.persist = shallowClone(options.persist);
     }

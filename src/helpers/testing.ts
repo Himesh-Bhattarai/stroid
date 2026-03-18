@@ -31,13 +31,17 @@ export const createMockStore = <Name extends string, State extends Record<string
 
 export const withMockedTime = <T>(nowMs: number, fn: () => T): T => {
     const realDateNow = Date.now;
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    Date.now = () => nowMs;
+    Object.defineProperty(Date, "now", {
+        value: () => nowMs,
+        configurable: true,
+    });
     try {
         return fn();
     } finally {
-        Date.now = realDateNow;
+        Object.defineProperty(Date, "now", {
+            value: realDateNow,
+            configurable: true,
+        });
     }
 };
 

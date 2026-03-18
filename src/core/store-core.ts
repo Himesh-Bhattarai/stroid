@@ -12,17 +12,21 @@ import { getStore } from "./store-read.js";
 import { setStore } from "./store-write.js";
 import { subscribeStore } from "./store-notify.js";
 import type { IStoreCore } from "./store-shared/core.js";
+import type { StoreName } from "./store-lifecycle/types.js";
 
 export const getActiveRegistry = (): StoreRegistry => getActiveStoreRegistry();
 
 export const getActiveAsyncRegistry = (): StoreRegistry["async"] =>
     getActiveStoreRegistry().async;
 
-export const createStoreCore = <T = any>(name: string): IStoreCore<T> => ({
-    get: (path?: string) =>
-        (path ? (getStore(name, path) as T | null) : (getStore(name) as T | null)),
-    set: (path: string, value: any) => {
-        setStore(name, path as any, value);
-    },
-    subscribe: (cb: (val: T | null) => void) => subscribeStore(name, cb as any),
-});
+export const createStoreCore = <T = any>(name: string): IStoreCore<T> => {
+    const storeName = name as StoreName;
+    return {
+        get: (path?: string) =>
+            (path ? (getStore(storeName, path as any) as T | null) : (getStore(storeName) as T | null)),
+        set: (path: string, value: any) => {
+            (setStore as any)(storeName, path, value);
+        },
+        subscribe: (cb: (val: T | null) => void) => subscribeStore(storeName, cb as any),
+    };
+};

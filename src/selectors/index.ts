@@ -72,7 +72,10 @@ export const createSelector = <TState, TResult>(storeName: string, selectorFn: (
             lastRef = state;
             return lastResult ?? null;
         }
-        const tracked = trackSelectorDependencies(state, selectorFn);
+        const trackState = (state && typeof state === "object" && Object.isFrozen(state as object))
+            ? deepClone(state)
+            : state;
+        const tracked = trackSelectorDependencies(trackState as TState, selectorFn);
         lastRef = state;
         lastDeps = tracked.deps;
         lastResult = tracked.result;

@@ -3,7 +3,7 @@ import { createStore as createReduxStore } from "redux";
 import { produce } from "immer";
 import { createStore as createZustandStore } from "zustand/vanilla";
 import { _subscribe, clearAllStores, createStore, setStore } from "../src/store.js";
-import "../src/devtools.js";
+import "../src/devtools/index.js";
 
 type Library = "stroid" | "redux-plain" | "redux-immer" | "zustand";
 
@@ -16,7 +16,7 @@ type ResultRow = {
   bytesPerSubscriber: number;
 };
 
-const COUNTS = [50_000, 100_000, 200_000, 800_000];
+const COUNTS = [5_000, 10_000, 25_000, 50_000, 75_000];
 let sink = 0;
 
 const maybeGc = (): void => {

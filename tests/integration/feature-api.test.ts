@@ -82,7 +82,7 @@ test("public feature API registers custom features and forwards feature options"
 test("feature lifecycle hooks fire in order and resetAll runs", () => {
   const featurePath = path.join(repoRoot, "src", "feature.ts");
   const storePath = path.join(repoRoot, "src", "store.ts");
-  const testingPath = path.join(repoRoot, "src", "testing.ts");
+  const testingPath = path.join(repoRoot, "src", "helpers", "testing.ts");
 
   const script = `
     const assert = (await import("node:assert")).default;

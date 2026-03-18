@@ -6,8 +6,6 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { devDeepFreeze } from "../../utils/devfreeze.js";
-import { isDev } from "../../utils.js";
 import {
     getStoreRegistry,
     hasStoreEntry as _hasStoreEntry,
@@ -188,14 +186,13 @@ export const getStoreValueRef = (name: string, registry: StoreRegistry = getActi
 
 export const setStoreValueInternal = (name: string, value: StoreValue, registry: StoreRegistry = getActiveRegistry()): void => {
     const carrier = getRequestCarrier();
-    const frozen = isDev() ? devDeepFreeze(value) : value;
     if (carrier) {
-        carrier[name] = frozen;
+        carrier[name] = value;
         if (!Object.prototype.hasOwnProperty.call(registry.stores, name)) {
             registry.stores[name] = undefined;
         }
     } else {
-        registry.stores[name] = frozen;
+        registry.stores[name] = value;
     }
 };
 

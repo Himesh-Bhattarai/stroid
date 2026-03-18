@@ -9,7 +9,7 @@
 import type { StoreValue, SyncMessage, SyncOptions } from "../adapters/options.js";
 import { registerStoreFeature, type StoreFeatureRuntime } from "./feature-registry.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "./state-helpers.js";
-import { warnAlways } from "../utils.js";
+import { warnAlways, isDev } from "../utils.js";
 
 export type SyncChannels = Record<string, BroadcastChannel>;
 export type SyncClocks = Record<string, number>;
@@ -239,14 +239,26 @@ export const setupSync = ({
         reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
         return;
     }
-    const allowInsecure = typeof syncOption === "object" && syncOption.insecure === true;
+    const policy = typeof syncOption === "object" ? syncOption.policy : undefined;
+    const allowInsecure = policy === "insecure"
+        || (policy !== "strict" && typeof syncOption === "object" && syncOption.insecure === true);
     const hasAuthToken = typeof syncOption === "object"
         && typeof syncOption.authToken === "string"
         && syncOption.authToken.length > 0;
     const hasVerify = typeof syncOption === "object" && typeof syncOption.verify === "function";
     const hasSign = typeof syncOption === "object" && typeof syncOption.sign === "function";
 
-    if (!allowInsecure && !hasAuthToken && !hasVerify && !insecureSyncWarned.has(name)) {
+    const strictPolicy = policy === "strict" || (!isDev() && policy !== "insecure");
+    if (strictPolicy && !allowInsecure && !hasAuthToken && !hasVerify) {
+        reportStoreError(
+            name,
+            `Sync for "${name}" requires authToken or verify in strict mode. ` +
+            `Use sync: { policy: "insecure" } to acknowledge the risk.`
+        );
+        return;
+    }
+
+    if (!strictPolicy && !allowInsecure && !hasAuthToken && !hasVerify && !insecureSyncWarned.has(name)) {
         insecureSyncWarned.add(name);
         warnAlways(
             `Sync for "${name}" is unauthenticated. Any same-origin tab can forge sync messages. ` +
@@ -529,15 +541,18 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
         onStoreCreate(ctx) {
             if (!ctx.options.sync) return;
             const syncOption = ctx.options.sync;
-            const allowInsecure = typeof syncOption === "object" && syncOption.insecure === true;
+            const policy = typeof syncOption === "object" ? syncOption.policy : undefined;
+            const allowInsecure = policy === "insecure"
+                || (policy !== "strict" && typeof syncOption === "object" && syncOption.insecure === true);
             const hasAuthToken = typeof syncOption === "object"
                 && typeof syncOption.authToken === "string"
                 && syncOption.authToken.length > 0;
             const hasVerify = typeof syncOption === "object" && typeof syncOption.verify === "function";
-            if (!ctx.isDev() && syncOption && !allowInsecure && !hasAuthToken && !hasVerify) {
+            const strictPolicy = policy === "strict" || (!ctx.isDev() && policy !== "insecure");
+            if (strictPolicy && syncOption && !allowInsecure && !hasAuthToken && !hasVerify) {
                 ctx.reportStoreError(
-                    `Store "${ctx.name}" has sync enabled in production without authentication. ` +
-                    `Pass sync.authToken or sync.verify. Use sync: { insecure: true } to acknowledge the risk.`
+                    `Sync for "${ctx.name}" requires authToken or verify in strict mode. ` +
+                    `Use sync: { policy: "insecure" } to acknowledge the risk.`
                 );
                 ctx.options.sync = false;
                 return;

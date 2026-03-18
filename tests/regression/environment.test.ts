@@ -1,8 +1,8 @@
 /**
- * @module tests/heavy/environment.heavy
+ * @module tests/regression/environment
  *
- * LAYER: Tests
- * OWNS:  Test coverage for tests/heavy/environment.heavy.
+ * LAYER: Regression
+ * OWNS:  Environment edge cases and isolation checks.
  *
  * Consumers: Test runner.
  */

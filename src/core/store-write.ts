@@ -17,6 +17,7 @@ import {
     validateDepth,
     setByPath,
     deepClone,
+    shallowEqual,
     type PathInput,
 } from "../utils.js";
 import { type StoreOptions } from "../adapters/options.js";
@@ -364,6 +365,16 @@ const setStoreInternal = (
         return { ok: false, reason: "validate" };
     }
 
+    // Short-circuit: if the committed state is shallow-equal to the previous state, avoid notifying subscribers.
+    try {
+        if (shallowEqual(prev, committed.value)) {
+            // No change from a shallow perspective; skip notifications and return success.
+            return { ok: true };
+        }
+    } catch (err) {
+        // If shallowEqual throws for any reason, fall back to normal flow.
+    }
+
     stageOrCommitUpdate(registry, {
         name: storeName,
         prev,
@@ -416,7 +427,8 @@ export function deleteStore(nameInput: string | StoreDefinition<string, StoreVal
         markTransactionFailed(message);
         return;
     }
-    getStoreAdmin().deleteExistingStore(name);
+    const admin = getStoreAdmin();
+    admin.deleteExistingStore(name);
     invalidatePathCache(name);
     slowMutatorWarned.delete(name);
     clearSsrGlobalAllowWarned(name);
@@ -526,7 +538,8 @@ export const clearAllStores = (): void => {
         markTransactionFailed(message);
         return;
     }
-    getStoreAdmin().clearAllStores();
+    const admin = getStoreAdmin();
+    admin.clearAllStores();
     slowMutatorWarned.clear();
     clearSsrGlobalAllowWarned();
 };
@@ -658,6 +671,5 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     });
     return result;
 };
-
 
 

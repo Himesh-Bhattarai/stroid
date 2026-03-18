@@ -122,6 +122,38 @@ test("sync core (serial)", async (t) => {
     }
   });
 
+  await t.test("sync strict policy blocks unauthenticated sync", async () => {
+    const originalWindow = (globalThis as any).window;
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+
+    (globalThis as any).window = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncStrict", { value: 1 }, {
+        sync: { policy: "strict" },
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      setStore("syncStrict", { value: 2 });
+      await wait();
+
+      assert.ok(errors.some((msg) => msg.includes("strict mode") && msg.includes("authToken")));
+      const channels = MockBroadcastChannel.channels.get("stroid_sync_syncStrict");
+      assert.strictEqual(!!(channels && channels.size > 0), false);
+    } finally {
+      deleteStore("syncStrict");
+      (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
   await t.test("sync sign rejects promise-returning signers", async () => {
     const originalWindow = (globalThis as any).window;
     const originalBroadcastChannel = (globalThis as any).BroadcastChannel;

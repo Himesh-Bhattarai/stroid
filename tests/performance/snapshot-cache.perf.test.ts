@@ -1,8 +1,8 @@
 /**
- * @module tests/heavy/snapshot-cache.heavy
+ * @module tests/performance/snapshot-cache
  *
- * LAYER: Tests
- * OWNS:  Test coverage for tests/heavy/snapshot-cache.heavy.
+ * LAYER: Performance
+ * OWNS:  Test coverage for tests/performance/snapshot-cache.
  *
  * Consumers: Test runner.
  */

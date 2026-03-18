@@ -13,7 +13,7 @@ import { act, render } from "@testing-library/react";
 import { fetchStore } from "../../src/async.js";
 import { getAsyncMetrics } from "../../src/async/cache.js";
 import { RegistryScope, useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/react/index.js";
-import { clearAllStores, createStore, setStore } from "../../src/store.js";
+import { clearAllStores, createStore, getStore, setStore } from "../../src/store.js";
 import { createStoreRegistry, runWithRegistry } from "../../src/core/store-registry.js";
 import { resetAllStoresForTest } from "../../src/helpers/testing.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
@@ -614,7 +614,7 @@ test("useFormStore updates store values from direct values and input events", as
   });
 
   assert.deepStrictEqual(seen, ["Alex", "Jordan", "Taylor"]);
-  assert.strictEqual(useStoreStatic("formStore", "profile.name"), "Taylor");
+  assert.strictEqual(getStore("formStore", "profile.name"), "Taylor");
 
   await act(async () => {
     unmount();
@@ -642,7 +642,7 @@ test("useFormStore uses checked for checkbox inputs", async () => {
     latestOnChange({ target: { type: "checkbox", checked: true, value: "on" } });
   });
 
-  assert.strictEqual(useStoreStatic("checkboxFormStore", "accepted"), true);
+  assert.strictEqual(getStore("checkboxFormStore", "accepted"), true);
 
   await act(async () => {
     unmount();
