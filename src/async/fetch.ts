@@ -299,10 +299,10 @@ export async function fetchStore(
     const nowTs = Date.now();
     pruneRateCounters(nowTs);
     scheduleRatePrune();
-    if (registerRateHit(cacheSlot, nowTs)) {
+    if (registerRateHit(name, nowTs)) {
         return reportAsyncUsageError(
             name,
-            `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for cacheSlot "${cacheSlot}".`,
+            `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for store "${name}".`,
             onError
         );
     }
@@ -395,11 +395,19 @@ export async function fetchStore(
 
                 const transformed = transform ? transform(result) : result;
                 if (transformed && typeof (transformed as any).then === "function") {
-                    return reportAsyncUsageError(
-                        name,
-                        `fetchStore("${name}") transform must be synchronous. Return the transformed value directly instead of a Promise.`,
-                        onError
-                    );
+                    const errorMessage =
+                        `fetchStore("${name}") transform must be synchronous. Return the transformed value directly instead of a Promise.`;
+                    if (isCurrentRequest(cacheSlot, currentVersion)) {
+                        applyState({
+                            data: backgroundRevalidate ? readCachedData() : null,
+                            loading: false,
+                            error: errorMessage,
+                            status: "error",
+                            cached: backgroundRevalidate,
+                            revalidating: false,
+                        });
+                    }
+                    return reportAsyncUsageError(name, errorMessage, onError);
                 }
 
                 if (cloneMode === "none" && isDev() && transformed && typeof transformed === "object") {

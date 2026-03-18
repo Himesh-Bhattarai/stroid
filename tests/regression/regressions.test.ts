@@ -40,7 +40,7 @@ import { onStoreLifecycle } from "../../src/core/store-lifecycle/registry.js";
 import { createStoreForRequest } from "../../src/server/index.js";
 import { setComputedOrderResolver } from "../../src/internals/computed-order.js";
 import { getTopoOrderedComputeds } from "../../src/computed/computed-graph.js";
-import { createComputed } from "../../src/computed/index.js";
+import { createComputed, deleteComputed } from "../../src/computed/index.js";
 import { registerStoreFeature, resetRegisteredStoreFeaturesForTests } from "../../src/features/feature-registry.js";
 import { registerHook } from "../../src/core/lifecycle-hooks.js";
 import { buildFlushPlan } from "../../src/notification/priority.js";
@@ -172,6 +172,20 @@ test("hydrateStores accepts allowTrusted trust flag", () => {
   const result = hydrateStores({ trustedHydrate: { value: 1 } }, {}, { allowTrusted: true });
   assert.ok(result.created.includes("trustedHydrate"));
   assert.deepStrictEqual(getStore("trustedHydrate"), { value: 1 });
+});
+
+test("hydrateStores recomputes computed stores after out-of-order snapshot keys", () => {
+  clearAllStores();
+  createComputed("derived", ["base"], (base: any) => ({ value: (base?.value ?? 0) * 2 }));
+
+  const snapshot: Record<string, unknown> = {};
+  snapshot.derived = { value: 1 }; // stale on purpose
+  snapshot.base = { value: 5 };
+
+  hydrateStores(snapshot, {}, { allowTrusted: true });
+  assert.deepStrictEqual(getStore("derived"), { value: 10 });
+
+  deleteComputed("derived");
 });
 
 test("hydrateStores throws when trust.validate throws in dev", () => {

@@ -11,7 +11,14 @@ import { deepClone, produceClone } from "../utils.js";
 import type { StoreOptions } from "../adapters/options.js";
 import type { StoreStateMap } from "../core/store-lifecycle/types.js";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createStoreRegistry, injectCarrierRunner, injectRegistryRunner, type CarrierContext, type TransactionState } from "../core/store-registry.js";
+import {
+    createStoreRegistry,
+    injectCarrierRunner,
+    injectRegistryRunner,
+    type CarrierContext,
+    type StoreRegistry,
+    type TransactionState,
+} from "../core/store-registry.js";
 import { injectTransactionRunner } from "../core/store-transaction.js";
 
 const serverAsyncContext = new AsyncLocalStorage<CarrierContext>();
@@ -65,6 +72,7 @@ export type RequestStoreApi<StateMap extends StoreStateMap = StoreStateMap> = {
 };
 
 type RequestStoreContext<StateMap extends StoreStateMap> = {
+    registry: StoreRegistry;
     snapshot: () => RequestSnapshot<StateMap>;
     hydrate: <T>(renderFn: () => T, options?: RequestHydrateOptions<StateMap>) => T;
 };
@@ -101,6 +109,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
     };
     if (typeof initializer === "function") initializer(api);
     return {
+        registry,
         snapshot: () => deepClone(buffer) as RequestSnapshot<StateMap>,
         hydrate: <T>(
             renderFn: () => T,
@@ -135,4 +144,4 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
     };
 };
 
-
+export type { StoreRegistry } from "../core/store-registry.js";

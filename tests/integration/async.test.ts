@@ -14,6 +14,8 @@ import { fileURLToPath } from "node:url";
 import { enableRevalidateOnFocus, fetchStore, getAsyncMetrics, refetchStore } from "../../src/async.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 import { getStore, clearAllStores, deleteStore, createStore } from "../../src/store.js";
+import { MAX_CACHE_SLOTS_PER_STORE, MAX_INFLIGHT_SLOTS_PER_STORE } from "../../src/async/cache.js";
+import { RATE_WINDOW_MS } from "../../src/async/rate.js";
 
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
 const deferred = <T,>() => {
@@ -470,6 +472,8 @@ test("fetchStore evicts old cache slots under high-cardinality cacheKey usage", 
   ensureAsyncStore("searchCacheStore");
   const realFetch = globalThis.fetch;
   let calls = 0;
+  const realNow = Date.now;
+  let now = realNow();
 
   globalThis.fetch = (async () => {
     calls += 1;
@@ -484,7 +488,8 @@ test("fetchStore evicts old cache slots under high-cardinality cacheKey usage", 
   }) as typeof fetch;
 
   try {
-    for (let i = 0; i <= 100; i++) {
+    Date.now = () => now;
+    for (let i = 0; i < MAX_CACHE_SLOTS_PER_STORE; i++) {
       await fetchStore("searchCacheStore", "https://api.example.com/search", {
         cacheKey: `k${i}`,
         ttl: 60_000,
@@ -492,14 +497,22 @@ test("fetchStore evicts old cache slots under high-cardinality cacheKey usage", 
       });
     }
 
+    now += RATE_WINDOW_MS + 1;
+    await fetchStore("searchCacheStore", "https://api.example.com/search", {
+      cacheKey: `k${MAX_CACHE_SLOTS_PER_STORE}`,
+      ttl: 60_000,
+      dedupe: false,
+    });
+
     await fetchStore("searchCacheStore", "https://api.example.com/search", {
       cacheKey: "k0",
       ttl: 60_000,
       dedupe: false,
     });
 
-    assert.strictEqual(calls, 102);
+    assert.strictEqual(calls, MAX_CACHE_SLOTS_PER_STORE + 2);
   } finally {
+    Date.now = realNow;
     globalThis.fetch = realFetch;
   }
 });
@@ -710,6 +723,8 @@ test("fetchStore caps per-store inflight request slots under unique cache keys",
   clearAllStores();
   ensureAsyncStore("burstStore");
   const realFetch = globalThis.fetch;
+  const realNow = Date.now;
+  let now = realNow();
   const pending: Array<ReturnType<typeof deferred<{ slot: number }>>> = [];
   const errors: string[] = [];
   let calls = 0;
@@ -729,7 +744,8 @@ test("fetchStore caps per-store inflight request slots under unique cache keys",
   }) as typeof fetch;
 
   try {
-    const requests = Array.from({ length: 100 }, (_, i) =>
+    Date.now = () => now;
+    const requests = Array.from({ length: MAX_INFLIGHT_SLOTS_PER_STORE }, (_, i) =>
       fetchStore("burstStore", "https://api.example.com/burst", {
         dedupe: false,
         cacheKey: `slot-${i}`,
@@ -738,20 +754,22 @@ test("fetchStore caps per-store inflight request slots under unique cache keys",
 
     await wait(0);
 
+    now += RATE_WINDOW_MS + 1;
     const overflow = await fetchStore("burstStore", "https://api.example.com/burst", {
       dedupe: false,
       cacheKey: "slot-overflow",
       onError: (msg) => { errors.push(msg); },
     });
     assert.strictEqual(overflow, null);
-    assert.strictEqual(calls, 100);
-    assert.ok(errors.some((msg) => msg.includes('fetchStore("burstStore") exceeded 100 concurrent request slots')));
+    assert.strictEqual(calls, MAX_INFLIGHT_SLOTS_PER_STORE);
+    assert.ok(errors.some((msg) => msg.includes(`fetchStore("burstStore") exceeded ${MAX_INFLIGHT_SLOTS_PER_STORE} concurrent request slots`)));
 
     pending.forEach((entry, index) => {
       entry.resolve({ slot: index });
     });
     await Promise.all(requests);
   } finally {
+    Date.now = realNow;
     globalThis.fetch = realFetch;
   }
 });

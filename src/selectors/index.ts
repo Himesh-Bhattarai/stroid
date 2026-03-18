@@ -15,6 +15,7 @@ import {
 import { deepClone, shallowClone, getByPath, warn } from "../utils.js";
 import { getStoreSnapshot } from "../core/store-notify.js";
 import { meta } from "../core/store-lifecycle/registry.js";
+import { getConfig } from "../internals/config.js";
 import type { SnapshotMode } from "../adapters/options.js";
 
 type SelectorDependency = string[];
@@ -72,7 +73,9 @@ export const createSelector = <TState, TResult>(storeName: string, selectorFn: (
             lastRef = state;
             return lastResult ?? null;
         }
-        const trackState = (state && typeof state === "object" && Object.isFrozen(state as object))
+        // TODO: regression test for selectorCloneFrozen with frozen store refs.
+        const shouldCloneFrozen = getConfig().selectorCloneFrozen;
+        const trackState = (state && typeof state === "object" && Object.isFrozen(state as object) && shouldCloneFrozen)
             ? deepClone(state)
             : state;
         const tracked = trackSelectorDependencies(trackState as TState, selectorFn);

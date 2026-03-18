@@ -33,6 +33,9 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - `allowTrustedHydration` config alias.
 - `sync.loopGuard` option to suppress immediate rebroadcasts after an incoming sync update.
 - `registerMutatorProduce` helper for safely registering Immer (or other mutator engines).
+- `selectorCloneFrozen` config flag to control frozen-state cloning in `createSelector` (dev performance toggle).
+- `createStoreForRequest` now exposes the request `registry` for `RegistryScope` or advanced SSR usage.
+- `stroid/server` now re-exports the `StoreRegistry` type for SSR typing.
 - API Extractor configuration and `docs:api` script for generating typed API reports.
 - `IStoreCore` shared interface and `store-core` adapter for layer boundaries.
 - ESLint layer guards for async-cache and store-notify imports.
@@ -79,12 +82,22 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - Helper store typings align with stricter `createStore` overloads.
 - `replaceStore` now participates in `setStoreBatch` transactions.
 - Removed dead `runInline` logic from the chunked notify queue.
+- Selector reads in request scope no longer leak through the default registry.
+- React hooks now resolve the active request registry when `RegistryScope` is omitted during SSR hydration.
+- Chunked flush now snapshots subscribers per task to avoid mid-flush corruption.
+- `injectTransactionRunner` ignores unsafe reinjection attempts.
+- `endTransaction` surfaces commit-phase errors.
+- Persist writes re-check the latest sequence before `setItem`.
+- `fetchStore` sets an error state when `transform` returns a Promise.
+- Async rate limiting is enforced per store (not per cache slot).
+- `hydrateStores` recomputes affected computed stores after hydration.
 
 ### Docs
 
 - Hydration examples now reference `allowTrusted` language.
 - Sync options documentation now includes `loopGuard`.
 - README now documents `registerMutatorProduce`, `sync.insecure`, and `onValidationError`.
+- React SSR docs now mention `stores.registry` and the automatic request-registry fallback.
 
 </details>
 

@@ -15,6 +15,7 @@ import {
     createTransactionState,
 } from "./store-registry.js";
 import { registerTestResetHook } from "../internals/test-reset.js";
+import { warnAlways } from "../utils.js";
 
 export type TransactionRunner = {
     run: <T>(state: TransactionState, fn: () => T) => T;
@@ -25,6 +26,18 @@ export type TransactionRunner = {
 let currentTransactionRunner: TransactionRunner | null = null;
 
 export const injectTransactionRunner = (runner: TransactionRunner | null): void => {
+    if (!runner) {
+        currentTransactionRunner = null;
+        return;
+    }
+    if (currentTransactionRunner && currentTransactionRunner !== runner) {
+        warnAlways(
+            `injectTransactionRunner(...) was called more than once. ` +
+            `The existing runner will be kept to avoid cross-request transaction leaks. ` +
+            `If you need to replace it in tests, call injectTransactionRunner(null) first.`
+        );
+        return;
+    }
     currentTransactionRunner = runner;
 };
 
@@ -106,10 +119,21 @@ export const endTransaction = (err?: unknown, registry?: StoreRegistry): Error |
     state.depth = Math.max(0, state.depth - 1);
     if (state.depth > 0) return null;
 
-    const finalError = state.failed ? (state.error ?? new Error("setStoreBatch aborted")) : null;
+    let finalError = state.failed ? (state.error ?? new Error("setStoreBatch aborted")) : null;
 
     if (!finalError) {
-        state.pending.forEach((fn) => fn());
+        for (const fn of state.pending) {
+            try {
+                fn();
+            } catch (commitErr) {
+                markTransactionFailed(commitErr, registry);
+                finalError = state.error ?? coerceError(commitErr);
+                break;
+            }
+        }
+        if (!finalError && state.failed) {
+            finalError = state.error ?? new Error("setStoreBatch aborted");
+        }
     }
 
     state.pending = [];

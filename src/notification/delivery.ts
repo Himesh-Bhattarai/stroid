@@ -153,6 +153,8 @@ export const deliverFlush = (
         name: string;
         snapshot: StoreValue | null;
         version: number;
+        subscribers: Subscriber[];
+        subscriberSet: Set<Subscriber>;
         notified: Set<Subscriber>;
         metrics: ReturnType<typeof createMetrics>;
         totalMs: number;
@@ -180,6 +182,8 @@ export const deliverFlush = (
                 name,
                 snapshot,
                 version: storeVersion,
+                subscribers: Array.from(subs),
+                subscriberSet: new Set(subs),
                 notified: new Set(),
                 metrics: createMetrics(registryMeta[name]?.metrics),
                 totalMs: 0,
@@ -210,8 +214,19 @@ export const deliverFlush = (
                 return;
             }
 
-            const subs = registrySubs[task.name];
-            if (!subs || subs.size === 0) {
+            const refreshSubscribers = () => {
+                const liveSubs = registrySubs[task.name];
+                if (!liveSubs || liveSubs.size === 0) return;
+                for (const sub of liveSubs) {
+                    if (task.subscriberSet.has(sub)) continue;
+                    task.subscriberSet.add(sub);
+                    task.subscribers.push(sub);
+                }
+            };
+
+            refreshSubscribers();
+            const subsArray = task.subscribers;
+            if (subsArray.length === 0) {
                 if (queue.length === 0) {
                     done();
                     return;
@@ -228,7 +243,6 @@ export const deliverFlush = (
             const start = now();
             let sent = 0;
             let versionChanged = false;
-            const subsArray = fillSubscriberBuffer(subs);
             const context = resolveWriteContext(task.name);
             const deliverSlice = () => {
                 for (let index = 0; index < subsArray.length && sent < sliceSize; index += 1) {
@@ -293,13 +307,12 @@ export const deliverFlush = (
                 return;
             }
 
+            refreshSubscribers();
             let hasUnnotified = false;
-            if (subs) {
-                for (const sub of subs) {
-                    if (!task.notified.has(sub)) {
-                        hasUnnotified = true;
-                        break;
-                    }
+            for (const sub of subsArray) {
+                if (!task.notified.has(sub)) {
+                    hasUnnotified = true;
+                    break;
                 }
             }
 

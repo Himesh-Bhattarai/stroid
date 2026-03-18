@@ -25,6 +25,7 @@ import {
 import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers/index.js";
 import { createSelector } from "../../src/selectors/index.js";
 import { createStoreForRequest } from "../../src/server/index.js";
+import type { StoreRegistry } from "../../src/server/index.js";
 import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/react/index.js";
 import type { AsyncStoreState } from "../../src/react/hooks-async.js";
 import { fetchStore, getAsyncMetrics } from "../../src/async.js";
@@ -187,6 +188,7 @@ const requestStores = createStoreForRequest<RequestMap>((api) => {
 
 const requestSnapshot = requestStores.snapshot();
 type RequestSnapshotReturn = Expect<Equal<typeof requestSnapshot, Partial<RequestMap>>>;
+type RequestRegistryReturn = Expect<Equal<typeof requestStores.registry, StoreRegistry>>;
 
 type RequestHydrateSnapshot = HydrateSnapshotFor<RequestMap>;
 const requestHydrateInput: RequestHydrateSnapshot = {

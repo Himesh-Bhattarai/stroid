@@ -12,7 +12,7 @@ import { hasStore } from "../core/store-read.js";
 import { subscribeWithSelector } from "../selectors/index.js";
 import { getByPath, warn, warnAlways, isDev, shallowEqual } from "../utils.js";
 import { getConfig } from "../internals/config.js";
-import { getDefaultStoreRegistry, runWithRegistry } from "../core/store-registry.js";
+import { getActiveStoreRegistry, getDefaultStoreRegistry, runWithRegistry } from "../core/store-registry.js";
 import { useRegistryContext } from "./registry.js";
 import type {
     Path,
@@ -184,7 +184,7 @@ export function useStore<T = unknown, R = unknown>(
     const hasSelector = typeof pathOrSelector === "function";
     const path = typeof pathOrSelector === "string" ? pathOrSelector : undefined;
     const selector = hasSelector ? (pathOrSelector as (state: T) => R) : undefined;
-    const registry = useRegistryContext() ?? getDefaultStoreRegistry();
+    const registry = useRegistryContext() ?? getActiveStoreRegistry(getDefaultStoreRegistry());
     const selectorRef = useRef<typeof selector>(selector);
     const equalityRef = useRef(equalityFn);
     const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
@@ -276,7 +276,7 @@ export function useSelector<T = unknown, R = unknown>(
     equalityFn: (a: R, b: R) => boolean = shallowEqual
 ): R | null {
     const resolvedName = typeof storeName === "string" ? storeName : storeName.name;
-    const registry = useRegistryContext() ?? getDefaultStoreRegistry();
+    const registry = useRegistryContext() ?? getActiveStoreRegistry(getDefaultStoreRegistry());
     const selectorRef = useRef(selectorFn);
     const equalityRef = useRef(equalityFn);
     const selectorCache = useRef<SelectorCache<R>>(createSelectorCache<R>());
@@ -350,7 +350,7 @@ export function useStoreStatic(
     path?: string
 ): unknown {
     const resolvedName = typeof name === "string" ? name : name.name;
-    const registry = useRegistryContext() ?? getDefaultStoreRegistry();
+    const registry = useRegistryContext() ?? getActiveStoreRegistry(getDefaultStoreRegistry());
     const data = runWithRegistry(registry, () => {
         const snap = getStoreSnapshot(resolvedName);
         warnMissingStoreOnce(resolvedName);

@@ -9,7 +9,7 @@
 import { useCallback } from "react";
 import { useStoreField } from "./hooks-core.js";
 import { setStore } from "../core/store-write.js";
-import { getDefaultStoreRegistry, runWithRegistry } from "../core/store-registry.js";
+import { getActiveStoreRegistry, getDefaultStoreRegistry, runWithRegistry } from "../core/store-registry.js";
 import { useRegistryContext } from "./registry.js";
 import type {
     Path,
@@ -42,7 +42,7 @@ export function useFormStore(
     storeName: StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue> | StoreName,
     field: string
 ): FormResult<unknown> {
-    const registry = useRegistryContext() ?? getDefaultStoreRegistry();
+    const registry = useRegistryContext() ?? getActiveStoreRegistry(getDefaultStoreRegistry());
     if (typeof storeName === "string") {
         const resolvedPath = field as Path<StateFor<StoreName>>;
         const value = useStoreField(storeName as StoreName, resolvedPath);

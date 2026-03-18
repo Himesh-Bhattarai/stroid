@@ -12,7 +12,7 @@ import { getFetchRegistry, getInflightRegistry } from "../async/cache.js";
 import { fetchStore, refetchStore } from "../async/fetch.js";
 import { useAsyncStore, type AsyncDataFor, type AsyncStoreState } from "./hooks-async.js";
 import { store } from "../core/store-name.js";
-import { getDefaultStoreRegistry, runWithRegistry } from "../core/store-registry.js";
+import { getActiveStoreRegistry, getDefaultStoreRegistry, runWithRegistry } from "../core/store-registry.js";
 import { useRegistryContext } from "./registry.js";
 import type { StoreDefinition, StoreKey, StoreName, StateFor } from "../core/store-lifecycle/types.js";
 
@@ -33,7 +33,7 @@ export function useAsyncStoreSuspense<T = unknown>(
     input?: FetchInput,
     options?: FetchOptions,
 ): T {
-    const registry = useRegistryContext() ?? getDefaultStoreRegistry();
+    const registry = useRegistryContext() ?? getActiveStoreRegistry(getDefaultStoreRegistry());
     const resolvedOptions = options ?? EMPTY_OPTIONS;
     const storeName = typeof name === "string" ? name : name.name;
     const storeHandle = useMemo(

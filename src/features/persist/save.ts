@@ -48,9 +48,10 @@ const persistSaveInner = ({
     const cfg = getMeta()?.options?.persist;
     if (!cfg) return;
 
-    const writeNow = async (): Promise<void> => {
+    const writeNow = async (sequence?: number): Promise<void> => {
         const meta = getMeta();
         if (!meta?.options?.persist || meta.options.persist !== cfg || !exists()) return;
+        if (sequence !== undefined && persistSequence[name] !== sequence) return;
 
         if (
             !cfg.allowPlaintext
@@ -79,6 +80,7 @@ const persistSaveInner = ({
             const payload = cfg.encryptAsync
                 ? await cfg.encryptAsync(envelope)
                 : cfg.encrypt(envelope);
+            if (sequence !== undefined && persistSequence[name] !== sequence) return;
             await Promise.resolve(cfg.driver.setItem?.(cfg.key, payload));
             setPersistPresence(persistWatchState, name, true);
         } catch (e) {
@@ -94,7 +96,7 @@ const persistSaveInner = ({
             if (prev) await prev;
             if (timer && persistTimers[name] !== timer) return;
             if (persistSequence[name] !== sequence) return;
-            await writeNow();
+            await writeNow(sequence);
         };
 
         const promise = run().finally(() => {

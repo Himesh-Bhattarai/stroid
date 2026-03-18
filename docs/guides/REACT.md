@@ -15,7 +15,7 @@ npm install stroid
 import { useStore, useSelector } from "stroid/react"
 ```
 
-No provider required for the default (browser) use case. Use `RegistryScope` only for SSR per-request isolation.
+No provider required for the default (browser) use case. In SSR, hooks automatically use the active request registry inside `createStoreForRequest(...).hydrate(...)`. Use `RegistryScope` when you need to render outside that scope or explicitly override the registry.
 
 ---
 
@@ -207,7 +207,7 @@ const count = useSelector(cartStore, s => s.items.length)
 
 ## SSR with `RegistryScope`
 
-When using `createStoreForRequest` for server rendering, provide the request registry to the React tree:
+When using `createStoreForRequest` for server rendering, you can optionally provide the request registry to the React tree:
 
 ```tsx
 import { RegistryScope } from "stroid/react"
@@ -219,11 +219,11 @@ const stores = createStoreForRequest((api) => {
 
 stores.hydrate(() => {
   return renderToString(
-    <RegistryScope value={requestRegistry}>
+    <RegistryScope value={stores.registry}>
       <App />
     </RegistryScope>
   )
 })
 ```
 
-Without `RegistryScope`, hooks resolve to the default (global) registry.
+Without `RegistryScope`, hooks resolve to the active request registry when rendering inside `createStoreForRequest(...).hydrate(...)`. Outside that scope, hooks fall back to the default (global) registry.

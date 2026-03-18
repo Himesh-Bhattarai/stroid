@@ -86,6 +86,11 @@ export type StroidConfig = {
      * You can pass the produce function directly or use "immer" after calling registerMutatorProduce().
      */
     mutatorProduce?: (<T>(base: T, recipe: (draft: T) => void) => T) | "immer";
+    /**
+     * When true, createSelector clones frozen state before proxy tracking.
+     * Default: true (safer for mutation-prone selectors in dev).
+     */
+    selectorCloneFrozen?: boolean;
 };
 
 type ResolvedConfig = {
@@ -106,6 +111,7 @@ type ResolvedConfig = {
     middleware: Array<(ctx: MiddlewareCtx) => StoreValue | void>;
     allowUntrustedHydration: boolean;
     mutatorProduce?: <T>(base: T, recipe: (draft: T) => void) => T;
+    selectorCloneFrozen: boolean;
 };
 
 const defaultLogSink: LogSink = {
@@ -155,6 +161,7 @@ const defaultConfig: ResolvedConfig = {
     middleware: [],
     allowUntrustedHydration: false,
     mutatorProduce: undefined,
+    selectorCloneFrozen: true,
 };
 
 const cloneConfig = (base: ResolvedConfig): ResolvedConfig => ({
@@ -175,6 +182,7 @@ const cloneConfig = (base: ResolvedConfig): ResolvedConfig => ({
     middleware: [...base.middleware],
     allowUntrustedHydration: base.allowUntrustedHydration,
     mutatorProduce: base.mutatorProduce,
+    selectorCloneFrozen: base.selectorCloneFrozen,
 });
 
 let configByRegistry = new WeakMap<StoreRegistry, ResolvedConfig>();
@@ -399,6 +407,13 @@ export const configureStroid = (next?: StroidConfig): void => {
                 );
             }
         }
+    }
+
+    if (typeof next.selectorCloneFrozen === "boolean") {
+        config = {
+            ...config,
+            selectorCloneFrozen: next.selectorCloneFrozen,
+        };
     }
 
     configByRegistry.set(registry, config);

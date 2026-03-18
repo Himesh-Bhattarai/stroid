@@ -6,21 +6,22 @@
  *
  * Consumers: Internal imports and public API.
  */
-import {
-    stores as _stores,
-    getRegistry,
-} from "../core/store-lifecycle/registry.js";
+import { getRegistry } from "../core/store-lifecycle/registry.js";
 import type { StoreValue as SelectorStoreValue } from "../core/store-lifecycle/types.js";
 
 type SelectorSubscriber = (value: SelectorStoreValue | null) => void;
 
 export type { SelectorStoreValue };
 
-export const hasSelectorStoreEntry = (name: string): boolean =>
-    Object.prototype.hasOwnProperty.call(_stores, name);
+export const hasSelectorStoreEntry = (name: string): boolean => {
+    const registry = getRegistry();
+    return Object.prototype.hasOwnProperty.call(registry.stores, name);
+};
 
-export const getSelectorStoreValueRef = (name: string): SelectorStoreValue | undefined =>
-    _stores[name];
+export const getSelectorStoreValueRef = (name: string): SelectorStoreValue | undefined => {
+    const registry = getRegistry();
+    return registry.stores[name] as SelectorStoreValue | undefined;
+};
 
 export const subscribeSelectorStore = (name: string, fn: SelectorSubscriber): (() => void) => {
     const registry = getRegistry();

@@ -335,10 +335,12 @@ const userData = useAsyncStoreSuspense("user", "/api/user")
 Context provider for injecting a request-scoped registry into a React tree (SSR use case).
 
 ```tsx
-<RegistryScope value={requestRegistry}>
+<RegistryScope value={stores.registry}>
   <App />
 </RegistryScope>
 ```
+
+When rendering inside `createStoreForRequest(...).hydrate(...)`, hooks automatically resolve the active request registry even without `RegistryScope`. Use `RegistryScope` when you need explicit overrides or render outside that scope.
 
 ---
 
@@ -493,6 +495,7 @@ const state = stores.snapshot()  // plain JSON object
 **`stores` return value:**
 - `stores.hydrate(fn)` — run `fn` inside the request scope (for React SSR rendering)
 - `stores.snapshot()` — serialize all stores to a plain object
+- `stores.registry` - the request-scoped `StoreRegistry` (for `RegistryScope` or advanced use)
 
 ---
 
