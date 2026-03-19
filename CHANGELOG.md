@@ -15,7 +15,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 
 <details>
-<summary><strong>v0.1.2 — 2026-03-16</strong></summary>
+<summary><strong>v0.1.2 — 2026-03-19</strong></summary>
 > **Note:** This release contains breaking changes to the `stroid/core` export surface and hydration defaults to improve bundle size and security.
 
 - `hydrateStores` now requires an explicit trust argument at the TypeScript level (compile-time enforcement).
