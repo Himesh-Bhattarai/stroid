@@ -10,6 +10,7 @@ import type { StoreValue, SyncMessage, SyncOptions } from "../adapters/options.j
 import { registerStoreFeature, type StoreFeatureRuntime } from "./feature-registry.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "./state-helpers.js";
 import { warnAlways, isDev } from "../utils.js";
+import { runFeatureWriteHooksExcept } from "../core/store-lifecycle/hooks.js";
 
 export type SyncChannels = Record<string, BroadcastChannel>;
 export type SyncClocks = Record<string, number>;
@@ -349,12 +350,14 @@ export const setupSync = ({
                     if (resolved !== undefined) {
                         const normalizedResolved = normalizeIncomingState(name, resolved);
                         if (normalizedResolved === null) return;
+                        const prev = getStoreValue(name);
                         setStoreValue(name, normalizedResolved);
                         const resolveUpdatedAt = typeof syncOption === "object" ? syncOption.resolveUpdatedAt : null;
                         const resolvedUpdatedAt = resolveUpdatedAt
                             ? resolveUpdatedAt({ localUpdated, incomingUpdated, now: Date.now() })
                             : Math.max(Date.now(), localUpdated, incomingUpdated);
                         resolveSyncVersion(name, resolvedUpdatedAt, typeof msg.clock === "number" ? msg.clock : 0);
+                        runFeatureWriteHooksExcept(name, "sync", prev, normalizedResolved, () => emitStoreNotify(), ["sync"]);
                         if (loopGuardMs) markLoopGuard(name, loopGuardMs);
                         notify(name);
                         broadcastSync(name);
@@ -364,6 +367,7 @@ export const setupSync = ({
             }
             const normalizedIncoming = normalizeIncomingState(name, msg.data);
             if (normalizedIncoming === null) return;
+            const prev = getStoreValue(name);
             setStoreValue(name, normalizedIncoming);
             acceptIncomingSyncVersion(
                 name,
@@ -371,6 +375,7 @@ export const setupSync = ({
                 typeof msg.clock === "number" ? msg.clock : 0,
                 typeof msg.source === "string" ? msg.source : ""
             );
+            runFeatureWriteHooksExcept(name, "sync", prev, normalizedIncoming, () => emitStoreNotify(), ["sync"]);
             if (loopGuardMs) markLoopGuard(name, loopGuardMs);
             notify(name);
         };
@@ -541,6 +546,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
         onStoreCreate(ctx) {
             if (!ctx.options.sync) return;
             const syncOption = ctx.options.sync;
+            const emitStoreNotify = ctx.notify;
             const policy = typeof syncOption === "object" ? syncOption.policy : undefined;
             const allowInsecure = policy === "insecure"
                 || (policy !== "strict" && typeof syncOption === "object" && syncOption.insecure === true);
@@ -570,7 +576,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                 getAcceptedSyncVersion: (name) => syncVersions[name],
                 getStoreValue: (name) => ctx.getStoreValue(),
                 hasStoreEntry: () => ctx.hasStore(),
-                notify: () => ctx.notify(),
+                notify: () => emitStoreNotify(),
                 validate: (name, next) => ctx.validate(next),
                 reportStoreError: (name, message) => ctx.reportStoreError(message),
                 warn: ctx.warn,

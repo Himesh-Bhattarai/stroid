@@ -314,6 +314,59 @@ test("persist feature flushes on pagehide and cleans up on delete/reset", async 
   assert.ok(removeCalls >= 1);
 });
 
+test("persist feature removes unload flush listeners when a store is deleted and recreated", async () => {
+  const runtime = createPersistFeatureRuntime();
+  let setCalls = 0;
+  const persistConfig = {
+    key: "persist-recreate",
+    driver: {
+      getItem: () => null,
+      setItem: () => { setCalls += 1; },
+      removeItem: () => undefined,
+    },
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encrypt: (v: string) => v,
+    decrypt: (v: string) => v,
+    checksum: "none",
+    allowPlaintext: true,
+    onStorageCleared: () => undefined,
+  };
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    updatedAtMs: Date.now(),
+    options: { persist: persistConfig },
+  };
+  const ctx = {
+    name: "persistRecreate",
+    options: { persist: persistConfig },
+    getMeta: () => meta as any,
+    getInitialState: () => ({ ok: true }),
+    applyFeatureState: () => undefined,
+    getStoreValue: () => ({ ok: true }),
+    hasStore: () => true,
+    reportStoreError: () => undefined,
+    warn: () => undefined,
+    log: () => undefined,
+    hashState: () => 1,
+    deepClone,
+    sanitize,
+    validate: () => ({ ok: true }),
+  };
+
+  runtime.onStoreCreate(ctx as any);
+  runtime.beforeStoreDelete(ctx as any);
+  runtime.onStoreCreate(ctx as any);
+
+  setCalls = 0;
+  window.dispatchEvent(new Event("pagehide"));
+  window.dispatchEvent(new Event("beforeunload"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.strictEqual(setCalls, 1);
+});
+
 test("persist feature handles async load failures with pending saves", async () => {
   const runtime = createPersistFeatureRuntime();
   let setCalls = 0;

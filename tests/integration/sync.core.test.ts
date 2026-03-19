@@ -9,6 +9,7 @@
 import test from "node:test";
 import assert from "node:assert";
 import "../../src/sync.js";
+import "../../src/persist.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 import { createStore, setStore, getStore, deleteStore } from "../../src/store.js";
 
@@ -216,6 +217,132 @@ test("sync core (serial)", async (t) => {
     } finally {
       deleteStore("syncClosed");
       (globalThis as any).window = originalWindow;
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
+  await t.test("sync-applied remote state triggers persist writes", async () => {
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    let stored: string | null = null;
+    let setCalls = 0;
+    const driver = {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        setCalls += 1;
+        stored = value;
+      },
+      removeItem: () => {
+        stored = null;
+      },
+    };
+
+    try {
+      createStore("syncPersisted", { value: 1 }, {
+        sync: { policy: "insecure" },
+        persist: {
+          driver,
+          key: "sync-persisted",
+          serialize: JSON.stringify,
+          deserialize: JSON.parse,
+          encrypt: (v: string) => v,
+          decrypt: (v: string) => v,
+          checksum: "none",
+          allowPlaintext: true,
+        },
+      });
+
+      await wait(20);
+      setCalls = 0;
+      stored = null;
+
+      const peer = new MockBroadcastChannel("stroid_sync_syncPersisted");
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncPersisted",
+        clock: 1,
+        source: "peer-tab",
+        updatedAt: Date.now() + 1,
+        data: { value: 2 },
+      });
+
+      await wait(20);
+
+      assert.deepStrictEqual(getStore("syncPersisted"), { value: 2 });
+      assert.strictEqual(setCalls >= 1, true);
+      assert.strictEqual(stored !== null, true);
+    } finally {
+      deleteStore("syncPersisted");
+      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
+  await t.test("sync conflict-resolver writes also trigger persist hooks", async () => {
+    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+
+    let stored: string | null = null;
+    let setCalls = 0;
+    const driver = {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        setCalls += 1;
+        stored = value;
+      },
+      removeItem: () => {
+        stored = null;
+      },
+    };
+
+    try {
+      createStore("syncConflictPersist", { value: 1 }, {
+        sync: {
+          policy: "insecure",
+          conflictResolver: ({ local, incoming }) => ({
+            value: Math.max((local as any)?.value ?? 0, (incoming as any)?.value ?? 0) + 1,
+          }),
+        },
+        persist: {
+          driver,
+          key: "sync-conflict-persist",
+          serialize: JSON.stringify,
+          deserialize: JSON.parse,
+          encrypt: (v: string) => v,
+          decrypt: (v: string) => v,
+          checksum: "none",
+          allowPlaintext: true,
+        },
+      });
+
+      setStore("syncConflictPersist", { value: 5 });
+      await wait(20);
+      setCalls = 0;
+      stored = null;
+
+      const peer = new MockBroadcastChannel("stroid_sync_syncConflictPersist");
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncConflictPersist",
+        clock: 0,
+        source: "peer-tab",
+        updatedAt: Date.now(),
+        data: { value: 3 },
+      });
+
+      await wait(20);
+
+      assert.deepStrictEqual(getStore("syncConflictPersist"), { value: 6 });
+      assert.strictEqual(setCalls >= 1, true);
+      assert.strictEqual(stored !== null, true);
+    } finally {
+      deleteStore("syncConflictPersist");
       (globalThis as any).BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
