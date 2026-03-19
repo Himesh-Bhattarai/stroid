@@ -1166,4 +1166,23 @@ test("assertRuntime throws on warnings to hard-fail tests", () => {
   }
 });
 
+test("nested transaction failure rolls back the entire transaction", () => {
+  clearAllStores();
+  createStore("nested-tx-failure", { value: 0 });
+
+  try {
+    setStoreBatch(() => {
+      setStore("nested-tx-failure", "value", 1);
+      setStoreBatch(() => {
+        setStore("nested-tx-failure", "value", 2);
+        throw new Error("inner transaction failed");
+      });
+    });
+  } catch (e) {
+    // ignore
+  }
+
+  assert.deepStrictEqual(getStore("nested-tx-failure"), { value: 0 });
+});
+
 
