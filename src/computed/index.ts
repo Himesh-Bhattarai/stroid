@@ -21,6 +21,7 @@ import { getRegistry } from "../core/store-lifecycle/registry.js";
 import type { StoreRegistry } from "../core/store-registry.js";
 import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "../core/store-lifecycle/types.js";
 import type { NonFunction } from "../types/utility.js";
+import { safeInvoke } from "../internals/reporting.js";
 
 export type ComputedOptions = {
     autoDispose?: boolean;
@@ -136,7 +137,7 @@ const _runCompute = (
         return compute(...args);
     } catch (err) {
         warn(`createComputed("${name}") compute function threw: ${(err as { message?: string })?.message ?? err}`);
-        onError?.(err);
+        safeInvoke(onError, `computed.onError(${name})`, err);
         const handle = store(name);
         return hasStore(name) ? getStore(handle) : null;
     }

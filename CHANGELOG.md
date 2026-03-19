@@ -77,6 +77,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - Middleware contexts include optional `correlationId`/`traceContext`.
 - React hooks live exclusively under `stroid/react`.
 - `deepClone` throws on non-cloneable values.
+- `endTransaction` now executes all pending commit callbacks, capturing the first error while allowing remaining commits to run.
 
 ### Fixed
 
@@ -92,6 +93,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - `fetchStore` sets an error state when `transform` returns a Promise.
 - Async rate limiting is enforced per store (not per cache slot).
 - `hydrateStores` recomputes affected computed stores after hydration.
+- User `onError` callbacks are now isolated from core operations if they throw.
 
 ### Docs
 

@@ -38,6 +38,7 @@ import {
 import { registerTestResetHook } from "../../internals/test-reset.js";
 import { getConfig } from "../../internals/config.js";
 import type { StoreValue } from "./types.js";
+import { safeInvoke } from "../../internals/reporting.js";
 
 type PathSafetyVerdict = { ok: true } | { ok: false; reason: string };
 type PathValidationCacheNode = {
@@ -271,8 +272,8 @@ export const sanitizeValue = (
         return { ok: true, value: sanitize(value) as StoreValue };
     } catch (err) {
         const message = `Sanitize failed for "${name}": ${(err as { message?: string })?.message ?? err}`;
-        meta[name]?.options?.onError?.(message);
-        onError?.(message);
+        safeInvoke(meta[name]?.options?.onError, `onError(${name})`, message);
+        safeInvoke(onError, `onError(${name})`, message);
         warn(message);
         return { ok: false };
     }
@@ -295,7 +296,7 @@ export const runValidation = (
     if (!validate) return { ok: true, value };
     const handlers = collectErrorHandlers(name, onError);
     const report = (message: string, severity: "warn" | "critical"): void => {
-        handlers.forEach((handler) => handler(message));
+        handlers.forEach((handler) => safeInvoke(handler, `onError(${name})`, message));
         if (severity === "critical") critical(message);
         else warn(message);
     };

@@ -45,3 +45,15 @@ This file tracks non-bug risks and UX pitfalls that should be documented or miti
 
 - `resetStore` deep-clones `initialStates[name]` on every call.  
   **Impact:** Tight-loop resets can create GC pressure on large stores.
+
+- `pruneAsyncCache` runs after every successful `fetchStore` and scans the entire cache map each time.  
+  **Impact:** High request volume with many cache slots can produce steady O(n) overhead per completion.
+
+- Computed dependency ordering is rebuilt on every flush that touches a computed store (no dirty flag).  
+  **Impact:** Topo-sorting cost repeats even when the graph hasn’t changed.
+
+- `getAsyncMetrics()` reports global counters only, with no per-store breakdown.  
+  **Impact:** Cannot identify slow or noisy async stores from metrics alone.
+
+- `findColdStores()` has no configurable time window; “cold” only means never-read.  
+  **Impact:** Stores read once long ago are indistinguishable from actively used ones.

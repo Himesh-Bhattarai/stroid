@@ -17,6 +17,20 @@ export type IssueOptions = {
     onError?: (message: string) => void;
 };
 
+export const safeInvoke = <T extends unknown[]>(
+    fn: ((...args: T) => void) | undefined,
+    label: string,
+    ...args: T
+): void => {
+    if (typeof fn !== "function") return;
+    try {
+        fn(...args);
+    } catch (err) {
+        const message = (err as { message?: string })?.message ?? err;
+        warnAlways(`${label} callback threw: ${String(message)}`);
+    }
+};
+
 export const reportIssue = (message: string, options: IssueOptions = {}): void => {
     const {
         severity = "warn",
@@ -24,7 +38,7 @@ export const reportIssue = (message: string, options: IssueOptions = {}): void =
         onError,
     } = options;
 
-    onError?.(message);
+    safeInvoke(onError, "onError", message);
 
     if (severity === "critical") {
         if (visibility === "dev") warn(message);

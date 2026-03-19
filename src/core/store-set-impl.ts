@@ -43,6 +43,7 @@ import type {
     WriteResult,
 } from "./store-lifecycle/types.js";
 import { MIDDLEWARE_ABORT } from "../features/lifecycle.js";
+import { safeInvoke } from "../internals/reporting.js";
 import type { WriteContext } from "../internals/write-context.js";
 import {
     isTransactionActive,
@@ -202,7 +203,11 @@ const setStoreInternal = (
         const sanitizedValue = valueResult.value;
         const safePath = validatePathSafety(storeName, prev, keyOrData as PathInput, sanitizedValue);
         if (!safePath.ok) {
-            registryMeta[storeName]?.options?.onError?.(safePath.reason ?? `Invalid path for "${storeName}".`);
+            safeInvoke(
+                registryMeta[storeName]?.options?.onError,
+                `onError(${storeName})`,
+                safePath.reason ?? `Invalid path for "${storeName}".`
+            );
             if (isTransactionActive()) markTransactionFailed(safePath.reason);
             return { ok: false, reason: "path" };
         }
@@ -217,7 +222,7 @@ const setStoreInternal = (
             `  setStore(storeDef, draft => { draft.field = value })\n` +
             `  replaceStore("${storeName}", value)  // full-store replace`;
         error(message);
-        registryMeta[storeName]?.options?.onError?.(message);
+        safeInvoke(registryMeta[storeName]?.options?.onError, `onError(${storeName})`, message);
         if (isTransactionActive()) markTransactionFailed(message);
         return { ok: false, reason: "invalid-args" };
     }

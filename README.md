@@ -153,6 +153,7 @@ Full documentation in [`/docs`](./docs/):
 - [Devtools](./docs/guides/DEVTOOLS.md) — history, redaction
 - [Runtime Tools](./docs/guides/RUNTIME_TOOLS.md) — observability, health checks
 - [Full API Reference](./docs/api/API_REFERENCE.md)
+- [Project Status](./STATUS.MD)
 - [Contributing](./CONTRIBUTING.md)
 
 ---

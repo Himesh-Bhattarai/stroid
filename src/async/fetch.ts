@@ -46,6 +46,7 @@ import {
 import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters, registerRateHit, scheduleRatePrune } from "./rate.js";
 import { buildFetchOptions, parseResponseBody } from "./request.js";
 import { runWithWriteContext, type WriteContext } from "../internals/write-context.js";
+import { safeInvoke } from "../internals/reporting.js";
 type AsyncState = AsyncStateSnapshot;
 
 const looksLikeAsyncState = (value: unknown): boolean => {
@@ -235,7 +236,7 @@ export async function fetchStore(
                 const message =
                     `fetchStore("${name}") auto-created its backing store.\n` +
                     `Call createStore("${name}", ...) first to avoid typos creating phantom stores.`;
-                onError?.(message);
+                safeInvoke(onError, `fetchStore.onError(${name})`, message);
                 warn(message);
             });
         }

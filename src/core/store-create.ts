@@ -40,6 +40,7 @@ import { getConfig } from "../internals/config.js";
 import { notifyStore } from "./store-shared/notify.js";
 import { isTransactionActive, markTransactionFailed } from "./store-transaction.js";
 import { registerTestResetHook } from "../internals/test-reset.js";
+import { safeInvoke } from "../internals/reporting.js";
 
 type LazyDisallow<T> = T extends { lazy: true } ? never : T;
 
@@ -111,7 +112,7 @@ export function createStore<Name extends string, State>(
         const message =
             `Store "${name}" has scope: "temp" but persist is enabled. ` +
             `Temp stores are intended to be ephemeral.`;
-        normalizedOptions.onError?.(message);
+        safeInvoke(normalizedOptions.onError, `onError(${name})`, message);
         if (!isDev()) warnAlways(message);
         error(message);
     }

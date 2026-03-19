@@ -8,6 +8,7 @@
  */
 import type { StoreValue } from "../../adapters/options.js";
 import { warnAlways } from "../../utils.js";
+import { safeInvoke } from "../../internals/reporting.js";
 import { usesDefaultPersistCrypto } from "./crypto.js";
 import { computePersistChecksum } from "./checksum.js";
 import { setPersistPresence } from "./watch.js";
@@ -63,7 +64,7 @@ const persistSaveInner = ({
             const message =
                 `[stroid/persist] Store '${name}' is persisted in plaintext. ` +
                 `Provide encrypt/decrypt hooks to protect sensitive data.`;
-            meta.options.onError?.(message);
+            safeInvoke(meta.options.onError, `onError(${name})`, message);
             warnAlways(message);
         }
 

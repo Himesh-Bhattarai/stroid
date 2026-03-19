@@ -127,8 +127,9 @@ export const endTransaction = (err?: unknown, registry?: StoreRegistry): Error |
                 fn();
             } catch (commitErr) {
                 markTransactionFailed(commitErr, registry);
-                finalError = state.error ?? coerceError(commitErr);
-                break;
+                if (!finalError) {
+                    finalError = state.error ?? coerceError(commitErr);
+                }
             }
         }
         if (!finalError && state.failed) {
