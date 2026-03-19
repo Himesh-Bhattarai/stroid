@@ -31,6 +31,21 @@ This file tracks non-bug risks and UX pitfalls that should be documented or miti
 - Store name validation is strict (non-empty, no spaces, no `__proto__`/`constructor`/`prototype`), but not clearly documented.  
   **Impact:** User-controlled names can fail at runtime without clear guidance.
 
+- `useStore("name")` without `StoreStateMap` augmentation is loosely typed (`unknown`/`StoreValue`), but reads like a typed API.  
+  **Impact:** Callers may assume type safety and cast (e.g. `as number`) without compile-time protection.
+
+- `useStore(name)` without a selector subscribes to the entire store; it re-runs on every change.  
+  **Impact:** Easy to accidentally over-render; the warning is one-time per store and can be missed.
+
+- `fetchStore` auto-creates missing stores when `asyncAutoCreate` is enabled.  
+  **Impact:** Typos can create phantom stores unless auto-create is disabled.
+
+- `setStore` shallow-merges object updates, while `replaceStore` overwrites the whole store.  
+  **Impact:** Easy to pick the wrong API and accidentally drop fields.
+
+- `resetStore` on a lazy-uninitialized store returns `{ ok: false, reason: "lazy-uninitialized" }`.  
+  **Impact:** Callers who ignore the return value may assume the reset succeeded.
+
 ## Performance Notes
 
 - Computed stores are topo-sorted at flush time using `getComputedOrder`.  
@@ -57,3 +72,8 @@ This file tracks non-bug risks and UX pitfalls that should be documented or miti
 
 - `findColdStores()` has no configurable time window; “cold” only means never-read.  
   **Impact:** Stores read once long ago are indistinguishable from actively used ones.
+
+## Planned
+
+- Add a framework adapter layer for SSR registry isolation (to support evolving Next.js/Remix/edge runtimes without hard ALS coupling).
+- Cache computed topo order and recompute only when the computed graph changes (dirty-flag or versioned cache).
