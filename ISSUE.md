@@ -2,6 +2,12 @@
 
 This file tracks non-bug risks and UX pitfalls that should be documented or mitigated.
 
+## Open Bugs
+
+- `resetStore` returns `{ ok: false, reason: "not-found" }` when a store exists but has no initial state (`initialStates[name]` missing).  
+  **Impact:** The reason is misleading; callers may assume the store does not exist.  
+  **Status:** Open (should return a distinct reason like `"no-initial-state"`).
+
 ## Footguns
 
 - `hydrateStores(snapshot, options, trust)` requires the third positional `trust` argument (e.g. `{ allowTrusted: true }`).  
@@ -46,6 +52,9 @@ This file tracks non-bug risks and UX pitfalls that should be documented or miti
 - `resetStore` on a lazy-uninitialized store returns `{ ok: false, reason: "lazy-uninitialized" }`.  
   **Impact:** Callers who ignore the return value may assume the reset succeeded.
 
+- `stroid/vue` and `stroid/svelte` exports are stubs (`adapterNotImplemented`).  
+  **Impact:** `import { useStore } from "stroid/vue"` yields undefined and fails at call time instead of import time.
+
 ## Performance Notes
 
 - Computed stores are topo-sorted at flush time using `getComputedOrder`.  
@@ -67,6 +76,9 @@ This file tracks non-bug risks and UX pitfalls that should be documented or miti
 - Computed dependency ordering is rebuilt on every flush that touches a computed store (no dirty flag).  
   **Impact:** Topo-sorting cost repeats even when the graph hasn’t changed.
 
+- `createSelector` deep-clones frozen state when `selectorCloneFrozen` is true (default).  
+  **Impact:** Large frozen stores pay O(n) per selector recompute; dev-mode can become slow.
+
 - `getAsyncMetrics()` reports global counters only, with no per-store breakdown.  
   **Impact:** Cannot identify slow or noisy async stores from metrics alone.
 
@@ -77,3 +89,5 @@ This file tracks non-bug risks and UX pitfalls that should be documented or miti
 
 - Add a framework adapter layer for SSR registry isolation (to support evolving Next.js/Remix/edge runtimes without hard ALS coupling).
 - Cache computed topo order and recompute only when the computed graph changes (dirty-flag or versioned cache).
+
+
