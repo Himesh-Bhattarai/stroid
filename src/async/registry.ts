@@ -26,6 +26,8 @@ export type AsyncStateAdapter = (ctx: {
 }) => void;
 
 export type WarnCategory = "noSignal" | "shape" | "autoCreate" | "mutableResult";
+export type StoreCleanupKind = "store" | "revalidate";
+export type StoreCleanupBucket = Partial<Record<StoreCleanupKind, Set<() => void>>>;
 
 export interface FetchOptions {
     transform?: (result: unknown) => unknown;
@@ -83,11 +85,9 @@ export type AsyncRegistry = {
     ratePruneState: { lastAt: number };
     ratePruneTimer: ReturnType<typeof setTimeout> | null;
     warnedOnce: Map<WarnCategory, Set<string>>;
-    cleanupSubs: Record<string, () => void>;
-    storeCleanupFns: Record<string, Set<() => void>>;
+    storeCleanups: Record<string, StoreCleanupBucket>;
     revalidateKeys: Set<string>;
     revalidateHandlers: Record<string, () => void>;
-    wildcardCleanups: Array<() => void>;
     asyncMetrics: {
         cacheHits: number;
         cacheMisses: number;
@@ -116,11 +116,9 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     ratePruneState: { lastAt: 0 },
     ratePruneTimer: null,
     warnedOnce: createWarnedOnce(),
-    cleanupSubs: Object.create(null),
-    storeCleanupFns: Object.create(null),
+    storeCleanups: Object.create(null),
     revalidateKeys: new Set<string>(),
     revalidateHandlers: Object.create(null),
-    wildcardCleanups: [],
     asyncMetrics: {
         cacheHits: 0,
         cacheMisses: 0,
@@ -133,17 +131,11 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
 });
 
 export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
-    Object.values(registry.revalidateHandlers).forEach((cleanup) => {
-        try { cleanup(); } catch (_) { /* ignore cleanup errors */ }
-    });
-
-    Object.values(registry.cleanupSubs).forEach((unsubscribe) => {
-        try { unsubscribe(); } catch (_) { /* ignore cleanup errors */ }
-    });
-
-    Object.values(registry.storeCleanupFns).forEach((fns) => {
-        fns.forEach((fn) => {
-            try { fn(); } catch (_) { /* ignore cleanup errors */ }
+    Object.values(registry.storeCleanups).forEach((bucket) => {
+        Object.values(bucket).forEach((set) => {
+            set?.forEach((fn) => {
+                try { fn(); } catch (_) { /* ignore cleanup errors */ }
+            });
         });
     });
 
@@ -153,15 +145,10 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     Object.keys(registry.cacheMeta).forEach((key) => delete registry.cacheMeta[key]);
     Object.keys(registry.rateWindowStart).forEach((key) => delete registry.rateWindowStart[key]);
     Object.keys(registry.rateCount).forEach((key) => delete registry.rateCount[key]);
-    Object.keys(registry.cleanupSubs).forEach((key) => delete registry.cleanupSubs[key]);
-    Object.keys(registry.storeCleanupFns).forEach((key) => delete registry.storeCleanupFns[key]);
+    Object.keys(registry.storeCleanups).forEach((key) => delete registry.storeCleanups[key]);
     Object.keys(registry.revalidateHandlers).forEach((key) => delete registry.revalidateHandlers[key]);
 
     registry.revalidateKeys.clear();
-    registry.wildcardCleanups.forEach((fn) => {
-        try { fn(); } catch (_) { /* ignore cleanup errors */ }
-    });
-    registry.wildcardCleanups.length = 0;
     registry.warnedOnce.forEach((set) => set.clear());
     registry.warnedOnce.clear();
     createWarnedOnce().forEach((set, key) => {

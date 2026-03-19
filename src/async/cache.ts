@@ -9,9 +9,9 @@
 import { getActiveAsyncRegistry } from "../core/store-core.js";
 export { getActiveAsyncRegistry } from "../core/store-core.js";
 import { registerHook } from "../core/lifecycle-hooks.js";
-import type { FetchOptions, WarnCategory } from "./registry.js";
+import type { FetchOptions, WarnCategory, StoreCleanupKind, StoreCleanupBucket } from "./registry.js";
 import { resetAsyncRegistry } from "./registry.js";
-export type { FetchOptions, AsyncStateSnapshot, AsyncStateAdapter } from "./registry.js";
+export type { FetchOptions, AsyncStateSnapshot, AsyncStateAdapter, StoreCleanupKind } from "./registry.js";
 
 export type FetchInput = string | Promise<unknown> | (() => string | Promise<unknown>);
 
@@ -33,14 +33,10 @@ export const getRateCountRegistry = (): ReturnType<typeof getActiveAsyncRegistry
     getActiveAsyncRegistry().rateCount;
 export const getRatePruneState = (): ReturnType<typeof getActiveAsyncRegistry>["ratePruneState"] =>
     getActiveAsyncRegistry().ratePruneState;
-export const getCleanupSubs = (): ReturnType<typeof getActiveAsyncRegistry>["cleanupSubs"] =>
-    getActiveAsyncRegistry().cleanupSubs;
-export const getStoreCleanupFns = (): ReturnType<typeof getActiveAsyncRegistry>["storeCleanupFns"] =>
-    getActiveAsyncRegistry().storeCleanupFns;
 export const getRevalidateHandlers = (): ReturnType<typeof getActiveAsyncRegistry>["revalidateHandlers"] =>
     getActiveAsyncRegistry().revalidateHandlers;
-export const getWildcardCleanups = (): ReturnType<typeof getActiveAsyncRegistry>["wildcardCleanups"] =>
-    getActiveAsyncRegistry().wildcardCleanups;
+export const getStoreCleanups = (): ReturnType<typeof getActiveAsyncRegistry>["storeCleanups"] =>
+    getActiveAsyncRegistry().storeCleanups;
 export const getWarnedOnce = (): ReturnType<typeof getActiveAsyncRegistry>["warnedOnce"] =>
     getActiveAsyncRegistry().warnedOnce;
 export const getRevalidateKeys = (): ReturnType<typeof getActiveAsyncRegistry>["revalidateKeys"] =>
@@ -75,23 +71,62 @@ export const warnOnce = (category: WarnCategory, key: string, onWarn: () => void
 
 let deleteHookCleanup: (() => void) | null = null;
 
+const runCleanupSet = (set?: Set<() => void>): void => {
+    if (!set) return;
+    Array.from(set).forEach((fn) => {
+        try { fn(); } catch (_) { /* ignore cleanup errors */ }
+    });
+};
+
+const ensureCleanupBucket = (name: string): StoreCleanupBucket => {
+    const storeCleanups = getStoreCleanups();
+    let bucket = storeCleanups[name];
+    if (!bucket) {
+        bucket = Object.create(null) as StoreCleanupBucket;
+        storeCleanups[name] = bucket;
+    }
+    return bucket;
+};
+
+const pruneCleanupBucket = (name: string, bucket: StoreCleanupBucket): void => {
+    if (Object.keys(bucket).length === 0) {
+        delete getStoreCleanups()[name];
+    }
+};
+
+const runCleanupBucket = (bucket: StoreCleanupBucket, kind?: StoreCleanupKind): void => {
+    if (kind) {
+        runCleanupSet(bucket[kind]);
+        delete bucket[kind];
+        return;
+    }
+    (Object.keys(bucket) as StoreCleanupKind[]).forEach((key) => {
+        runCleanupSet(bucket[key]);
+        delete bucket[key];
+    });
+};
+
+const runStoreCleanups = (name: string): void => {
+    const storeCleanups = getStoreCleanups();
+    const bucket = storeCleanups[name];
+    if (!bucket) return;
+    runCleanupBucket(bucket);
+    delete storeCleanups[name];
+};
+
+export const cleanupStoreCleanupsByKind = (kind: StoreCleanupKind): void => {
+    const storeCleanups = getStoreCleanups();
+    Object.entries(storeCleanups).forEach(([name, bucket]) => {
+        if (!bucket[kind]) return;
+        runCleanupBucket(bucket, kind);
+        pruneCleanupBucket(name, bucket);
+    });
+};
+
 const ensureDeleteHook = (): void => {
     if (deleteHookCleanup) return;
     deleteHookCleanup = registerHook("afterStoreDelete", (name) => {
-        const cleanupSubs = getCleanupSubs();
-        const cleanup = cleanupSubs[name];
-        if (cleanup) {
-            cleanup();
-            return;
-        }
-        const storeCleanupFns = getStoreCleanupFns();
-        const fns = storeCleanupFns[name];
-        if (fns) {
-            fns.forEach((fn) => {
-                try { fn(); } catch (_) { /* ignore cleanup errors */ }
-            });
-            delete storeCleanupFns[name];
-        }
+        runStoreCleanups(name);
         clearAsyncMeta(name);
     });
 };
@@ -168,37 +203,35 @@ export const countInflightSlots = (name: string): number => {
     return count;
 };
 
-export const registerStoreCleanup = (name: string, fn: () => void): void => {
-    const storeCleanupFns = getStoreCleanupFns();
-    if (!storeCleanupFns[name]) storeCleanupFns[name] = new Set();
-    storeCleanupFns[name].add(fn);
-    ensureCleanupSubscription(name);
-};
-
-export const unregisterStoreCleanup = (name: string, fn: () => void): void => {
-    const storeCleanupFns = getStoreCleanupFns();
-    const fns = storeCleanupFns[name];
-    if (!fns) return;
-    fns.delete(fn);
-    if (fns.size === 0) delete storeCleanupFns[name];
-};
-
-export const ensureCleanupSubscription = (name: string): void => {
+export const registerStoreCleanup = (name: string, fn: () => void, kind: StoreCleanupKind = "store"): void => {
     ensureDeleteHook();
-    const cleanupSubs = getCleanupSubs();
-    const storeCleanupFns = getStoreCleanupFns();
-    if (cleanupSubs[name]) return;
-    cleanupSubs[name] = () => {
-        const fns = storeCleanupFns[name];
-        if (fns) {
-            fns.forEach((fn) => {
-                try { fn(); } catch (_) { /* ignore cleanup errors */ }
-            });
-            delete storeCleanupFns[name];
-        }
-        delete cleanupSubs[name];
-        clearAsyncMeta(name);
-    };
+    const bucket = ensureCleanupBucket(name);
+    let set = bucket[kind];
+    if (!set) {
+        set = new Set();
+        bucket[kind] = set;
+    }
+    set.add(fn);
 };
 
+export const unregisterStoreCleanup = (name: string, fn: () => void, kind?: StoreCleanupKind): void => {
+    const storeCleanups = getStoreCleanups();
+    const bucket = storeCleanups[name];
+    if (!bucket) return;
+    const removeFromKind = (key: StoreCleanupKind): void => {
+        const set = bucket[key];
+        if (!set) return;
+        set.delete(fn);
+        if (set.size === 0) delete bucket[key];
+    };
+    if (kind) {
+        removeFromKind(kind);
+    } else {
+        (Object.keys(bucket) as StoreCleanupKind[]).forEach(removeFromKind);
+    }
+    pruneCleanupBucket(name, bucket);
+};
 
+export const ensureCleanupSubscription = (_name: string): void => {
+    ensureDeleteHook();
+};

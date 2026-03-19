@@ -12,6 +12,9 @@ export const createMetrics = (metrics?: FeatureMetrics): FeatureMetrics => ({
     notifyCount: metrics?.notifyCount ?? 0,
     totalNotifyMs: metrics?.totalNotifyMs ?? 0,
     lastNotifyMs: metrics?.lastNotifyMs ?? 0,
+    resetCount: metrics?.resetCount ?? 0,
+    totalResetMs: metrics?.totalResetMs ?? 0,
+    lastResetMs: metrics?.lastResetMs ?? 0,
 });
 
 export const recordMetrics = (metrics: FeatureMetrics, elapsedMs: number): FeatureMetrics => {

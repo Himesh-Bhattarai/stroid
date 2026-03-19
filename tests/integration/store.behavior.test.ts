@@ -899,6 +899,9 @@ test("getMetrics reflects notifications and survives reset operations", async ()
     notifyCount: 0,
     totalNotifyMs: 0,
     lastNotifyMs: 0,
+    resetCount: 0,
+    totalResetMs: 0,
+    lastResetMs: 0,
   });
 
   setStore("metricsStore", { value: 1 });
@@ -917,6 +920,9 @@ test("getMetrics reflects notifications and survives reset operations", async ()
   assert.ok(afterReset);
   assert.strictEqual(afterReset?.notifyCount, 2);
   assert.ok((afterReset?.totalNotifyMs ?? -1) >= (afterSet?.totalNotifyMs ?? -1));
+  assert.strictEqual(afterReset?.resetCount, 1);
+  assert.ok((afterReset?.totalResetMs ?? -1) >= 0);
+  assert.ok((afterReset?.lastResetMs ?? -1) >= 0);
 });
 
 test("middleware runs in declaration order and receives action, name, prev, next, and path metadata", () => {

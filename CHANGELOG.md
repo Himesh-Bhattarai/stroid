@@ -36,6 +36,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - `selectorCloneFrozen` config flag to control frozen-state cloning in `createSelector` (dev performance toggle).
 - `createStoreForRequest` now exposes the request `registry` for `RegistryScope` or advanced SSR usage.
 - `stroid/server` now re-exports the `StoreRegistry` type for SSR typing.
+- Store metrics now include reset timing (`resetCount`, `totalResetMs`, `lastResetMs`).
 - API Extractor configuration and `docs:api` script for generating typed API reports.
 - `IStoreCore` shared interface and `store-core` adapter for layer boundaries.
 - ESLint layer guards for async-cache and store-notify imports.

@@ -7,8 +7,6 @@
  * Consumers: Internal imports and public API.
  */
 import "./store-notify.js";
-
-export { createStore, createStoreStrict } from "./store-create.js";
 export { setStore, setStoreWithContext } from "./store-set.js";
 export { replaceStore } from "./store-replace.js";
 export { hydrateStores } from "./store-hydrate.js";

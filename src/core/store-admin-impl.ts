@@ -80,7 +80,15 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
     }
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : registry.stores[name];
+    const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
     const resetValue = deepClone(registry.initialStates[name]);
+    const elapsed = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) - start;
+    const metrics = registry.metaEntries[name]?.metrics;
+    if (metrics) {
+        metrics.resetCount = (metrics.resetCount ?? 0) + 1;
+        metrics.totalResetMs = (metrics.totalResetMs ?? 0) + elapsed;
+        metrics.lastResetMs = elapsed;
+    }
 
     stageOrCommitUpdate(registry, {
         name,

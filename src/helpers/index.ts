@@ -6,7 +6,8 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { createStore, setStore, resetStore } from "../core/store-write.js";
+import { createStore } from "../core/store-create.js";
+import { setStore, resetStore } from "../core/store-write.js";
 import { getStore } from "../core/store-read.js";
 import { store } from "../core/store-name.js";
 import type { StoreOptions } from "../adapters/options.js";

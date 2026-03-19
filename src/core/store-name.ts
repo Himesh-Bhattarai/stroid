@@ -8,7 +8,8 @@
  */
 import type { StoreKey, StoreValue } from "./store-lifecycle/types.js";
 import type { StoreOptions } from "../adapters/options.js";
-import { createStore, createStoreStrict, setStore, deleteStore, resetStore } from "./store-write.js";
+import { createStore, createStoreStrict } from "./store-create.js";
+import { setStore, deleteStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
 import type { NonFunction } from "../types/utility.js";
 

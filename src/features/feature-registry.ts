@@ -16,6 +16,9 @@ export interface FeatureMetrics {
     notifyCount: number;
     totalNotifyMs: number;
     lastNotifyMs: number;
+    resetCount: number;
+    totalResetMs: number;
+    lastResetMs: number;
 }
 
 export interface StoreFeatureMeta {

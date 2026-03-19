@@ -18,7 +18,7 @@ import {
     getFetchRegistry,
     getRevalidateHandlers,
     getRevalidateKeys,
-    getWildcardCleanups,
+    cleanupStoreCleanupsByKind,
     MAX_INFLIGHT_SLOTS_PER_STORE,
     warnOnce,
     ensureCleanupSubscription,
@@ -668,20 +668,10 @@ export function enableRevalidateOnFocus(
         }
         revalidateKeys.delete(key);
         delete revalidateHandlers[key];
-        if (key !== "*") {
-            unregisterStoreCleanup(key, cleanup);
-        } else {
-            const wildcardCleanups = getWildcardCleanups();
-            const idx = wildcardCleanups.indexOf(cleanup);
-            if (idx !== -1) wildcardCleanups.splice(idx, 1);
-        }
+        unregisterStoreCleanup(key, cleanup, "revalidate");
     };
     revalidateHandlers[key] = cleanup;
-    if (key !== "*") {
-        registerStoreCleanup(key, cleanup);
-    } else {
-        getWildcardCleanups().push(cleanup);
-    }
+    registerStoreCleanup(key, cleanup, "revalidate");
     return cleanup;
 }
 
@@ -692,9 +682,7 @@ export const _resetAsyncStateForTests = (): void => {
     resetAsyncState();
 };
 export const cleanupAllRevalidateHandlers = (): void => {
-    const wildcardCleanups = getWildcardCleanups();
-    wildcardCleanups.forEach((fn) => fn());
-    wildcardCleanups.length = 0;
+    cleanupStoreCleanupsByKind("revalidate");
 };
 
 

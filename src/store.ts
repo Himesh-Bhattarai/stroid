@@ -36,14 +36,13 @@ export type {
 } from "./adapters/options.js";
 
 export {
-    createStore,
-    createStoreStrict,
     setStore,
     replaceStore,
     deleteStore,
     resetStore,
     hydrateStores,
 } from "./core/store-write.js";
+export { createStore, createStoreStrict } from "./core/store-create.js";
 
 export {
     setStoreBatch,

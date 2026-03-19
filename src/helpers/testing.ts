@@ -7,7 +7,8 @@
  * Consumers: Internal imports and public API.
  */
 import { _resetAsyncStateForTests } from "../async.js";
-import { createStore, setStore, resetStore } from "../core/store-write.js";
+import { createStore } from "../core/store-create.js";
+import { setStore, resetStore } from "../core/store-write.js";
 import { store } from "../core/store-name.js";
 import type { PartialDeep, StoreDefinition, StoreKey } from "../core/store-lifecycle/types.js";
 import { _hardResetAllStoresForTest } from "../core/store-write.js";
