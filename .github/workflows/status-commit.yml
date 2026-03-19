@@ -22,19 +22,20 @@ jobs:
           skip='^(Merge|Revert|fixup!|squash!)'
           before="${{ github.event.before }}"
           sha="${{ github.sha }}"
-          range="$sha"
-          if [[ "$before" != "0000000000000000000000000000000000000000" ]]; then
-            range="$before..$sha"
-          fi
           failed=0
+          commits="$sha"
+          if [[ "$before" != "0000000000000000000000000000000000000000" ]]; then
+            commits="$(git rev-list "$before..$sha")"
+          fi
           while read -r commit; do
+            [[ -z "$commit" ]] && continue
             msg=$(git log -1 --pretty=%s "$commit")
             if echo "$msg" | grep -Eq "$skip"; then continue; fi
             if ! echo "$msg" | grep -Eq "$regex"; then
               echo "::error title=Bad commit format::$msg"
               failed=1
             fi
-          done <<<"$(git rev-list "$range")"
+          done <<<"$commits"
           exit $failed
 
       - name: Validate PR title
