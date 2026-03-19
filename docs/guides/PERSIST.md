@@ -106,6 +106,9 @@ persist: {
 }
 ```
 
+> **Note:** `"hash"` is non-cryptographic and only detects accidental corruption.  
+> `"sha256"` improves integrity checks but is still forgeable without a secret â€” use encryption or signing for adversarial cases.
+
 ---
 
 ## Size Limits

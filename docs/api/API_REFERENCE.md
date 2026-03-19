@@ -45,6 +45,7 @@ function createStore<Name extends string, State>(
 - Use `createStoreStrict` to get an error thrown instead.
 - Calling `createStore` for an already-existing name is a no-op that returns `{ name }`. The existing state is preserved.
 - Cannot be called inside `setStoreBatch`.
+- Store names must be non-empty strings, contain no spaces, and must not be `__proto__`, `constructor`, or `prototype`.
 
 **Server behavior:** In production server environments, `createStore` is blocked by default to prevent cross-request memory leaks. Use `createStoreForRequest(...)` from `stroid/server` instead, or pass `scope: "global"` to opt in.
 
@@ -876,4 +877,37 @@ interface PersistOptions<State> {
 }
 ```
 
+> **Checksum note:** `"hash"` is a non-cryptographic checksum meant to detect accidental corruption.  
+> Use `"sha256"` for stronger integrity, but neither mode prevents a malicious actor from forging data without a secret.
+
 > **Important:** The persist migrations API is `migrations: Record<number, fn>`, **not** `migrate: (old, v) => ...`. The README example using `migrate` is incorrect.
+
+### `SyncOptions`
+
+```ts
+interface SyncOptions {
+  channel?:        string
+  maxPayloadBytes?: number
+  policy?:         "strict" | "insecure"
+  authToken?:      string
+  insecure?:       boolean              // deprecated; use policy: "insecure"
+  conflictResolver?: (args: {
+    local: StoreValue
+    incoming: StoreValue
+    localUpdated: number
+    incomingUpdated: number
+  }) => StoreValue | void
+  loopGuard?:      boolean | { windowMs?: number }
+  checksum?:       "hash" | "none"
+  sign?:           (payload: SyncMessage) => unknown
+  verify?:         (payload: SyncMessage) => boolean
+  resolveUpdatedAt?: (args: {
+    localUpdated: number
+    incomingUpdated: number | undefined
+    now: number
+  }) => number
+}
+```
+
+> **Security note:** In production, unauthenticated sync is blocked unless you opt into `policy: "insecure"`.  
+> BroadcastChannel is same-origin, so any compromised tab can forge updates without `authToken` or `verify`.

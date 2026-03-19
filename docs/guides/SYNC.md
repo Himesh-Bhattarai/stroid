@@ -64,6 +64,9 @@ sync: {
 }
 ```
 
+> **Security note:** BroadcastChannel is same-origin. If any tab is XSS-compromised, it can forge sync messages.  
+> Use `authToken` or `verify` for meaningful protection.
+
 ---
 
 ## Conflict Resolution
