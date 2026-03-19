@@ -1,5 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { _subscribe, clearAllStores, createStore, setStore } from "../src/store.js";
+import "../src/devtools/index.js";
 
 type Row = {
   count: number;

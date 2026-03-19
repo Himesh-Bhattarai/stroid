@@ -6,12 +6,15 @@
  *
  * Consumers: Internal imports and public API.
  */
-// Public store API barrel. store-* modules are split for organization and re-exported here.
+// Public store API barrel. Internal modules should import from leaf modules directly.
 export type {
     Path,
     PathDepth,
     PathValue,
     PartialDeep,
+    HydrateSnapshotFor,
+    HydrationFailure,
+    HydrationResult,
     StoreDefinition,
     StoreValue,
     StoreKey,
@@ -20,7 +23,7 @@ export type {
     StoreStateMap,
     StrictStoreMap,
     WriteResult,
-} from "./store-lifecycle/types.js";
+} from "./core/store-lifecycle/types.js";
 export type {
     FeatureOptions,
     FeatureOptionsMap,
@@ -33,15 +36,13 @@ export type {
 } from "./adapters/options.js";
 
 export {
-    createStore,
-    createStoreStrict,
     setStore,
     replaceStore,
     deleteStore,
     resetStore,
     hydrateStores,
-    useRegistry,
-} from "./store-write.js";
+} from "./core/store-write.js";
+export { createStore, createStoreStrict } from "./core/store-create.js";
 
 export {
     setStoreBatch,
@@ -50,20 +51,23 @@ export {
     subscribe,
     getStoreSnapshot,
     getSnapshot as _getSnapshot,
-} from "./store-notify.js";
+} from "./core/store-notify.js";
 
 export {
     getStore,
     hasStore,
+    isLazyStore,
+    isStoreMaterialized,
+    isLazyPending,
     _hasStoreEntryInternal,
     _getStoreValueRef,
     _getFeatureApi,
     getInitialState,
     getMetrics,
-} from "./store-read.js";
+} from "./core/store-read.js";
 
-export { clearAllStores, clearStores } from "./runtime-admin.js";
+export { clearAllStores, clearStores } from "./runtime-admin/index.js";
 
-export { store, namespace } from "./store-name.js";
+export { store, namespace } from "./core/store-name.js";
 
 

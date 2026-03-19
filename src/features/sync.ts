@@ -7,9 +7,9 @@
  * Consumers: Internal imports and public API.
  */
 import type { StoreValue, SyncMessage, SyncOptions } from "../adapters/options.js";
-import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
+import { registerStoreFeature, type StoreFeatureRuntime } from "./feature-registry.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "./state-helpers.js";
-import { warnAlways } from "../utils.js";
+import { warnAlways, isDev } from "../utils.js";
 
 export type SyncChannels = Record<string, BroadcastChannel>;
 export type SyncClocks = Record<string, number>;
@@ -26,6 +26,22 @@ const resolveProtocolVersion = (msg: { v?: unknown; protocol?: unknown }): numbe
 
 const insecureSyncWarned = new Set<string>();
 const signerVerifyWarned = new Set<string>();
+const DEFAULT_LOOP_GUARD_MS = 100;
+
+const resolveLoopGuardMs = (syncOption?: boolean | SyncOptions): number | null => {
+    if (!syncOption) return null;
+    if (syncOption === true) return DEFAULT_LOOP_GUARD_MS;
+    if (typeof syncOption !== "object") return null;
+    const guard = syncOption.loopGuard;
+    if (guard === false) return null;
+    if (guard === true || guard === undefined) return DEFAULT_LOOP_GUARD_MS;
+    if (typeof guard === "object") {
+        const ms = guard.windowMs;
+        if (typeof ms === "number" && Number.isFinite(ms) && ms > 0) return ms;
+        return DEFAULT_LOOP_GUARD_MS;
+    }
+    return DEFAULT_LOOP_GUARD_MS;
+};
 
 type SyncMeta = {
     updatedAt: string;
@@ -194,6 +210,7 @@ export const setupSync = ({
     acceptIncomingSyncVersion,
     resolveSyncVersion,
     broadcastSync,
+    markLoopGuard,
 }: {
     name: string;
     syncOption?: boolean | SyncOptions;
@@ -215,19 +232,33 @@ export const setupSync = ({
     acceptIncomingSyncVersion: (name: string, updatedAtMs: number, incomingClock: number, source: string) => void;
     resolveSyncVersion: (name: string, updatedAtMs: number, incomingClock: number) => number;
     broadcastSync: (name: string) => void;
+    markLoopGuard: (name: string, windowMs: number) => void;
 }): void => {
     if (!syncOption) return;
     if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
         reportStoreError(name, `Sync enabled for "${name}" but BroadcastChannel not available in this environment.`);
         return;
     }
+    const policy = typeof syncOption === "object" ? syncOption.policy : undefined;
+    const allowInsecure = policy === "insecure"
+        || (policy !== "strict" && typeof syncOption === "object" && syncOption.insecure === true);
     const hasAuthToken = typeof syncOption === "object"
         && typeof syncOption.authToken === "string"
         && syncOption.authToken.length > 0;
     const hasVerify = typeof syncOption === "object" && typeof syncOption.verify === "function";
     const hasSign = typeof syncOption === "object" && typeof syncOption.sign === "function";
 
-    if (!hasAuthToken && !hasVerify && !insecureSyncWarned.has(name)) {
+    const strictPolicy = policy === "strict" || (!isDev() && policy !== "insecure");
+    if (strictPolicy && !allowInsecure && !hasAuthToken && !hasVerify) {
+        reportStoreError(
+            name,
+            `Sync for "${name}" requires authToken or verify in strict mode. ` +
+            `Use sync: { policy: "insecure" } to acknowledge the risk.`
+        );
+        return;
+    }
+
+    if (!strictPolicy && !allowInsecure && !hasAuthToken && !hasVerify && !insecureSyncWarned.has(name)) {
         insecureSyncWarned.add(name);
         warnAlways(
             `Sync for "${name}" is unauthenticated. Any same-origin tab can forge sync messages. ` +
@@ -243,6 +274,7 @@ export const setupSync = ({
         );
     }
     const expectedToken = typeof syncOption === "object" ? syncOption.authToken : undefined;
+    const loopGuardMs = resolveLoopGuardMs(syncOption);
     let tokenWarned = false;
     const channelName = typeof syncOption === "object" && syncOption.channel
         ? syncOption.channel
@@ -323,6 +355,7 @@ export const setupSync = ({
                             ? resolveUpdatedAt({ localUpdated, incomingUpdated, now: Date.now() })
                             : Math.max(Date.now(), localUpdated, incomingUpdated);
                         resolveSyncVersion(name, resolvedUpdatedAt, typeof msg.clock === "number" ? msg.clock : 0);
+                        if (loopGuardMs) markLoopGuard(name, loopGuardMs);
                         notify(name);
                         broadcastSync(name);
                     }
@@ -338,6 +371,7 @@ export const setupSync = ({
                 typeof msg.clock === "number" ? msg.clock : 0,
                 typeof msg.source === "string" ? msg.source : ""
             );
+            if (loopGuardMs) markLoopGuard(name, loopGuardMs);
             notify(name);
         };
 
@@ -446,7 +480,20 @@ export const broadcastSync = ({
             return;
         }
 
-        channel.postMessage(payload);
+        try {
+            channel.postMessage(payload);
+        } catch (err) {
+            if (err && typeof err === "object" && (err as { name?: string }).name === "DataCloneError") {
+                reportStoreError(
+                    name,
+                    `Sync payload for "${name}" could not be cloned (DataCloneError). ` +
+                    `Remove non-serializable values or provide a custom serializer. ` +
+                    `Payload size ~${payloadSize} bytes.`
+                );
+                return;
+            }
+            throw err;
+        }
     } catch (err) {
         reportStoreError(name, `Failed to broadcast sync for "${name}": ${(err as { message?: string })?.message ?? err}`);
     }
@@ -457,6 +504,8 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
     const syncClocks: SyncClocks = Object.create(null);
     const syncVersions: SyncVersions = Object.create(null);
     const syncWindowCleanup: SyncWindowCleanup = Object.create(null);
+    const loopGuardUntil: Record<string, number> = Object.create(null);
+    const loopGuardWarned = new Set<string>();
     const instanceId = `stroid_${Math.random().toString(16).slice(2)}`;
 
     const recordLocalVersion = (name: string, updatedAt: string | number): void => {
@@ -472,13 +521,46 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
         recordLocalVersion(name, updatedAt);
     };
 
+    const markLoopGuard = (name: string, windowMs: number): void => {
+        if (!windowMs || !Number.isFinite(windowMs)) return;
+        loopGuardUntil[name] = Date.now() + windowMs;
+    };
+
+    const shouldSuppressBroadcast = (name: string, windowMs: number | null): boolean => {
+        if (!windowMs) return false;
+        const until = loopGuardUntil[name];
+        if (!until) return false;
+        if (Date.now() >= until) {
+            delete loopGuardUntil[name];
+            return false;
+        }
+        return true;
+    };
+
     return {
         onStoreCreate(ctx) {
             if (!ctx.options.sync) return;
+            const syncOption = ctx.options.sync;
+            const policy = typeof syncOption === "object" ? syncOption.policy : undefined;
+            const allowInsecure = policy === "insecure"
+                || (policy !== "strict" && typeof syncOption === "object" && syncOption.insecure === true);
+            const hasAuthToken = typeof syncOption === "object"
+                && typeof syncOption.authToken === "string"
+                && syncOption.authToken.length > 0;
+            const hasVerify = typeof syncOption === "object" && typeof syncOption.verify === "function";
+            const strictPolicy = policy === "strict" || (!ctx.isDev() && policy !== "insecure");
+            if (strictPolicy && syncOption && !allowInsecure && !hasAuthToken && !hasVerify) {
+                ctx.reportStoreError(
+                    `Sync for "${ctx.name}" requires authToken or verify in strict mode. ` +
+                    `Use sync: { policy: "insecure" } to acknowledge the risk.`
+                );
+                ctx.options.sync = false;
+                return;
+            }
 
             setupSync({
                 name: ctx.name,
-                syncOption: ctx.options.sync,
+                syncOption,
                 syncChannels,
                 syncClocks,
                 syncVersions,
@@ -541,6 +623,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                         reportStoreError: (name, message) => ctx.reportStoreError(message),
                     });
                 },
+                markLoopGuard,
             });
 
             if (syncChannels[ctx.name]) {
@@ -553,6 +636,17 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
             if (!ctx.options.sync) return;
             const meta = ctx.getMeta();
             if (!meta) return;
+            const loopGuardMs = resolveLoopGuardMs(ctx.options.sync);
+            if (shouldSuppressBroadcast(ctx.name, loopGuardMs)) {
+                ensureLocalClock(ctx.name, meta.updatedAtMs ?? meta.updatedAt);
+                if (!loopGuardWarned.has(ctx.name)) {
+                    loopGuardWarned.add(ctx.name);
+                    ctx.warn(
+                        `Sync broadcast for "${ctx.name}" suppressed by loopGuard to prevent feedback loops.`
+                    );
+                }
+                return;
+            }
             ensureLocalClock(ctx.name, meta.updatedAtMs ?? meta.updatedAt);
             broadcastSync({
                 name: ctx.name,
@@ -575,6 +669,8 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                 syncClocks,
                 syncVersions,
             });
+            delete loopGuardUntil[ctx.name];
+            loopGuardWarned.delete(ctx.name);
         },
 
         resetAll() {
@@ -586,8 +682,10 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
             Object.keys(syncClocks).forEach((key) => delete syncClocks[key]);
             Object.keys(syncVersions).forEach((key) => delete syncVersions[key]);
             Object.keys(syncWindowCleanup).forEach((key) => delete syncWindowCleanup[key]);
+            Object.keys(loopGuardUntil).forEach((key) => delete loopGuardUntil[key]);
             insecureSyncWarned.clear();
             signerVerifyWarned.clear();
+            loopGuardWarned.clear();
         },
     };
 };

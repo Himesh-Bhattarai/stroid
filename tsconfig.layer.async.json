@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./.tsbuild/types",
+    "tsBuildInfoFile": "./.tsbuild/layer-async.tsbuildinfo"
+  },
+  "references": [
+    { "path": "./tsconfig.layer.core.json" }
+  ],
+  "include": [
+    "src/async.ts",
+    "src/async/**/*.ts",
+    "src/integrations/**/*.ts"
+  ],
+  "exclude": [
+    "src/async/registry.ts"
+  ]
+}

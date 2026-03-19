@@ -11,6 +11,18 @@ import type { PersistMeta, PersistLoadArgs } from "./types.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "../state-helpers.js";
 import { computePersistChecksum } from "./checksum.js";
 
+const MAX_UNBOUNDED_PERSIST_WARN_BYTES = 1_000_000;
+
+const resolvePersistMigrations = (meta: PersistMeta | undefined, cfg: PersistConfig | null | undefined) => {
+    const migrations = meta?.options?.migrations ?? {};
+    if (Object.keys(migrations).length > 0) return migrations;
+    const legacyMigrate = (cfg as { migrate?: (state: StoreValue) => StoreValue } | null | undefined)?.migrate;
+    if (typeof legacyMigrate !== "function") return migrations;
+    const targetVersion = meta?.version ?? 1;
+    if (!Number.isFinite(targetVersion) || targetVersion <= 1) return migrations;
+    return { [targetVersion]: legacyMigrate };
+};
+
 const resolveMigrationFailure = ({
     name,
     persisted,
@@ -70,6 +82,7 @@ const persistLoadSync = ({
     getInitialState,
     applyFeatureState,
     reportStoreError,
+    warnMissingMaxSize,
     validate,
     log,
     hashState,
@@ -80,6 +93,7 @@ const persistLoadSync = ({
     const meta: PersistMeta | undefined = getMeta();
     const cfg = meta?.options?.persist;
     if (!cfg) return false;
+    const migrations = resolvePersistMigrations(meta, cfg);
     const validateState = (candidate: StoreValue): { ok: boolean; value?: StoreValue } =>
         normalizeFeatureState({ value: candidate, validate });
     try {
@@ -90,6 +104,16 @@ const persistLoadSync = ({
                 name,
                 `Persist driver for "${name}" returned an async value during sync hydration. ` +
                 `Provide async decrypt hooks or use an async-capable persist driver.`
+            );
+            return true;
+        }
+        if (typeof cfg.maxSize !== "number" && raw.length > MAX_UNBOUNDED_PERSIST_WARN_BYTES) {
+            warnMissingMaxSize?.(raw.length);
+        }
+        if (typeof cfg.maxSize === "number" && raw.length > cfg.maxSize) {
+            reportStoreError(
+                name,
+                `Persist payload for "${name}" exceeds maxSize (${raw.length} > ${cfg.maxSize}). Skipping hydration.`
             );
             return true;
         }
@@ -117,7 +141,7 @@ const persistLoadSync = ({
             v,
             targetVersion,
             cfg,
-            migrations: meta?.options?.migrations ?? {},
+            migrations,
             getInitialState,
             reportStoreError,
             sanitize,
@@ -147,6 +171,7 @@ const persistLoadAsync = async ({
     getInitialState,
     applyFeatureState,
     reportStoreError,
+    warnMissingMaxSize,
     validate,
     log,
     hashState,
@@ -157,11 +182,22 @@ const persistLoadAsync = async ({
     const meta: PersistMeta | undefined = getMeta();
     const cfg = meta?.options?.persist;
     if (!cfg) return false;
+    const migrations = resolvePersistMigrations(meta, cfg);
     const validateState = (candidate: StoreValue): { ok: boolean; value?: StoreValue } =>
         normalizeFeatureState({ value: candidate, validate });
     try {
         const raw = await Promise.resolve(cfg.driver.getItem?.(cfg.key) ?? null);
         if (!raw) return false;
+        if (typeof cfg.maxSize !== "number" && typeof raw === "string" && raw.length > MAX_UNBOUNDED_PERSIST_WARN_BYTES) {
+            warnMissingMaxSize?.(raw.length);
+        }
+        if (typeof cfg.maxSize === "number" && typeof raw === "string" && raw.length > cfg.maxSize) {
+            reportStoreError(
+                name,
+                `Persist payload for "${name}" exceeds maxSize (${raw.length} > ${cfg.maxSize}). Skipping hydration.`
+            );
+            return true;
+        }
         const decrypted = cfg.decryptAsync
             ? await cfg.decryptAsync(raw)
             : cfg.decrypt(raw);
@@ -189,7 +225,7 @@ const persistLoadAsync = async ({
             v,
             targetVersion,
             cfg,
-            migrations: meta?.options?.migrations ?? {},
+            migrations,
             getInitialState,
             reportStoreError,
             sanitize,
@@ -307,6 +343,7 @@ const applyMigratedState = ({
     const validationResult = validateState(parsed);
     if (!validationResult.ok) {
         if (v !== targetVersion) {
+            const onMigrationFail = cfg?.onMigrationFail ?? "reset";
             const fallback = resolveMigrationFailure({
                 name,
                 persisted: parsed,
@@ -324,6 +361,9 @@ const applyMigratedState = ({
 
             const recoveredValidation = validateState(fallback.state);
             if (recoveredValidation.ok) {
+                if (onMigrationFail === "reset") {
+                    reportStoreError(name, `Persisted state for "${name}" failed schema; resetting to initial.`);
+                }
                 return { ok: true, state: recoveredValidation.value ?? fallback.state };
             }
         }

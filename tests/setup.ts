@@ -52,10 +52,12 @@ const bootstrapDom = (): void => {
 bootstrapDom();
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { resetAllStoresForTest } = await import("../src/testing.js");
+const { resetAllStoresForTest } = await import("../src/helpers/testing.js");
+const { resetConfig } = await import("../src/config.js");
 
 afterEach(() => {
   cleanup();
+  resetConfig();
   resetAllStoresForTest();
 });
 

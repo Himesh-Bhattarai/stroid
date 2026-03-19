@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./.tsbuild/types",
+    "tsBuildInfoFile": "./.tsbuild/layer-computed.tsbuildinfo"
+  },
+  "references": [
+    { "path": "./tsconfig.layer.core.json" }
+  ],
+  "include": [
+    "src/computed/**/*.ts",
+    "src/selectors/**/*.ts",
+    "src/internals/selector-store.ts"
+  ]
+}

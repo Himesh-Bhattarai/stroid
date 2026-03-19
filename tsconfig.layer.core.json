@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./.tsbuild/types",
+    "tsBuildInfoFile": "./.tsbuild/layer-core.tsbuildinfo"
+  },
+  "references": [
+    { "path": "./tsconfig.layer.base.json" }
+  ],
+  "include": [
+    "src/core/**/*.ts",
+    "src/notification/**/*.ts",
+    "src/internals/**/*.ts",
+    "src/runtime-admin/**/*.ts",
+    "src/runtime-tools/**/*.ts",
+    "src/helpers/index.ts",
+    "src/features/feature-registry.ts",
+    "src/features/lifecycle.ts",
+    "src/async/registry.ts"
+  ],
+  "exclude": [
+    "src/internals/test-reset.ts",
+    "src/internals/computed-order.ts",
+    "src/internals/selector-store.ts"
+  ]
+}

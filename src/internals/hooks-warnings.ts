@@ -10,6 +10,7 @@ import { registerTestResetHook } from "./test-reset.js";
 
 const _broadUseStoreWarnings = new Set<string>();
 const _missingUseStoreWarnings = new Set<string>();
+let _looseUseStoreWarningIssued = false;
 
 export const hasBroadUseStoreWarning = (name: string): boolean =>
     _broadUseStoreWarnings.has(name);
@@ -33,7 +34,18 @@ export const resetMissingUseStoreWarnings = (): void => {
     _missingUseStoreWarnings.clear();
 };
 
+export const hasLooseUseStoreWarning = (): boolean => _looseUseStoreWarningIssued;
+
+export const markLooseUseStoreWarning = (): void => {
+    _looseUseStoreWarningIssued = true;
+};
+
+export const resetLooseUseStoreWarning = (): void => {
+    _looseUseStoreWarningIssued = false;
+};
+
 registerTestResetHook("hooks.broad-warning", resetBroadUseStoreWarnings, 70);
 registerTestResetHook("hooks.missing-warning", resetMissingUseStoreWarnings, 80);
+registerTestResetHook("hooks.loose-warning", resetLooseUseStoreWarning, 90);
 
 

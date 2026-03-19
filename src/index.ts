@@ -18,17 +18,23 @@ export {
     hasStore,
     hydrateStores,
 } from "./store.js";
+export { getMetrics } from "./core/store-read.js";
+export { getAsyncMetrics } from "./async/fetch.js";
+export { getStoreHealth, findColdStores } from "./runtime-tools/index.js";
 export {
     createComputed,
     invalidateComputed,
     deleteComputed,
     isComputedStore,
-} from "./computed.js";
+} from "./computed/index.js";
 export { namespace, store } from "./store.js";
 export type {
     Path,
     PathValue,
     PartialDeep,
+    HydrateSnapshotFor,
+    HydrationFailure,
+    HydrationResult,
     StoreDefinition,
     StoreValue,
     StoreKey,

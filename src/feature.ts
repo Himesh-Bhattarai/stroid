@@ -11,6 +11,7 @@ export type {
     FeatureName,
     StoreFeatureMeta,
     FeatureMetrics,
+    FeatureHookContext,
     BaseFeatureContext,
     FeatureCreateContext,
     FeatureWriteContext,
@@ -18,12 +19,12 @@ export type {
     StoreFeatureRuntime,
     StoreFeatureFactory,
     DevtoolsFeatureApi,
-} from "./feature-registry.js";
+} from "./features/feature-registry.js";
 
 export {
     registerStoreFeature,
     hasRegisteredStoreFeature,
     getRegisteredFeatureNames,
-} from "./feature-registry.js";
+} from "./features/feature-registry.js";
 
 

@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.types.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "stroid": [
+        "./dist/index.d.ts"
+      ],
+      "stroid/*": [
+        "./dist/*"
+      ]
+    }
+  },
+  "include": [
+    "tests/dtscheck/**/*.ts"
+  ]
+}

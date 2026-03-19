@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-export { configureStroid, resetConfig } from "./internals/config.js";
+export { configureStroid, resetConfig, registerMutatorProduce } from "./internals/config.js";
 export type {
     LogSink,
     StroidConfig,

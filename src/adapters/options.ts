@@ -7,6 +7,7 @@
  * Consumers: Internal imports and public API.
  */
 import { registerTestResetHook } from "../internals/test-reset.js";
+import type { TraceContext } from "../types/utility.js";
 
 export type StoreValue = unknown;
 
@@ -81,6 +82,11 @@ export interface PersistOptions<State = StoreValue> {
      */
     sensitiveData?: boolean;
     /**
+     * Maximum allowed persisted payload size (in characters).
+     * When exceeded, hydration is skipped and an error is reported.
+     */
+    maxSize?: number;
+    /**
      * Integrity check mode for persisted payloads.
      * - "hash" (default): store and validate a checksum.
      * - "none": skip checksum generation/validation.
@@ -104,6 +110,7 @@ export interface PersistConfig {
     decryptAsync?: (v: string) => Promise<string>;
     allowPlaintext?: boolean;
     sensitiveData?: boolean;
+    maxSize?: number;
     checksum: "hash" | "none" | "sha256";
     onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
     onStorageCleared?: (info: { name: string; key: string; reason: "clear" | "remove" | "missing" }) => void;
@@ -115,22 +122,43 @@ export interface MiddlewareCtx {
     prev: StoreValue;
     next: StoreValue;
     path: unknown;
+    correlationId?: string;
+    traceContext?: TraceContext;
 }
 
 export interface SyncOptions {
     channel?: string;
     maxPayloadBytes?: number;
     /**
+     * Authentication policy for sync.
+     * - "strict": require authToken or verify (blocks sync if missing)
+     * - "insecure": allow unauthenticated sync (explicit opt-out)
+     */
+    policy?: "strict" | "insecure";
+    /**
      * Optional shared token for lightweight cross-tab authentication.
      * When set, incoming sync messages without a matching token are rejected.
      */
     authToken?: string;
+    /**
+     * Explicitly allow unauthenticated sync.
+     * Deprecated in favor of policy: "insecure".
+     */
+    insecure?: boolean;
     conflictResolver?: (args: {
         local: StoreValue;
         incoming: StoreValue;
         localUpdated: number;
         incomingUpdated: number;
     }) => StoreValue | void;
+    /**
+     * Optional guard to prevent rapid feedback loops when sync updates trigger local reactions.
+     *
+     * - true: enable with a default window (100ms)
+     * - { windowMs }: customize the guard window in milliseconds
+     * - false: disable (default is enabled when sync is truthy)
+     */
+    loopGuard?: boolean | { windowMs?: number };
     /**
      * Optional checksum mode for sync payloads.
      * - "hash" (default): include a checksum of the payload.
@@ -228,9 +256,17 @@ export interface StoreOptions<State = StoreValue> {
      *
      * - "deep" (default): deep clone and dev-freeze snapshot values.
      * - "shallow": shallow clone (top-level) only; nested references are shared.
-     * - "ref": return the live store reference (no cloning).
+     * - "ref": return the live store reference (dev-freeze by default).
      */
     snapshot?: SnapshotMode;
+    /**
+     * Safety policy for snapshot deliveries when using "ref" or "shallow" modes.
+     * - "warn": (default) log a warning in dev when mutation is detected.
+     * - "throw": throw an error in dev when mutation is detected.
+     * - "auto-clone": in dev, if a subscriber mutates a frozen snapshot, deliver a cloned
+     *   snapshot to that subscriber so the mutation does not affect other subscribers or the store.
+     */
+    snapshotSafety?: 'warn' | 'throw' | 'auto-clone';
 }
 
 export interface NormalizedOptions {
@@ -254,6 +290,8 @@ export interface NormalizedOptions {
     sync?: boolean | SyncOptions;
     features?: FeatureOptions;
     snapshot: SnapshotMode;
+    /** normalized snapshotSafety value */
+    snapshotSafety?: 'warn' | 'throw' | 'auto-clone';
     explicitPersist: boolean;
     explicitSync: boolean;
     explicitDevtools: boolean;
@@ -401,6 +439,9 @@ export const normalizePersistOptions = <State>(
     const decryptAsync = persist.decryptAsync;
     const sensitiveData = persist.sensitiveData === true;
     const allowPlaintext = persist.allowPlaintext === true;
+    const maxSize = typeof persist.maxSize === "number" && Number.isFinite(persist.maxSize) && persist.maxSize > 0
+        ? persist.maxSize
+        : undefined;
     const checksum = persist.checksum === "sha256"
         ? "sha256"
         : (persist.checksum === "none" ? "none" : "hash");
@@ -429,6 +470,7 @@ export const normalizePersistOptions = <State>(
         decryptAsync,
         allowPlaintext,
         sensitiveData,
+        maxSize,
         checksum,
         onMigrationFail: persist.onMigrationFail || "reset",
         onStorageCleared: persist.onStorageCleared,
@@ -483,11 +525,15 @@ export const normalizeStoreOptions = <State>(
     const devtoolsGroup = isObject(option.devtools) ? option.devtools as DevtoolsOptions<State> : undefined;
     const normalizedValidate = option.validate ?? option.validator ?? option.schema;
     const normalizedSnapshot =
-        option.snapshot === "shallow" || option.snapshot === "ref"
+        option.snapshot === "shallow" || option.snapshot === "ref" || option.snapshot === "deep"
             ? option.snapshot
-            : (defaultSnapshotMode === "shallow" || defaultSnapshotMode === "ref"
+            : (defaultSnapshotMode === "shallow" || defaultSnapshotMode === "ref" || defaultSnapshotMode === "deep"
                 ? defaultSnapshotMode
                 : "deep");
+    const normalizedSnapshotSafety =
+        option.snapshotSafety === "warn" || option.snapshotSafety === "throw" || option.snapshotSafety === "auto-clone"
+            ? option.snapshotSafety
+            : undefined;
     const normalizedFeatures = isObject(option.features)
         ? { ...(option.features as Record<string, unknown>) }
         : undefined;
@@ -548,10 +594,9 @@ export const normalizeStoreOptions = <State>(
         features: normalizedFeatures,
         allowSSRGlobalStore: normalizedAllowSSRGlobalStore,
         snapshot: normalizedSnapshot,
+        snapshotSafety: normalizedSnapshotSafety,
         explicitPersist,
         explicitSync,
         explicitDevtools,
     };
 };
-
-

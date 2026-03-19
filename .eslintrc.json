@@ -20,9 +20,79 @@
           {
             "name": "../store-lifecycle.js",
             "message": "Import from explicit submodules (../store-lifecycle/*) to avoid barrel coupling."
+          },
+          {
+            "name": "./store.js",
+            "message": "Import from explicit leaf modules (./store-write.js, ./store-read.js, ./store-notify.js) to avoid barrel coupling."
+          },
+          {
+            "name": "../store.js",
+            "message": "Import from explicit leaf modules (../store-write.js, ../store-read.js, ../store-notify.js) to avoid barrel coupling."
           }
         ]
       }
     ]
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/index.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": [
+        "src/store-notify.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "./store-write.js",
+                "message": "store-notify must not import store-write; use hooks/callbacks instead."
+              },
+              {
+                "name": "../store-write.js",
+                "message": "store-notify must not import store-write; use hooks/callbacks instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/async-cache.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "./store-lifecycle/registry.js",
+                "message": "async-cache must not depend on store-lifecycle; use store-core instead."
+              },
+              {
+                "name": "../store-lifecycle/registry.js",
+                "message": "async-cache must not depend on store-lifecycle; use store-core instead."
+              },
+              {
+                "name": "./store-notify.js",
+                "message": "async-cache must not depend on store-notify; use store-core or public API."
+              },
+              {
+                "name": "../store-notify.js",
+                "message": "async-cache must not depend on store-notify; use store-core or public API."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

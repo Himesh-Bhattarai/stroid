@@ -8,24 +8,28 @@
  */
 import "../../src/persist.js";
 import "../../src/sync.js";
-import "../../src/devtools.js";
+import "../../src/devtools/index.js";
 import type { Expect, Equal } from "./assert.js";
 import {
   createStore,
   createStoreStrict,
   setStore,
   getStore,
+  hydrateStores,
   type StoreDefinition,
+  type HydrateSnapshotFor,
+  type HydrationResult,
   type StoreStateMap,
   store,
 } from "../../src/store.js";
-import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers.js";
-import { createSelector } from "../../src/selectors.js";
-import { createStoreForRequest } from "../../src/server.js";
-import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/hooks.js";
-import type { AsyncStoreState } from "../../src/hooks-async.js";
+import { createCounterStore, createListStore, createEntityStore } from "../../src/helpers/index.js";
+import { createSelector } from "../../src/selectors/index.js";
+import { createStoreForRequest } from "../../src/server/index.js";
+import type { StoreRegistry } from "../../src/server/index.js";
+import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/react/index.js";
+import type { AsyncStoreState } from "../../src/react/hooks-async.js";
 import { fetchStore, getAsyncMetrics } from "../../src/async.js";
-import { createMockStore, benchmarkStoreSet, withMockedTime } from "../../src/testing.js";
+import { createMockStore, benchmarkStoreSet, withMockedTime } from "../../src/helpers/testing.js";
 
 type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 type IsAssignable<From, To> = From extends To ? true : false;
@@ -86,6 +90,13 @@ type CreateStoreReturn = Expect<Equal<typeof userStore, StoreDefinition<"typedUs
 const strictUserStore = createStoreStrict("typedStrictUser", { value: 1 });
 type StrictCreateStoreReturn = Expect<Equal<typeof strictUserStore, StoreDefinition<"typedStrictUser", { value: number }>>>;
 
+const lazyOkStore = createStore("typedLazy", () => ({ count: 0 }), { lazy: true });
+type LazyCreateStoreReturn = Expect<Equal<typeof lazyOkStore, StoreDefinition<"typedLazy", { count: number }> | undefined>>;
+// @ts-expect-error lazy stores require lazy: true when initialData is a function
+createStore("typedLazyBad", () => ({ count: 1 }));
+// @ts-expect-error lazy stores require function initialData
+createStore("typedLazyBad2", { count: 1 }, { lazy: true });
+
 if (userStore) {
   const wholeUser = getStore(userStore);
   const userName = getStore(userStore, "profile.name");
@@ -114,6 +125,7 @@ const typedUserHandle = store<"typedUser", UserState>("typedUser");
 const typedCounterHandle = store<"typedCounter", { value: number }>("typedCounter");
 const typedFormHandle = store<"typedForm", { profile: { name: string } }>("typedForm");
 const typedAsyncHandle = store<"typedAsync", AsyncStoreState<{ ok: boolean }>>("typedAsync");
+const looseProfileHandle = store<"looseProfile", { profile: { name: string } }>("looseProfile");
 
 const selectName = createSelector<UserState, string>("typedUser", (state) => state.profile.name);
 type CreateSelectorReturn = Expect<Equal<typeof selectName, () => string | null>>;
@@ -138,6 +150,15 @@ type UseStoreStaticReturn = Expect<Equal<IsAssignable<typeof useStoreStatic, Use
 type UseSelectorReturn = Expect<Equal<IsAssignable<typeof useSelector, UseSelectorSig>, true>>;
 type UseFormStoreValue = Expect<Equal<IsAssignable<typeof useFormStore, UseFormStoreSig>, true>>;
 type UseAsyncStoreReturn = Expect<Equal<IsAssignable<typeof useAsyncStore, UseAsyncStoreSig>, true>>;
+
+setStore(looseProfileHandle, "profile.name", "Tess");
+// @ts-expect-error wrong value type should be rejected
+setStore(looseProfileHandle, "profile.name", 123);
+
+const looseTypedHandle = store<"looseTyped", { value: number }>("looseTyped");
+setStore(looseTypedHandle, "value", 1);
+// @ts-expect-error wrong value type should be rejected
+setStore(looseTypedHandle, "value", "bad");
 
 type RequestMap = StoreStateMap & {
   requestUser: { id: string; name: string };
@@ -167,6 +188,16 @@ const requestStores = createStoreForRequest<RequestMap>((api) => {
 
 const requestSnapshot = requestStores.snapshot();
 type RequestSnapshotReturn = Expect<Equal<typeof requestSnapshot, Partial<RequestMap>>>;
+type RequestRegistryReturn = Expect<Equal<typeof requestStores.registry, StoreRegistry>>;
+
+type RequestHydrateSnapshot = HydrateSnapshotFor<RequestMap>;
+const requestHydrateInput: RequestHydrateSnapshot = {
+  requestUser: { id: "1", name: "Ava" },
+  flags: { beta: false },
+};
+// @ts-expect-error hydrateStores requires explicit trust
+hydrateStores<RequestHydrateSnapshot>(requestHydrateInput);
+hydrateStores<RequestHydrateSnapshot>(requestHydrateInput, {}, { allowTrusted: true });
 
 const counter = createCounterStore("typedCounter", 1);
 counter.inc();
@@ -229,6 +260,15 @@ type BenchmarkReturn = Expect<Equal<typeof benchmark, {
 
 const frozenNow = withMockedTime(123, () => Date.now());
 type WithMockedTimeReturn = Expect<Equal<typeof frozenNow, number>>;
+
+const hydratedLoose = hydrateStores(
+  { hydrateLoose: { value: 1 } },
+  { hydrateLoose: { persist: true }, default: { devtools: false } },
+  { allowTrusted: true }
+);
+type HydratedLooseReturn = Expect<Equal<typeof hydratedLoose, HydrationResult>>;
+// @ts-expect-error options should only accept keys from the snapshot
+hydrateStores({ hydrateLoose: { value: 1 } }, { missing: { persist: true } }, { allowTrusted: true });
 
 createStore("legacyTyped", { count: 1 }, {
   historyLimit: 10,

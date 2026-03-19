@@ -7,13 +7,14 @@
  * Consumers: Internal imports and public API.
  */
 import { runStoreHook } from "../features/lifecycle.js";
-import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../feature-registry.js";
-import { hasStoreEntry, type StoreRegistry } from "../store-registry.js";
+import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../features/feature-registry.js";
+import { hasStoreEntry, emitLifecycleEvent, type StoreRegistry } from "../core/store-registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
-import { isDev, log, warn } from "./diagnostics.js";
+import { isDev, log, warn, warnAlways } from "./diagnostics.js";
 import { reportIssue } from "./reporting.js";
-import { isComputed } from "../computed-graph.js";
-import { deleteComputed } from "../computed.js";
+import { isComputed } from "../computed/computed-graph.js";
+import { deleteComputed } from "../computed/index.js";
+import { fireHook } from "../core/lifecycle-hooks.js";
 
 type MetaEntry = StoreFeatureMeta;
 
@@ -23,7 +24,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
     const initialStates = registry.initialStates as Record<string, unknown>;
     const initialFactories = registry.initialFactories as Record<string, (() => unknown) | undefined>;
     const metaEntries = registry.metaEntries as Record<string, MetaEntry>;
-    const snapshotCache = registry.snapshotCache as Record<string, { version: number; snapshot: unknown | null }>;
+    const snapshotCache = registry.snapshotCache as Record<string, { version: number; snapshot: unknown | null; source?: unknown | null; mode?: "deep" | "shallow" | "ref" }>;
     const featureRuntimes = registry.featureRuntimes;
     const deletingStores = registry.deletingStores;
 
@@ -71,6 +72,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             });
         },
         warn,
+        warnAlways,
         log,
         hashState,
         deepClone,
@@ -189,6 +191,8 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                 initialState,
                 phase: "after",
             });
+            fireHook("afterStoreDelete", name, { type: "afterStoreDelete", prev });
+            emitLifecycleEvent(registry, { type: "deleted", name });
             log(`Store "${name}" deleted`);
         } finally {
             deletingStores.delete(name);

@@ -7,7 +7,7 @@
  * Consumers: Internal imports and public API.
  */
 import type { PersistOptions } from "../adapters/options.js";
-import { registerStoreFeature, type StoreFeatureRuntime } from "../feature-registry.js";
+import { registerStoreFeature, type StoreFeatureRuntime } from "./feature-registry.js";
 import { isIdentityCrypto, validateCryptoPair } from "./persist/crypto.js";
 import { setupPersistWatch } from "./persist/watch.js";
 import { persistLoad } from "./persist/load.js";
@@ -43,6 +43,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
     const persistKeys: Record<string, string> = Object.create(null);
     const persistWatchState: PersistWatchState = Object.create(null);
     const plaintextWarningsIssued = new Set<string>();
+    const maxSizeWarned = new Set<string>();
     const persistLoadState: Record<string, { loading: boolean; pendingSave: boolean }> = Object.create(null);
 
     return {
@@ -108,6 +109,14 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 getInitialState: ctx.getInitialState,
                 applyFeatureState: ctx.applyFeatureState,
                 reportStoreError: (name, message) => ctx.reportStoreError(message),
+                warnMissingMaxSize: (rawLength) => {
+                    if (maxSizeWarned.has(ctx.name)) return;
+                    maxSizeWarned.add(ctx.name);
+                    ctx.warnAlways(
+                        `[stroid/persist] Store "${ctx.name}" loaded ${rawLength} bytes without a maxSize guard. ` +
+                        `Set persist.maxSize to prevent oversized payloads.`
+                    );
+                },
                 validate: ctx.validate,
                 log: ctx.log,
                 hashState: ctx.hashState,
@@ -231,6 +240,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             if (!cfg) return;
 
             delete persistLoadState[ctx.name];
+            maxSizeWarned.delete(ctx.name);
 
             if (persistTimers[ctx.name]) {
                 clearTimeout(persistTimers[ctx.name]);
@@ -266,6 +276,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             Object.keys(persistWatchState).forEach((key) => delete persistWatchState[key]);
             Object.keys(persistLoadState).forEach((key) => delete persistLoadState[key]);
             plaintextWarningsIssued.clear();
+            maxSizeWarned.clear();
         },
     };
 };

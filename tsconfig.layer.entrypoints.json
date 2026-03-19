@@ -1,0 +1,35 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./.tsbuild/types",
+    "tsBuildInfoFile": "./.tsbuild/layer-entrypoints.tsbuildinfo"
+  },
+  "references": [
+    { "path": "./tsconfig.layer.core.json" },
+    { "path": "./tsconfig.layer.async.json" },
+    { "path": "./tsconfig.layer.computed.json" },
+    { "path": "./tsconfig.layer.features.json" },
+    { "path": "./tsconfig.layer.react.json" }
+  ],
+  "include": [
+    "src/index.ts",
+    "src/core/index.ts",
+    "src/async.ts",
+    "src/server/index.ts",
+    "src/runtime-tools/index.ts",
+    "src/runtime-admin/index.ts",
+    "src/helpers/index.ts",
+    "src/helpers/testing.ts",
+    "src/computed/index.ts",
+    "src/selectors/index.ts",
+    "src/react/index.ts",
+    "src/persist.ts",
+    "src/sync.ts",
+    "src/devtools/index.ts",
+    "src/feature.ts"
+  ]
+}

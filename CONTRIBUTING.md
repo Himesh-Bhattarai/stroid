@@ -1,40 +1,127 @@
 # Contributing to Stroid
 
-Thanks for helping make Stroid better. Before opening a PR, please skim this page.
+Thank you for your interest in contributing. This document covers how to set up the project, run tests, and submit changes.
 
-## How we work
-- **Branching:** `main` is release-only and stays locked between releases. For the current development cycle, fork or clone `dev`, then create your feature/fix branch from `dev`. Keep PRs small and focused.
-- **Status commits:** use the STATUS format, e.g. `status(601): fix schema validation`. Pick a code that reflects quality/risk; prefer 601 for bug fixes, 201/204 for stable improvements, and 203 for docs.
-- **Testing:** run `npm test --silent` and `npm run build` before pushing. Add or adjust tests for every bug fix or new behavior.
-   # Commands
-   - `npm test`: Run the full test suite.
-   - `npm run build`: Verify the build and bundle size.
-   - `npm run lint`: Check for code style consistency.
-   - `npm run type-check`: Validate TypeScript declarations.
-   # Rules
-   - Before making changes, run tests. If they fail, open an issue; otherwise, proceed.
-   - Cover your changes with tests (or provide proof of manual verification).
-   - An 85% global test coverage threshold is compulsory; PRs below this will be rejected.
-- **Style:** keep changes minimal, dependency-free, and under the bundle-size goal. Favor clarity over cleverness; add comments only when intent is not obvious.
-  - For large or multi-file changes, ensure all tests pass. PRs are tested in isolated environments to ensure no regressions or edge-case bugs.
-- **Docs:** update `README.md` and `CHANGELOG.md` when user-visible behavior changes.
-  - Mention fixes, additions, or behavior changes in the PR summary, including migration steps if applicable.
-- **Release artifacts:** `dist/` is release-managed. During `dev` development, it may be absent in the repo or still reflect the last released `released` build while source and docs move ahead.
+---
 
-## Pull requests
-- Describe the problem, the fix, and any trade-offs.
-- List the tests you executed.
-- Note any user-facing changes or migration steps.
-- Keep new APIs typed and documented.
+## Branch Model
 
-## Bug reports
-- Include repro steps, expected vs actual behavior, environment, and minimal code samples.
-- If applicable, note whether schema, validator, persistence, or sync was involved.
+- `main` — locked between releases; reflects the last published version.
+- `dev` — active development branch; **all PRs and forks target `dev`**.
 
-## Release expectations
-- Until v1, we prioritize stability, bug and edge-case fixes, and keeping the ESM bundle under 8 KB gzip while remaining dependency-free.
-- `main` only moves at release time. Day-to-day development continues on `v0.0.5` until the next release branch decision is announced.
+Do not open PRs targeting `main`.
 
-# Note: The fix is never a Fix, until that fix become your power
+---
 
-Thanks for contributing!
+## Setup
+
+```bash
+git clone https://github.com/Himesh-Bhattarai/stroid.git
+cd stroid
+git checkout dev
+npm install
+```
+
+**Requirements:** Node `>=18`.
+
+---
+
+## Build
+
+```bash
+npm run build
+```
+
+This runs `tsup` and normalizes `.d.ts` output with `scripts/normalize-dts.mjs`.
+
+---
+
+## Tests
+
+```bash
+# Run all integration, regression, SSR, and unit tests
+npm test
+
+# Run with coverage (must pass 80% on all axes)
+npm run test:coverage
+
+# Run performance benchmarks
+npm run test:performance
+
+# Run type tests (requires a build)
+npm run test:types
+
+# Run everything
+npm run test:full
+```
+
+Tests use Node's built-in test runner via `tsx`. No test framework install required.
+
+---
+
+## Type Checking
+
+```bash
+npm run typecheck           # full type check
+npm run typecheck:layers    # layer-boundary checks (tsconfig.layers.json)
+npm run test:dts            # DTS smoke test
+```
+
+---
+
+## Test Isolation
+
+Every test file should call `resetAllStoresForTest()` (from `stroid/testing`) in `beforeEach`. This ensures stores, async state, config, and internal warning caches are clean between tests.
+
+---
+
+## Code Style
+
+- TypeScript strict mode.
+- ESLint with `eslint-config-standard-with-typescript`.
+- Layer guards are enforced via ESLint rules — do not import `store-notify` or async-cache internals from layers that are not supposed to depend on them.
+
+```bash
+npx eslint src/
+```
+
+---
+
+## Commit Messages
+
+Follow [STATUS.md](./STATUS.md) conventions. Short, descriptive imperative sentences. Reference issue numbers where applicable.
+
+---
+
+## Documentation
+
+- Documentation lives in `docs/`.
+- The README is intentionally concise — no deep internals.
+- When you add or change an API, update the relevant file in `docs/api/` and any affected guide in `docs/guides/`.
+- Mark any documentation that cannot be confirmed from source code with: `> Derived from documentation, not verified in code`.
+
+---
+
+## Publishing
+
+Publishing is automated via `.github/workflows/publish.yml`. Only maintainers push release tags. The version in `package.json` is the single source of truth.
+
+---
+
+## Issues and Discussions
+
+- Bug reports: use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.yml).
+- Feature requests: use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.yml).
+- Questions and discussion: use GitHub Discussions.
+
+---
+
+## Code of Conduct
+
+See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+
+---
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the [MIT License](./LICENSE).
