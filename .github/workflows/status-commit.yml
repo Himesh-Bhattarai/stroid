@@ -9,25 +9,22 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Validate commit messages
+        if: ${{ github.event_name == 'push' }}
         shell: bash
         run: |
           set -euo pipefail
           regex='^[[:space:]]*(STATUS|Status|status)\(((infinity)|([0-9]{3}))\)[[:space:]]*:[[:space:]]+.+' 
           skip='^(Merge|Revert|fixup!|squash!)'
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
-          else
-            before="${{ github.event.before }}"
-            sha="${{ github.sha }}"
-            range="$sha"
-            if [[ "$before" != "0000000000000000000000000000000000000000" ]]; then
-              range="$before..$sha"
-            fi
+          before="${{ github.event.before }}"
+          sha="${{ github.sha }}"
+          range="$sha"
+          if [[ "$before" != "0000000000000000000000000000000000000000" ]]; then
+            range="$before..$sha"
           fi
           failed=0
           while read -r commit; do
