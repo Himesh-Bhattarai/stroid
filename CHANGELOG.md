@@ -5,13 +5,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
 ---
-
 <details open>
-<summary><strong>Unreleased</strong></summary>
+<summary><strong>Unreleased Changes</strong></summary>
+>
 
-### Breaking
+</details>
 
-- `stroid/core` now exports only `createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, and `deleteStore` (minimal primitives only).
+---
+
+
+<details>
+<summary><strong>v0.1.2 — 2026-03-16</strong></summary>
+> **Note:** This release contains breaking changes to the `stroid/core` export surface and hydration defaults to improve bundle size and security.
+
 - `hydrateStores` now requires an explicit trust argument at the TypeScript level (compile-time enforcement).
 - Default snapshot mode changed to `"shallow"` (was `"deep"`). Override per-store with `snapshot: "deep"` or globally with `configureStroid({ defaultSnapshotMode: "deep" })`.
 
