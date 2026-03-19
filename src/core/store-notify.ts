@@ -82,10 +82,6 @@ export const setStoreBatch = (fn: () => unknown): void => {
     } finally {
         const txError = endTransaction(batchError, registry);
         state.batchDepth = Math.max(0, state.batchDepth - 1);
-        if (batchError || txError) {
-            state.pendingNotifications.clear();
-            state.notifyScheduled = false;
-        }
         if (state.batchDepth === 0 && state.pendingNotifications.size > 0) {
             scheduleFlush(registry);
         }

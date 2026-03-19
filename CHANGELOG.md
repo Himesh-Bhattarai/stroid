@@ -7,7 +7,11 @@ Versioning: [Semantic Versioning](https://semver.org/).
 ---
 <details open>
 <summary><strong>Unreleased Changes</strong></summary>
->
+
+
+- Fixed async rate limiting so `fetchStore(..., { cacheKey })` is throttled per `cacheSlot` instead of incorrectly sharing one counter across the whole store name.
+- Fixed `createSelector` dependency tracking for object-valued reads so cached selector results no longer go stale when object references change without primitive leaf access.
+- Fixed `setStoreBatch` teardown so a later commit-phase feature error does not discard notifications that were already queued by earlier successful commits.
 
 </details>
 

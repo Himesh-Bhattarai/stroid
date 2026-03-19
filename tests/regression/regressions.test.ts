@@ -31,7 +31,7 @@ import {
 import { fetchStore } from "../../src/async/fetch.js";
 import { getStoreMeta, getStoreHealth, findColdStores } from "../../src/runtime-tools/index.js";
 import { clearSsrGlobalAllowWarned } from "../../src/core/store-create.js";
-import { subscribeWithSelector } from "../../src/selectors/index.js";
+import { createSelector, subscribeWithSelector } from "../../src/selectors/index.js";
 import { broadcastSync } from "../../src/features/sync.js";
 import { hashState, warn } from "../../src/utils.js";
 import { createStoreRegistry, runWithRegistry, createTransactionState } from "../../src/core/store-registry.js";
@@ -42,6 +42,7 @@ import { setComputedOrderResolver } from "../../src/internals/computed-order.js"
 import { getTopoOrderedComputeds } from "../../src/computed/computed-graph.js";
 import { createComputed, deleteComputed } from "../../src/computed/index.js";
 import { registerStoreFeature, resetRegisteredStoreFeaturesForTests } from "../../src/features/feature-registry.js";
+import { installAllFeatures } from "../../src/install.js";
 import { registerHook } from "../../src/core/lifecycle-hooks.js";
 import { buildFlushPlan } from "../../src/notification/priority.js";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -80,6 +81,29 @@ test("subscribeWithSelector does not fire on first notification", async () => {
   await Promise.resolve();
   assert.strictEqual(calls.length, 1);
   assert.deepStrictEqual(calls[0], [1, 0]);
+});
+
+test("createSelector invalidates cached results when object-valued dependencies change", () => {
+  clearAllStores();
+  createStore("selectorObjectDeps", {
+    user: { profile: { name: "Alice" } },
+    settings: { theme: "light" },
+  });
+
+  const selectUser = createSelector("selectorObjectDeps", (state: any) => ({
+    profile: state.user.profile,
+    theme: state.settings.theme,
+  }));
+
+  const first = selectUser() as { profile: { name: string }; theme: string };
+  assert.strictEqual(first.profile.name, "Alice");
+  assert.strictEqual(first.theme, "light");
+
+  setStore("selectorObjectDeps", "user.profile.name", "Bob");
+
+  const second = selectUser() as { profile: { name: string }; theme: string };
+  assert.strictEqual(second.profile.name, "Bob");
+  assert.strictEqual(second.theme, "light");
 });
 
 test("validatePathSafety cache does not bypass type mismatch", () => {
@@ -803,6 +827,44 @@ test("buildFlushPlan reuses the orderedNames buffer", () => {
   assert.deepStrictEqual(plan.names, ["alpha", "beta"]);
 });
 
+test("setStoreBatch preserves notifications from successful commits before a later feature hook failure", async () => {
+  clearAllStores();
+  resetRegisteredStoreFeaturesForTests();
+
+  try {
+    registerStoreFeature("testBatchNotifyFailure", () => ({
+      onStoreWrite: (ctx) => {
+        if (ctx.name === "batchNotifySecond") {
+          throw new Error("feature boom");
+        }
+      },
+    }));
+
+    createStore("batchNotifyFirst", { value: 0 });
+    createStore("batchNotifySecond", { value: 0 });
+
+    const seen: number[] = [];
+    subscribe("batchNotifyFirst", (value) => {
+      if (value && typeof value === "object") {
+        seen.push((value as { value: number }).value);
+      }
+    });
+
+    setStoreBatch(() => {
+      setStore("batchNotifyFirst", { value: 1 });
+      setStore("batchNotifySecond", { value: 2 });
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.deepStrictEqual(getStore("batchNotifyFirst"), { value: 1 });
+    assert.deepStrictEqual(seen, [1]);
+  } finally {
+    resetRegisteredStoreFeaturesForTests();
+    installAllFeatures();
+  }
+});
+
 test("snapshotStrategy sets the default snapshot mode", () => {
   clearAllStores();
   configureStroid({ snapshotStrategy: "shallow" });
@@ -1164,6 +1226,118 @@ test("assertRuntime throws on warnings to hard-fail tests", () => {
   } finally {
     resetConfig();
   }
+});
+test("createSelector handles object replacement vs deep mutation", () => {
+  clearAllStores();
+  createStore("selEdge", {
+    user: { profile: { name: "A" } }
+  });
+
+  const sel = createSelector("selEdge", (s: any) => ({
+    profile: s.user.profile
+  }));
+
+  sel();
+
+  setStore("selEdge", "user.profile", { name: "B" });
+
+  const result = sel();
+  assert.strictEqual(result.profile.name, "B");
+});
+test("failed transaction does not emit notifications", async () => {
+  clearAllStores();
+  createStore("txLeak", { value: 0 });
+
+  let calls = 0;
+  subscribe("txLeak", () => { calls++; });
+
+  try {
+    setStoreBatch(() => {
+      setStore("txLeak", "value", 1);
+      throw new Error("fail");
+    });
+  } catch { }
+
+  await Promise.resolve();
+
+  assert.strictEqual(calls, 0);
+});
+test("write during chunked flush does not corrupt order", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 10 } });
+
+  createStore("race", { value: 0 });
+
+  const seen: number[] = [];
+
+  subscribe("race", (s: any) => {
+    seen.push(s.value);
+    if (s.value === 1) {
+      setStore("race", "value", 2);
+    }
+  });
+
+  setStore("race", "value", 1);
+
+  await new Promise(r => setTimeout(r, 80));
+
+  assert.deepStrictEqual(seen.includes(2), true);
+});
+
+test("async registries do not grow unbounded", async () => {
+  clearAllStores();
+
+  for (let i = 0; i < 5000; i++) {
+    await fetchStore("mem", Promise.resolve(i), {
+      cacheKey: `k${i}`
+    });
+  }
+
+  const registry = getRegistry();
+  const keys = Object.keys(registry.async?.rateCount ?? {});
+
+  assert.ok(keys.length < 5000); // should be pruned
+});
+
+test("setStore handles invalid values safely", () => {
+  clearAllStores();
+  createStore("misuse", { value: 1 });
+
+  const res = setStore("misuse", undefined as any);
+
+  assert.strictEqual(res.ok, false);
+});
+test("fetchStore inside transaction does not break consistency", async () => {
+  clearAllStores();
+  createStore("asyncTx", { data: null });
+
+  setStoreBatch(() => {
+    fetchStore("asyncTx", Promise.resolve({ value: 1 }));
+  });
+
+  await new Promise(r => setTimeout(r, 0));
+
+  const state = getStore("asyncTx");
+  assert.ok(state);
+});
+
+
+test("rate limiter handles concurrent bursts correctly", async () => {
+  clearAllStores();
+  createStore("burst", { data: null });
+
+  const results = await Promise.all(
+    Array.from({ length: 120 }, () =>
+      fetchStore("burst", Promise.resolve(1), {
+        cacheKey: "same",
+        dedupe: false,
+        ttl: 0,
+      })
+    )
+  );
+
+  const rateLimited = results.filter((value) => value === null);
+  assert.ok(rateLimited.length > 0);
 });
 
 test("nested transaction failure rolls back the entire transaction", () => {

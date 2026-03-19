@@ -14,8 +14,12 @@ import { fileURLToPath } from "node:url";
 import { enableRevalidateOnFocus, fetchStore, getAsyncMetrics, refetchStore } from "../../src/async.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 import { getStore, clearAllStores, deleteStore, createStore } from "../../src/store.js";
-import { MAX_CACHE_SLOTS_PER_STORE, MAX_INFLIGHT_SLOTS_PER_STORE } from "../../src/async/cache.js";
-import { RATE_WINDOW_MS } from "../../src/async/rate.js";
+import {
+  MAX_CACHE_SLOTS_PER_STORE,
+  MAX_INFLIGHT_SLOTS_PER_STORE,
+  getRateCountRegistry,
+} from "../../src/async/cache.js";
+import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters } from "../../src/async/rate.js";
 
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
 const deferred = <T,>() => {
@@ -771,6 +775,186 @@ test("fetchStore caps per-store inflight request slots under unique cache keys",
   } finally {
     Date.now = realNow;
     globalThis.fetch = realFetch;
+  }
+});
+
+test("fetchStore rate limits repeated calls per cache slot", async () => {
+  clearAllStores();
+  ensureAsyncStore("rateScopedStore");
+  const realNow = Date.now;
+  let now = realNow();
+  const errors: string[] = [];
+
+  try {
+    Date.now = () => now;
+
+    for (let i = 0; i < RATE_MAX; i += 1) {
+      const result = await fetchStore("rateScopedStore", Promise.resolve({ page: i }), {
+        dedupe: false,
+        ttl: 0,
+        cacheKey: "same-slot",
+        onError: (msg) => { errors.push(msg); },
+      });
+      assert.deepStrictEqual(result, { page: i });
+    }
+
+    const blocked = await fetchStore("rateScopedStore", Promise.resolve({ page: RATE_MAX }), {
+      dedupe: false,
+      ttl: 0,
+      cacheKey: "same-slot",
+      onError: (msg) => { errors.push(msg); },
+    });
+
+    assert.strictEqual(blocked, null);
+    assert.ok(errors.some((msg) => msg.includes("rate limited")));
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("fetchStore does not share rate limits between cache slots under mixed load", async () => {
+  clearAllStores();
+  ensureAsyncStore("rateMixedStore");
+  const realNow = Date.now;
+  let now = realNow();
+  const errors: string[] = [];
+
+  try {
+    Date.now = () => now;
+
+    for (let i = 0; i < 50; i += 1) {
+      assert.deepStrictEqual(await fetchStore("rateMixedStore", Promise.resolve({ slot: "a", i }), {
+        dedupe: false,
+        ttl: 0,
+        cacheKey: "slot-a",
+        onError: (msg) => { errors.push(msg); },
+      }), { slot: "a", i });
+      assert.deepStrictEqual(await fetchStore("rateMixedStore", Promise.resolve({ slot: "b", i }), {
+        dedupe: false,
+        ttl: 0,
+        cacheKey: "slot-b",
+        onError: (msg) => { errors.push(msg); },
+      }), { slot: "b", i });
+      assert.deepStrictEqual(await fetchStore("rateMixedStore", Promise.resolve({ slot: "c", i }), {
+        dedupe: false,
+        ttl: 0,
+        cacheKey: "slot-c",
+        onError: (msg) => { errors.push(msg); },
+      }), { slot: "c", i });
+    }
+
+    for (let i = 50; i < RATE_MAX; i += 1) {
+      assert.deepStrictEqual(await fetchStore("rateMixedStore", Promise.resolve({ slot: "a", i }), {
+        dedupe: false,
+        ttl: 0,
+        cacheKey: "slot-a",
+        onError: (msg) => { errors.push(msg); },
+      }), { slot: "a", i });
+    }
+
+    const blockedA = await fetchStore("rateMixedStore", Promise.resolve({ slot: "a", i: RATE_MAX }), {
+      dedupe: false,
+      ttl: 0,
+      cacheKey: "slot-a",
+      onError: (msg) => { errors.push(msg); },
+    });
+    const stillAllowedB = await fetchStore("rateMixedStore", Promise.resolve({ slot: "b", i: 50 }), {
+      dedupe: false,
+      ttl: 0,
+      cacheKey: "slot-b",
+      onError: (msg) => { errors.push(msg); },
+    });
+    const freshSlot = await fetchStore("rateMixedStore", Promise.resolve({ slot: "d", i: 0 }), {
+      dedupe: false,
+      ttl: 0,
+      cacheKey: "slot-d",
+      onError: (msg) => { errors.push(msg); },
+    });
+
+    assert.strictEqual(blockedA, null);
+    assert.deepStrictEqual(stillAllowedB, { slot: "b", i: 50 });
+    assert.deepStrictEqual(freshSlot, { slot: "d", i: 0 });
+  } finally {
+    Date.now = realNow;
+  }
+
+  assert.ok(errors.some((msg) => msg.includes("rate limited")));
+  assert.strictEqual(errors.filter((msg) => msg.includes("rate limited")).length, 1);
+});
+
+test("fetchStore resets the cache-slot rate limit after the window elapses", async () => {
+  clearAllStores();
+  ensureAsyncStore("rateResetStore");
+  const realNow = Date.now;
+  let now = realNow();
+  const errors: string[] = [];
+
+  try {
+    Date.now = () => now;
+
+    for (let i = 0; i < RATE_MAX; i += 1) {
+      const result = await fetchStore("rateResetStore", Promise.resolve({ i }), {
+        dedupe: false,
+        ttl: 0,
+        cacheKey: "reset-slot",
+        onError: (msg) => { errors.push(msg); },
+      });
+      assert.deepStrictEqual(result, { i });
+    }
+
+    const blocked = await fetchStore("rateResetStore", Promise.resolve({ i: RATE_MAX }), {
+      dedupe: false,
+      ttl: 0,
+      cacheKey: "reset-slot",
+      onError: (msg) => { errors.push(msg); },
+    });
+    assert.strictEqual(blocked, null);
+
+    now += RATE_WINDOW_MS + 1;
+
+    const afterReset = await fetchStore("rateResetStore", Promise.resolve({ i: RATE_MAX + 1 }), {
+      dedupe: false,
+      ttl: 0,
+      cacheKey: "reset-slot",
+      onError: (msg) => { errors.push(msg); },
+    });
+
+    assert.deepStrictEqual(afterReset, { i: RATE_MAX + 1 });
+  } finally {
+    Date.now = realNow;
+  }
+
+  assert.ok(errors.some((msg) => msg.includes("rate limited")));
+});
+
+test("expired rate counters are pruned after the rate window", async () => {
+  clearAllStores();
+  ensureAsyncStore("ratePruneStore");
+  const realNow = Date.now;
+  let now = realNow();
+
+  try {
+    Date.now = () => now;
+
+    for (let i = 0; i < 128; i += 1) {
+      const result = await fetchStore("ratePruneStore", Promise.resolve({ i }), {
+        dedupe: false,
+        ttl: 0,
+        cacheKey: `slot-${i}`,
+      });
+      assert.deepStrictEqual(result, { i });
+    }
+
+    const before = Object.keys(getRateCountRegistry()).filter((key) => key.startsWith("ratePruneStore:"));
+    assert.strictEqual(before.length, 128);
+
+    now += RATE_WINDOW_MS + 1;
+    pruneRateCounters(now);
+
+    const after = Object.keys(getRateCountRegistry()).filter((key) => key.startsWith("ratePruneStore:"));
+    assert.deepStrictEqual(after, []);
+  } finally {
+    Date.now = realNow;
   }
 });
 
