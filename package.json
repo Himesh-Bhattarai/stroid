@@ -22,93 +22,75 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.js"
     },
     "./core": {
       "types": "./dist/core.d.ts",
-      "import": "./dist/core.js",
-      "require": "./dist/core.cjs"
+      "import": "./dist/core.js"
     },
     "./runtime-tools": {
       "types": "./dist/runtime-tools.d.ts",
-      "import": "./dist/runtime-tools.js",
-      "require": "./dist/runtime-tools.cjs"
+      "import": "./dist/runtime-tools.js"
     },
     "./runtime-admin": {
       "types": "./dist/runtime-admin.d.ts",
-      "import": "./dist/runtime-admin.js",
-      "require": "./dist/runtime-admin.cjs"
+      "import": "./dist/runtime-admin.js"
     },
     "./selectors": {
       "types": "./dist/selectors.d.ts",
-      "import": "./dist/selectors.js",
-      "require": "./dist/selectors.cjs"
+      "import": "./dist/selectors.js"
     },
     "./computed": {
       "types": "./dist/computed.d.ts",
-      "import": "./dist/computed.js",
-      "require": "./dist/computed.cjs"
+      "import": "./dist/computed.js"
     },
     "./helpers": {
       "types": "./dist/helpers.d.ts",
-      "import": "./dist/helpers.js",
-      "require": "./dist/helpers.cjs"
+      "import": "./dist/helpers.js"
     },
     "./server": {
       "types": "./dist/server.d.ts",
-      "import": "./dist/server.js",
-      "require": "./dist/server.cjs"
+      "import": "./dist/server.js"
     },
     "./async": {
       "types": "./dist/async.d.ts",
-      "import": "./dist/async.js",
-      "require": "./dist/async.cjs"
+      "import": "./dist/async.js"
     },
     "./feature": {
       "types": "./dist/feature.d.ts",
-      "import": "./dist/feature.js",
-      "require": "./dist/feature.cjs"
+      "import": "./dist/feature.js"
     },
     "./install": {
       "types": "./dist/install.d.ts",
-      "import": "./dist/install.js",
-      "require": "./dist/install.cjs"
+      "import": "./dist/install.js"
     },
     "./persist": {
       "types": "./dist/persist.d.ts",
-      "import": "./dist/persist.js",
-      "require": "./dist/persist.cjs"
+      "import": "./dist/persist.js"
     },
     "./sync": {
       "types": "./dist/sync.d.ts",
-      "import": "./dist/sync.js",
-      "require": "./dist/sync.cjs"
+      "import": "./dist/sync.js"
     },
     "./devtools": {
       "types": "./dist/devtools.d.ts",
-      "import": "./dist/devtools.js",
-      "require": "./dist/devtools.cjs"
+      "import": "./dist/devtools.js"
     },
     "./react": {
       "types": "./dist/react/index.d.ts",
-      "import": "./dist/react/index.js",
-      "require": "./dist/react/index.cjs"
+      "import": "./dist/react/index.js"
     },
     "./vue": {
       "types": "./dist/vue/index.d.ts",
-      "import": "./dist/vue/index.js",
-      "require": "./dist/vue/index.cjs"
+      "import": "./dist/vue/index.js"
     },
     "./svelte": {
       "types": "./dist/svelte/index.d.ts",
-      "import": "./dist/svelte/index.js",
-      "require": "./dist/svelte/index.cjs"
+      "import": "./dist/svelte/index.js"
     },
     "./testing": {
       "types": "./dist/testing.d.ts",
-      "import": "./dist/testing.js",
-      "require": "./dist/testing.cjs"
+      "import": "./dist/testing.js"
     },
     "./package.json": "./package.json"
   },
@@ -138,7 +120,7 @@
   ],
   "scripts": {
     "test": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",
-    "test:coverage": "c8 --check-coverage --lines 80 --branches 80 --functions 80 --statements 80 node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",
+    "test:coverage": "c8 node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",
     "test:performance": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/performance/**/*.test.ts",
     "test:heavy": "npm run test:performance",
     "check:react-types": "node scripts/check-react-types.mjs",

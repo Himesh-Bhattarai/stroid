@@ -11,6 +11,7 @@ export default defineConfig({
         computed: "src/computed/index.ts",
         helpers: "src/helpers/index.ts",
         server: "src/server/index.ts",
+        "react/index": "src/react/index.ts",
         async: "src/async.ts",
         persist: "src/persist.ts",
         sync: "src/sync.ts",

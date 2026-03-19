@@ -13,6 +13,16 @@ import { computePersistChecksum } from "./checksum.js";
 
 const MAX_UNBOUNDED_PERSIST_WARN_BYTES = 1_000_000;
 
+const resolvePersistMigrations = (meta: PersistMeta | undefined, cfg: PersistConfig | null | undefined) => {
+    const migrations = meta?.options?.migrations ?? {};
+    if (Object.keys(migrations).length > 0) return migrations;
+    const legacyMigrate = (cfg as { migrate?: (state: StoreValue) => StoreValue } | null | undefined)?.migrate;
+    if (typeof legacyMigrate !== "function") return migrations;
+    const targetVersion = meta?.version ?? 1;
+    if (!Number.isFinite(targetVersion) || targetVersion <= 1) return migrations;
+    return { [targetVersion]: legacyMigrate };
+};
+
 const resolveMigrationFailure = ({
     name,
     persisted,
@@ -83,6 +93,7 @@ const persistLoadSync = ({
     const meta: PersistMeta | undefined = getMeta();
     const cfg = meta?.options?.persist;
     if (!cfg) return false;
+    const migrations = resolvePersistMigrations(meta, cfg);
     const validateState = (candidate: StoreValue): { ok: boolean; value?: StoreValue } =>
         normalizeFeatureState({ value: candidate, validate });
     try {
@@ -130,7 +141,7 @@ const persistLoadSync = ({
             v,
             targetVersion,
             cfg,
-            migrations: meta?.options?.migrations ?? {},
+            migrations,
             getInitialState,
             reportStoreError,
             sanitize,
@@ -171,6 +182,7 @@ const persistLoadAsync = async ({
     const meta: PersistMeta | undefined = getMeta();
     const cfg = meta?.options?.persist;
     if (!cfg) return false;
+    const migrations = resolvePersistMigrations(meta, cfg);
     const validateState = (candidate: StoreValue): { ok: boolean; value?: StoreValue } =>
         normalizeFeatureState({ value: candidate, validate });
     try {
@@ -213,7 +225,7 @@ const persistLoadAsync = async ({
             v,
             targetVersion,
             cfg,
-            migrations: meta?.options?.migrations ?? {},
+            migrations,
             getInitialState,
             reportStoreError,
             sanitize,
@@ -331,6 +343,7 @@ const applyMigratedState = ({
     const validationResult = validateState(parsed);
     if (!validationResult.ok) {
         if (v !== targetVersion) {
+            const onMigrationFail = cfg?.onMigrationFail ?? "reset";
             const fallback = resolveMigrationFailure({
                 name,
                 persisted: parsed,
@@ -348,6 +361,9 @@ const applyMigratedState = ({
 
             const recoveredValidation = validateState(fallback.state);
             if (recoveredValidation.ok) {
+                if (onMigrationFail === "reset") {
+                    reportStoreError(name, `Persisted state for "${name}" failed schema; resetting to initial.`);
+                }
                 return { ok: true, state: recoveredValidation.value ?? fallback.state };
             }
         }

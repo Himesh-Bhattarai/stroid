@@ -26,6 +26,8 @@ npm install stroid
 
 **Requirements:** Node `>=18`. React `>=18` (only if using `stroid/react`).
 
+**ESM-only:** Stroid ships ESM only. If your toolchain requires CJS, use a bundler with ESM support (Vite, webpack 5, esbuild).
+
 ---
 
 ## Layer Map
@@ -51,6 +53,23 @@ npm install stroid
 Each row is independent. Use only what you need.
 
 `stroid/core` exports only `createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, and `deleteStore`. Import from `stroid` for the full runtime (batching, hydration, computed). React hooks live in `stroid/react`.
+
+## What Each Import Contains
+
+- `stroid`: Full runtime (batching, hydration, computed, async metrics, runtime tools). No React hooks.
+- `stroid/core`: Minimal CRUD only (`createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, `deleteStore`).
+- `stroid/react`: React hooks (`useStore`, `useSelector`, `useAsyncStore`, `useFormStore`, `useAsyncStoreSuspense`) + `RegistryScope`.
+- `stroid/async`: `fetchStore`, cache, retry, revalidate helpers.
+- `stroid/selectors`: `createSelector`, `subscribeWithSelector`.
+- `stroid/computed`: `createComputed`, `invalidateComputed`, `deleteComputed`, `isComputedStore`.
+- `stroid/persist`: Side-effect registration for persistence (localStorage/sessionStorage). Not tree-shakeable.
+- `stroid/sync`: Side-effect registration for BroadcastChannel sync. Not tree-shakeable.
+- `stroid/devtools`: Side-effect registration for Redux DevTools bridge. Not tree-shakeable.
+- `stroid/server`: SSR registry helpers (`createStoreForRequest`).
+- `stroid/helpers`: Entity/list/counter store helpers.
+- `stroid/runtime-tools`: Observability and diagnostics.
+- `stroid/runtime-admin`: Admin utilities (clear/flush).
+- `stroid/testing`: Testing utilities (mocks, reset helpers, benchmarks).
 
 ---
 
@@ -106,6 +125,9 @@ import { createComputed, invalidateComputed,
 import "stroid/persist"
 import "stroid/sync"
 import "stroid/devtools"
+
+// Note: stroid/persist and stroid/sync are side-effect entrypoints only.
+// All types live on the main "stroid" entry.
 
 // Server / SSR
 import { createStoreForRequest } from "stroid/server"
@@ -163,3 +185,4 @@ Full documentation in [`/docs`](./docs/):
 - [CHANGELOG](./CHANGELOG.md)
 - [MIT License](./LICENSE)
 - [Issues](https://github.com/Himesh-Bhattarai/stroid/issues)
+

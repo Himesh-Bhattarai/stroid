@@ -4,7 +4,7 @@ import path from "node:path";
 const distDir = path.resolve(process.cwd(), "dist");
 
 const isDtsFile = (name) => name.endsWith(".d.ts") || name.endsWith(".d.cts");
-const hashPattern = /^([A-Za-z0-9_-]+)-[A-Za-z0-9]{6,}\.d\.(ts|cts)$/;
+const hashPattern = /^([A-Za-z0-9_-]+)-([A-Za-z0-9_-]{4,})\.d\.(ts|cts)$/;
 
 const collectFiles = async (dir) => {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -27,7 +27,9 @@ const renameHashedDts = async (files) => {
     const match = base.match(hashPattern);
     if (!match) continue;
     const prefix = match[1];
-    const ext = match[2];
+    const hash = match[2];
+    const ext = match[3];
+    if (!/[A-Z0-9]/.test(hash)) continue;
     const stablePrefix = prefix === "index" ? "index-internal" : prefix;
     const target = path.join(path.dirname(file), `${stablePrefix}.d.${ext}`);
     map.set(path.basename(file, `.d.${ext}`), stablePrefix);
@@ -61,11 +63,29 @@ const rewriteImports = async (files, map) => {
   }
 };
 
+const fileExists = async (filePath) => {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const ensureCtsEntry = async (baseName) => {
+  const dtsPath = path.join(distDir, `${baseName}.d.ts`);
+  const ctsPath = path.join(distDir, `${baseName}.d.cts`);
+  if (!await fileExists(dtsPath)) return;
+  if (await fileExists(ctsPath)) return;
+  await fs.copyFile(dtsPath, ctsPath);
+};
+
 const run = async () => {
   const files = await collectFiles(distDir);
   const map = await renameHashedDts(files);
   const updatedFiles = await collectFiles(distDir);
   await rewriteImports(updatedFiles, map);
+  await ensureCtsEntry("index");
 };
 
 run().catch((err) => {
