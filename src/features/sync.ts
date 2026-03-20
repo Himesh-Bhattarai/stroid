@@ -357,7 +357,7 @@ export const setupSync = ({
                             ? resolveUpdatedAt({ localUpdated, incomingUpdated, now: Date.now() })
                             : Math.max(Date.now(), localUpdated, incomingUpdated);
                         resolveSyncVersion(name, resolvedUpdatedAt, typeof msg.clock === "number" ? msg.clock : 0);
-                        runFeatureWriteHooksExcept(name, "sync", prev, normalizedResolved, () => emitStoreNotify(), ["sync"]);
+                        runFeatureWriteHooksExcept(name, "sync", prev, normalizedResolved, () => notify(name), ["sync"]);
                         if (loopGuardMs) markLoopGuard(name, loopGuardMs);
                         notify(name);
                         broadcastSync(name);
@@ -375,7 +375,7 @@ export const setupSync = ({
                 typeof msg.clock === "number" ? msg.clock : 0,
                 typeof msg.source === "string" ? msg.source : ""
             );
-            runFeatureWriteHooksExcept(name, "sync", prev, normalizedIncoming, () => emitStoreNotify(), ["sync"]);
+            runFeatureWriteHooksExcept(name, "sync", prev, normalizedIncoming, () => notify(name), ["sync"]);
             if (loopGuardMs) markLoopGuard(name, loopGuardMs);
             notify(name);
         };
