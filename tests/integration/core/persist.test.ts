@@ -68,6 +68,81 @@ test("flushPersistImmediately clears pending timers", async () => {
   assert.ok(calls >= 1);
 });
 
+test("flushPersistImmediately ignores a stale queued timer callback", async () => {
+  const persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+  const persistInFlight: Record<string, Promise<void> | null> = {};
+  const persistSequence: Record<string, number> = Object.create(null);
+  const persistWatchState: Record<string, { present?: boolean }> = Object.create(null);
+  const plaintextWarningsIssued = new Set<string>();
+  const writes: number[] = [];
+  const scheduled: Array<{ handle: ReturnType<typeof setTimeout>; fn: () => void }> = [];
+
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    updatedAtMs: Date.now(),
+    options: {
+      persist: {
+        key: "persist-stale-timer",
+        driver: {
+          setItem: async () => { writes.push(Date.now()); },
+        },
+        serialize: JSON.stringify,
+        deserialize: JSON.parse,
+        encrypt: (v: string) => v,
+        decrypt: (v: string) => v,
+        checksum: "none",
+        allowPlaintext: true,
+      },
+      onError: undefined,
+    },
+  };
+
+  const args = {
+    name: "persist-stale-timer",
+    persistTimers,
+    persistInFlight,
+    persistSequence,
+    persistWatchState,
+    plaintextWarningsIssued,
+    exists: () => true,
+    getMeta: () => meta as any,
+    getStoreValue: () => ({ value: 1 }),
+    reportStoreError: () => undefined,
+    hashState: () => 1,
+  };
+
+  try {
+    globalThis.setTimeout = (((fn: (...args: any[]) => void) => {
+      const handle = { id: scheduled.length } as ReturnType<typeof setTimeout>;
+      scheduled.push({ handle, fn: () => fn() });
+      return handle;
+    }) as typeof setTimeout);
+    globalThis.clearTimeout = (((_handle: ReturnType<typeof setTimeout>) => undefined) as typeof clearTimeout);
+
+    persistSave(args as any);
+    assert.strictEqual(scheduled.length, 1);
+
+    flushPersistImmediately("persist-stale-timer", args as any);
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.strictEqual(writes.length, 1);
+
+    scheduled[0].fn();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    assert.strictEqual(writes.length, 1);
+    assert.ok(!persistTimers["persist-stale-timer"]);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
 test("normalizePersistOptions rejects invalid async crypto and plaintext sensitive stores", () => {
   assert.throws(
     () => normalizePersistOptions({ encryptAsync: async (v: string) => v } as unknown as any, "badAsync"),
