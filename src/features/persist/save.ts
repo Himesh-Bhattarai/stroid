@@ -108,6 +108,10 @@ const persistSaveInner = ({
     };
 
     if (immediate) {
+        // "Immediate" means "skip the debounce timer", not "preempt an in-flight async write".
+        // We intentionally preserve write ordering by still chaining through startWrite().
+        // A newer persist request can supersede this flush while it waits on `prev`, which is
+        // preferable to letting an older async write finish after a newer payload and overwrite it.
         if (persistTimers[name]) {
             clearTimeout(persistTimers[name]);
             delete persistTimers[name];
@@ -126,6 +130,14 @@ const persistSaveInner = ({
 
 export const persistSave = (args: PersistSaveArgs): void => persistSaveInner(args);
 
+/**
+ * Flushes the persist queue without waiting for the debounce timer.
+ *
+ * This does not bypass an already-running async write. The flush still preserves write ordering,
+ * so a newer persist request may supersede this flush while it waits for the current in-flight
+ * write to finish. That limitation is intentional to avoid stale async writes overwriting newer
+ * persisted data.
+ */
 export const flushPersistImmediately = (name: string, args: PersistSaveArgs): void =>
     persistSaveInner({ ...args, name }, true);
 
