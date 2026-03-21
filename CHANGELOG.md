@@ -15,6 +15,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - Fixed sync-applied remote state so feature write hooks still run, allowing `persist` and other write-driven features to observe synced updates.
 - Hardened SSR write-context isolation by routing `runWithWriteContext(...)` through the server AsyncLocalStorage runner instead of relying only on a module-level fallback context.
 - Hardened inline notification delivery to snapshot the subscriber list per flush instead of reusing a shared registry buffer.
+- Tightened React hook type coverage for ambient `StoreStateMap` usage, including `useStore`, `useStoreField`, `useStoreStatic`, `useSelector`, `useFormStore`, `useAsyncStore`, and `useAsyncStoreSuspense`.
 
 </details>
 
