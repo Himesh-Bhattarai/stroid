@@ -17,6 +17,8 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - Fixed sync checksum handling so incoming sync payloads are now verified before remote state is accepted.
 - Fixed async request defaults so bodyless `GET` / `HEAD` / `DELETE` requests no longer send `Content-Type: application/json`.
 - Fixed `createComputed(..., { autoDispose: true })` so computed stores are removed after their last dependency is deleted.
+- Fixed `resetStore()` for falsy initial values (`false`, `0`, `""`, `null`) so registered stores no longer report `not-found` during reset.
+- Replaced the default registry scope's `import.meta.url`-based identifier with a stable bundler-safe string to avoid webpack / Next.js resolution failures.
 - Hardened SSR write-context isolation by routing `runWithWriteContext(...)` through the server AsyncLocalStorage runner instead of relying only on a module-level fallback context.
 - Hardened inline notification delivery to snapshot the subscriber list per flush instead of reusing a shared registry buffer.
 - Tightened React hook type coverage for ambient `StoreStateMap` usage, including `useStore`, `useStoreField`, `useStoreStatic`, `useSelector`, `useFormStore`, `useAsyncStore`, and `useAsyncStoreSuspense`.
