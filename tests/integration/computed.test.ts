@@ -96,6 +96,19 @@ test("computed", async (t) => {
     assert.ok(trace.includes("->"));
   });
 
+  await runCase(t, "detectCycle still finds a cycle when earlier roots visited shared dead-end nodes", async () => {
+    const { registerComputed } = await import("../../src/computed/computed-graph.js");
+
+    registerComputed("sharedDeadEnd", ["leaf"], (v) => v);
+    registerComputed("leftRoot", ["sharedDeadEnd"], (v) => v);
+    registerComputed("cycleNode", ["target"], (v) => v);
+    registerComputed("rightRoot", ["sharedDeadEnd", "cycleNode"], (v) => v);
+
+    const trace = detectCycle("target", ["leftRoot", "rightRoot"]);
+
+    assert.strictEqual(trace, "target -> rightRoot -> cycleNode -> target");
+  });
+
   await runCase(t, "createComputed warns when dependencies are missing", async () => {
     const warnings: string[] = [];
     configureStroid({
