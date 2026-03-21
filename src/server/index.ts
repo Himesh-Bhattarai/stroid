@@ -11,6 +11,7 @@ import { deepClone, produceClone } from "../utils.js";
 import type { StoreOptions } from "../adapters/options.js";
 import type { StoreStateMap } from "../core/store-lifecycle/types.js";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { injectWriteContextRunner, type WriteContext } from "../internals/write-context.js";
 import {
     createStoreRegistry,
     injectCarrierRunner,
@@ -24,6 +25,7 @@ import { injectTransactionRunner } from "../core/store-transaction.js";
 const serverAsyncContext = new AsyncLocalStorage<CarrierContext>();
 const serverRegistryContext = new AsyncLocalStorage<ReturnType<typeof createStoreRegistry>>();
 const serverTransactionContext = new AsyncLocalStorage<TransactionState>();
+const serverWriteContext = new AsyncLocalStorage<WriteContext>();
 
 injectCarrierRunner({
     run: (carrier, fn) => serverAsyncContext.run(carrier, fn),
@@ -40,6 +42,11 @@ injectTransactionRunner({
     run: (state, fn) => serverTransactionContext.run(state, fn),
     get: () => serverTransactionContext.getStore() || null,
     enterWith: (state) => serverTransactionContext.enterWith(state),
+});
+
+injectWriteContextRunner({
+    run: (context, fn) => serverWriteContext.run(context, fn),
+    get: () => serverWriteContext.getStore() || null,
 });
 
 type RequestStoreName<StateMap> =
