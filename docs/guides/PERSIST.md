@@ -168,3 +168,4 @@ persist: {
 - Persist and sync can be used together. A write in one tab is saved locally and broadcast to all other tabs.
 - `scope: "temp"` automatically disables persistence.
 - `persist.maxSize` warnings fire only when unbounded payloads exceed a large size during hydration.
+- **Safari / WebKit limitation:** Safari's Intelligent Tracking Prevention can delete script-writable storage after **7 days of Safari use without user interaction** on a site. WebKit explicitly lists `LocalStorage`, `IndexedDB`, `SessionStorage`, and Service Worker storage in that policy. If you use `persist` for carts, auth, drafts, or other critical state, do not assume browser storage is durable forever on Safari — back it with server state or another recovery path.

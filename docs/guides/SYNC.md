@@ -147,6 +147,8 @@ Sync uses `BroadcastChannel`. Stroid warns and no-ops gracefully when unavailabl
 
 `scope: "temp"` automatically disables sync.
 
+> **BFCache note:** Keeping a `BroadcastChannel` open can reduce back/forward cache restore success if the page receives channel messages while it is stored in bfcache. In browsers that report bfcache blocking reasons, this may appear as `broadcastchannel-message`. If your app is highly sensitive to instant back/forward navigation performance, test pages that enable `sync` with the browser's bfcache diagnostics.
+
 ---
 
 ## `SyncOptions` Reference
