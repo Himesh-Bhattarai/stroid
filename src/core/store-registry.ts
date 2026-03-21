@@ -58,7 +58,6 @@ export type NotifyState = {
     pendingNotifications: Set<string>;
     pendingBuffer: string[];
     orderedNames: string[];
-    subscriberBuffer: RegistrySubscriber[];
     notifyScheduled: boolean;
     batchDepth: number;
     flushId: number;
@@ -132,7 +131,6 @@ const createNotifyState = (): NotifyState => ({
     pendingNotifications: new Set<string>(),
     pendingBuffer: [],
     orderedNames: [],
-    subscriberBuffer: [],
     notifyScheduled: false,
     batchDepth: 0,
     flushId: 0,
@@ -143,7 +141,6 @@ const resetNotifyState = (notify: NotifyState): void => {
     notify.pendingNotifications.clear();
     notify.pendingBuffer.length = 0;
     notify.orderedNames.length = 0;
-    notify.subscriberBuffer.length = 0;
     notify.notifyScheduled = false;
     notify.batchDepth = 0;
     notify.flushId = 0;

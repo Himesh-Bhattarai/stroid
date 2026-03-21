@@ -33,7 +33,6 @@ export const deliverFlush = (
     const state = registry.notify;
     const { names, sliceSize, chunkDelayMs, runInline, prioritySet } = plan;
     const carrier = getRequestCarrier();
-    const subscriberBuffer = state.subscriberBuffer as Subscriber[];
     const registryStores = registry.stores;
     const registrySubs = registry.subscribers;
     const registryMeta = registry.metaEntries;
@@ -71,12 +70,6 @@ export const deliverFlush = (
         return { correlationId, traceContext };
     };
 
-    const fillSubscriberBuffer = (subs: Set<Subscriber>): Subscriber[] => {
-        subscriberBuffer.length = 0;
-        for (const sub of subs) subscriberBuffer.push(sub);
-        return subscriberBuffer;
-    };
-
     const finish = (): void => {
         onComplete();
     };
@@ -100,7 +93,7 @@ export const deliverFlush = (
             const metrics = createMetrics(registryMeta[name]?.metrics);
             fireBefore(name);
             const start = now();
-            const subsArray = fillSubscriberBuffer(subs);
+            const subsArray = Array.from(subs);
             const context = resolveWriteContext(name);
             const deliver = () => {
                 for (const subscriber of subsArray) {

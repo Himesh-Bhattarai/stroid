@@ -160,7 +160,6 @@ export const resetNotifyStateForTests = (): void => {
     state.pendingNotifications.clear();
     state.pendingBuffer.length = 0;
     state.orderedNames.length = 0;
-    state.subscriberBuffer.length = 0;
     state.notifyScheduled = false;
     state.batchDepth = 0;
 };

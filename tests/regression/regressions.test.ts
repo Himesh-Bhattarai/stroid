@@ -660,6 +660,48 @@ test("inline flush defers subscribers added mid-flush until next write", async (
   }
 });
 
+test("inline flush snapshots current subscribers before follow-up writes are queued", async () => {
+  clearAllStores();
+  configureStroid({ flush: { chunkDelayMs: 0, chunkSize: Number.POSITIVE_INFINITY } });
+
+  try {
+    createStore("inlineStable", { value: 0 });
+    createStore("inlineSide", { value: 0 });
+    const calls: string[] = [];
+    let primed = true;
+
+    subscribe("inlineStable", () => {
+      calls.push("a1");
+      if (!primed) return;
+      primed = false;
+      subscribe("inlineStable", () => {
+        calls.push("late");
+      });
+      setStore("inlineSide", "value", 1);
+      setStore("inlineStable", "value", 2);
+    });
+    subscribe("inlineStable", () => {
+      calls.push("a2");
+    });
+    subscribe("inlineStable", () => {
+      calls.push("a3");
+    });
+    subscribe("inlineSide", () => {
+      calls.push("side");
+    });
+
+    setStore("inlineStable", "value", 1);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    assert.deepStrictEqual(calls.slice(0, 3), ["a1", "a2", "a3"]);
+    assert.ok(calls.includes("side"));
+    assert.ok(calls.includes("late"));
+  } finally {
+    resetConfig();
+  }
+});
+
 test("chunked flush notifies subscribers added mid-flush", async () => {
   clearAllStores();
   configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 20 } });
