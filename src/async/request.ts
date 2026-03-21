@@ -10,18 +10,20 @@ import type { FetchOptions } from "./cache.js";
 
 export const buildFetchOptions = (options: FetchOptions): RequestInit => {
     const fetchOpts: RequestInit = {};
+    const method = (options.method ?? "GET").toUpperCase();
+    const hasBody = options.body !== undefined && options.body !== null;
 
     if (options.method) {
-        fetchOpts.method = options.method.toUpperCase();
+        fetchOpts.method = method;
     }
 
     if (options.headers) {
         fetchOpts.headers = options.headers;
-    } else {
+    } else if (hasBody || !["GET", "HEAD", "DELETE"].includes(method)) {
         fetchOpts.headers = { "Content-Type": "application/json" };
     }
 
-    if (options.body) {
+    if (hasBody) {
         fetchOpts.body = typeof options.body === "string"
             ? options.body
             : JSON.stringify(options.body);

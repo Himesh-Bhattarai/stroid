@@ -6,16 +6,21 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ---
 <details open>
-<summary><strong>Unreleased Changes</strong></summary>
+<summary><strong>Unreleased Changes: Set to release on 3-22-2026, Late Night</strong></summary>
 
 - Fixed async rate limiting so `fetchStore(..., { cacheKey })` is throttled per `cacheSlot` instead of incorrectly sharing one counter across the whole store name.
 - Fixed `createSelector` dependency tracking for object-valued reads so cached selector results no longer go stale when object references change without primitive leaf access.
 - Fixed `setStoreBatch` teardown so a later commit-phase feature error does not discard notifications that were already queued by earlier successful commits.
 - Fixed persist unload listeners so deleting and recreating a persisted store no longer accumulates stale `pagehide` / `beforeunload` flush handlers.
 - Fixed sync-applied remote state so feature write hooks still run, allowing `persist` and other write-driven features to observe synced updates.
+- Fixed `clearAllStores()` under `assertRuntime: true` so a successful clear logs normally instead of throwing from the success path.
+- Fixed sync checksum handling so incoming sync payloads are now verified before remote state is accepted.
+- Fixed async request defaults so bodyless `GET` / `HEAD` / `DELETE` requests no longer send `Content-Type: application/json`.
+- Fixed `createComputed(..., { autoDispose: true })` so computed stores are removed after their last dependency is deleted.
 - Hardened SSR write-context isolation by routing `runWithWriteContext(...)` through the server AsyncLocalStorage runner instead of relying only on a module-level fallback context.
 - Hardened inline notification delivery to snapshot the subscriber list per flush instead of reusing a shared registry buffer.
 - Tightened React hook type coverage for ambient `StoreStateMap` usage, including `useStore`, `useStoreField`, `useStoreStatic`, `useSelector`, `useFormStore`, `useAsyncStore`, and `useAsyncStoreSuspense`.
+- Simplified query integration fetcher factories by removing dead string-vs-handle branches with identical behavior.
 
 </details>
 

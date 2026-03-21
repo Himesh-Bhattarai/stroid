@@ -91,6 +91,7 @@ const isValidSyncMessage = (msg: unknown): msg is {
     clock: number;
     source: string;
     data?: unknown;
+    checksum?: unknown;
     updatedAt?: number;
     auth?: unknown;
     token?: unknown;
@@ -212,6 +213,7 @@ export const setupSync = ({
     resolveSyncVersion,
     broadcastSync,
     markLoopGuard,
+    hashState,
 }: {
     name: string;
     syncOption?: boolean | SyncOptions;
@@ -234,6 +236,7 @@ export const setupSync = ({
     resolveSyncVersion: (name: string, updatedAtMs: number, incomingClock: number) => number;
     broadcastSync: (name: string) => void;
     markLoopGuard: (name: string, windowMs: number) => void;
+    hashState: (value: unknown) => number;
 }): void => {
     if (!syncOption) return;
     if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
@@ -322,6 +325,18 @@ export const setupSync = ({
                 }
                 if (!verified) {
                     reportStoreError(name, `Sync message for "${name}" failed verification; ignoring.`);
+                    return;
+                }
+            }
+            const checksumMode = typeof syncOption === "object" && syncOption.checksum === "none" ? "none" : "hash";
+            if (isSyncState && checksumMode !== "none") {
+                const expectedChecksum = hashState(msg.data);
+                if (msg.checksum !== expectedChecksum) {
+                    reportStoreError(
+                        name,
+                        `Sync checksum mismatch for "${name}". ` +
+                        `Expected ${String(expectedChecksum)}, got ${String(msg.checksum)}. Ignoring message.`
+                    );
                     return;
                 }
             }
@@ -630,6 +645,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                     });
                 },
                 markLoopGuard,
+                hashState: ctx.hashState,
             });
 
             if (syncChannels[ctx.name]) {

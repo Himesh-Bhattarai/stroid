@@ -29,7 +29,16 @@ export type ComputedOptions = {
 };
 
 const getComputedCleanups = (): Map<string, () => void> => getRegistry().computedCleanups;
+const computedOptionsByRegistry = new WeakMap<StoreRegistry, Map<string, ComputedOptions>>();
 const computedFlushHistory = new WeakMap<StoreRegistry, Map<string, number>>();
+const getComputedOptionsMap = (registry: StoreRegistry): Map<string, ComputedOptions> => {
+    let map = computedOptionsByRegistry.get(registry);
+    if (!map) {
+        map = new Map();
+        computedOptionsByRegistry.set(registry, map);
+    }
+    return map;
+};
 const getComputedFlushMap = (registry: StoreRegistry): Map<string, number> => {
     let map = computedFlushHistory.get(registry);
     if (!map) {
@@ -92,6 +101,7 @@ export function createComputed<TResult, Deps extends readonly (StoreName | DepHa
 
     const registered = registerComputed(name, depNames as string[], compute as (...args: unknown[]) => unknown);
     if (!registered) return undefined;
+    getComputedOptionsMap(getRegistry()).set(name, { ...options });
 
     const initial = _runCompute(name, deps, compute as (...args: unknown[]) => unknown, options.onError);
 
@@ -113,6 +123,7 @@ export function createComputed<TResult, Deps extends readonly (StoreName | DepHa
     getComputedCleanups().set(name, () => {
         unsubscribers.forEach((fn) => fn());
         unregisterComputed(name);
+        getComputedOptionsMap(getRegistry()).delete(name);
     });
 
     if (isDev()) {
@@ -190,11 +201,14 @@ export const deleteComputed = (name: string): void => {
 };
 
 export const isComputedStore = (name: string): boolean => isComputed(name);
+export const shouldAutoDisposeComputed = (name: string, registry: StoreRegistry = getRegistry()): boolean =>
+    getComputedOptionsMap(registry).get(name)?.autoDispose === true;
 
 export const _resetComputedForTests = (): void => {
     const cleanups = getComputedCleanups();
     cleanups.forEach((fn) => fn());
     cleanups.clear();
+    getComputedOptionsMap(getRegistry()).clear();
 };
 
 export { getFullComputedGraph, getComputedDepsFor } from "./computed-graph.js";

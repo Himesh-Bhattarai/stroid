@@ -12,6 +12,7 @@ import "../../src/sync.js";
 import "../../src/persist.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 import { createStore, setStore, getStore, deleteStore } from "../../src/store.js";
+import { hashState } from "../../src/utils.js";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -268,6 +269,7 @@ test("sync core (serial)", async (t) => {
         source: "peer-tab",
         updatedAt: Date.now() + 1,
         data: { value: 2 },
+        checksum: hashState({ value: 2 }),
       });
 
       await wait(20);
@@ -334,6 +336,7 @@ test("sync core (serial)", async (t) => {
         source: "peer-tab",
         updatedAt: Date.now(),
         data: { value: 3 },
+        checksum: hashState({ value: 3 }),
       });
 
       await wait(20);
@@ -410,6 +413,7 @@ test("sync core (serial)", async (t) => {
         data: { value: "bad" },
         updatedAt: Date.now(),
         token: "wrong",
+        checksum: hashState({ value: "bad" }),
       });
 
       await wait();
@@ -426,6 +430,7 @@ test("sync core (serial)", async (t) => {
         data: { value: "ok" },
         updatedAt: Date.now(),
         token: "secret",
+        checksum: hashState({ value: "ok" }),
       });
 
       await wait();
@@ -474,6 +479,7 @@ test("sync core (serial)", async (t) => {
         updatedAt: Date.now(),
         token: "secret",
         auth: "bad",
+        checksum: hashState({ value: "spoof" }),
       });
 
       await wait();
@@ -491,6 +497,7 @@ test("sync core (serial)", async (t) => {
         updatedAt: Date.now(),
         token: "secret",
         auth: "sig",
+        checksum: hashState({ value: "ok" }),
       });
 
       await wait();
@@ -538,6 +545,7 @@ test("sync core (serial)", async (t) => {
       source: "peer",
       data: { value: "incoming" },
       updatedAt: Date.now(),
+      checksum: hashState({ value: "incoming" }),
     });
 
     await wait();
@@ -584,6 +592,7 @@ test("sync core (serial)", async (t) => {
         source: "peer",
         data: { value: 1 },
         updatedAt: Date.now(),
+        checksum: hashState({ value: 1 }),
       });
 
       await wait();
@@ -635,6 +644,7 @@ test("sync core (serial)", async (t) => {
         source: "peer",
         data: { value: 1 },
         updatedAt: Date.now(),
+        checksum: hashState({ value: 1 }),
       });
 
       await wait();
@@ -658,6 +668,7 @@ test("sync core (serial)", async (t) => {
         source: "peer",
         data: { value: 1 },
         updatedAt: Date.now(),
+        checksum: hashState({ value: 1 }),
       });
 
       await wait();
@@ -702,6 +713,7 @@ test("sync core (serial)", async (t) => {
       source: "peer",
       data: { value: "incoming" },
       updatedAt: Date.now(),
+      checksum: hashState({ value: "incoming" }),
     });
 
     await wait();
