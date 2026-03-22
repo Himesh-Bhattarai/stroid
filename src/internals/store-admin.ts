@@ -13,7 +13,7 @@ import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn, warnAlways } from "./diagnostics.js";
 import { reportIssue } from "./reporting.js";
 import { isComputed } from "../computed/computed-graph.js";
-import { deleteComputed } from "../computed/index.js";
+import { deleteComputed, getComputedDepsFor, shouldAutoDisposeComputed } from "../computed/index.js";
 import { fireHook } from "../core/lifecycle-hooks.js";
 
 type MetaEntry = StoreFeatureMeta;
@@ -175,7 +175,16 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             const dependents = registry.computedDependents;
             const affected = dependents[name];
             if (affected) {
-                for (const computedName of affected) {
+                for (const computedName of [...affected]) {
+                    const computedDeps = getComputedDepsFor(computedName);
+                    if (
+                        computedDeps
+                        && shouldAutoDisposeComputed(computedName, registry)
+                        && computedDeps.deps.every((dep) => !hasStoreEntry(registry, dep))
+                    ) {
+                        deleteExistingStore(computedName);
+                        continue;
+                    }
                     warn(
                         `[stroid] source store "${name}" was deleted. ` +
                         `Computed store "${computedName}" depends on it and will return stale data. ` +
@@ -226,7 +235,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                 `${remaining} store(s) still registered (likely recreated during deletion).`
             );
         } else {
-            warn(`All stores cleared (${removed.length} stores removed)`);
+            log(`All stores cleared (${removed.length} stores removed)`);
         }
         return removed;
     };

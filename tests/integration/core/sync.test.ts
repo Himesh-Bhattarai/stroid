@@ -9,7 +9,7 @@
 import test from "node:test";
 import assert from "node:assert";
 import { createSyncFeatureRuntime, setupSync, broadcastSync } from "../../../src/features/sync.js";
-import { deepClone } from "../../../src/utils.js";
+import { deepClone, hashState } from "../../../src/utils.js";
 
 test("sync runtime reports sanitize errors and setup failures", () => {
   const originalBroadcast = (globalThis as any).BroadcastChannel;
@@ -58,6 +58,7 @@ test("sync runtime reports sanitize errors and setup failures", () => {
       source: "remote",
       token: "token",
       data: BigInt(1),
+      checksum: 1,
       updatedAt: Date.now(),
     },
   } as MessageEvent);
@@ -170,6 +171,7 @@ test("sync runtime handles verify errors, sync requests, and conflict resolution
       source: "remote",
       token: "token",
       data: { value: 2 },
+      checksum: hashState({ value: 2 }),
       updatedAt: Date.now(),
     },
   } as MessageEvent);
@@ -198,6 +200,7 @@ test("sync runtime handles verify errors, sync requests, and conflict resolution
       source: "",
       token: "token",
       data: { value: 3 },
+      checksum: hashState({ value: 3 }),
       updatedAt: Date.now(),
     },
   } as MessageEvent);

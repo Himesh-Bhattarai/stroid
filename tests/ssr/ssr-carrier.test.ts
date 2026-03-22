@@ -8,11 +8,18 @@
  */
 import test from "node:test";
 import assert from "node:assert";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { getStore, setStore, setStoreBatch, subscribe } from "../../src/store.js";
 import { resetAllStoresForTest } from "../../src/helpers/testing.js";
 import { createStoreForRequest } from "../../src/server/index.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 import { getRegistry } from "../../src/core/store-lifecycle.js";
+import {
+    getWriteContext,
+    injectWriteContextRunner,
+    runWithWriteContext,
+    type WriteContext,
+} from "../../src/internals/write-context.js";
 import { fetchStore, refetchStore } from "../../src/async.js";
 
 test("SSR Carrier perfectly isolates concurrent requests", async () => {
@@ -73,6 +80,39 @@ test("SSR Carrier perfectly isolates concurrent requests", async () => {
         globalState == null,
         "expected no global store data after concurrent SSR requests"
     );
+});
+
+test("SSR write context stays isolated across overlapping async request scopes", async () => {
+    resetAllStoresForTest();
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const writeContextStorage = new AsyncLocalStorage<WriteContext>();
+
+    injectWriteContextRunner({
+        run: (context, fn) => writeContextStorage.run(context, fn),
+        get: () => writeContextStorage.getStore() ?? null,
+    });
+
+    try {
+        const seen: Record<string, string | null> = Object.create(null);
+
+        const requestA = runWithWriteContext({ correlationId: "req-A" }, async () => {
+            await wait(20);
+            seen.A = getWriteContext()?.correlationId ?? null;
+        });
+
+        const requestB = runWithWriteContext({ correlationId: "req-B" }, async () => {
+            await wait(5);
+            seen.B = getWriteContext()?.correlationId ?? null;
+        });
+
+        await Promise.all([requestA, requestB]);
+
+        assert.strictEqual(seen.A, "req-A");
+        assert.strictEqual(seen.B, "req-B");
+        assert.strictEqual(getWriteContext(), null);
+    } finally {
+        injectWriteContextRunner(null);
+    }
 });
 
 test("SSR notifications do not bleed across request registries", async () => {

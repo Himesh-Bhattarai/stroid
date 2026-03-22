@@ -10,6 +10,7 @@ import type { StoreValue, SyncMessage, SyncOptions } from "../adapters/options.j
 import { registerStoreFeature, type StoreFeatureRuntime } from "./feature-registry.js";
 import { normalizeFeatureState, resolveUpdatedAtMs } from "./state-helpers.js";
 import { warnAlways, isDev } from "../utils.js";
+import { runFeatureWriteHooksExcept } from "../core/store-lifecycle/hooks.js";
 
 export type SyncChannels = Record<string, BroadcastChannel>;
 export type SyncClocks = Record<string, number>;
@@ -90,6 +91,7 @@ const isValidSyncMessage = (msg: unknown): msg is {
     clock: number;
     source: string;
     data?: unknown;
+    checksum?: unknown;
     updatedAt?: number;
     auth?: unknown;
     token?: unknown;
@@ -211,6 +213,7 @@ export const setupSync = ({
     resolveSyncVersion,
     broadcastSync,
     markLoopGuard,
+    hashState,
 }: {
     name: string;
     syncOption?: boolean | SyncOptions;
@@ -233,6 +236,7 @@ export const setupSync = ({
     resolveSyncVersion: (name: string, updatedAtMs: number, incomingClock: number) => number;
     broadcastSync: (name: string) => void;
     markLoopGuard: (name: string, windowMs: number) => void;
+    hashState: (value: unknown) => number;
 }): void => {
     if (!syncOption) return;
     if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
@@ -324,6 +328,18 @@ export const setupSync = ({
                     return;
                 }
             }
+            const checksumMode = typeof syncOption === "object" && syncOption.checksum === "none" ? "none" : "hash";
+            if (isSyncState && checksumMode !== "none") {
+                const expectedChecksum = hashState(msg.data);
+                if (msg.checksum !== expectedChecksum) {
+                    reportStoreError(
+                        name,
+                        `Sync checksum mismatch for "${name}". ` +
+                        `Expected ${String(expectedChecksum)}, got ${String(msg.checksum)}. Ignoring message.`
+                    );
+                    return;
+                }
+            }
             if (msg.type === "sync-request") {
                 broadcastSync(name);
                 return;
@@ -349,12 +365,14 @@ export const setupSync = ({
                     if (resolved !== undefined) {
                         const normalizedResolved = normalizeIncomingState(name, resolved);
                         if (normalizedResolved === null) return;
+                        const prev = getStoreValue(name);
                         setStoreValue(name, normalizedResolved);
                         const resolveUpdatedAt = typeof syncOption === "object" ? syncOption.resolveUpdatedAt : null;
                         const resolvedUpdatedAt = resolveUpdatedAt
                             ? resolveUpdatedAt({ localUpdated, incomingUpdated, now: Date.now() })
                             : Math.max(Date.now(), localUpdated, incomingUpdated);
                         resolveSyncVersion(name, resolvedUpdatedAt, typeof msg.clock === "number" ? msg.clock : 0);
+                        runFeatureWriteHooksExcept(name, "sync", prev, normalizedResolved, () => notify(name), ["sync"]);
                         if (loopGuardMs) markLoopGuard(name, loopGuardMs);
                         notify(name);
                         broadcastSync(name);
@@ -364,6 +382,7 @@ export const setupSync = ({
             }
             const normalizedIncoming = normalizeIncomingState(name, msg.data);
             if (normalizedIncoming === null) return;
+            const prev = getStoreValue(name);
             setStoreValue(name, normalizedIncoming);
             acceptIncomingSyncVersion(
                 name,
@@ -371,6 +390,7 @@ export const setupSync = ({
                 typeof msg.clock === "number" ? msg.clock : 0,
                 typeof msg.source === "string" ? msg.source : ""
             );
+            runFeatureWriteHooksExcept(name, "sync", prev, normalizedIncoming, () => notify(name), ["sync"]);
             if (loopGuardMs) markLoopGuard(name, loopGuardMs);
             notify(name);
         };
@@ -541,6 +561,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
         onStoreCreate(ctx) {
             if (!ctx.options.sync) return;
             const syncOption = ctx.options.sync;
+            const emitStoreNotify = ctx.notify;
             const policy = typeof syncOption === "object" ? syncOption.policy : undefined;
             const allowInsecure = policy === "insecure"
                 || (policy !== "strict" && typeof syncOption === "object" && syncOption.insecure === true);
@@ -570,7 +591,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                 getAcceptedSyncVersion: (name) => syncVersions[name],
                 getStoreValue: (name) => ctx.getStoreValue(),
                 hasStoreEntry: () => ctx.hasStore(),
-                notify: () => ctx.notify(),
+                notify: () => emitStoreNotify(),
                 validate: (name, next) => ctx.validate(next),
                 reportStoreError: (name, message) => ctx.reportStoreError(message),
                 warn: ctx.warn,
@@ -624,6 +645,7 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                     });
                 },
                 markLoopGuard,
+                hashState: ctx.hashState,
             });
 
             if (syncChannels[ctx.name]) {

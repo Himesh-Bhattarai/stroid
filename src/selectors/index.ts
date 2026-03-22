@@ -25,6 +25,7 @@ const trackSelectorDependencies = <TState, TResult>(
     selectorFn: (state: TState) => TResult
 ): { result: TResult; deps: SelectorDependency[] } => {
     const seen = new WeakMap<object, unknown>();
+    const proxyPaths = new WeakMap<object, string>();
     const deps = new Set<string>();
     const sep = "\u0000";
 
@@ -47,11 +48,31 @@ const trackSelectorDependencies = <TState, TResult>(
             },
         });
 
+        proxyPaths.set(proxy, path.join(sep));
         seen.set(value as object, proxy);
         return proxy;
     };
 
     const result = selectorFn(wrap(state, []) as TState);
+
+    const collectEscapedProxyDeps = (value: unknown, walked: WeakSet<object>): void => {
+        if (!value || typeof value !== "object") return;
+        if (walked.has(value as object)) return;
+        walked.add(value as object);
+
+        const trackedPath = proxyPaths.get(value as object);
+        if (trackedPath) {
+            if (trackedPath) deps.add(trackedPath);
+            return;
+        }
+
+        for (const nested of Object.values(value as Record<string, unknown>)) {
+            collectEscapedProxyDeps(nested, walked);
+        }
+    };
+
+    collectEscapedProxyDeps(result, new WeakSet<object>());
+
     return {
         result,
         deps: Array.from(deps, (entry) => entry.split(sep)),

@@ -45,6 +45,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
     const plaintextWarningsIssued = new Set<string>();
     const maxSizeWarned = new Set<string>();
     const persistLoadState: Record<string, { loading: boolean; pendingSave: boolean }> = Object.create(null);
+    const persistWindowFlushCleanup: Record<string, () => void> = Object.create(null);
 
     return {
         api: {
@@ -187,7 +188,18 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             }
 
             if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+                persistWindowFlushCleanup[ctx.name]?.();
+                const hostWindow = window;
+                let cleaned = false;
+                const cleanup = () => {
+                    if (cleaned) return;
+                    cleaned = true;
+                    hostWindow.removeEventListener("pagehide", flush);
+                    hostWindow.removeEventListener("beforeunload", flush);
+                    delete persistWindowFlushCleanup[ctx.name];
+                };
                 const flush = () => {
+                    cleanup();
                     flushPersistImmediately(ctx.name, {
                         name: ctx.name,
                         persistTimers,
@@ -202,8 +214,9 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                         hashState: ctx.hashState,
                     });
                 };
-                window.addEventListener("pagehide", flush, { once: true });
-                window.addEventListener("beforeunload", flush, { once: true });
+                hostWindow.addEventListener("pagehide", flush, { once: true });
+                hostWindow.addEventListener("beforeunload", flush, { once: true });
+                persistWindowFlushCleanup[ctx.name] = cleanup;
             }
 
             setupPersistWatch({
@@ -259,12 +272,17 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 delete persistKeys[cfg.key];
             }
 
+            persistWindowFlushCleanup[ctx.name]?.();
             persistWatchState[ctx.name]?.dispose();
+            delete persistWindowFlushCleanup[ctx.name];
             delete persistWatchState[ctx.name];
         },
 
         resetAll() {
             Object.values(persistTimers).forEach((timer) => clearTimeout(timer));
+            Object.values(persistWindowFlushCleanup).forEach((cleanup) => {
+                try { cleanup(); } catch (_) { /* ignore cleanup errors */ }
+            });
             Object.values(persistWatchState).forEach((entry) => {
                 try { entry.dispose(); } catch (_) { /* ignore cleanup errors */ }
             });

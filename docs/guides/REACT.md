@@ -41,7 +41,7 @@ Returns `null` if the store does not exist. Components re-render when the store 
 
 ### Stable Selectors
 
-Inline selectors (created fresh each render) trigger a dev warning about resubscribe churn. Use `useCallback` or define selectors outside the component.
+Inline selectors (created fresh each render) trigger a dev warning about selector identity churn. The subscription stays stable, but selector cache reuse drops and selector work increases. Use `useCallback` or define selectors outside the component.
 
 ```tsx
 // ✗ — inline, recreated each render

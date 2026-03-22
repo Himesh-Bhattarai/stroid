@@ -152,6 +152,32 @@ export const runFeatureWriteHooks = (name: string, action: string, prev: StoreVa
     });
 };
 
+export const runFeatureWriteHooksExcept = (
+    name: string,
+    action: string,
+    prev: StoreValue,
+    next: StoreValue,
+    notify: (name: string) => void,
+    excluded: FeatureName[]
+): void => {
+    initializeRegisteredFeatureRuntimes();
+    const baseContext = createBaseFeatureContext(name);
+    if (!baseContext) return;
+    baseContext.notify = () => notify(name);
+    const ctx = Object.assign(Object.create(baseContext), {
+        action,
+        prev,
+        next,
+    }) as FeatureWriteContext;
+    validateFeatureContext(name, ctx);
+    const excludedSet = new Set(excluded);
+
+    featureRuntimes.forEach((runtime, featureName) => {
+        if (excludedSet.has(featureName)) return;
+        runtime.onStoreWrite?.(ctx);
+    });
+};
+
 export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (name: string) => void): void => {
     initializeRegisteredFeatureRuntimes();
     const baseContext = createBaseFeatureContext(name);

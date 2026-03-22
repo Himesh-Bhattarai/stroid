@@ -68,7 +68,7 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         return { ok: false, reason: "lazy-uninitialized" };
     }
     if (!materializeInitial(name, registry)) return { ok: false, reason: "validate" };
-    if (!registry.initialStates[name]) {
+    if (!Object.prototype.hasOwnProperty.call(registry.initialStates, name)) {
         const message =
             `resetStore("${name}") has no initial state to reset to. ` +
             `If this is a lazy store, ensure it has been initialized before calling resetStore.`;

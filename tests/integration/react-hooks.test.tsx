@@ -218,6 +218,52 @@ test("useStore warns once for broad subscriptions without a selector", async () 
   resetConfig();
 });
 
+test("selector recreation warnings describe selector churn without claiming repeated subscriptions", async () => {
+  resetAllStoresForTest();
+  const warnings: string[] = [];
+
+  configureStroid({
+    logSink: {
+      warn: (msg: string) => warnings.push(msg),
+    },
+  });
+
+  createStore("selectorWarnStore", {
+    profile: { name: "Alex" },
+  });
+
+  const App = ({ tick }: { tick: number }) => {
+    const nameFromUseStore = useStore<any, string>("selectorWarnStore", (state) => state.profile.name);
+    const nameFromUseSelector = useSelector<any, string>("selectorWarnStore", (state) => state.profile.name, Object.is);
+    return React.createElement("span", null, `${tick}:${nameFromUseStore ?? ""}:${nameFromUseSelector ?? ""}`);
+  };
+
+  let rerender!: (ui: React.ReactElement) => void;
+  let unmount!: () => void;
+  await act(async () => {
+    ({ rerender, unmount } = render(React.createElement(App, { tick: 0 })));
+  });
+
+  await act(async () => {
+    rerender(React.createElement(App, { tick: 1 }));
+  });
+
+  const selectorWarnings = warnings.filter((msg) =>
+    msg.includes('selector was recreated between renders')
+  );
+
+  assert.ok(selectorWarnings.some((msg) => msg.includes("selector cache reuse")));
+  assert.ok(selectorWarnings.some((msg) => msg.includes("selector churn")));
+  assert.ok(selectorWarnings.every((msg) => !msg.includes("repeated subscriptions")));
+  assert.ok(selectorWarnings.every((msg) => !msg.includes("resubscribe churn")));
+
+  await act(async () => {
+    unmount();
+  });
+
+  resetConfig();
+});
+
 test("useStore inline object selector with custom equality does not loop or rerender on unrelated writes", async () => {
   clearAllStores();
   createStore("reactPrefs", {

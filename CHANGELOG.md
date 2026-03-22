@@ -6,8 +6,33 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ---
 <details open>
-<summary><strong>Unreleased Changes</strong></summary>
->
+<summary><strong>Unreleased</strong></summary>
+
+- No unreleased changes yet.
+
+</details>
+
+---
+
+<details open>
+<summary><strong>v0.1.3 â€” 2026-03-22</strong></summary>
+
+- Fixed async rate limiting so `fetchStore(..., { cacheKey })` is throttled per `cacheSlot` instead of incorrectly sharing one counter across the whole store name.
+- Fixed `createSelector` dependency tracking for object-valued reads so cached selector results no longer go stale when object references change without primitive leaf access.
+- Fixed `setStoreBatch` teardown so a later commit-phase feature error does not discard notifications that were already queued by earlier successful commits.
+- Fixed persist unload listeners so deleting and recreating a persisted store no longer accumulates stale `pagehide` / `beforeunload` flush handlers.
+- Fixed sync-applied remote state so feature write hooks still run, allowing `persist` and other write-driven features to observe synced updates.
+- Fixed `clearAllStores()` under `assertRuntime: true` so a successful clear logs normally instead of throwing from the success path.
+- Fixed sync checksum handling so incoming sync payloads are now verified before remote state is accepted.
+- Fixed async request defaults so bodyless `GET` / `HEAD` / `DELETE` requests no longer send `Content-Type: application/json`.
+- Fixed `createComputed(..., { autoDispose: true })` so computed stores are removed after their last dependency is deleted.
+- Fixed `resetStore()` for falsy initial values (`false`, `0`, `""`, `null`) so registered stores no longer report `not-found` during reset.
+- Replaced the default registry scope's `import.meta.url`-based identifier with a stable bundler-safe string to avoid webpack / Next.js resolution failures.
+- Hardened SSR write-context isolation by routing `runWithWriteContext(...)` through the server AsyncLocalStorage runner instead of relying only on a module-level fallback context.
+- Hardened inline notification delivery to snapshot the subscriber list per flush instead of reusing a shared registry buffer.
+- Tightened React hook type coverage for ambient `StoreStateMap` usage, including `useStore`, `useStoreField`, `useStoreStatic`, `useSelector`, `useFormStore`, `useAsyncStore`, and `useAsyncStoreSuspense`.
+- Clarified React selector recreation warnings and docs so they describe selector churn and cache reuse accurately instead of implying repeated re-subscriptions.
+- Upgraded the transitive `flatted` resolution to `3.4.2` via `npm overrides` to address the Dependabot alert in the eslint / flat-cache toolchain path.
 
 </details>
 

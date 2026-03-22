@@ -68,6 +68,158 @@ test("flushPersistImmediately clears pending timers", async () => {
   assert.ok(calls >= 1);
 });
 
+test("flushPersistImmediately ignores a stale queued timer callback", async () => {
+  const persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+  const persistInFlight: Record<string, Promise<void> | null> = {};
+  const persistSequence: Record<string, number> = Object.create(null);
+  const persistWatchState: Record<string, { present?: boolean }> = Object.create(null);
+  const plaintextWarningsIssued = new Set<string>();
+  const writes: number[] = [];
+  const scheduled: Array<{ handle: ReturnType<typeof setTimeout>; fn: () => void }> = [];
+
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    updatedAtMs: Date.now(),
+    options: {
+      persist: {
+        key: "persist-stale-timer",
+        driver: {
+          setItem: async () => { writes.push(Date.now()); },
+        },
+        serialize: JSON.stringify,
+        deserialize: JSON.parse,
+        encrypt: (v: string) => v,
+        decrypt: (v: string) => v,
+        checksum: "none",
+        allowPlaintext: true,
+      },
+      onError: undefined,
+    },
+  };
+
+  const args = {
+    name: "persist-stale-timer",
+    persistTimers,
+    persistInFlight,
+    persistSequence,
+    persistWatchState,
+    plaintextWarningsIssued,
+    exists: () => true,
+    getMeta: () => meta as any,
+    getStoreValue: () => ({ value: 1 }),
+    reportStoreError: () => undefined,
+    hashState: () => 1,
+  };
+
+  try {
+    globalThis.setTimeout = (((fn: (...args: any[]) => void) => {
+      const handle = { id: scheduled.length } as ReturnType<typeof setTimeout>;
+      scheduled.push({ handle, fn: () => fn() });
+      return handle;
+    }) as typeof setTimeout);
+    globalThis.clearTimeout = (((_handle: ReturnType<typeof setTimeout>) => undefined) as typeof clearTimeout);
+
+    persistSave(args as any);
+    assert.strictEqual(scheduled.length, 1);
+
+    flushPersistImmediately("persist-stale-timer", args as any);
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.strictEqual(writes.length, 1);
+
+    scheduled[0].fn();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    assert.strictEqual(writes.length, 1);
+    assert.ok(!persistTimers["persist-stale-timer"]);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
+test("flushPersistImmediately can be superseded while waiting behind an in-flight write", async () => {
+  const persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+  const persistInFlight: Record<string, Promise<void> | null> = {};
+  const persistSequence: Record<string, number> = Object.create(null);
+  const persistWatchState: Record<string, { present?: boolean }> = Object.create(null);
+  const plaintextWarningsIssued = new Set<string>();
+  const writes: string[] = [];
+  let currentValue = { value: 1 };
+  let releaseFirstWrite: (() => void) | null = null;
+
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    updatedAtMs: Date.now(),
+    options: {
+      persist: {
+        key: "persist-ordering",
+        driver: {
+          setItem: async (_key: string, payload: string) => {
+            writes.push(payload);
+            if (releaseFirstWrite) return;
+            await new Promise<void>((resolve) => {
+              releaseFirstWrite = resolve;
+            });
+          },
+        },
+        serialize: JSON.stringify,
+        deserialize: JSON.parse,
+        encrypt: (v: string) => v,
+        decrypt: (v: string) => v,
+        checksum: "none",
+        allowPlaintext: true,
+      },
+      onError: undefined,
+    },
+  };
+
+  const args = {
+    name: "persist-ordering",
+    persistTimers,
+    persistInFlight,
+    persistSequence,
+    persistWatchState,
+    plaintextWarningsIssued,
+    exists: () => true,
+    getMeta: () => meta as any,
+    getStoreValue: () => currentValue,
+    reportStoreError: () => undefined,
+    hashState: () => 1,
+  };
+
+  persistSave(args as any);
+
+  const startedAt = Date.now();
+  while (!releaseFirstWrite) {
+    if (Date.now() - startedAt > 200) {
+      throw new Error("initial persist write did not start in time");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+
+  currentValue = { value: 2 };
+  flushPersistImmediately("persist-ordering", args as any);
+
+  currentValue = { value: 3 };
+  flushPersistImmediately("persist-ordering", args as any);
+
+  releaseFirstWrite();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  assert.strictEqual(writes.length, 2);
+  const firstEnvelope = JSON.parse(writes[0]);
+  const lastEnvelope = JSON.parse(writes[1]);
+  assert.strictEqual(firstEnvelope.data, JSON.stringify({ value: 1 }));
+  assert.strictEqual(lastEnvelope.data, JSON.stringify({ value: 3 }));
+});
+
 test("normalizePersistOptions rejects invalid async crypto and plaintext sensitive stores", () => {
   assert.throws(
     () => normalizePersistOptions({ encryptAsync: async (v: string) => v } as unknown as any, "badAsync"),
@@ -312,6 +464,59 @@ test("persist feature flushes on pagehide and cleans up on delete/reset", async 
 
   runtime.beforeStoreDelete(ctx as any);
   assert.ok(removeCalls >= 1);
+});
+
+test("persist feature removes unload flush listeners when a store is deleted and recreated", async () => {
+  const runtime = createPersistFeatureRuntime();
+  let setCalls = 0;
+  const persistConfig = {
+    key: "persist-recreate",
+    driver: {
+      getItem: () => null,
+      setItem: () => { setCalls += 1; },
+      removeItem: () => undefined,
+    },
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encrypt: (v: string) => v,
+    decrypt: (v: string) => v,
+    checksum: "none",
+    allowPlaintext: true,
+    onStorageCleared: () => undefined,
+  };
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    updatedAtMs: Date.now(),
+    options: { persist: persistConfig },
+  };
+  const ctx = {
+    name: "persistRecreate",
+    options: { persist: persistConfig },
+    getMeta: () => meta as any,
+    getInitialState: () => ({ ok: true }),
+    applyFeatureState: () => undefined,
+    getStoreValue: () => ({ ok: true }),
+    hasStore: () => true,
+    reportStoreError: () => undefined,
+    warn: () => undefined,
+    log: () => undefined,
+    hashState: () => 1,
+    deepClone,
+    sanitize,
+    validate: () => ({ ok: true }),
+  };
+
+  runtime.onStoreCreate(ctx as any);
+  runtime.beforeStoreDelete(ctx as any);
+  runtime.onStoreCreate(ctx as any);
+
+  setCalls = 0;
+  window.dispatchEvent(new Event("pagehide"));
+  window.dispatchEvent(new Event("beforeunload"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.strictEqual(setCalls, 1);
 });
 
 test("persist feature handles async load failures with pending saves", async () => {

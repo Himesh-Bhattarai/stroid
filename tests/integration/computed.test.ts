@@ -55,6 +55,21 @@ test("computed", async (t) => {
     assert.strictEqual(getStore("fullName"), "Jane Doe");
   });
 
+  await runCase(t, "recomputes when a dependency store changes via path write", async () => {
+    createStore("user", { profile: { firstName: "John", lastName: "Doe" } });
+    createComputed("fullName", ["user"], (user) => {
+      const profile = (user as { profile?: { firstName?: string; lastName?: string } } | null)?.profile;
+      return `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim();
+    });
+
+    assert.strictEqual(getStore("fullName"), "John Doe");
+
+    setStore("user", "profile.firstName", "Jane");
+    await wait();
+
+    assert.strictEqual(getStore("fullName"), "Jane Doe");
+  });
+
   await runCase(t, "does not notify if computed value unchanged", async () => {
     createStore("x", 1);
     createComputed("sign", ["x"], (n) => (n as number) > 0 ? "positive" : "non-positive");
@@ -94,6 +109,19 @@ test("computed", async (t) => {
     const trace = detectCycle("n", ["m"]);
     assert.ok(typeof trace === "string");
     assert.ok(trace.includes("->"));
+  });
+
+  await runCase(t, "detectCycle still finds a cycle when earlier roots visited shared dead-end nodes", async () => {
+    const { registerComputed } = await import("../../src/computed/computed-graph.js");
+
+    registerComputed("sharedDeadEnd", ["leaf"], (v) => v);
+    registerComputed("leftRoot", ["sharedDeadEnd"], (v) => v);
+    registerComputed("cycleNode", ["target"], (v) => v);
+    registerComputed("rightRoot", ["sharedDeadEnd", "cycleNode"], (v) => v);
+
+    const trace = detectCycle("target", ["leftRoot", "rightRoot"]);
+
+    assert.strictEqual(trace, "target -> rightRoot -> cycleNode -> target");
   });
 
   await runCase(t, "createComputed warns when dependencies are missing", async () => {

@@ -82,10 +82,6 @@ export const setStoreBatch = (fn: () => unknown): void => {
     } finally {
         const txError = endTransaction(batchError, registry);
         state.batchDepth = Math.max(0, state.batchDepth - 1);
-        if (batchError || txError) {
-            state.pendingNotifications.clear();
-            state.notifyScheduled = false;
-        }
         if (state.batchDepth === 0 && state.pendingNotifications.size > 0) {
             scheduleFlush(registry);
         }
@@ -164,7 +160,6 @@ export const resetNotifyStateForTests = (): void => {
     state.pendingNotifications.clear();
     state.pendingBuffer.length = 0;
     state.orderedNames.length = 0;
-    state.subscriberBuffer.length = 0;
     state.notifyScheduled = false;
     state.batchDepth = 0;
 };
