@@ -55,6 +55,21 @@ test("computed", async (t) => {
     assert.strictEqual(getStore("fullName"), "Jane Doe");
   });
 
+  await runCase(t, "recomputes when a dependency store changes via path write", async () => {
+    createStore("user", { profile: { firstName: "John", lastName: "Doe" } });
+    createComputed("fullName", ["user"], (user) => {
+      const profile = (user as { profile?: { firstName?: string; lastName?: string } } | null)?.profile;
+      return `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim();
+    });
+
+    assert.strictEqual(getStore("fullName"), "John Doe");
+
+    setStore("user", "profile.firstName", "Jane");
+    await wait();
+
+    assert.strictEqual(getStore("fullName"), "Jane Doe");
+  });
+
   await runCase(t, "does not notify if computed value unchanged", async () => {
     createStore("x", 1);
     createComputed("sign", ["x"], (n) => (n as number) > 0 ? "positive" : "non-positive");
