@@ -140,6 +140,9 @@
   "peerDependencies": {
     "react": ">=18"
   },
+  "overrides": {
+    "flatted": "^3.4.2"
+  },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.57.7",
     "@testing-library/dom": "^10.4.0",

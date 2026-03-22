@@ -22,7 +22,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - Hardened SSR write-context isolation by routing `runWithWriteContext(...)` through the server AsyncLocalStorage runner instead of relying only on a module-level fallback context.
 - Hardened inline notification delivery to snapshot the subscriber list per flush instead of reusing a shared registry buffer.
 - Tightened React hook type coverage for ambient `StoreStateMap` usage, including `useStore`, `useStoreField`, `useStoreStatic`, `useSelector`, `useFormStore`, `useAsyncStore`, and `useAsyncStoreSuspense`.
-- Simplified query integration fetcher factories by removing dead string-vs-handle branches with identical behavior.
+- Upgraded the transitive `flatted` resolution to `3.4.2` via `npm overrides` to address the Dependabot alert in the eslint / flat-cache toolchain path.
 
 </details>
 
