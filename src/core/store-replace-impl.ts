@@ -24,6 +24,7 @@ import type {
 import type { StoreRegistry } from "./store-registry.js";
 import type { WriteContext } from "../internals/write-context.js";
 import { MIDDLEWARE_ABORT } from "../features/lifecycle.js";
+import { createRootSetRuntimePatch } from "./runtime-patch.js";
 import {
     isTransactionActive,
     getStagedTransactionValue,
@@ -97,6 +98,14 @@ export const replaceStoreState = (
         hookLabel: "onSet",
         logMessage: `Store "${name}" ${action === "hydrate" ? "hydrated" : "replaced"}`,
         context: writeContext,
+        runtimePatches: [
+            createRootSetRuntimePatch({
+                store: name,
+                value: committed.value,
+                source: action === "hydrate" ? "hydrateStores" : "replaceStore",
+                context: writeContext,
+            }),
+        ],
     });
     return { ok: true };
 };

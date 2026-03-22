@@ -22,6 +22,8 @@ import { isTransactionActive, markTransactionFailed } from "./store-transaction.
 import { getStore } from "./store-read.js";
 import { getTopoOrderedComputeds } from "../computed/computed-graph.js";
 import { replaceStore, replaceStoreState } from "./store-replace-impl.js";
+import { createRootSetRuntimePatch, setLastRuntimePatches } from "./runtime-patch.js";
+import type { RuntimePatch } from "./runtime-patch.js";
 
 type HydrateSnapshot = HydrateSnapshotFor<StoreStateMap & StrictStoreMap>;
 type HydrateOptions<Snapshot extends object> =
@@ -71,6 +73,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     };
     if (!snapshot || typeof snapshot !== "object") return result;
     const registry = getRegistry();
+    const runtimePatches: RuntimePatch[] = [];
 
     const trustInput = trust ?? {};
     const allowHydration =
@@ -161,6 +164,13 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
             else {
                 result.hydrated.push(storeName);
                 hydratedSources.push(storeName);
+                runtimePatches.push(
+                    createRootSetRuntimePatch({
+                        store: storeName,
+                        value: registry.stores[storeName],
+                        source: "hydrateStores",
+                    })
+                );
             }
         } else {
             const optionMap = options as Record<string, StoreOptions<any>> & { default?: StoreOptions<any> };
@@ -168,6 +178,13 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
             if (created) {
                 result.created.push(storeName);
                 hydratedSources.push(storeName);
+                runtimePatches.push(
+                    createRootSetRuntimePatch({
+                        store: storeName,
+                        value: registry.stores[storeName],
+                        source: "hydrateStores",
+                    })
+                );
             }
             else result.failed.push({
                 name: storeName,
@@ -196,6 +213,9 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
                 warn(`hydrateStores recompute for "${computedName}" failed: ${(err as { message?: string })?.message ?? err}`);
             }
         });
+    }
+    if (runtimePatches.length > 0) {
+        setLastRuntimePatches(runtimePatches, registry);
     }
     return result;
 };

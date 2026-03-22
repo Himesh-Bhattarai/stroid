@@ -24,6 +24,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./psr": {
+      "types": "./dist/psr.d.ts",
+      "import": "./dist/psr.js"
+    },
     "./core": {
       "types": "./dist/core.d.ts",
       "import": "./dist/core.js"

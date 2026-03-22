@@ -24,6 +24,7 @@ import {
     getStagedTransactionValue,
     markTransactionFailed,
 } from "./store-transaction.js";
+import { createRootSetRuntimePatch } from "./runtime-patch.js";
 import { stageOrCommitUpdate, clearSlowMutatorWarnings, forgetSlowMutatorWarning } from "./store-write-shared.js";
 
 export function deleteStore<Name extends string, State>(name: StoreDefinition<Name, State>): void;
@@ -83,12 +84,6 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
     const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
     const resetValue = deepClone(registry.initialStates[name]);
     const elapsed = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) - start;
-    const metrics = registry.metaEntries[name]?.metrics;
-    if (metrics) {
-        metrics.resetCount = (metrics.resetCount ?? 0) + 1;
-        metrics.totalResetMs = (metrics.totalResetMs ?? 0) + elapsed;
-        metrics.lastResetMs = elapsed;
-    }
 
     stageOrCommitUpdate(registry, {
         name,
@@ -97,6 +92,16 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         action: "reset",
         hookLabel: "onReset",
         logMessage: `Store "${name}" reset to initial state/value`,
+        metricsUpdate: {
+            resetElapsedMs: elapsed,
+        },
+        runtimePatches: [
+            createRootSetRuntimePatch({
+                store: name,
+                value: resetValue,
+                source: "resetStore",
+            }),
+        ],
     });
     return { ok: true };
 }

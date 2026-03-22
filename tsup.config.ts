@@ -4,6 +4,7 @@ export default defineConfig({
     tsconfig: "tsconfig.build.json",
     entry: {
         index: "src/index.ts",
+        psr: "src/psr/index.ts",
         core: "src/core/index.ts",
         "runtime-tools": "src/runtime-tools/index.ts",
         "runtime-admin": "src/runtime-admin/index.ts",

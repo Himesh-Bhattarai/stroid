@@ -8,8 +8,10 @@
  */
 import type { Expect, Equal } from "./assert.js";
 import type { PersistOptions, StoreOptions, SyncOptions } from "../../dist/index.d.ts";
+import type { RuntimePatch, RuntimePatchOp } from "../../dist/psr.d.ts";
 
 type PackageApi = typeof import("../../dist/index.d.ts");
+type PsrApi = typeof import("../../dist/psr.d.ts");
 type DevtoolsApi = typeof import("../../src/devtools/index.js");
 type RuntimeToolsApi = typeof import("../../src/runtime-tools/index.js");
 type RuntimeAdminApi = typeof import("../../src/runtime-admin/index.js");
@@ -113,6 +115,11 @@ type RootGetMetrics = PackageApi["getMetrics"];
 type RootGetAsyncMetrics = PackageApi["getAsyncMetrics"];
 type RootGetStoreHealth = PackageApi["getStoreHealth"];
 type RootFindColdStores = PackageApi["findColdStores"];
+type PsrApplyStorePatch = PsrApi["applyStorePatch"];
+type PsrApplyStorePatchesAtomic = PsrApi["applyStorePatchesAtomic"];
+type PsrGetStoreSnapshot = PsrApi["getStoreSnapshot"];
+type PsrGetTimingContract = ReturnType<PsrApi["getTimingContract"]>;
+type PsrSubscribeStore = PsrApi["subscribeStore"];
 
 type DevtoolsGetHistory = DevtoolsApi["getHistory"];
 type DevtoolsClearHistory = DevtoolsApi["clearHistory"];
@@ -132,6 +139,29 @@ void (0 as unknown as RootGetMetrics);
 void (0 as unknown as RootGetAsyncMetrics);
 void (0 as unknown as RootGetStoreHealth);
 void (0 as unknown as RootFindColdStores);
+void (0 as unknown as PsrApplyStorePatch);
+void (0 as unknown as PsrApplyStorePatchesAtomic);
+void (0 as unknown as PsrGetStoreSnapshot);
+void (0 as unknown as PsrSubscribeStore);
+const runtimePatchOp: RuntimePatchOp = "set";
+const runtimePatch: RuntimePatch = {
+  id: "patch-1",
+  store: "user",
+  path: [],
+  op: runtimePatchOp,
+  meta: {
+    timestamp: 1,
+    source: "setStore",
+  },
+};
+void runtimePatch;
+
+type PsrTimingContract = Expect<Equal<PsrGetTimingContract, {
+  simulationWindow: "pre-commit" | "pre-render" | "post-render";
+  executionModel: "sync" | "async-boundary";
+  effectScope: "in-pipeline" | "out-of-pipeline";
+}>>;
+void (0 as unknown as PsrTimingContract);
 
 type ReactUseStore = ReactApi["useStore"];
 type ReactUseSelector = ReactApi["useSelector"];

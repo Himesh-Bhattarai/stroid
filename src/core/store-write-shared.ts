@@ -19,11 +19,16 @@ import { registerTestResetHook } from "../internals/test-reset.js";
 import {
     isTransactionActive,
     stageTransactionValue,
+    stageTransactionPatches,
     registerTransactionCommit,
 } from "./store-transaction.js";
+import { setLastRuntimePatches, type RuntimePatch } from "./runtime-patch.js";
 
 export type CommitAction = "set" | "reset" | "hydrate" | "replace";
 export type CommitHookLabel = "onSet" | "onReset";
+export type CommitMetricsUpdate = {
+    resetElapsedMs?: number;
+};
 export type CommitArgs = {
     name: string;
     prev: StoreValue;
@@ -32,6 +37,8 @@ export type CommitArgs = {
     hookLabel: CommitHookLabel;
     logMessage: string;
     context?: WriteContext | null;
+    runtimePatches?: readonly RuntimePatch[];
+    metricsUpdate?: CommitMetricsUpdate;
 };
 
 const SLOW_MUTATOR_WARN_MS = 32;
@@ -68,7 +75,23 @@ export const maybeWarnSlowMutator = (storeName: string, elapsedMs: number): void
 export const resolveWriteContext = (context?: WriteContext | null): WriteContext | null =>
     context ?? getWriteContext();
 
-const commitStoreUpdate = (registry: StoreRegistry, { name, prev, next, action, hookLabel, logMessage, context }: CommitArgs): void => {
+const applyMetricsUpdate = (
+    entry: StoreRegistry["metaEntries"][string] | undefined,
+    update?: CommitMetricsUpdate
+): void => {
+    if (!entry || !update) return;
+    const resetElapsedMs = update.resetElapsedMs;
+    if (typeof resetElapsedMs === "number") {
+        entry.metrics.resetCount = (entry.metrics.resetCount ?? 0) + 1;
+        entry.metrics.totalResetMs = (entry.metrics.totalResetMs ?? 0) + resetElapsedMs;
+        entry.metrics.lastResetMs = resetElapsedMs;
+    }
+};
+
+const commitStoreUpdate = (
+    registry: StoreRegistry,
+    { name, prev, next, action, hookLabel, logMessage, context, metricsUpdate }: CommitArgs
+): void => {
     const registryMeta = registry.metaEntries;
     setStoreValueInternal(name, next, registry);
     invalidatePathCache(name);
@@ -88,6 +111,7 @@ const commitStoreUpdate = (registry: StoreRegistry, { name, prev, next, action, 
         registryMeta[name].lastTraceContext = null;
     }
     bumpUpdateCount(registryMeta[name]);
+    applyMetricsUpdate(registryMeta[name], metricsUpdate);
     runFeatureWriteHooks(name, action, prev, next, notifyStore);
     runStoreHookSafe(name, hookLabel, registryMeta[name].options[hookLabel], [prev, next]);
     notifyStore(name);
@@ -98,8 +122,12 @@ export const stageOrCommitUpdate = (registry: StoreRegistry, args: CommitArgs): 
     const resolvedContext = args.context ?? getWriteContext();
     if (isTransactionActive()) {
         stageTransactionValue(args.name, args.next);
+        stageTransactionPatches(args.runtimePatches ?? []);
         registerTransactionCommit(() => commitStoreUpdate(registry, { ...args, context: resolvedContext }));
         return;
     }
     commitStoreUpdate(registry, { ...args, context: resolvedContext });
+    if (args.runtimePatches && args.runtimePatches.length > 0) {
+        setLastRuntimePatches(args.runtimePatches, registry);
+    }
 };

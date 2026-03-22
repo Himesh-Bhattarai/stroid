@@ -8,6 +8,10 @@ Versioning: [Semantic Versioning](https://semver.org/).
 <details open>
 <summary><strong>Unreleased</strong></summary>
 
+- Added `stroid/psr` as a dedicated native PSR contract entrypoint with committed-only no-track snapshot reads, observation helpers, and explicit timing-contract reporting.
+- Added a canonical `RuntimePatch` model under the PSR surface and lowered `setStore`, `replaceStore`, `resetStore`, and `hydrateStores` into serializable runtime patch records internally.
+- Added public PSR patch-write APIs via `applyStorePatch()` and `applyStorePatchesAtomic()` for canonical `set` and root-level `merge` patches.
+- Hardened transaction commit semantics so failed batched commits roll back staged store state, reset metrics, and queued notifications, while commit-phase feature hook errors no longer break atomic batches.
 - Breaking: changed `stroid/persist`, `stroid/sync`, and `stroid/devtools` to side-effect-free modules that export explicit installers (`installPersist`, `installSync`, `installDevtools`) instead of auto-registering on import.
 - Updated package exports, docs, and feature-install guidance to make optional feature registration explicit and more tree-shakeable.
 - Stopped publishing `.map` source maps in the npm tarball to reduce package weight while keeping local build/debug output unchanged.

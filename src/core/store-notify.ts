@@ -12,6 +12,7 @@ import { beginTransaction, endTransaction, isTransactionActive } from "./store-t
 import { registerTestResetHook } from "../internals/test-reset.js";
 import {
     hasStoreEntryInternal,
+    getCommittedStoreValueRef,
     getStoreValueRef,
     recordStoreRead,
     getRegistry,
@@ -113,15 +114,23 @@ export const subscribeInternal = subscribeStore;
 /** @deprecated Use subscribeStore instead. */
 export const subscribe = subscribeStore;
 
-export const getStoreSnapshot = (name: string): StoreValue | null => {
+const readStoreSnapshot = (
+    name: string,
+    options: {
+        trackRead: boolean;
+        committedOnly: boolean;
+    }
+): StoreValue | null => {
     if (!hasStoreEntryInternal(name)) return null;
     const registry = getRegistry();
-    recordStoreRead(name, registry);
+    if (options.trackRead) {
+        recordStoreRead(name, registry);
+    }
     const snapshotMode = resolveSnapshotMode(
         registry.metaEntries[name],
         getConfig().defaultSnapshotMode
     );
-    if (isTransactionActive()) {
+    if (!options.committedOnly && isTransactionActive()) {
         const txCache = registry.transaction.snapshotCache;
         const source = getStoreValueRef(name);
         if (source === undefined) return null;
@@ -138,7 +147,9 @@ export const getStoreSnapshot = (name: string): StoreValue | null => {
     }
 
     const version = registry.notify.flushId;
-    const source = getStoreValueRef(name, registry);
+    const source = options.committedOnly
+        ? getCommittedStoreValueRef(name, registry)
+        : getStoreValueRef(name, registry);
     const cached = registry.snapshotCache[name];
     if (cached && cached.source === source && cached.mode === snapshotMode) {
         const snap = cached.snapshot;
@@ -151,6 +162,12 @@ export const getStoreSnapshot = (name: string): StoreValue | null => {
     registry.snapshotCache[name] = { version, snapshot, source, mode: snapshotMode };
     return snapshot;
 };
+
+export const getStoreSnapshot = (name: string): StoreValue | null =>
+    readStoreSnapshot(name, { trackRead: true, committedOnly: false });
+
+export const getStoreSnapshotNoTrack = (name: string): StoreValue | null =>
+    readStoreSnapshot(name, { trackRead: false, committedOnly: true });
 // Backward compat alias
 /** @deprecated Use getStoreSnapshot instead. */
 export const getSnapshot = getStoreSnapshot;

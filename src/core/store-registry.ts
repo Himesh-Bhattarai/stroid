@@ -13,6 +13,7 @@ import {
     type StoreFeatureMeta,
     type StoreFeatureRuntime,
 } from "../features/feature-registry.js";
+import type { RuntimePatch } from "./runtime-patch.js";
 import type { AsyncRegistry } from "../async/registry.js";
 import { createAsyncRegistry, resetAsyncRegistry } from "../async/registry.js";
 import { registerTestResetHook } from "../internals/test-reset.js";
@@ -37,6 +38,7 @@ export type TransactionState = {
     pending: Array<() => void>;
     stagedValues: Map<string, RegistryStoreValue>;
     snapshotCache: Map<string, TransactionSnapshotEntry>;
+    runtimePatches: RuntimePatch[];
     failed: boolean;
     error?: Error;
 };
@@ -80,6 +82,7 @@ export type StoreRegistry = {
     computedEntries: Record<string, ComputedEntry>;
     computedDependents: Record<string, Set<string>>;
     computedCleanups: Map<string, () => void>;
+    lastRuntimePatches: RuntimePatch[];
     transaction: TransactionState;
     async: AsyncRegistry;
     notify: NotifyState;
@@ -155,6 +158,7 @@ export const createTransactionState = (): TransactionState => ({
     pending: [],
     stagedValues: new Map(),
     snapshotCache: new Map(),
+    runtimePatches: [],
     failed: false,
     error: undefined,
 });
@@ -173,6 +177,7 @@ export const createStoreRegistry = (scope: RegistryScope = "default"): StoreRegi
         computedEntries: Object.create(null),
         computedDependents: Object.create(null),
         computedCleanups: new Map(),
+        lastRuntimePatches: [],
         transaction: createTransactionState(),
         async: createAsyncRegistry(),
         notify: createNotifyState(),
@@ -221,8 +226,10 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
     registry.transaction.pending = [];
     registry.transaction.stagedValues.clear();
     registry.transaction.snapshotCache.clear();
+    registry.transaction.runtimePatches.length = 0;
     registry.transaction.failed = false;
     registry.transaction.error = undefined;
+    registry.lastRuntimePatches.length = 0;
     resetNotifyState(registry.notify);
     resetAsyncRegistry(registry.async);
     registry.lifecycleListener = null;
@@ -265,8 +272,10 @@ export const resetAllStoreRegistriesForTests = (): void => {
         registry.transaction.pending = [];
         registry.transaction.stagedValues.clear();
         registry.transaction.snapshotCache.clear();
+        registry.transaction.runtimePatches.length = 0;
         registry.transaction.failed = false;
         registry.transaction.error = undefined;
+        registry.lastRuntimePatches.length = 0;
         resetNotifyState(registry.notify);
         resetAsyncRegistry(registry.async);
     });
