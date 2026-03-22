@@ -62,9 +62,9 @@ Each row is independent. Use only what you need.
 - `stroid/async`: `fetchStore`, cache, retry, revalidate helpers.
 - `stroid/selectors`: `createSelector`, `subscribeWithSelector`.
 - `stroid/computed`: `createComputed`, `invalidateComputed`, `deleteComputed`, `isComputedStore`.
-- `stroid/persist`: Side-effect registration for persistence (localStorage/sessionStorage). Not tree-shakeable.
-- `stroid/sync`: Side-effect registration for BroadcastChannel sync. Not tree-shakeable.
-- `stroid/devtools`: Side-effect registration for Redux DevTools bridge. Not tree-shakeable.
+- `stroid/persist`: Explicit persistence installer (`installPersist`) and related types. Side-effect free.
+- `stroid/sync`: Explicit sync installer (`installSync`) and related types. Side-effect free.
+- `stroid/devtools`: Explicit devtools installer (`installDevtools`) plus history helpers. Side-effect free.
 - `stroid/server`: SSR registry helpers (`createStoreForRequest`).
 - `stroid/helpers`: Entity/list/counter store helpers.
 - `stroid/runtime-tools`: Observability and diagnostics.
@@ -121,13 +121,15 @@ import { createSelector, subscribeWithSelector } from "stroid/selectors"
 import { createComputed, invalidateComputed,
          deleteComputed, isComputedStore }       from "stroid/computed"
 
-// Features (side-effect imports — register once at app entry)
-import "stroid/persist"
-import "stroid/sync"
-import "stroid/devtools"
+// Features (explicit install — call once at app entry)
+import { installPersist } from "stroid/persist"
+import { installSync } from "stroid/sync"
+import { installDevtools } from "stroid/devtools"
 
-// Note: stroid/persist and stroid/sync are side-effect entrypoints only.
-// All types live on the main "stroid" entry.
+installPersist()
+installSync()
+installDevtools()
+
 
 // Server / SSR
 import { createStoreForRequest } from "stroid/server"
@@ -144,7 +146,7 @@ import { listStores, getStoreMeta, getMetrics,
          getPersistQueueDepth }                  from "stroid/runtime-tools"
 import { clearAllStores, clearStores }           from "stroid/runtime-admin"
 
-// Devtools API (after `import "stroid/devtools"`)
+// Devtools API (after installDevtools())
 import { getHistory, clearHistory } from "stroid/devtools"
 
 // Config

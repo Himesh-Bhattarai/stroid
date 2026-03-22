@@ -80,14 +80,6 @@
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react/index.js"
     },
-    "./vue": {
-      "types": "./dist/vue/index.d.ts",
-      "import": "./dist/vue/index.js"
-    },
-    "./svelte": {
-      "types": "./dist/svelte/index.d.ts",
-      "import": "./dist/svelte/index.js"
-    },
     "./testing": {
       "types": "./dist/testing.d.ts",
       "import": "./dist/testing.js"
@@ -96,7 +88,10 @@
   },
   "types": "dist/index.d.ts",
   "files": [
-    "dist",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.cts",
+    "dist/**/*.json",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -110,13 +105,7 @@
   },
   "homepage": "https://github.com/Himesh-Bhattarai/stroid#readme",
   "sideEffects": [
-    "./src/persist.ts",
-    "./src/sync.ts",
-    "./src/devtools/index.ts",
-    "./src/core/store-notify.ts",
-    "./dist/persist.js",
-    "./dist/sync.js",
-    "./dist/devtools.js"
+    "./src/core/store-notify.ts"
   ],
   "scripts": {
     "test": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",

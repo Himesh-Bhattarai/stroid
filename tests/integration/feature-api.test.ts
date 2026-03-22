@@ -49,6 +49,57 @@ test("installPersist enables persist when strictMissingFeatures is on", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("pure feature entrypoints require explicit install", () => {
+  const configPath = path.join(repoRoot, "src", "config.ts");
+  const persistPath = path.join(repoRoot, "src", "persist.ts");
+  const syncPath = path.join(repoRoot, "src", "sync.ts");
+  const devtoolsPath = path.join(repoRoot, "src", "devtools", "index.ts");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
+    const persist = await import(pathToFileURL(${JSON.stringify(persistPath)}).href);
+    const sync = await import(pathToFileURL(${JSON.stringify(syncPath)}).href);
+    const devtools = await import(pathToFileURL(${JSON.stringify(devtoolsPath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    config.configureStroid({ strictMissingFeatures: true });
+
+    assert.throws(() => {
+      store.createStore("persistPure", { value: 1 }, { persist: true });
+    }, /not registered/);
+
+    assert.throws(() => {
+      store.createStore("syncPure", { value: 1 }, { sync: { channel: "pure-sync", policy: "insecure" } });
+    }, /not registered/);
+
+    assert.throws(() => {
+      store.createStore("devtoolsPure", { value: 1 }, { devtools: true });
+    }, /not registered/);
+
+    persist.installPersist();
+    sync.installSync();
+    devtools.installDevtools();
+
+    assert.doesNotThrow(() => {
+      store.createStore("persistPureOk", { value: 1 }, { persist: true });
+    });
+
+    assert.doesNotThrow(() => {
+      store.createStore("syncPureOk", { value: 1 }, { sync: { channel: "pure-sync", policy: "insecure" } });
+    });
+
+    assert.doesNotThrow(() => {
+      store.createStore("devtoolsPureOk", { value: 1 }, { devtools: true });
+    });
+  `;
+
+  const result = runScript(script);
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("public feature API registers custom features and forwards feature options", () => {
   const featurePath = path.join(repoRoot, "src", "feature.ts");
   const storePath = path.join(repoRoot, "src", "store.ts");

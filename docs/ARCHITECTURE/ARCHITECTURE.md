@@ -6,7 +6,7 @@
 
 Stroid is a named-store state engine. Its defining characteristic is that every store has a string name. This name is the address of the store — used for reading, writing, subscribing, persisting, syncing, computing, and debugging.
 
-The system is layered: a small mandatory core, and a set of optional feature modules that register themselves via side-effect imports. No optional feature adds overhead to stores that do not use it.
+The system is layered: a small mandatory core, and a set of optional feature modules that register themselves explicitly. No optional feature adds overhead to stores that do not use it.
 
 ---
 
@@ -154,7 +154,7 @@ Optional features (persist, sync, devtools) register themselves through `registe
 | `onStoreWrite` | After each committed write | persist (save), sync (broadcast), devtools (record history) |
 | `beforeStoreDelete` | Before `deleteStore` removes the store | persist (cleanup), sync (unsub), async (cancel inflight) |
 
-Features are opt-in. If `persist: true` is set on a store but `import "stroid/persist"` was never called, Stroid warns (or throws with `strictMissingFeatures: true`).
+Features are opt-in. If `persist: true` is set on a store but `installPersist()` was never called, Stroid warns (or throws with `strictMissingFeatures: true`).
 
 ---
 
