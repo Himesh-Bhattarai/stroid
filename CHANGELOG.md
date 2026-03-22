@@ -6,7 +6,16 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ---
 <details open>
-<summary><strong>Unreleased Changes: Set to release on 3-22-2026, Late Night</strong></summary>
+<summary><strong>Unreleased</strong></summary>
+
+- No unreleased changes yet.
+
+</details>
+
+---
+
+<details open>
+<summary><strong>v0.1.3 â€” 2026-03-22</strong></summary>
 
 - Fixed async rate limiting so `fetchStore(..., { cacheKey })` is throttled per `cacheSlot` instead of incorrectly sharing one counter across the whole store name.
 - Fixed `createSelector` dependency tracking for object-valued reads so cached selector results no longer go stale when object references change without primitive leaf access.

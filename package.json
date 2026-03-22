@@ -1,6 +1,6 @@
 {
   "name": "stroid",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "SSR-Safe, Named-store state engine for JavaScript/React with optional persistence, async caching, sync, and devtools.",
   "keywords": [
     "state-management",
