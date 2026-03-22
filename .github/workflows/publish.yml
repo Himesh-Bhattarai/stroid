@@ -1,11 +1,31 @@
 name: Publish
 
 on:
-  push:
+  pull_request:
     branches: ["main"]
+  workflow_dispatch:
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "npm"
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:types
+      - run: npm run typecheck
+      - run: npm run build
+
   publish:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,9 +38,6 @@ jobs:
           cache: "npm"
           registry-url: "https://registry.npmjs.org"
       - run: npm ci
-      - run: npm test
-      - run: npm run test:types
-      - run: npm run typecheck
       - run: npm run build
       - name: Read package version
         id: package

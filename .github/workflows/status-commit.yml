@@ -2,8 +2,6 @@ name: status-commit
 
 on:
   push:
-  pull_request:
-    types: [opened, synchronize, edited, reopened]
 
 jobs:
   lint:
@@ -37,14 +35,3 @@ jobs:
             fi
           done <<<"$commits"
           exit $failed
-
-      - name: Validate PR title
-        if: ${{ github.event_name == 'pull_request' }}
-        shell: bash
-        run: |
-          regex='^[[:space:]]*(STATUS|Status|status)\(((infinity)|([0-9]{3}))\)[[:space:]]*:[[:space:]]+.+' 
-          title="${{ github.event.pull_request.title }}"
-          if ! echo "$title" | grep -Eq "$regex"; then
-            echo "::error title=Bad PR title::Title must start with STATUS(code): message"
-            exit 1
-          fi
