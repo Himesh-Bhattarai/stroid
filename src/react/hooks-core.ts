@@ -237,7 +237,8 @@ export function useStore<T = unknown, R = unknown>(
                 selectorIdentityWarned.current = true;
                 warn(
                     `useStore("${storeName}") selector was recreated between renders. ` +
-                    `This can cause repeated subscriptions. Wrap the selector in useCallback or define it outside the component.`
+                    `This can cause extra selector work and reduce selector cache reuse. ` +
+                    `Wrap the selector in useCallback or define it outside the component.`
                 );
             }
             prevSelectorRef.current = selector;
@@ -320,7 +321,7 @@ export function useSelector<T = unknown, R = unknown>(
             selectorIdentityWarned.current = true;
             warn(
                 `useSelector("${resolvedName}") selector was recreated between renders. ` +
-                `Wrap it in useCallback or define it outside the component to avoid resubscribe churn.`
+                `Wrap it in useCallback or define it outside the component to reduce selector churn and preserve selector cache reuse.`
             );
         }
         prevSelectorRef.current = selectorFn;
