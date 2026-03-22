@@ -41,7 +41,9 @@ jobs:
       - run: npm run build
       - name: Read package version
         id: package
-        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          version=$(node -e "console.log(JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version)")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Check if version exists on npm
         id: npm_check
         run: |
