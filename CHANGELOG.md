@@ -8,14 +8,17 @@ Versioning: [Semantic Versioning](https://semver.org/).
 <details open>
 <summary><strong>Unreleased</strong></summary>
 
-- No unreleased changes yet.
+- Breaking: changed `stroid/persist`, `stroid/sync`, and `stroid/devtools` to side-effect-free modules that export explicit installers (`installPersist`, `installSync`, `installDevtools`) instead of auto-registering on import.
+- Updated package exports, docs, and feature-install guidance to make optional feature registration explicit and more tree-shakeable.
+- Stopped publishing `.map` source maps in the npm tarball to reduce package weight while keeping local build/debug output unchanged.
+- Removed dead `./vue` and `./svelte` package exports that did not have built output behind them.
 
 </details>
 
 ---
 
-<details open>
-<summary><strong>v0.1.3 â€” 2026-03-22</strong></summary>
+<details>
+<summary><strong>0.1.3 --> 2026-03-22</strong></summary>
 
 - Fixed async rate limiting so `fetchStore(..., { cacheKey })` is throttled per `cacheSlot` instead of incorrectly sharing one counter across the whole store name.
 - Fixed `createSelector` dependency tracking for object-valued reads so cached selector results no longer go stale when object references change without primitive leaf access.
@@ -40,7 +43,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 
 <details>
-<summary><strong>v0.1.2 — 2026-03-19</strong></summary>
+<summary><strong>0.1.2 --> 2026-03-19</strong></summary>
 > **Note:** This release contains breaking changes to the `stroid/core` export surface and hydration defaults to improve bundle size and security.
 
 - `hydrateStores` now requires an explicit trust argument at the TypeScript level (compile-time enforcement).
@@ -138,7 +141,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 ---
 
 <details>
-<summary><strong>0.1.1 — 2026-03-15</strong></summary>
+<summary><strong>0.1.1 --> 2026-03-15</strong></summary>
 
 ### Breaking
 
@@ -175,7 +178,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 ---
 
 <details>
-<summary><strong>0.1.0 — 2026-03-14</strong></summary>
+<summary><strong>0.1.0 --> 2026-03-14</strong></summary>
 
 ### Added
 
@@ -209,7 +212,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 ---
 
 <details>
-<summary><strong>0.0.4 — 2026-03-06</strong></summary>
+<summary><strong>0.0.4 --> 2026-03-06</strong></summary>
 
 ### Added
 
@@ -232,7 +235,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 ---
 
 <details>
-<summary><strong>0.0.3 — 2026-03-04</strong></summary>
+<summary><strong>0.0.3 --> 2026-03-04</strong></summary>
 
 ### Fixed
 
@@ -249,7 +252,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 ---
 
 <details>
-<summary><strong>0.0.2 — 2026-03-03</strong></summary>
+<summary><strong>0.0.2 --> 2026-03-03</strong></summary>
 
 ### Added
 
@@ -267,7 +270,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 ---
 
 <details>
-<summary><strong>0.0.1 — Initial Release</strong></summary>
+<summary><strong>0.0.1 --> Initial Release</strong></summary>
 
 - tsup-minified ESM bundles with subpath outputs.
 - `useStore` selector overload with dev warning on broad subscriptions.

@@ -8,9 +8,12 @@
  */
 import assert from "node:assert";
 import test from "node:test";
-import "../../src/sync.js";
-import "../../src/devtools/index.js";
+import { installSync } from "../../src/sync.js";
+import { installDevtools } from "../../src/devtools/index.js";
 import { withMockedTime } from "../../src/helpers/testing.js";
+
+installSync();
+installDevtools();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 

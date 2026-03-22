@@ -8,11 +8,14 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import "../../src/sync.js";
-import "../../src/persist.js";
+import { installSync } from "../../src/sync.js";
+import { installPersist } from "../../src/persist.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 import { createStore, setStore, getStore, deleteStore } from "../../src/store.js";
 import { hashState } from "../../src/utils.js";
+
+installSync();
+installPersist();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 

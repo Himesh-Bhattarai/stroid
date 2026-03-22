@@ -265,7 +265,8 @@ test("computed", async (t) => {
   });
 
   await runCase(t, "computed updates even when base store uses persist", async () => {
-    await import("../../src/persist.js");
+    const { installPersist } = await import("../../src/persist.js");
+    installPersist();
     const writes: string[] = [];
     const driver = {
       getItem: () => null,

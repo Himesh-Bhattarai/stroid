@@ -300,7 +300,7 @@ export async function fetchStore(
     const nowTs = Date.now();
     pruneRateCounters(nowTs);
     scheduleRatePrune();
-    if (registerRateHit(name, nowTs)) {
+    if (registerRateHit(cacheSlot, nowTs)) {
         return reportAsyncUsageError(
             name,
             `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for store "${name}".`,

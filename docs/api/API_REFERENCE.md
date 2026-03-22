@@ -704,7 +704,7 @@ Removes stores matching a `"prefix*"` pattern. Clears the path validation cache.
 
 ## Devtools — `stroid/devtools`
 
-> Import `"stroid/devtools"` once at app entry (side-effect import). This registers the devtools feature globally.
+> Call `installDevtools()` from `"stroid/devtools"` once at app entry.
 
 ### `getHistory(name, options?)`
 

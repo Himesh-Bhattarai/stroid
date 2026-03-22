@@ -10,7 +10,7 @@
 import { fetchStore, refetchStore, enableRevalidateOnFocus } from "stroid/async"
 ```
 
-No side-effect import is required for `stroid/async` — it is a regular module (unlike `stroid/persist`, `stroid/sync`, and `stroid/devtools`).
+No side-effect import is required for `stroid/async` — it is a regular module. Optional features such as `stroid/persist`, `stroid/sync`, and `stroid/devtools` are also regular modules now; register them explicitly with `installPersist()`, `installSync()`, or `installDevtools()` .
 
 ---
 
@@ -186,3 +186,4 @@ configureStroid({ autoCorrelationIds: true })
 ```
 
 When enabled, each `fetchStore` call attaches a correlation ID and optional trace context to the write. These are visible in `getStoreHealth(name).async.lastCorrelationId`.
+

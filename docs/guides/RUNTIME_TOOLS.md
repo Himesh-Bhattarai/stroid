@@ -145,10 +145,13 @@ clearStores("session*")     // remove stores matching prefix
 
 ```ts
 // main.tsx — once at app entry
-import "stroid/devtools"
+import { installDevtools } from "stroid/devtools"
+
+installDevtools()
 ```
 
 This registers the devtools feature. Stores with `devtools: true` (or `devtools: { historyLimit, redactor }`) will record write history.
+
 
 ### Enable on a Store
 

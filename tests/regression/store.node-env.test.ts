@@ -155,9 +155,10 @@ test("sync blocks unauthenticated stores in production unless explicitly insecur
     const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
     const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
     const tools = await import(pathToFileURL(${JSON.stringify(runtimePath)}).href);
-    await import(pathToFileURL(${JSON.stringify(syncPath)}).href);
+    const { installSync } = await import(pathToFileURL(${JSON.stringify(syncPath)}).href);
 
     config.configureStroid({ logSink: { critical: () => {} } });
+    installSync();
 
     globalThis.window = { addEventListener: () => {}, removeEventListener: () => {} };
     globalThis.BroadcastChannel = class {
@@ -298,9 +299,9 @@ test("history snapshots stay immutable in production", () => {
   const script = `
     const assert = (await import("node:assert")).default;
     const { pathToFileURL } = await import("node:url");
-    await import(pathToFileURL(${JSON.stringify(devtoolsPath)}).href);
     const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
     const devtools = await import(pathToFileURL(${JSON.stringify(devtoolsPath)}).href);
+    devtools.installDevtools();
 
     store.createStore("user", { profile: { color: "blue" } }, { allowSSRGlobalStore: true, snapshot: "deep" });
     store.setStore("user", { profile: { color: "green" } });

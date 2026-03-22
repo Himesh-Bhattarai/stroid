@@ -6,12 +6,15 @@
 
 ## Setup
 
-Add a side-effect import **once** at your app entry point. Without it, any store with `persist` options silently does nothing (or throws with `strictMissingFeatures: true`).
+Install the persist feature **once** at your app entry point. Without it, any store with `persist` options silently does nothing (or throws with `strictMissingFeatures: true`).
 
 ```ts
 // main.tsx or app entry
-import "stroid/persist"
+import { installPersist } from "stroid/persist"
+
+installPersist()
 ```
+
 
 ---
 
@@ -19,7 +22,9 @@ import "stroid/persist"
 
 ```ts
 import { createStore } from "stroid"
-import "stroid/persist"
+import { installPersist } from "stroid/persist"
+
+installPersist()
 
 createStore("settings", { theme: "dark", lang: "en" }, {
   persist: true  // persists to localStorage with key "stroid_settings"

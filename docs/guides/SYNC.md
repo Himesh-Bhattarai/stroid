@@ -6,14 +6,17 @@
 
 ## Setup
 
-Add a side-effect import **once** at app entry:
+Install the sync feature **once** at app entry:
 
 ```ts
 // main.tsx
-import "stroid/sync"
+import { installSync } from "stroid/sync"
+
+installSync()
 ```
 
-Without this import, any store with `sync` options silently does nothing (or throws with `strictMissingFeatures: true`).
+Without this install, any store with `sync` options silently does nothing (or throws with `strictMissingFeatures: true`).
+
 
 ---
 
@@ -21,7 +24,9 @@ Without this import, any store with `sync` options silently does nothing (or thr
 
 ```ts
 import { createStore } from "stroid"
-import "stroid/sync"
+import { installSync } from "stroid/sync"
+
+installSync()
 
 createStore("presence", { online: true }, {
   sync: {
@@ -129,8 +134,11 @@ sync: {
 ## Persist + Sync Together
 
 ```ts
-import "stroid/persist"
-import "stroid/sync"
+import { installPersist } from "stroid/persist"
+import { installSync } from "stroid/sync"
+
+installPersist()
+installSync()
 
 createStore("settings", { theme: "dark" }, {
   persist: { key: "app-settings", allowPlaintext: true },
