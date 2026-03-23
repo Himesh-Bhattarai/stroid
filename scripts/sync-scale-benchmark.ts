@@ -1,6 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { pathToFileURL } from "node:url";
-import "../src/sync.js";
+import { installSync } from "../src/install.js";
 
 type SyncRow = {
   peers: number;
@@ -188,6 +188,7 @@ const benchConflictDeterminism = async () => {
 };
 
 const main = async () => {
+  installSync();
   console.log(
     JSON.stringify(
       {

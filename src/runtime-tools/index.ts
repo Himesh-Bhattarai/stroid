@@ -22,9 +22,14 @@ import {
     getFullComputedGraph,
     getComputedDepsFor,
     getComputedDescriptor as getComputedDescriptorById,
+    getRuntimeComputedGraph,
     evaluateComputedFromSnapshot,
 } from "../computed/computed-graph.js";
-import type { ComputedDescriptor, RuntimeNodeId } from "../computed/types.js";
+import type {
+    ComputedDescriptor,
+    RuntimeGraph,
+    RuntimeNodeId,
+} from "../computed/types.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
 
@@ -204,6 +209,8 @@ export const getPersistQueueDepth = (name: string): number => {
 
 export const getComputedGraph = () => getFullComputedGraph();
 
+export const getRuntimeGraph = (): RuntimeGraph => getRuntimeComputedGraph();
+
 export const getComputedDeps = (name: string) => getComputedDepsFor(name);
 
 export const getComputedDescriptor = (nodeId: RuntimeNodeId): ComputedDescriptor | null =>
@@ -214,6 +221,16 @@ export const evaluateComputed = (
     snapshot: Record<string, unknown>
 ): unknown => evaluateComputedFromSnapshot(nodeId, snapshot);
 
-export type { ComputedClassification, ComputedDescriptor, RuntimeNodeId } from "../computed/types.js";
+export type {
+    ComputedClassification,
+    ComputedDescriptor,
+    RuntimeEdgeType,
+    RuntimeGraph,
+    RuntimeGraphEdge,
+    RuntimeGraphGranularity,
+    RuntimeGraphNode,
+    RuntimeNodeId,
+    RuntimeNodeType,
+} from "../computed/types.js";
 
 

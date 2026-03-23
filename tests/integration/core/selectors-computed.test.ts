@@ -20,8 +20,12 @@ import {
   getFullComputedGraph,
   getComputedDepsFor,
   getComputedDescriptor,
+  getRuntimeComputedGraph,
   evaluateComputedFromSnapshot,
 } from "../../../src/computed/computed-graph.js";
+
+const parseNodeId = (nodeId: string): [string, string, Array<string | number>] =>
+  JSON.parse(nodeId) as [string, string, Array<string | number>];
 
 test("selectors handle invalid inputs and snapshot modes", async () => {
   clearAllStores();
@@ -116,24 +120,56 @@ test("computed graph descriptors and snapshot evaluation stay conservative", () 
   registerComputed("boundaryNode", ["source"], (value) => value, "asyncBoundary");
 
   try {
-    assert.deepStrictEqual(getComputedDescriptor("baseDet"), {
-      id: "baseDet",
+    const baseDescriptor = getComputedDescriptor("baseDet");
+    const opaqueDescriptor = getComputedDescriptor("defaultOpaque");
+    const boundaryDescriptor = getComputedDescriptor("boundaryNode");
+    assert.ok(baseDescriptor);
+    assert.ok(opaqueDescriptor);
+    assert.ok(boundaryDescriptor);
+
+    assert.deepStrictEqual(parseNodeId(baseDescriptor!.id), ["computed", "baseDet", []]);
+    assert.deepStrictEqual(parseNodeId(baseDescriptor!.dependencies[0]), ["leaf", "source", []]);
+    assert.deepStrictEqual(baseDescriptor, {
+      id: baseDescriptor!.id,
       storeId: "baseDet",
       path: [],
-      dependencies: ["source"],
+      dependencies: [baseDescriptor!.dependencies[0]],
+      nodeType: "computed",
       classification: "deterministic",
     });
-    assert.strictEqual(getComputedDescriptor("defaultOpaque")?.classification, "opaque");
-    assert.deepStrictEqual(getComputedDescriptor("boundaryNode"), {
-      id: "boundaryNode",
+    assert.strictEqual(getComputedDescriptor(baseDescriptor!.id)?.id, baseDescriptor!.id);
+    assert.strictEqual(opaqueDescriptor?.classification, "opaque");
+    assert.strictEqual(opaqueDescriptor?.nodeType, "computed");
+    assert.deepStrictEqual(parseNodeId(boundaryDescriptor!.id), ["async-boundary", "boundaryNode", []]);
+    assert.deepStrictEqual(boundaryDescriptor, {
+      id: boundaryDescriptor!.id,
       storeId: "boundaryNode",
       path: [],
-      dependencies: ["source"],
+      dependencies: [boundaryDescriptor!.dependencies[0]],
+      nodeType: "async-boundary",
       classification: "asyncBoundary",
       asyncBoundary: true,
     });
 
+    const runtimeGraph = getRuntimeComputedGraph();
+    assert.strictEqual(runtimeGraph.granularity, "store");
+    assert.ok(runtimeGraph.nodes.some((node) =>
+      node.id === baseDescriptor!.id
+      && node.storeId === "baseDet"
+      && node.type === "computed"
+    ));
+    assert.ok(runtimeGraph.nodes.some((node) =>
+      node.id === baseDescriptor!.dependencies[0]
+      && node.storeId === "source"
+      && node.type === "leaf"
+    ));
+    assert.ok(runtimeGraph.edges.some((edge) =>
+      edge.from === baseDescriptor!.dependencies[0]
+      && edge.to === baseDescriptor!.id
+      && edge.type === "leaf-input"
+    ));
     assert.strictEqual(evaluateComputedFromSnapshot("baseDet", { source: 3 }), 6);
+    assert.strictEqual(evaluateComputedFromSnapshot(baseDescriptor!.id, { source: 3 }), 6);
     assert.strictEqual(evaluateComputedFromSnapshot("safeDet", { source: 9, safeDet: 4 }), 4);
     assert.throws(() => evaluateComputedFromSnapshot("defaultOpaque", { source: 1 }), /deterministic/i);
     assert.throws(() => evaluateComputedFromSnapshot("missingNode", { source: 1 }), /descriptor/i);

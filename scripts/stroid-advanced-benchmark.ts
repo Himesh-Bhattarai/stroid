@@ -10,8 +10,7 @@ import {
 import { subscribeWithSelector } from "../src/selectors.js";
 import { listStores } from "../src/runtime-tools.js";
 import { fetchStore } from "../src/async.js";
-import "../src/sync.js";
-import "../src/devtools/index.js";
+import { installDevtools, installSync } from "../src/install.js";
 
 type ScaleRow = {
   count: number;
@@ -531,6 +530,8 @@ const resolveRunMode = (): RunMode => {
 };
 
 const main = async () => {
+  installSync();
+  installDevtools();
   const runMode = resolveRunMode();
   const skippedSections: string[] = [];
 

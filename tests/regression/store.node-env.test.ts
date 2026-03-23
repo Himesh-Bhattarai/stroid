@@ -118,6 +118,68 @@ test("allowSSRGlobalStore warns in production server", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("createComputed inherits global SSR opt-in from dependencies in production", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const computedPath = path.join(repoRoot, "src", "computed", "index.ts");
+  const runtimePath = path.join(repoRoot, "src", "runtime-tools", "index.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const computed = await import(pathToFileURL(${JSON.stringify(computedPath)}).href);
+    const runtime = await import(pathToFileURL(${JSON.stringify(runtimePath)}).href);
+
+    store.createStore("ssrBase", { value: 2 }, { scope: "global" });
+    const derived = computed.createComputed("ssrDerived", ["ssrBase"], (base) => (base?.value ?? 0) * 2);
+
+    assert.ok(derived);
+    assert.strictEqual(store.getStore("ssrDerived"), 4);
+    assert.strictEqual(runtime.getStoreMeta("ssrDerived")?.options.scope, "global");
+    assert.strictEqual(runtime.getStoreMeta("ssrDerived")?.options.allowSSRGlobalStore, true);
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("createComputed fails cleanly in unsupported production global SSR scope", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const computedPath = path.join(repoRoot, "src", "computed", "index.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const computed = await import(pathToFileURL(${JSON.stringify(computedPath)}).href);
+
+    const orphan = computed.createComputed("ssrOrphan", ["missingDep"], () => 1);
+
+    assert.strictEqual(orphan, undefined);
+    assert.strictEqual(store.hasStore("ssrOrphan"), false);
+    assert.strictEqual(computed.isComputedStore("ssrOrphan"), false);
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("setStoreBatch throws in production global SSR scope", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
   const storePath = path.join(repoRoot, "src", "store.ts");

@@ -8,7 +8,7 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import { installPersist } from "../../../src/install.js";
+import { installPersist, installSync } from "../../../src/install.js";
 import { createComputed } from "../../../src/computed/index.js";
 import { clearAllStores } from "../../../src/runtime-admin/index.js";
 import { getStoreMeta } from "../../../src/runtime-tools/index.js";
@@ -24,6 +24,9 @@ import {
   subscribeStore,
   evaluateComputed,
 } from "../../../src/psr/index.js";
+
+const parseNodeId = (nodeId: string): [string, string, Array<string | number>] =>
+  JSON.parse(nodeId) as [string, string, Array<string | number>];
 
 test("psr snapshots stay no-track and committed-only", () => {
   clearAllStores();
@@ -69,29 +72,80 @@ test("psr subscriptions fire after commit with the final batched snapshot", asyn
 test("psr timing contract reflects runtime sync vs async boundaries", () => {
   clearAllStores();
   installPersist();
+  installSync();
 
-  createStore("psrSync", { value: 1 });
+  createStore("psrPlain", { value: 1 });
   createStore("psrAsync", { value: 1 }, {
     persist: {
       encryptAsync: async (value) => value,
       decryptAsync: async (value) => value,
     },
   });
+  createStore("psrShared", { value: 1 }, {
+    sync: {
+      channel: "psr-timing",
+      policy: "insecure",
+    },
+  });
+  createStore("psrSource", { value: 1 });
+  createComputed("psrBoundaryTiming", ["psrSource"], (value) => value, {
+    classification: "asyncBoundary",
+  });
 
-  assert.deepStrictEqual(getTimingContract("psrSync"), {
+  assert.deepStrictEqual(getTimingContract("psrPlain"), {
     simulationWindow: "pre-commit",
     executionModel: "sync",
     effectScope: "out-of-pipeline",
+    governanceMode: "full-governor",
+    mutationAuthority: "exclusive",
+    causalityBoundary: "none",
+    reasons: [],
   });
   assert.deepStrictEqual(getTimingContract("psrAsync"), {
     simulationWindow: "pre-commit",
     executionModel: "async-boundary",
     effectScope: "in-pipeline",
+    governanceMode: "bounded-governor",
+    mutationAuthority: "exclusive",
+    causalityBoundary: "async-boundary",
+    reasons: [
+      "persist for \"psrAsync\" introduces async boundary work",
+    ],
+  });
+  assert.deepStrictEqual(getTimingContract("psrShared"), {
+    simulationWindow: "pre-commit",
+    executionModel: "async-boundary",
+    effectScope: "in-pipeline",
+    governanceMode: "observer",
+    mutationAuthority: "shared",
+    causalityBoundary: "async-boundary",
+    reasons: [
+      "sync for \"psrShared\" can apply remote writes outside the local commit path",
+    ],
+  });
+  assert.deepStrictEqual(getTimingContract("psrSource"), {
+    simulationWindow: "pre-commit",
+    executionModel: "async-boundary",
+    effectScope: "out-of-pipeline",
+    governanceMode: "bounded-governor",
+    mutationAuthority: "exclusive",
+    causalityBoundary: "async-boundary",
+    reasons: [
+      "downstream computed node \"psrBoundaryTiming\" is marked asyncBoundary",
+    ],
   });
   assert.deepStrictEqual(getTimingContract(), {
     simulationWindow: "pre-commit",
     executionModel: "async-boundary",
     effectScope: "in-pipeline",
+    governanceMode: "observer",
+    mutationAuthority: "shared",
+    causalityBoundary: "async-boundary",
+    reasons: [
+      "computed node \"psrBoundaryTiming\" is marked asyncBoundary",
+      "persist for \"psrAsync\" introduces async boundary work",
+      "sync for \"psrShared\" can apply remote writes outside the local commit path",
+    ],
   });
 });
 
@@ -105,9 +159,28 @@ test("psr entrypoint re-exports list/has/meta graph-safe observation helpers", (
   assert.strictEqual(hasStore(store("psrBase")), true);
   assert.ok(listStores().includes("psrBase"));
 
+  const descriptor = getComputedDescriptor("psrDerived");
+  assert.ok(descriptor);
+
   const graph = getComputedGraph();
-  assert.ok(graph.nodes.includes("psrDerived"));
-  assert.ok(graph.edges.some((edge) => edge.from === "psrBase" && edge.to === "psrDerived"));
+  assert.strictEqual(graph.granularity, "store");
+  assert.ok(graph.nodes.some((node) =>
+    node.id === descriptor!.id
+    && node.storeId === "psrDerived"
+    && node.type === "computed"
+    && node.path.length === 0
+  ));
+  assert.ok(graph.nodes.some((node) =>
+    node.id === descriptor!.dependencies[0]
+    && node.storeId === "psrBase"
+    && node.type === "leaf"
+    && node.path.length === 0
+  ));
+  assert.ok(graph.edges.some((edge) =>
+    edge.from === descriptor!.dependencies[0]
+    && edge.to === descriptor!.id
+    && edge.type === "leaf-input"
+  ));
 });
 
 test("psr computed descriptors expose safe simulation boundaries", () => {
@@ -136,33 +209,52 @@ test("psr computed descriptors expose safe simulation boundaries", () => {
     classification: "asyncBoundary",
   });
 
-  assert.deepStrictEqual(getComputedDescriptor("psrDetTotal"), {
-    id: "psrDetTotal",
+  const detBaseDescriptor = getComputedDescriptor("psrDetBase");
+  const detTotalDescriptor = getComputedDescriptor("psrDetTotal");
+  const opaqueDescriptor = getComputedDescriptor("psrOpaque");
+  const boundaryDescriptor = getComputedDescriptor("psrBoundary");
+
+  assert.ok(detBaseDescriptor);
+  assert.ok(detTotalDescriptor);
+  assert.ok(opaqueDescriptor);
+  assert.ok(boundaryDescriptor);
+
+  assert.deepStrictEqual(parseNodeId(detBaseDescriptor!.id), ["computed", "psrDetBase", []]);
+  assert.deepStrictEqual(parseNodeId(detTotalDescriptor!.id), ["computed", "psrDetTotal", []]);
+  assert.deepStrictEqual(parseNodeId(detTotalDescriptor!.dependencies[0]), ["computed", "psrDetBase", []]);
+  assert.deepStrictEqual(detTotalDescriptor, {
+    id: detTotalDescriptor!.id,
     storeId: "psrDetTotal",
     path: [],
-    dependencies: ["psrDetBase"],
+    dependencies: [detBaseDescriptor!.id],
+    nodeType: "computed",
     classification: "deterministic",
   });
-  assert.strictEqual(getComputedDescriptor("psrOpaque")?.classification, "opaque");
-  assert.deepStrictEqual(getComputedDescriptor("psrBoundary"), {
-    id: "psrBoundary",
+  assert.deepStrictEqual(getComputedDescriptor(detTotalDescriptor!.id), detTotalDescriptor);
+  assert.strictEqual(opaqueDescriptor?.classification, "opaque");
+  assert.strictEqual(opaqueDescriptor?.nodeType, "computed");
+  assert.deepStrictEqual(parseNodeId(boundaryDescriptor!.id), ["async-boundary", "psrBoundary", []]);
+  assert.deepStrictEqual(parseNodeId(boundaryDescriptor!.dependencies[0]), ["leaf", "psrSource", []]);
+  assert.deepStrictEqual(boundaryDescriptor, {
+    id: boundaryDescriptor!.id,
     storeId: "psrBoundary",
     path: [],
-    dependencies: ["psrSource"],
+    dependencies: [boundaryDescriptor!.dependencies[0]],
+    nodeType: "async-boundary",
     classification: "asyncBoundary",
     asyncBoundary: true,
   });
 
-  assert.strictEqual(evaluateComputed("psrDetTotal", {
+  assert.strictEqual(evaluateComputed(detTotalDescriptor!.id, {
     psrSource: { value: 7 },
     psrDetBase: 2,
     psrDetTotal: 3,
   }), 8);
-  assert.throws(() => evaluateComputed("psrOpaque", {
+  assert.throws(() => evaluateComputed(opaqueDescriptor!.id, {
     psrSource: { value: 7 },
     psrOpaque: 12,
   }), /deterministic/i);
-  assert.throws(() => evaluateComputed("psrBoundary", {
+  assert.throws(() => evaluateComputed(boundaryDescriptor!.id, {
     psrSource: { value: 7 },
     psrBoundary: { value: 7 },
   }), /deterministic/i);

@@ -9,8 +9,14 @@
 import type { Expect, Equal } from "./assert.js";
 import type { PersistOptions, StoreOptions, SyncOptions } from "../../dist/index.d.ts";
 import type {
+  CausalityBoundary,
   ComputedClassification,
   ComputedDescriptor,
+  GovernanceMode,
+  MutationAuthority,
+  RuntimeGraph,
+  RuntimeGraphEdge,
+  RuntimeGraphNode,
   RuntimePatch,
   RuntimePatchOp,
 } from "../../dist/psr.d.ts";
@@ -122,6 +128,7 @@ type RootGetStoreHealth = PackageApi["getStoreHealth"];
 type RootFindColdStores = PackageApi["findColdStores"];
 type PsrApplyStorePatch = PsrApi["applyStorePatch"];
 type PsrApplyStorePatchesAtomic = PsrApi["applyStorePatchesAtomic"];
+type PsrGetComputedGraph = ReturnType<PsrApi["getComputedGraph"]>;
 type PsrGetComputedDescriptor = PsrApi["getComputedDescriptor"];
 type PsrEvaluateComputed = PsrApi["evaluateComputed"];
 type PsrGetStoreSnapshot = PsrApi["getStoreSnapshot"];
@@ -134,6 +141,7 @@ type RuntimeToolsListStores = RuntimeToolsApi["listStores"];
 type RuntimeToolsGetStoreMeta = RuntimeToolsApi["getStoreMeta"];
 type RuntimeToolsGetInitialState = RuntimeToolsApi["getInitialState"];
 type RuntimeToolsGetMetrics = RuntimeToolsApi["getMetrics"];
+type RuntimeToolsGetRuntimeGraph = RuntimeToolsApi["getRuntimeGraph"];
 type RuntimeAdminClearAllStores = RuntimeAdminApi["clearAllStores"];
 void (0 as unknown as DevtoolsGetHistory);
 void (0 as unknown as DevtoolsClearHistory);
@@ -141,6 +149,7 @@ void (0 as unknown as RuntimeToolsListStores);
 void (0 as unknown as RuntimeToolsGetStoreMeta);
 void (0 as unknown as RuntimeToolsGetInitialState);
 void (0 as unknown as RuntimeToolsGetMetrics);
+void (0 as unknown as RuntimeToolsGetRuntimeGraph);
 void (0 as unknown as RuntimeAdminClearAllStores);
 void (0 as unknown as RootGetMetrics);
 void (0 as unknown as RootGetAsyncMetrics);
@@ -148,6 +157,7 @@ void (0 as unknown as RootGetStoreHealth);
 void (0 as unknown as RootFindColdStores);
 void (0 as unknown as PsrApplyStorePatch);
 void (0 as unknown as PsrApplyStorePatchesAtomic);
+void (0 as unknown as PsrGetComputedGraph);
 void (0 as unknown as PsrGetComputedDescriptor);
 void (0 as unknown as PsrEvaluateComputed);
 void (0 as unknown as PsrGetStoreSnapshot);
@@ -170,19 +180,49 @@ const computedDescriptor: ComputedDescriptor = {
   storeId: "computed-node",
   path: [],
   dependencies: [],
+  nodeType: "computed",
   classification: computedClassification,
 };
 void computedDescriptor;
+const runtimeGraphNode: RuntimeGraphNode = {
+  id: "[\"leaf\",\"user\",[]]",
+  storeId: "user",
+  path: [],
+  type: "leaf",
+};
+const runtimeGraphEdge: RuntimeGraphEdge = {
+  from: runtimeGraphNode.id,
+  to: "[\"computed\",\"computed-node\",[]]",
+  type: "leaf-input",
+};
+const runtimeGraph: RuntimeGraph = {
+  granularity: "store",
+  nodes: [runtimeGraphNode],
+  edges: [runtimeGraphEdge],
+};
+void runtimeGraph;
 
 type PsrTimingContract = Expect<Equal<PsrGetTimingContract, {
   simulationWindow: "pre-commit" | "pre-render" | "post-render";
   executionModel: "sync" | "async-boundary";
   effectScope: "in-pipeline" | "out-of-pipeline";
+  governanceMode: GovernanceMode;
+  mutationAuthority: MutationAuthority;
+  causalityBoundary: CausalityBoundary;
+  reasons: readonly string[];
 }>>;
 void (0 as unknown as PsrTimingContract);
 
 type PsrComputedClassification = Expect<Equal<ComputedClassification, "deterministic" | "opaque" | "asyncBoundary">>;
 void (0 as unknown as PsrComputedClassification);
+type PsrComputedGraph = Expect<Equal<PsrGetComputedGraph, RuntimeGraph>>;
+void (0 as unknown as PsrComputedGraph);
+const governanceMode: GovernanceMode = "bounded-governor";
+const mutationAuthority: MutationAuthority = "shared";
+const causalityBoundary: CausalityBoundary = "async-boundary";
+void governanceMode;
+void mutationAuthority;
+void causalityBoundary;
 
 type ReactUseStore = ReactApi["useStore"];
 type ReactUseSelector = ReactApi["useSelector"];

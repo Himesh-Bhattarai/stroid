@@ -22,7 +22,7 @@ import {
 import {
     listStores,
     getStoreMeta,
-    getComputedGraph,
+    getRuntimeGraph as getStructuredRuntimeGraph,
     getComputedDescriptor,
     evaluateComputed,
 } from "../runtime-tools/index.js";
@@ -39,6 +39,11 @@ import type {
     StoreValue,
     WriteResult,
 } from "../core/store-lifecycle/types.js";
+import type {
+    RuntimeGraph,
+    RuntimeNodeId,
+    RuntimeNodeType,
+} from "../computed/types.js";
 
 export type StoreTarget =
     | StoreDefinition<string, StoreValue>
@@ -47,16 +52,28 @@ export type StoreTarget =
 
 export type StoreListener = (value: StoreValue | null) => void;
 
+export type GovernanceMode = "full-governor" | "bounded-governor" | "observer";
+export type MutationAuthority = "exclusive" | "shared";
+export type CausalityBoundary = "none" | "async-boundary";
+
 export interface TimingContract {
     simulationWindow: "pre-commit" | "pre-render" | "post-render";
     executionModel: "sync" | "async-boundary";
     effectScope: "in-pipeline" | "out-of-pipeline";
+    governanceMode: GovernanceMode;
+    mutationAuthority: MutationAuthority;
+    causalityBoundary: CausalityBoundary;
+    reasons: readonly string[];
 }
 
 const DEFAULT_TIMING_CONTRACT: TimingContract = {
     simulationWindow: "pre-commit",
     executionModel: "sync",
     effectScope: "out-of-pipeline",
+    governanceMode: "full-governor",
+    mutationAuthority: "exclusive",
+    causalityBoundary: "none",
+    reasons: [],
 };
 
 const INVALID_PATCH_RESULT: WriteResult = { ok: false, reason: "invalid-args" };
@@ -78,15 +95,118 @@ const RUNTIME_PATCH_SOURCES: readonly RuntimePatchMeta["source"][] = [
 const resolveTargetName = (target: StoreTarget): string =>
     nameOf(target as string | StoreDefinition<string, StoreValue>);
 
-const hasAsyncBoundary = (meta: StoreFeatureMeta | null | undefined): boolean =>
+const hasAsyncPersistBoundary = (meta: StoreFeatureMeta | null | undefined): boolean =>
+    Boolean(meta?.options.persist?.encryptAsync)
+    || Boolean(meta?.options.persist?.decryptAsync)
+    || meta?.options.persist?.checksum === "sha256";
+
+const hasAsyncFeatureBoundary = (meta: StoreFeatureMeta | null | undefined): boolean =>
     Boolean(meta?.options.sync)
-    || Boolean(meta?.options.persist?.encryptAsync)
-    || Boolean(meta?.options.persist?.decryptAsync);
+    || hasAsyncPersistBoundary(meta);
 
 const hasPipelineEffects = (meta: StoreFeatureMeta | null | undefined): boolean =>
     Boolean(meta?.options.persist)
     || Boolean(meta?.options.sync)
     || meta?.options.devtools === true;
+
+const createRuntimeNodeId = (
+    type: RuntimeNodeType,
+    storeId: string
+): RuntimeNodeId => JSON.stringify([type, storeId, []]);
+
+const createLeafNodeId = (storeId: string): RuntimeNodeId =>
+    createRuntimeNodeId("leaf", storeId);
+
+const createAdjacency = (
+    graph: RuntimeGraph,
+    direction: "forward" | "reverse"
+): Map<RuntimeNodeId, RuntimeNodeId[]> => {
+    const adjacency = new Map<RuntimeNodeId, RuntimeNodeId[]>();
+    graph.edges.forEach((edge) => {
+        const key = direction === "forward" ? edge.from : edge.to;
+        const value = direction === "forward" ? edge.to : edge.from;
+        const bucket = adjacency.get(key);
+        if (bucket) {
+            bucket.push(value);
+            return;
+        }
+        adjacency.set(key, [value]);
+    });
+    return adjacency;
+};
+
+const collectReachableNodeIds = (
+    startIds: readonly RuntimeNodeId[],
+    adjacency: Map<RuntimeNodeId, RuntimeNodeId[]>
+): Set<RuntimeNodeId> => {
+    const visited = new Set<RuntimeNodeId>();
+    const queue = [...startIds];
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        if (visited.has(current)) continue;
+        visited.add(current);
+        const next = adjacency.get(current);
+        if (!next) continue;
+        next.forEach((nodeId) => {
+            if (!visited.has(nodeId)) queue.push(nodeId);
+        });
+    }
+    return visited;
+};
+
+const uniqueSorted = (values: Iterable<string>): string[] =>
+    Array.from(new Set(values)).sort((left, right) => left.localeCompare(right));
+
+const resolveTimingTargetNodeIds = (
+    targetName: string | undefined
+): RuntimeNodeId[] => {
+    if (!targetName) return [];
+    const descriptor = getComputedDescriptor(targetName);
+    if (descriptor) return [descriptor.id];
+    return [createLeafNodeId(targetName)];
+};
+
+const resolveRelevantStoreIds = (
+    targetName: string | undefined,
+    graph: RuntimeGraph
+): string[] => {
+    if (!targetName) return uniqueSorted(listStores());
+
+    const descriptor = getComputedDescriptor(targetName);
+    if (!descriptor) return [targetName];
+
+    const nodesById = new Map(graph.nodes.map((node) => [node.id, node] as const));
+    const reverseAdjacency = createAdjacency(graph, "reverse");
+    const reachable = collectReachableNodeIds([descriptor.id], reverseAdjacency);
+    const leafStoreIds = Array.from(reachable)
+        .map((nodeId) => nodesById.get(nodeId))
+        .filter((node): node is RuntimeGraph["nodes"][number] => Boolean(node))
+        .filter((node) => node.type === "leaf")
+        .map((node) => node.storeId);
+
+    return leafStoreIds.length > 0 ? uniqueSorted(leafStoreIds) : [targetName];
+};
+
+const resolveAsyncBoundaryNodeIds = (
+    targetName: string | undefined,
+    graph: RuntimeGraph
+): RuntimeNodeId[] => {
+    const asyncBoundaryIds = new Set(
+        graph.nodes
+            .filter((node) => node.type === "async-boundary")
+            .map((node) => node.id)
+    );
+    if (asyncBoundaryIds.size === 0) return [];
+
+    if (!targetName) return uniqueSorted(asyncBoundaryIds);
+
+    const startIds = resolveTimingTargetNodeIds(targetName);
+    const adjacency = createAdjacency(graph, "forward");
+    const reachable = collectReachableNodeIds(startIds, adjacency);
+    return uniqueSorted(
+        Array.from(reachable).filter((nodeId) => asyncBoundaryIds.has(nodeId))
+    );
+};
 
 const hasOwn = (value: object, key: string): boolean =>
     Object.prototype.hasOwnProperty.call(value, key);
@@ -157,16 +277,58 @@ const applyNormalizedPatch = (patch: RuntimePatch): WriteResult => {
     return INVALID_PATCH_RESULT;
 };
 
-const resolveTimingContract = (metaEntries: Array<StoreFeatureMeta | null | undefined>): TimingContract => {
-    if (metaEntries.length === 0) return DEFAULT_TIMING_CONTRACT;
+const resolveTimingContract = (targetName?: string): TimingContract => {
+    const graph = getStructuredRuntimeGraph();
+    const relevantStoreIds = resolveRelevantStoreIds(targetName, graph);
+    const relevantMetaEntries = relevantStoreIds.map((storeId) => ({
+        storeId,
+        meta: getStoreMeta(storeId),
+    }));
+    const asyncBoundaryNodeIds = resolveAsyncBoundaryNodeIds(targetName, graph);
+    const nodesById = new Map(graph.nodes.map((node) => [node.id, node] as const));
+    const targetDescriptor = targetName ? getComputedDescriptor(targetName) : null;
+
+    const reasonSet = new Set<string>();
+
+    relevantMetaEntries.forEach(({ storeId, meta }) => {
+        if (meta?.options.sync) {
+            reasonSet.add(`sync for "${storeId}" can apply remote writes outside the local commit path`);
+        }
+        if (hasAsyncPersistBoundary(meta)) {
+            reasonSet.add(`persist for "${storeId}" introduces async boundary work`);
+        }
+    });
+
+    asyncBoundaryNodeIds.forEach((nodeId) => {
+        const storeId = nodesById.get(nodeId)?.storeId;
+        if (!storeId) return;
+        const label = targetDescriptor?.id === nodeId || !targetName
+            ? "computed node"
+            : "downstream computed node";
+        reasonSet.add(`${label} "${storeId}" is marked asyncBoundary`);
+    });
+
+    const hasSharedAuthority = relevantMetaEntries.some(({ meta }) => Boolean(meta?.options.sync));
+    const hasAsyncBoundary = asyncBoundaryNodeIds.length > 0
+        || relevantMetaEntries.some(({ meta }) => hasAsyncFeatureBoundary(meta));
+    const effectScope = relevantMetaEntries.some(({ meta }) => hasPipelineEffects(meta))
+        ? "in-pipeline"
+        : "out-of-pipeline";
+
+    const governanceMode: GovernanceMode = hasSharedAuthority
+        ? "observer"
+        : hasAsyncBoundary
+            ? "bounded-governor"
+            : "full-governor";
+
     return {
         simulationWindow: "pre-commit",
-        executionModel: metaEntries.some((entry) => hasAsyncBoundary(entry))
-            ? "async-boundary"
-            : "sync",
-        effectScope: metaEntries.some((entry) => hasPipelineEffects(entry))
-            ? "in-pipeline"
-            : "out-of-pipeline",
+        executionModel: hasAsyncBoundary ? "async-boundary" : "sync",
+        effectScope,
+        governanceMode,
+        mutationAuthority: hasSharedAuthority ? "shared" : "exclusive",
+        causalityBoundary: hasAsyncBoundary ? "async-boundary" : "none",
+        reasons: uniqueSorted(reasonSet),
     };
 };
 
@@ -237,14 +399,17 @@ export const applyStorePatchesAtomic = (
 };
 
 export const getTimingContract = (target?: StoreTarget): TimingContract =>
-    target
-        ? resolveTimingContract([getStoreMeta(resolveTargetName(target))])
-        : resolveTimingContract(listStores().map((storeId) => getStoreMeta(storeId)));
+    resolveTimingContract(target ? resolveTargetName(target) : undefined);
+
+export const getComputedGraph = (): RuntimeGraph =>
+    getStructuredRuntimeGraph();
+
+export const getRuntimeGraph = (): RuntimeGraph =>
+    getStructuredRuntimeGraph();
 
 export {
     listStores,
     getStoreMeta,
-    getComputedGraph,
     getComputedDescriptor,
     evaluateComputed,
 };
@@ -252,7 +417,13 @@ export {
 export type {
     ComputedClassification,
     ComputedDescriptor,
+    RuntimeEdgeType,
+    RuntimeGraph,
+    RuntimeGraphEdge,
+    RuntimeGraphGranularity,
+    RuntimeGraphNode,
     RuntimeNodeId,
+    RuntimeNodeType,
 } from "../computed/types.js";
 export type {
     RuntimePatch,

@@ -3,7 +3,7 @@ import { createStore as createReduxStore } from "redux";
 import { produce } from "immer";
 import { createStore as createZustandStore } from "zustand/vanilla";
 import { _subscribe, clearAllStores, createStore, setStore } from "../src/store.js";
-import "../src/devtools/index.js";
+import { installDevtools } from "../src/install.js";
 
 type Library = "stroid" | "redux-plain" | "redux-immer" | "zustand";
 
@@ -199,6 +199,7 @@ const benchZustand = async (subscribers: number): Promise<ResultRow> => {
 };
 
 const main = async () => {
+  installDevtools();
   const results: ResultRow[] = [];
 
   for (const subscribers of COUNTS) {

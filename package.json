@@ -114,7 +114,7 @@
   "scripts": {
     "test": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",
     "test:coverage": "c8 node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",
-    "test:performance": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/performance/**/*.test.ts",
+    "test:performance": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/performance/notify-flush.perf.test.ts tests/performance/snapshot-cache.perf.test.ts tests/performance/stress-memory.perf.test.ts tests/performance/subscriber-concurrent.perf.test.ts tests/performance/sync-lite.perf.test.ts --test-force-exit",
     "test:heavy": "npm run test:performance",
     "check:react-types": "node scripts/check-react-types.mjs",
     "docs:api": "api-extractor run --local",
@@ -123,6 +123,8 @@
     "typecheck": "tsc -p tsconfig.types.json",
     "typecheck:layers": "tsc -b tsconfig.layers.json",
     "build": "tsup && node scripts/normalize-dts.mjs",
+    "benchmark:subscriber": "node --expose-gc --import tsx scripts/subscriber-benchmark.ts",
+    "benchmark:subscriber:concurrent": "node --expose-gc --import tsx scripts/subscriber-concurrent-benchmark.ts",
     "test:all": "npm test && npm run test:types",
     "test:full": "npm run test:coverage && npm run test:types"
   },
