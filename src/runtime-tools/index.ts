@@ -18,7 +18,13 @@ import { getFeatureApi } from "../core/store-lifecycle/identity.js";
 import { countInflightSlots } from "../async/cache.js";
 import type { StoreFeatureMeta } from "../features/feature-registry.js";
 import { getAsyncMetrics } from "../async/fetch.js";
-import { getFullComputedGraph, getComputedDepsFor } from "../computed/computed-graph.js";
+import {
+    getFullComputedGraph,
+    getComputedDepsFor,
+    getComputedDescriptor as getComputedDescriptorById,
+    evaluateComputedFromSnapshot,
+} from "../computed/computed-graph.js";
+import type { ComputedDescriptor, RuntimeNodeId } from "../computed/types.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
 
@@ -199,5 +205,15 @@ export const getPersistQueueDepth = (name: string): number => {
 export const getComputedGraph = () => getFullComputedGraph();
 
 export const getComputedDeps = (name: string) => getComputedDepsFor(name);
+
+export const getComputedDescriptor = (nodeId: RuntimeNodeId): ComputedDescriptor | null =>
+    getComputedDescriptorById(nodeId);
+
+export const evaluateComputed = (
+    nodeId: RuntimeNodeId,
+    snapshot: Record<string, unknown>
+): unknown => evaluateComputedFromSnapshot(nodeId, snapshot);
+
+export type { ComputedClassification, ComputedDescriptor, RuntimeNodeId } from "../computed/types.js";
 
 

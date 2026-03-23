@@ -12,8 +12,12 @@ import { getMetrics, getAsyncMetrics, getStoreHealth } from "stroid";
 import {
   applyStorePatch,
   applyStorePatchesAtomic,
+  evaluateComputed,
+  getComputedDescriptor,
   getStoreSnapshot as getPsrStoreSnapshot,
   getTimingContract,
+  type ComputedClassification,
+  type ComputedDescriptor,
   type RuntimePatch,
 } from "stroid/psr";
 import { useStore } from "stroid/react";
@@ -29,6 +33,15 @@ const coreHandle = core ?? store("dtsSmokeCore");
 const hook = useStore(coreHandle);
 const psrSnapshot = getPsrStoreSnapshot(handle);
 const timingContract = getTimingContract(handle);
+const computedDescriptor = getComputedDescriptor("dtsSmokeComputed");
+const computedClassification: ComputedClassification = "opaque";
+const fallbackDescriptor: ComputedDescriptor = {
+  id: "dtsSmokeComputed",
+  storeId: "dtsSmokeComputed",
+  path: [],
+  dependencies: [],
+  classification: computedClassification,
+};
 const runtimePatch: RuntimePatch = {
   id: "smoke-patch",
   store: "dtsSmoke",
@@ -41,6 +54,7 @@ const runtimePatch: RuntimePatch = {
 };
 const psrPatchResult = applyStorePatch(runtimePatch);
 const psrBatchResult = applyStorePatchesAtomic([runtimePatch]);
+const evaluatedComputed = evaluateComputed("dtsSmokeComputed", { dtsSmoke: { value: 2 } });
 configureStroid({ defaultSnapshotMode: "deep" });
 
 void value;
@@ -50,6 +64,9 @@ void health;
 void hook;
 void psrSnapshot;
 void timingContract;
+void computedDescriptor;
+void fallbackDescriptor;
 void runtimePatch;
 void psrPatchResult;
 void psrBatchResult;
+void evaluatedComputed;

@@ -10,6 +10,7 @@ export default defineConfig({
         "runtime-admin": "src/runtime-admin/index.ts",
         selectors: "src/selectors/index.ts",
         computed: "src/computed/index.ts",
+        types: "src/computed/types.ts",
         helpers: "src/helpers/index.ts",
         server: "src/server/index.ts",
         "react/index": "src/react/index.ts",

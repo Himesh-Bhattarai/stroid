@@ -13,7 +13,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { clearAllStores, createStore, setStore } from "../../../src/store.js";
 import { subscribeWithSelector, createSelector } from "../../../src/selectors/index.js";
-import { registerComputed, unregisterComputed, getTopoOrderedComputeds, getFullComputedGraph, getComputedDepsFor } from "../../../src/computed/computed-graph.js";
+import {
+  registerComputed,
+  unregisterComputed,
+  getTopoOrderedComputeds,
+  getFullComputedGraph,
+  getComputedDepsFor,
+  getComputedDescriptor,
+  evaluateComputedFromSnapshot,
+} from "../../../src/computed/computed-graph.js";
 
 test("selectors handle invalid inputs and snapshot modes", async () => {
   clearAllStores();
@@ -96,4 +104,43 @@ test("computed graph helpers surface deps and ordering", () => {
   unregisterComputed("a");
   unregisterComputed("b");
   unregisterComputed("z");
+});
+
+test("computed graph descriptors and snapshot evaluation stay conservative", () => {
+  registerComputed("baseDet", ["source"], (value) => (value as number) * 2, "deterministic");
+  registerComputed("safeDet", ["source"], (value) => {
+    if ((value as number) > 5) throw new Error("too big");
+    return (value as number) * 2;
+  }, "deterministic");
+  registerComputed("defaultOpaque", ["source"], (value) => value);
+  registerComputed("boundaryNode", ["source"], (value) => value, "asyncBoundary");
+
+  try {
+    assert.deepStrictEqual(getComputedDescriptor("baseDet"), {
+      id: "baseDet",
+      storeId: "baseDet",
+      path: [],
+      dependencies: ["source"],
+      classification: "deterministic",
+    });
+    assert.strictEqual(getComputedDescriptor("defaultOpaque")?.classification, "opaque");
+    assert.deepStrictEqual(getComputedDescriptor("boundaryNode"), {
+      id: "boundaryNode",
+      storeId: "boundaryNode",
+      path: [],
+      dependencies: ["source"],
+      classification: "asyncBoundary",
+      asyncBoundary: true,
+    });
+
+    assert.strictEqual(evaluateComputedFromSnapshot("baseDet", { source: 3 }), 6);
+    assert.strictEqual(evaluateComputedFromSnapshot("safeDet", { source: 9, safeDet: 4 }), 4);
+    assert.throws(() => evaluateComputedFromSnapshot("defaultOpaque", { source: 1 }), /deterministic/i);
+    assert.throws(() => evaluateComputedFromSnapshot("missingNode", { source: 1 }), /descriptor/i);
+  } finally {
+    unregisterComputed("baseDet");
+    unregisterComputed("safeDet");
+    unregisterComputed("defaultOpaque");
+    unregisterComputed("boundaryNode");
+  }
 });

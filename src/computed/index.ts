@@ -21,11 +21,13 @@ import { getRegistry } from "../core/store-lifecycle/registry.js";
 import type { StoreRegistry } from "../core/store-registry.js";
 import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "../core/store-lifecycle/types.js";
 import type { NonFunction } from "../types/utility.js";
+import type { ComputedClassification } from "./types.js";
 import { safeInvoke } from "../internals/reporting.js";
 
 export type ComputedOptions = {
     autoDispose?: boolean;
     onError?: (err: unknown) => void;
+    classification?: ComputedClassification;
 };
 
 const getComputedCleanups = (): Map<string, () => void> => getRegistry().computedCleanups;
@@ -99,7 +101,12 @@ export function createComputed<TResult, Deps extends readonly (StoreName | DepHa
         }
     }
 
-    const registered = registerComputed(name, depNames as string[], compute as (...args: unknown[]) => unknown);
+    const registered = registerComputed(
+        name,
+        depNames as string[],
+        compute as (...args: unknown[]) => unknown,
+        options.classification ?? "opaque"
+    );
     if (!registered) return undefined;
     getComputedOptionsMap(getRegistry()).set(name, { ...options });
 
@@ -211,6 +218,12 @@ export const _resetComputedForTests = (): void => {
     getComputedOptionsMap(getRegistry()).clear();
 };
 
-export { getFullComputedGraph, getComputedDepsFor } from "./computed-graph.js";
+export {
+    getFullComputedGraph,
+    getComputedDepsFor,
+    getComputedDescriptor,
+    evaluateComputedFromSnapshot,
+} from "./computed-graph.js";
+export type { ComputedClassification, ComputedDescriptor, RuntimeNodeId } from "./types.js";
 
 

@@ -23,6 +23,8 @@ import {
     listStores,
     getStoreMeta,
     getComputedGraph,
+    getComputedDescriptor,
+    evaluateComputed,
 } from "../runtime-tools/index.js";
 import { validateDepth } from "../utils.js";
 import type { StoreFeatureMeta } from "../features/feature-registry.js";
@@ -243,8 +245,15 @@ export {
     listStores,
     getStoreMeta,
     getComputedGraph,
+    getComputedDescriptor,
+    evaluateComputed,
 };
 
+export type {
+    ComputedClassification,
+    ComputedDescriptor,
+    RuntimeNodeId,
+} from "../computed/types.js";
 export type {
     RuntimePatch,
     RuntimePatchMeta,

@@ -14,8 +14,10 @@ import {
 } from "../core/store-registry.js";
 import { error } from "../utils.js";
 import { setComputedOrderResolver } from "../internals/computed-order.js";
+import type { ComputedClassification, ComputedDescriptor } from "./types.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
+const DEFAULT_COMPUTED_CLASSIFICATION: ComputedClassification = "opaque";
 
 const getEntries = () => getRegistry().computedEntries;
 const getDependents = () => getRegistry().computedDependents;
@@ -63,7 +65,8 @@ const removeComputedDependentLinks = (name: string, deps: string[]): void => {
 export const registerComputed = (
     name: string,
     deps: string[],
-    compute: (...args: unknown[]) => unknown
+    compute: (...args: unknown[]) => unknown,
+    classification: ComputedClassification = DEFAULT_COMPUTED_CLASSIFICATION
 ): boolean => {
     const cycleTrace = detectCycle(name, deps);
     if (cycleTrace) {
@@ -82,7 +85,7 @@ export const registerComputed = (
         removeComputedDependentLinks(name, entries[name].deps);
     }
 
-    entries[name] = { deps, compute, stale: true } as ComputedEntry;
+    entries[name] = { deps, compute, stale: true, classification } as ComputedEntry;
 
     for (const dep of deps) {
         if (!dependents[dep]) dependents[dep] = new Set<string>();
@@ -111,6 +114,19 @@ export const isComputed = (name: string): boolean =>
 
 export const getComputedEntry = (name: string): ComputedEntry | undefined =>
     getEntries()[name];
+
+export const getComputedDescriptor = (name: string): ComputedDescriptor | null => {
+    const entry = getEntries()[name];
+    if (!entry) return null;
+    return {
+        id: name,
+        storeId: name,
+        path: [],
+        dependencies: [...entry.deps],
+        classification: entry.classification,
+        ...(entry.classification === "asyncBoundary" ? { asyncBoundary: true } : {}),
+    };
+};
 
 export const getTopoOrderedComputeds = (changedSources: string[]): string[] => {
     const entries = getEntries();
@@ -231,6 +247,77 @@ export const getComputedDepsFor = (name: string): { deps: string[]; dependents: 
         deps: [...entry.deps],
         dependents: dependents ? [...dependents] : [],
     };
+};
+
+const hasOwn = (value: Record<string, unknown>, key: string): boolean =>
+    Object.prototype.hasOwnProperty.call(value, key);
+
+const readSnapshotValue = (snapshot: Record<string, unknown>, name: string): unknown =>
+    hasOwn(snapshot, name) ? snapshot[name] : null;
+
+type EvaluationState = {
+    memo: Map<string, unknown>;
+    stack: Set<string>;
+};
+
+const evaluateDeterministicComputed = (
+    name: string,
+    snapshot: Record<string, unknown>,
+    state: EvaluationState
+): unknown => {
+    if (state.memo.has(name)) return state.memo.get(name);
+    if (state.stack.has(name)) {
+        throw new Error(`evaluateComputed("${name}") detected a computed cycle`);
+    }
+
+    const entry = getEntries()[name];
+    if (!entry) {
+        throw new Error(`evaluateComputed("${name}") could not find a computed descriptor`);
+    }
+    if (entry.classification !== "deterministic") {
+        throw new Error(
+            `evaluateComputed("${name}") only supports deterministic computed nodes`
+        );
+    }
+
+    state.stack.add(name);
+    try {
+        const args = entry.deps.map((dep) => {
+            const depEntry = getEntries()[dep];
+            if (!depEntry) return readSnapshotValue(snapshot, dep);
+            if (depEntry.classification !== "deterministic") {
+                throw new Error(
+                    `evaluateComputed("${name}") cannot cross non-deterministic dependency "${dep}"`
+                );
+            }
+            return evaluateDeterministicComputed(dep, snapshot, state);
+        });
+
+        let next: unknown;
+        try {
+            next = entry.compute(...args);
+        } catch (_) {
+            next = readSnapshotValue(snapshot, name);
+        }
+
+        state.memo.set(name, next);
+        return next;
+    } finally {
+        state.stack.delete(name);
+    }
+};
+
+export const evaluateComputedFromSnapshot = (
+    name: string,
+    snapshot: Record<string, unknown>
+): unknown => {
+    if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+        throw new Error(`evaluateComputed("${name}") requires a snapshot record`);
+    }
+    return evaluateDeterministicComputed(name, snapshot, {
+        memo: new Map<string, unknown>(),
+        stack: new Set<string>(),
+    });
 };
 
 

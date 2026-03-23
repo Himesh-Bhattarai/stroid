@@ -15,6 +15,7 @@ import {
 } from "../features/feature-registry.js";
 import type { RuntimePatch } from "./runtime-patch.js";
 import type { AsyncRegistry } from "../async/registry.js";
+import type { ComputedClassification } from "../computed/types.js";
 import { createAsyncRegistry, resetAsyncRegistry } from "../async/registry.js";
 import { registerTestResetHook } from "../internals/test-reset.js";
 
@@ -54,6 +55,7 @@ export type ComputedEntry = {
     deps: string[];
     compute: (...args: unknown[]) => unknown;
     stale: boolean;
+    classification: ComputedClassification;
 };
 
 export type NotifyState = {

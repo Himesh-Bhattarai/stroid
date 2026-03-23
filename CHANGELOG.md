@@ -12,6 +12,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - Added a canonical `RuntimePatch` model under the PSR surface and lowered `setStore`, `replaceStore`, `resetStore`, and `hydrateStores` into serializable runtime patch records internally.
 - Added public PSR patch-write APIs via `applyStorePatch()` and `applyStorePatchesAtomic()` for canonical `set` and root-level `merge` patches.
 - Hardened transaction commit semantics so failed batched commits roll back staged store state, reset metrics, and queued notifications, while commit-phase feature hook errors no longer break atomic batches.
+- Added computed classification descriptors plus snapshot evaluation APIs for Phase 5 PSR-native integration, defaulting unclassified computeds to `opaque` so only explicitly deterministic nodes are simulated.
 - Breaking: changed `stroid/persist`, `stroid/sync`, and `stroid/devtools` to side-effect-free modules that export explicit installers (`installPersist`, `installSync`, `installDevtools`) instead of auto-registering on import.
 - Updated package exports, docs, and feature-install guidance to make optional feature registration explicit and more tree-shakeable.
 - Stopped publishing `.map` source maps in the npm tarball to reduce package weight while keeping local build/debug output unchanged.

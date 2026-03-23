@@ -8,7 +8,12 @@
  */
 import type { Expect, Equal } from "./assert.js";
 import type { PersistOptions, StoreOptions, SyncOptions } from "../../dist/index.d.ts";
-import type { RuntimePatch, RuntimePatchOp } from "../../dist/psr.d.ts";
+import type {
+  ComputedClassification,
+  ComputedDescriptor,
+  RuntimePatch,
+  RuntimePatchOp,
+} from "../../dist/psr.d.ts";
 
 type PackageApi = typeof import("../../dist/index.d.ts");
 type PsrApi = typeof import("../../dist/psr.d.ts");
@@ -117,6 +122,8 @@ type RootGetStoreHealth = PackageApi["getStoreHealth"];
 type RootFindColdStores = PackageApi["findColdStores"];
 type PsrApplyStorePatch = PsrApi["applyStorePatch"];
 type PsrApplyStorePatchesAtomic = PsrApi["applyStorePatchesAtomic"];
+type PsrGetComputedDescriptor = PsrApi["getComputedDescriptor"];
+type PsrEvaluateComputed = PsrApi["evaluateComputed"];
 type PsrGetStoreSnapshot = PsrApi["getStoreSnapshot"];
 type PsrGetTimingContract = ReturnType<PsrApi["getTimingContract"]>;
 type PsrSubscribeStore = PsrApi["subscribeStore"];
@@ -141,9 +148,12 @@ void (0 as unknown as RootGetStoreHealth);
 void (0 as unknown as RootFindColdStores);
 void (0 as unknown as PsrApplyStorePatch);
 void (0 as unknown as PsrApplyStorePatchesAtomic);
+void (0 as unknown as PsrGetComputedDescriptor);
+void (0 as unknown as PsrEvaluateComputed);
 void (0 as unknown as PsrGetStoreSnapshot);
 void (0 as unknown as PsrSubscribeStore);
 const runtimePatchOp: RuntimePatchOp = "set";
+const computedClassification: ComputedClassification = "deterministic";
 const runtimePatch: RuntimePatch = {
   id: "patch-1",
   store: "user",
@@ -155,6 +165,14 @@ const runtimePatch: RuntimePatch = {
   },
 };
 void runtimePatch;
+const computedDescriptor: ComputedDescriptor = {
+  id: "computed-node",
+  storeId: "computed-node",
+  path: [],
+  dependencies: [],
+  classification: computedClassification,
+};
+void computedDescriptor;
 
 type PsrTimingContract = Expect<Equal<PsrGetTimingContract, {
   simulationWindow: "pre-commit" | "pre-render" | "post-render";
@@ -162,6 +180,9 @@ type PsrTimingContract = Expect<Equal<PsrGetTimingContract, {
   effectScope: "in-pipeline" | "out-of-pipeline";
 }>>;
 void (0 as unknown as PsrTimingContract);
+
+type PsrComputedClassification = Expect<Equal<ComputedClassification, "deterministic" | "opaque" | "asyncBoundary">>;
+void (0 as unknown as PsrComputedClassification);
 
 type ReactUseStore = ReactApi["useStore"];
 type ReactUseSelector = ReactApi["useSelector"];

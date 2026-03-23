@@ -15,12 +15,14 @@ import { getStoreMeta } from "../../../src/runtime-tools/index.js";
 import { createStore, setStore, setStoreBatch, store } from "../../../src/store.js";
 import {
   getComputedGraph,
+  getComputedDescriptor,
   getStoreSnapshot,
   getStoreSnapshotNoTrack,
   getTimingContract,
   hasStore,
   listStores,
   subscribeStore,
+  evaluateComputed,
 } from "../../../src/psr/index.js";
 
 test("psr snapshots stay no-track and committed-only", () => {
@@ -106,4 +108,62 @@ test("psr entrypoint re-exports list/has/meta graph-safe observation helpers", (
   const graph = getComputedGraph();
   assert.ok(graph.nodes.includes("psrDerived"));
   assert.ok(graph.edges.some((edge) => edge.from === "psrBase" && edge.to === "psrDerived"));
+});
+
+test("psr computed descriptors expose safe simulation boundaries", () => {
+  clearAllStores();
+  createStore("psrSource", { value: 2 });
+
+  createComputed("psrDetBase", ["psrSource"], (base) => (
+    (base as { value?: number } | null)?.value ?? 0
+  ), {
+    classification: "deterministic",
+  });
+  createComputed("psrDetTotal", ["psrDetBase"], (value) => (
+    ((value as number | null) ?? 0) + 1
+  ), {
+    classification: "deterministic",
+  });
+
+  let externalOffset = 5;
+  createComputed("psrOpaque", ["psrSource"], (base) => (
+    ((base as { value?: number } | null)?.value ?? 0) + externalOffset
+  ));
+
+  createComputed("psrBoundary", ["psrSource"], (base) => ({
+    value: (base as { value?: number } | null)?.value ?? 0,
+  }), {
+    classification: "asyncBoundary",
+  });
+
+  assert.deepStrictEqual(getComputedDescriptor("psrDetTotal"), {
+    id: "psrDetTotal",
+    storeId: "psrDetTotal",
+    path: [],
+    dependencies: ["psrDetBase"],
+    classification: "deterministic",
+  });
+  assert.strictEqual(getComputedDescriptor("psrOpaque")?.classification, "opaque");
+  assert.deepStrictEqual(getComputedDescriptor("psrBoundary"), {
+    id: "psrBoundary",
+    storeId: "psrBoundary",
+    path: [],
+    dependencies: ["psrSource"],
+    classification: "asyncBoundary",
+    asyncBoundary: true,
+  });
+
+  assert.strictEqual(evaluateComputed("psrDetTotal", {
+    psrSource: { value: 7 },
+    psrDetBase: 2,
+    psrDetTotal: 3,
+  }), 8);
+  assert.throws(() => evaluateComputed("psrOpaque", {
+    psrSource: { value: 7 },
+    psrOpaque: 12,
+  }), /deterministic/i);
+  assert.throws(() => evaluateComputed("psrBoundary", {
+    psrSource: { value: 7 },
+    psrBoundary: { value: 7 },
+  }), /deterministic/i);
 });
