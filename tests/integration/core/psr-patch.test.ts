@@ -161,7 +161,7 @@ test("applyStorePatch rejects unsupported patch forms", () => {
       timestamp: 5,
       source: "setStore",
     },
-  })), { ok: false, reason: "invalid-args" });
+  })), { ok: false, reason: "unsupported-op" });
 
   assert.deepStrictEqual(applyStorePatch(patch({
     id: "psr-nested-merge",
@@ -173,7 +173,7 @@ test("applyStorePatch rejects unsupported patch forms", () => {
       timestamp: 6,
       source: "setStore",
     },
-  })), { ok: false, reason: "invalid-args" });
+  })), { ok: false, reason: "unsupported-path-shape" });
 
   assert.deepStrictEqual(getStore("psrUnsupported"), { items: [1, 2, 3] });
 });

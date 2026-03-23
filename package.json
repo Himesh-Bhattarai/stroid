@@ -1,6 +1,6 @@
 {
   "name": "stroid",
-  "version": "0.1.3",
+  "version": "0.1.4-beta.0",
   "description": "SSR-Safe, Named-store state engine for JavaScript/React with optional persistence, async caching, sync, and devtools.",
   "keywords": [
     "state-management",
@@ -100,6 +100,9 @@
     "CHANGELOG.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "tag": "beta"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Himesh-Bhattarai/stroid.git"
@@ -116,10 +119,11 @@
     "test:coverage": "c8 node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",
     "test:performance": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/performance/notify-flush.perf.test.ts tests/performance/snapshot-cache.perf.test.ts tests/performance/stress-memory.perf.test.ts tests/performance/subscriber-concurrent.perf.test.ts tests/performance/sync-lite.perf.test.ts --test-force-exit",
     "test:heavy": "npm run test:performance",
+    "test:package": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/package/**/*.test.ts",
     "check:react-types": "node scripts/check-react-types.mjs",
     "docs:api": "api-extractor run --local",
     "test:dts": "tsc -p tsconfig.dtscheck.json --noEmit",
-    "test:types": "npm run build && npm run check:react-types && npm run docs:api && npm run test:dts && tsc -p tsconfig.typetests.json",
+    "test:types": "npm run build && npm run test:package && npm run check:react-types && npm run docs:api && npm run test:dts && tsc -p tsconfig.typetests.json",
     "typecheck": "tsc -p tsconfig.types.json",
     "typecheck:layers": "tsc -b tsconfig.layers.json",
     "build": "tsup && node scripts/normalize-dts.mjs",

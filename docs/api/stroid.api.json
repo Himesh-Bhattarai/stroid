@@ -5449,7 +5449,7 @@
             },
             {
               "kind": "Content",
-              "text": "{\n    ok: true;\n} | {\n    ok: false;\n    reason: \"not-found\" | \"validate\" | \"path\" | \"middleware\" | \"ssr\" | \"invalid-args\" | \"lazy-uninitialized\";\n}"
+              "text": "{\n    ok: true;\n} | {\n    ok: false;\n    reason: \"not-found\" | \"validate\" | \"path\" | \"middleware\" | \"ssr\" | \"invalid-args\" | \"lazy-uninitialized\" | \"unsupported-op\" | \"unsupported-path-shape\";\n}"
             },
             {
               "kind": "Content",

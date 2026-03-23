@@ -29,6 +29,6 @@ export default defineConfig({
     treeshake: true,
     sourcemap: true,
     clean: true,
-    splitting: false,
+    splitting: true,
     drop: ["debugger"],
 });

@@ -77,6 +77,8 @@ const DEFAULT_TIMING_CONTRACT: TimingContract = {
 };
 
 const INVALID_PATCH_RESULT: WriteResult = { ok: false, reason: "invalid-args" };
+const UNSUPPORTED_PATCH_OP_RESULT: WriteResult = { ok: false, reason: "unsupported-op" };
+const UNSUPPORTED_PATCH_PATH_RESULT: WriteResult = { ok: false, reason: "unsupported-path-shape" };
 
 const RUNTIME_PATCH_OPS: readonly RuntimePatchOp[] = [
     "set",
@@ -271,10 +273,10 @@ const applyNormalizedPatch = (patch: RuntimePatch): WriteResult => {
         );
     }
     if (patch.op === "merge") {
-        if (patch.path.length !== 0) return INVALID_PATCH_RESULT;
+        if (patch.path.length !== 0) return UNSUPPORTED_PATCH_PATH_RESULT;
         return setStore(patch.store as any, patch.value as any);
     }
-    return INVALID_PATCH_RESULT;
+    return UNSUPPORTED_PATCH_OP_RESULT;
 };
 
 const resolveTimingContract = (targetName?: string): TimingContract => {

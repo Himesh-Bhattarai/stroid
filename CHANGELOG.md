@@ -8,6 +8,18 @@ Versioning: [Semantic Versioning](https://semver.org/).
 <details open>
 <summary><strong>Unreleased</strong></summary>
 
+- No unreleased changes yet.
+
+</details>
+
+---
+
+<details>
+<summary><strong>0.1.4-beta.0 --> 2026-03-23</strong></summary>
+
+- Fixed the published ESM package layout so `stroid`, `stroid/psr`, and sibling entrypoints share one runtime registry/computed graph instead of shipping isolated bundled state.
+- Hardened public PSR package-level contract coverage to verify built `dist` entrypoints can detect, read, subscribe to, and patch stores created through the main `stroid` entrypoint.
+- Tightened public PSR patch rejection semantics with stable `unsupported-op` and `unsupported-path-shape` reason codes for unsupported patch forms.
 - Added `stroid/psr` as a dedicated native PSR contract entrypoint with committed-only no-track snapshot reads, observation helpers, and explicit timing-contract reporting.
 - Added a canonical `RuntimePatch` model under the PSR surface and lowered `setStore`, `replaceStore`, `resetStore`, and `hydrateStores` into serializable runtime patch records internally.
 - Added public PSR patch-write APIs via `applyStorePatch()` and `applyStorePatchesAtomic()` for canonical `set` and root-level `merge` patches.
