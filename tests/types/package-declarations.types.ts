@@ -14,6 +14,7 @@ import type {
   ComputedDescriptor,
   GovernanceMode,
   MutationAuthority,
+  PatchApplyResult,
   RuntimeGraph,
   RuntimeGraphEdge,
   RuntimeGraphNode,
@@ -175,6 +176,12 @@ const runtimePatch: RuntimePatch = {
   },
 };
 void runtimePatch;
+const patchApplyResult: PatchApplyResult = {
+  ok: false,
+  reason: "path",
+  failedPatchId: "patch-1",
+};
+void patchApplyResult;
 const computedDescriptor: ComputedDescriptor = {
   id: "computed-node",
   storeId: "computed-node",

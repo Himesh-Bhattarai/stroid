@@ -5258,7 +5258,7 @@
             {
               "kind": "PropertySignature",
               "canonicalReference": "stroid!SyncOptions#loopGuard:member",
-              "docComment": "/**\n * Optional guard to prevent rapid feedback loops when sync updates trigger local reactions.\n *\n * - true: enable with a default window (100ms) - { windowMs }: customize the guard window in milliseconds - false: disable (default is enabled when sync is truthy)\n */\n",
+              "docComment": "/**\n * Optional guard to prevent rapid feedback loops when sync updates trigger local reactions.\n *\n * - true: enable with a default window (100ms) - `windowMs`: customize the guard window in milliseconds - false: disable (default is enabled when sync is truthy)\n */\n",
               "excerptTokens": [
                 {
                   "kind": "Content",

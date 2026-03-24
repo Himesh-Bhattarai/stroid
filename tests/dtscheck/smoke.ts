@@ -13,6 +13,7 @@ import {
   applyStorePatch,
   applyStorePatchesAtomic,
   type CausalityBoundary,
+  type PatchApplyResult,
   evaluateComputed,
   type GovernanceMode,
   getComputedGraph,
@@ -82,6 +83,7 @@ const runtimePatch: RuntimePatch = {
 };
 const psrPatchResult = applyStorePatch(runtimePatch);
 const psrBatchResult = applyStorePatchesAtomic([runtimePatch]);
+const explicitPatchResult: PatchApplyResult = psrBatchResult;
 const evaluatedComputed = evaluateComputed("dtsSmokeComputed", { dtsSmoke: { value: 2 } });
 configureStroid({ defaultSnapshotMode: "deep" });
 
@@ -102,4 +104,5 @@ void fallbackGraph;
 void runtimePatch;
 void psrPatchResult;
 void psrBatchResult;
+void explicitPatchResult;
 void evaluatedComputed;

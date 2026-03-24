@@ -116,6 +116,108 @@ test("applyStorePatch routes serializable set and merge patches through the runt
   }]);
 });
 
+test("applyStorePatch supports nested merge, delete, and insert operations with canonical path arrays", () => {
+  clearAllStores();
+  createStore("psrPatchParity", {
+    profile: {
+      name: "Ava",
+      stats: {
+        visits: 1,
+        likes: 0,
+      },
+    },
+    items: [
+      { id: 1, label: "one" },
+      { id: 3, label: "three" },
+    ],
+  });
+
+  assert.deepStrictEqual(applyStorePatch(patch({
+    id: "psr-nested-merge",
+    store: "psrPatchParity",
+    path: ["profile", "stats"],
+    op: "merge",
+    value: { likes: 2 },
+    meta: {
+      timestamp: 3.1,
+      source: "setStore",
+    },
+  })), { ok: true });
+  assert.deepStrictEqual(getStore("psrPatchParity"), {
+    profile: {
+      name: "Ava",
+      stats: {
+        visits: 1,
+        likes: 2,
+      },
+    },
+    items: [
+      { id: 1, label: "one" },
+      { id: 3, label: "three" },
+    ],
+  });
+
+  assert.deepStrictEqual(applyStorePatch(patch({
+    id: "psr-array-insert",
+    store: "psrPatchParity",
+    path: ["items", 1],
+    op: "insert",
+    value: { id: 2, label: "two" },
+    meta: {
+      timestamp: 3.2,
+      source: "setStore",
+    },
+  })), { ok: true });
+  assert.deepStrictEqual(getStore("psrPatchParity"), {
+    profile: {
+      name: "Ava",
+      stats: {
+        visits: 1,
+        likes: 2,
+      },
+    },
+    items: [
+      { id: 1, label: "one" },
+      { id: 2, label: "two" },
+      { id: 3, label: "three" },
+    ],
+  });
+
+  assert.deepStrictEqual(applyStorePatch(patch({
+    id: "psr-object-delete",
+    store: "psrPatchParity",
+    path: ["profile", "name"],
+    op: "delete",
+    meta: {
+      timestamp: 3.3,
+      source: "setStore",
+    },
+  })), { ok: true });
+  assert.deepStrictEqual(applyStorePatch(patch({
+    id: "psr-array-delete",
+    store: "psrPatchParity",
+    path: ["items", 0],
+    op: "delete",
+    meta: {
+      timestamp: 3.4,
+      source: "setStore",
+    },
+  })), { ok: true });
+
+  assert.deepStrictEqual(getStore("psrPatchParity"), {
+    profile: {
+      stats: {
+        visits: 1,
+        likes: 2,
+      },
+    },
+    items: [
+      { id: 2, label: "two" },
+      { id: 3, label: "three" },
+    ],
+  });
+});
+
 test("applyStorePatch still records the actual committed runtime patch when middleware changes the write", () => {
   clearAllStores();
   createStore("psrPatchMiddleware", { value: 0 }, {
@@ -153,27 +255,35 @@ test("applyStorePatch rejects unsupported patch forms", () => {
   createStore("psrUnsupported", { items: [1, 2, 3] });
 
   assert.deepStrictEqual(applyStorePatch(patch({
-    id: "psr-delete",
+    id: "psr-delete-root",
     store: "psrUnsupported",
-    path: ["items", 1],
+    path: [],
     op: "delete",
     meta: {
       timestamp: 5,
       source: "setStore",
     },
-  })), { ok: false, reason: "unsupported-op" });
+  })), {
+    ok: false,
+    reason: "unsupported-path-shape",
+    failedPatchId: "psr-delete-root",
+  });
 
   assert.deepStrictEqual(applyStorePatch(patch({
-    id: "psr-nested-merge",
+    id: "psr-insert-object",
     store: "psrUnsupported",
-    path: ["items"],
-    op: "merge",
-    value: [9],
+    path: ["missing"],
+    op: "insert",
+    value: 9,
     meta: {
       timestamp: 6,
       source: "setStore",
     },
-  })), { ok: false, reason: "unsupported-path-shape" });
+  })), {
+    ok: false,
+    reason: "unsupported-path-shape",
+    failedPatchId: "psr-insert-object",
+  });
 
   assert.deepStrictEqual(getStore("psrUnsupported"), { items: [1, 2, 3] });
 });
@@ -251,7 +361,11 @@ test("applyStorePatchesAtomic commits patch batches together and rolls back stag
         source: "setStore",
       },
     }),
-  ]), { ok: false, reason: "path" });
+  ]), {
+    ok: false,
+    reason: "path",
+    failedPatchId: "psr-batch-bad",
+  });
 
   assert.deepStrictEqual(getStore("psrBatchA"), { value: 1 });
   assert.deepStrictEqual(getStore("psrBatchB"), { value: 2 });
@@ -299,7 +413,11 @@ test("applyStorePatchesAtomic rolls back commit-phase failures before subscriber
           source: "setStore",
         },
       }),
-    ]), { ok: false, reason: "validate" });
+    ]), {
+      ok: false,
+      reason: "validate",
+      failedPatchId: "psr-atomic-b",
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 

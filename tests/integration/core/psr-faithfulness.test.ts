@@ -277,7 +277,11 @@ test("public PSR failed atomic batches do not expose partial state to subscriber
           source: "setStore",
         },
       }),
-    ]), { ok: false, reason: "path" });
+    ]), {
+      ok: false,
+      reason: "path",
+      failedPatchId: "faith-atomic-bad",
+    });
 
     await flushPublicRuntime();
 

@@ -20,6 +20,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - Fixed the published ESM package layout so `stroid`, `stroid/psr`, and sibling entrypoints share one runtime registry/computed graph instead of shipping isolated bundled state.
 - Hardened public PSR package-level contract coverage to verify built `dist` entrypoints can detect, read, subscribe to, and patch stores created through the main `stroid` entrypoint.
 - Tightened public PSR patch rejection semantics with stable `unsupported-op` and `unsupported-path-shape` reason codes for unsupported patch forms.
+- Expanded the public PSR patch surface to support nested `merge`, `delete`, and `insert`, with canonical path-array behavior and `failedPatchId` reporting for both single and atomic failures.
 - Added `stroid/psr` as a dedicated native PSR contract entrypoint with committed-only no-track snapshot reads, observation helpers, and explicit timing-contract reporting.
 - Added a canonical `RuntimePatch` model under the PSR surface and lowered `setStore`, `replaceStore`, `resetStore`, and `hydrateStores` into serializable runtime patch records internally.
 - Added public PSR patch-write APIs via `applyStorePatch()` and `applyStorePatchesAtomic()` for canonical `set` and root-level `merge` patches.
@@ -28,6 +29,8 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - Hardened Phase 6 graph identity with stable runtime node IDs, store-granularity runtime graphs, typed dependency edges, and PSR graph reads that accept both stable node IDs and legacy computed store names.
 - Hardened Phase 7 timing semantics with explicit governance modes, mutation authority, causality-boundary reporting, and concrete contract reasons for async persistence, sync authority sharing, and async-boundary computed propagation.
 - Added a Phase 8 faithfulness suite that locks preview-vs-commit equivalence for deterministic public PSR flows, verifies public atomic rollback visibility rules, exercises async-boundary stop conditions, and smoke-tests production usage from only public entrypoints.
+- Expanded built-package PSR contract tests to cover committed-final subscription timing, idempotent unsubscribe behavior, computed-settle notification ordering, and timing/governance downgrade claims.
+- Added a dedicated public PSR guide and support matrix covering patch support, reason codes, runtime node ID treatment, subscription timing, and downgrade rules.
 - Hardened production SSR computed registration so computed stores inherit explicit global SSR opt-in from already-global dependencies and fail cleanly without leaving stray computed registrations when global creation is unsupported.
 - Added a 250K unique-subscriber benchmark, a 250K concurrent subscriber benchmark with real-world multi-store fanout scenarios, and lean performance-suite coverage for concurrent subscriber and sync broadcast timing; refreshed benchmark harnesses to use explicit feature installers and truly unique subscriber callbacks.
 - Breaking: changed `stroid/persist`, `stroid/sync`, and `stroid/devtools` to side-effect-free modules that export explicit installers (`installPersist`, `installSync`, `installDevtools`) instead of auto-registering on import.

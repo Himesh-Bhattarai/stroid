@@ -13,7 +13,7 @@ import {
 import { scheduleFlush } from "../notification/index.js";
 import { hasStore as hasStoreByName } from "../core/store-read.js";
 import { nameOf } from "../core/store-lifecycle/identity.js";
-import { getRegistry } from "../core/store-lifecycle/registry.js";
+import { getRegistry, getStoreValueRef } from "../core/store-lifecycle/registry.js";
 import { setStore, replaceStore } from "../core/store-write.js";
 import {
     beginTransaction,
@@ -51,6 +51,10 @@ export type StoreTarget =
     | string;
 
 export type StoreListener = (value: StoreValue | null) => void;
+type PatchFailureReason = Extract<WriteResult, { ok: false }>["reason"];
+export type PatchApplyResult =
+    | { ok: true }
+    | { ok: false; reason: PatchFailureReason; failedPatchId?: string };
 
 export type GovernanceMode = "full-governor" | "bounded-governor" | "observer";
 export type MutationAuthority = "exclusive" | "shared";
@@ -76,9 +80,9 @@ const DEFAULT_TIMING_CONTRACT: TimingContract = {
     reasons: [],
 };
 
-const INVALID_PATCH_RESULT: WriteResult = { ok: false, reason: "invalid-args" };
-const UNSUPPORTED_PATCH_OP_RESULT: WriteResult = { ok: false, reason: "unsupported-op" };
-const UNSUPPORTED_PATCH_PATH_RESULT: WriteResult = { ok: false, reason: "unsupported-path-shape" };
+const INVALID_PATCH_RESULT: PatchApplyResult = { ok: false, reason: "invalid-args" };
+const UNSUPPORTED_PATCH_OP_RESULT: PatchApplyResult = { ok: false, reason: "unsupported-op" };
+const UNSUPPORTED_PATCH_PATH_RESULT: PatchApplyResult = { ok: false, reason: "unsupported-path-shape" };
 
 const RUNTIME_PATCH_OPS: readonly RuntimePatchOp[] = [
     "set",
@@ -221,6 +225,187 @@ const isRuntimePatchSource = (value: unknown): value is RuntimePatchMeta["source
     typeof value === "string"
     && (RUNTIME_PATCH_SOURCES as readonly string[]).includes(value);
 
+const resolvePatchFailureId = (patch?: Partial<RuntimePatch> | null): string | undefined =>
+    typeof patch?.id === "string" && patch.id.length > 0 ? patch.id : undefined;
+
+const failPatch = (
+    reason: PatchFailureReason,
+    failedPatchId?: string
+): PatchApplyResult =>
+    failedPatchId ? { ok: false, reason, failedPatchId } : { ok: false, reason };
+
+const toPatchResult = (
+    result: WriteResult | PatchApplyResult,
+    failedPatchId?: string
+): PatchApplyResult => {
+    if (result.ok) return { ok: true };
+    return failPatch(
+        result.reason,
+        "failedPatchId" in result ? (result.failedPatchId ?? failedPatchId) : failedPatchId
+    );
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+
+const parseArrayIndexSegment = (segment: string | number): number | null => {
+    if (typeof segment === "number") {
+        return Number.isInteger(segment) && segment >= 0 ? segment : null;
+    }
+    if (/^(0|[1-9]\d*)$/.test(segment)) {
+        return Number(segment);
+    }
+    return null;
+};
+
+const readChildAtSegment = (
+    container: Record<string, unknown> | unknown[],
+    segment: string | number
+): { ok: true; value: unknown } | { ok: false; reason: PatchFailureReason } => {
+    if (Array.isArray(container)) {
+        const index = parseArrayIndexSegment(segment);
+        if (index === null) return { ok: false, reason: "unsupported-path-shape" };
+        if (index >= container.length) return { ok: false, reason: "path" };
+        return { ok: true, value: container[index] };
+    }
+
+    const key = String(segment);
+    if (!Object.prototype.hasOwnProperty.call(container, key)) {
+        return { ok: false, reason: "path" };
+    }
+    return { ok: true, value: container[key] };
+};
+
+const replaceChildAtSegment = (
+    container: Record<string, unknown> | unknown[],
+    segment: string | number,
+    nextChild: unknown
+): Record<string, unknown> | unknown[] => {
+    if (Array.isArray(container)) {
+        const index = parseArrayIndexSegment(segment);
+        if (index === null) return container;
+        const clone = [...container];
+        clone[index] = nextChild;
+        return clone;
+    }
+
+    return {
+        ...container,
+        [String(segment)]: nextChild,
+    };
+};
+
+const updateLeafContainer = (
+    current: unknown,
+    path: readonly (string | number)[],
+    applyLeaf: (
+        container: Record<string, unknown> | unknown[],
+        segment: string | number
+    ) => { ok: true; value: StoreValue } | { ok: false; reason: PatchFailureReason }
+): { ok: true; value: StoreValue } | { ok: false; reason: PatchFailureReason } => {
+    if (path.length === 0) return { ok: false, reason: "unsupported-path-shape" };
+    if (!Array.isArray(current) && !isRecord(current)) {
+        return { ok: false, reason: "unsupported-path-shape" };
+    }
+
+    const [segment, ...rest] = path;
+    if (rest.length === 0) {
+        return applyLeaf(current, segment);
+    }
+
+    const child = readChildAtSegment(current, segment);
+    if (!child.ok) return child;
+
+    const nextChild = updateLeafContainer(child.value, rest, applyLeaf);
+    if (!nextChild.ok) return nextChild;
+
+    return {
+        ok: true,
+        value: replaceChildAtSegment(current, segment, nextChild.value) as StoreValue,
+    };
+};
+
+const applyMergeAtPath = (
+    current: unknown,
+    path: readonly (string | number)[],
+    patchValue: unknown
+): { ok: true; value: StoreValue } | { ok: false; reason: PatchFailureReason } => {
+    if (!isRecord(patchValue)) return { ok: false, reason: "unsupported-path-shape" };
+    return updateLeafContainer(current, path, (container, segment) => {
+        const target = readChildAtSegment(container, segment);
+        if (!target.ok) return target;
+        if (!isRecord(target.value)) {
+            return { ok: false, reason: "unsupported-path-shape" };
+        }
+        return {
+            ok: true,
+            value: replaceChildAtSegment(container, segment, {
+                ...target.value,
+                ...patchValue,
+            }) as StoreValue,
+        };
+    });
+};
+
+const applyDeleteAtPath = (
+    current: unknown,
+    path: readonly (string | number)[]
+): { ok: true; value: StoreValue } | { ok: false; reason: PatchFailureReason } => {
+    return updateLeafContainer(current, path, (container, segment) => {
+        if (Array.isArray(container)) {
+            const index = parseArrayIndexSegment(segment);
+            if (index === null) return { ok: false, reason: "unsupported-path-shape" };
+            if (index >= container.length) return { ok: false, reason: "path" };
+            const clone = [...container];
+            clone.splice(index, 1);
+            return { ok: true, value: clone as StoreValue };
+        }
+
+        const key = String(segment);
+        if (!Object.prototype.hasOwnProperty.call(container, key)) {
+            return { ok: false, reason: "path" };
+        }
+        const clone = { ...container };
+        delete clone[key];
+        return { ok: true, value: clone as StoreValue };
+    });
+};
+
+const applyInsertAtPath = (
+    current: unknown,
+    path: readonly (string | number)[],
+    patchValue: unknown
+): { ok: true; value: StoreValue } | { ok: false; reason: PatchFailureReason } => {
+    return updateLeafContainer(current, path, (container, segment) => {
+        if (!Array.isArray(container)) {
+            return { ok: false, reason: "unsupported-path-shape" };
+        }
+        const index = parseArrayIndexSegment(segment);
+        if (index === null) return { ok: false, reason: "unsupported-path-shape" };
+        if (index > container.length) return { ok: false, reason: "path" };
+        const clone = [...container];
+        clone.splice(index, 0, patchValue);
+        return { ok: true, value: clone as StoreValue };
+    });
+};
+
+const applyStructuredRuntimePatch = (
+    patch: RuntimePatch,
+    transform: (current: unknown) => { ok: true; value: StoreValue } | { ok: false; reason: PatchFailureReason }
+): PatchApplyResult => {
+    const failureId = patch.id;
+    if (!hasStoreByName(patch.store)) return failPatch("not-found", failureId);
+    const registry = getRegistry();
+    const current = getStoreValueRef(patch.store, registry);
+    if (current === undefined) return failPatch("not-found", failureId);
+    const transformed = transform(current);
+    if (!transformed.ok) return failPatch(transformed.reason, failureId);
+    return toPatchResult(
+        replaceStore(patch.store as any, transformed.value),
+        failureId
+    );
+};
+
 const normalizePublicPatch = (patch: RuntimePatch): RuntimePatch | null => {
     if (!patch || typeof patch !== "object") return null;
     if (!hasOwn(patch, "id") || typeof patch.id !== "string" || patch.id.length === 0) return null;
@@ -228,6 +413,9 @@ const normalizePublicPatch = (patch: RuntimePatch): RuntimePatch | null => {
     if (!hasOwn(patch, "path") || !Array.isArray(patch.path)) return null;
     if (patch.path.some((segment) => typeof segment !== "string" && typeof segment !== "number")) return null;
     if (!isRuntimePatchOp(patch.op)) return null;
+    if ((patch.op === "set" || patch.op === "merge" || patch.op === "insert") && !hasOwn(patch, "value")) {
+        return null;
+    }
     if (!hasOwn(patch, "meta") || !patch.meta || typeof patch.meta !== "object") return null;
     if (typeof patch.meta.timestamp !== "number" || !Number.isFinite(patch.meta.timestamp)) return null;
     if (!isRuntimePatchSource(patch.meta.source)) return null;
@@ -261,22 +449,45 @@ const normalizePublicPatch = (patch: RuntimePatch): RuntimePatch | null => {
     };
 };
 
-const applyNormalizedPatch = (patch: RuntimePatch): WriteResult => {
+const applyNormalizedPatch = (patch: RuntimePatch): PatchApplyResult => {
     if (patch.op === "set") {
         if (patch.path.length === 0) {
-            return replaceStore(patch.store as any, patch.value as any);
+            return toPatchResult(
+                replaceStore(patch.store as any, patch.value),
+                patch.id
+            );
         }
-        return setStore(
-            patch.store as any,
-            patch.path.map((segment) => String(segment)) as string[],
-            patch.value as any
+        return toPatchResult(
+            setStore(
+                patch.store as any,
+                patch.path.map((segment) => String(segment)) as any,
+                patch.value
+            ),
+            patch.id
         );
     }
     if (patch.op === "merge") {
-        if (patch.path.length !== 0) return UNSUPPORTED_PATCH_PATH_RESULT;
-        return setStore(patch.store as any, patch.value as any);
+        if (patch.path.length === 0) {
+            return toPatchResult(
+                setStore(patch.store as any, patch.value as Record<string, unknown>),
+                patch.id
+            );
+        }
+        return applyStructuredRuntimePatch(patch, (current) =>
+            applyMergeAtPath(current, patch.path, patch.value)
+        );
     }
-    return UNSUPPORTED_PATCH_OP_RESULT;
+    if (patch.op === "delete") {
+        return applyStructuredRuntimePatch(patch, (current) =>
+            applyDeleteAtPath(current, patch.path)
+        );
+    }
+    if (patch.op === "insert") {
+        return applyStructuredRuntimePatch(patch, (current) =>
+            applyInsertAtPath(current, patch.path, patch.value)
+        );
+    }
+    return failPatch(UNSUPPORTED_PATCH_OP_RESULT.reason, patch.id);
 };
 
 const resolveTimingContract = (targetName?: string): TimingContract => {
@@ -346,22 +557,24 @@ export const subscribeStore = (target: StoreTarget, listener: StoreListener): ((
 export const hasStore = (target: StoreTarget): boolean =>
     hasStoreByName(resolveTargetName(target));
 
-export const applyStorePatch = (patch: RuntimePatch): WriteResult => {
+export const applyStorePatch = (patch: RuntimePatch): PatchApplyResult => {
     const normalizedPatch = normalizePublicPatch(patch);
-    if (!normalizedPatch) return INVALID_PATCH_RESULT;
+    if (!normalizedPatch) return failPatch(INVALID_PATCH_RESULT.reason, resolvePatchFailureId(patch));
     return applyNormalizedPatch(normalizedPatch);
 };
 
 export const applyStorePatchesAtomic = (
     patches: readonly RuntimePatch[]
-): WriteResult => {
+): PatchApplyResult => {
     if (!Array.isArray(patches)) return INVALID_PATCH_RESULT;
     if (patches.length === 0) return { ok: true };
 
     const normalizedPatches: RuntimePatch[] = [];
     for (const patch of patches) {
         const normalizedPatch = normalizePublicPatch(patch);
-        if (!normalizedPatch) return INVALID_PATCH_RESULT;
+        if (!normalizedPatch) {
+            return failPatch(INVALID_PATCH_RESULT.reason, resolvePatchFailureId(patch));
+        }
         normalizedPatches.push(normalizedPatch);
     }
 
@@ -370,23 +583,33 @@ export const applyStorePatchesAtomic = (
     notifyState.batchDepth = Math.max(0, notifyState.batchDepth + 1);
     beginTransaction(registry);
 
-    let failure: WriteResult | null = null;
+    let failure: Extract<PatchApplyResult, { ok: false }> | null = null;
     let caughtError: Error | null = null;
     let finalError: Error | null = null;
+    let lastAttemptedPatchId: string | undefined;
 
     try {
         for (const patch of normalizedPatches) {
+            lastAttemptedPatchId = patch.id;
             const result = applyNormalizedPatch(patch);
             if (!result.ok) {
-                failure = result;
+                const failedResult: Extract<PatchApplyResult, { ok: false }> = result.failedPatchId
+                    ? result
+                    : {
+                        ok: false,
+                        reason: result.reason,
+                        failedPatchId: patch.id,
+                    };
+                failure = failedResult;
                 break;
             }
         }
     } catch (err) {
         caughtError = err instanceof Error ? err : new Error(String(err));
     } finally {
+        const failureReason = failure?.reason;
         finalError = endTransaction(
-            caughtError ?? (failure ? new Error(`applyStorePatchesAtomic failed: ${failure.reason}`) : undefined),
+            caughtError ?? (failureReason ? new Error(`applyStorePatchesAtomic failed: ${failureReason}`) : undefined),
             registry
         );
         notifyState.batchDepth = Math.max(0, notifyState.batchDepth - 1);
@@ -396,7 +619,7 @@ export const applyStorePatchesAtomic = (
     }
 
     if (failure) return failure;
-    if (caughtError || finalError) return { ok: false, reason: "validate" };
+    if (caughtError || finalError) return failPatch("validate", lastAttemptedPatchId);
     return { ok: true };
 };
 
