@@ -32,4 +32,21 @@ test("createStoreForRequest supports functional updates and snapshots", () => {
 
   const all = ctx.snapshot();
   assert.strictEqual(all.user.count, 2);
+  assert.strictEqual(api.snapshot().user.count, 2);
+});
+
+test("createStoreForRequest exposes api.snapshot inside the callback API", () => {
+  let snapshot: any = null;
+
+  createStoreForRequest((api) => {
+    api.create("user", { name: "Ada", count: 1 });
+    api.set("user", (draft: { count: number }) => {
+      draft.count += 1;
+    });
+    snapshot = api.snapshot();
+  });
+
+  assert.deepStrictEqual(snapshot, {
+    user: { name: "Ada", count: 2 },
+  });
 });

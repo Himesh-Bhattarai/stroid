@@ -8,6 +8,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 <details open>
 <summary><strong>Unreleased</strong></summary>
 
+- Fixed `createStoreForRequest` so the documented callback API now exposes `api.snapshot()`.
 - Breaking: changed `stroid/persist`, `stroid/sync`, and `stroid/devtools` to side-effect-free modules that export explicit installers (`installPersist`, `installSync`, `installDevtools`) instead of auto-registering on import.
 - Updated package exports, docs, and feature-install guidance to make optional feature registration explicit and more tree-shakeable.
 - Stopped publishing `.map` source maps in the npm tarball to reduce package weight while keeping local build/debug output unchanged.

@@ -76,6 +76,7 @@ export type RequestStoreApi<StateMap extends StoreStateMap = StoreStateMap> = {
     get: <Name extends RequestStoreName<StateMap>>(
         name: Name
     ) => RequestStoreValue<StateMap, Name> | undefined;
+    snapshot: () => RequestSnapshot<StateMap>;
 };
 
 type RequestStoreContext<StateMap extends StoreStateMap> = {
@@ -113,6 +114,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
         get: (name) => (hasBuffered(name)
             ? deepClone(buffer[name]) as RequestStoreValue<StateMap, typeof name>
             : undefined),
+        snapshot: () => deepClone(buffer) as RequestSnapshot<StateMap>,
     };
     if (typeof initializer === "function") initializer(api);
     return {
