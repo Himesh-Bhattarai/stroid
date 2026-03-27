@@ -252,3 +252,39 @@ test("feature hook contexts expose committed request-scoped state during create 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("beforeStoreDelete exposes committed request-scoped state", () => {
+  const featurePath = path.join(repoRoot, "src", "feature.ts");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const serverPath = path.join(repoRoot, "src", "server", "index.ts");
+
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const feature = await import(pathToFileURL(${JSON.stringify(featurePath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const server = await import(pathToFileURL(${JSON.stringify(serverPath)}).href);
+
+    let captured = null;
+    feature.registerStoreFeature("requestDeleteFeature", () => ({
+      beforeStoreDelete(ctx) {
+        captured = [ctx.getStoreValue(), ctx.getAllStores(), ctx.prev];
+      },
+    }));
+
+    const req = server.createStoreForRequest();
+    await req.hydrate(() => {
+      store.createStore("user", { count: 1 });
+      store.setStore("user", "count", 2);
+      store.deleteStore("user");
+    });
+
+    assert.deepStrictEqual(captured, [
+      { count: 2 },
+      { user: { count: 2 } },
+      { count: 2 },
+    ]);
+  `;
+
+  const result = runScript(script);
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
