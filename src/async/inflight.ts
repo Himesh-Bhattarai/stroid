@@ -52,7 +52,7 @@ export const tryDedupeRequest = (
     if (!active) return undefined;
 
     getAsyncMetrics().dedupes += 1;
-    if (transform && active.transform && active.transform !== transform) {
+    if (active.transform && active.transform !== transform) {
         reportAsyncUsageError(
             name,
             `fetchStore("${name}") cannot dedupe callers that use different transform functions for cacheSlot "${cacheSlot}".`,
@@ -63,4 +63,3 @@ export const tryDedupeRequest = (
     if (!transform || active.transform === transform) return active.promise;
     return active.raw.then((raw) => transform(raw));
 };
-

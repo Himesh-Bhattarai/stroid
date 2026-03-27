@@ -198,6 +198,28 @@ test("tryDedupeRequest returns inflight promise or transforms raw data", async (
   }
 });
 
+test("tryDedupeRequest rejects callers that request raw data from transformed inflight work", () => {
+  const cacheSlot = "dedupe-transform-mismatch";
+  const errors: string[] = [];
+  const transform = (raw: any) => raw.value + 1;
+  setInflightEntry(cacheSlot, {
+    promise: Promise.resolve(2),
+    raw: Promise.resolve({ value: 1 }),
+    transform,
+  });
+
+  try {
+    const deduped = tryDedupeRequest("dedupe", cacheSlot, undefined, (message) => {
+      errors.push(message);
+    });
+
+    assert.strictEqual(deduped, null);
+    assert.ok(errors.some((message) => message.includes("different transform functions")));
+  } finally {
+    clearInflightEntry(cacheSlot);
+  }
+});
+
 test("throwAsyncUsageError uses critical path when dev is disabled", () => {
   const originalDev = (globalThis as any).__STROID_DEV__;
   (globalThis as any).__STROID_DEV__ = false;
