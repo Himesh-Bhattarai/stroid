@@ -11,6 +11,7 @@ import assert from "node:assert";
 import { createStoreForRequest } from "../../../src/server/index.js";
 import { getStore, setStore, createStore, resetStore, deleteStore } from "../../../src/store.js";
 import { createSelector } from "../../../src/selectors/index.js";
+import { getRequestCarrier } from "../../../src/core/store-registry.js";
 
 test("createStoreForRequest throws when set is called before create", () => {
   assert.throws(() => {
@@ -145,5 +146,17 @@ test("deleteStore passes the request-scoped previous value to onDelete", async (
     deleteStore("user");
 
     assert.deepStrictEqual(prevValue, { name: "Ada", count: 2 });
+  });
+});
+
+test("deleteStore removes request-scoped values from the carrier", async () => {
+  const ctx = createStoreForRequest();
+
+  await ctx.hydrate(() => {
+    createStore("session", { user: "Ada", count: 1 });
+    deleteStore("session");
+
+    assert.deepStrictEqual(ctx.snapshot(), {});
+    assert.deepStrictEqual(getRequestCarrier(), {});
   });
 });

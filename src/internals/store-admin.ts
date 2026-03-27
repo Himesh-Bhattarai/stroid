@@ -8,7 +8,7 @@
  */
 import { runStoreHook } from "../features/lifecycle.js";
 import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../features/feature-registry.js";
-import { hasStoreEntry, emitLifecycleEvent, type StoreRegistry } from "../core/store-registry.js";
+import { getRequestCarrier, hasStoreEntry, emitLifecycleEvent, type StoreRegistry } from "../core/store-registry.js";
 import { getCommittedStoreValueRef } from "../core/store-lifecycle/registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn, warnAlways } from "./diagnostics.js";
@@ -162,6 +162,10 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                 phase: "before",
             });
 
+            const carrier = getRequestCarrier();
+            if (carrier) {
+                delete carrier[name];
+            }
             delete stores[name];
             delete subscribers[name];
             delete initialStates[name];
@@ -258,4 +262,3 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
         reportStoreError,
     };
 };
-
