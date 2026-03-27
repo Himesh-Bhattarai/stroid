@@ -11,6 +11,7 @@ import assert from "node:assert";
 import { runWithWriteContext } from "../../../src/internals/write-context.js";
 import { clearAllStores } from "../../../src/runtime-admin/index.js";
 import { getLastRuntimePatches } from "../../../src/core/runtime-patch.js";
+import { createStoreForRequest } from "../../../src/server/index.js";
 import {
   createStore,
   hydrateStores,
@@ -186,4 +187,29 @@ test("hydrateStores records a canonical root-set patch batch", () => {
       causedBy: undefined,
     },
   ]);
+});
+
+test("request hydrateStores patches include committed values from the carrier", async () => {
+  clearAllStores();
+  const ctx = createStoreForRequest((api) => {
+    api.create("requestHydrate", { value: 2 });
+  });
+
+  await ctx.hydrate(() => {});
+
+  const patches = getLastRuntimePatches(ctx.registry).map((patch) => ({
+    store: patch.store,
+    path: [...patch.path],
+    op: patch.op,
+    value: patch.value,
+    source: patch.meta.source,
+  }));
+
+  assert.deepStrictEqual(patches, [{
+    store: "requestHydrate",
+    path: [],
+    op: "set",
+    value: { value: 2 },
+    source: "hydrateStores",
+  }]);
 });

@@ -8,7 +8,7 @@
  */
 import { warn, warnAlways, isDev, isValidStoreName } from "../utils.js";
 import { type StoreOptions } from "../adapters/options.js";
-import { getRegistry, hasStoreEntryInternal } from "./store-lifecycle/registry.js";
+import { getCommittedStoreValueRef, getRegistry, hasStoreEntryInternal } from "./store-lifecycle/registry.js";
 import type {
     StoreStateMap,
     StrictStoreMap,
@@ -167,7 +167,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
                 runtimePatches.push(
                     createRootSetRuntimePatch({
                         store: storeName,
-                        value: registry.stores[storeName],
+                        value: getCommittedStoreValueRef(storeName, registry),
                         source: "hydrateStores",
                     })
                 );
@@ -181,7 +181,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
                 runtimePatches.push(
                     createRootSetRuntimePatch({
                         store: storeName,
-                        value: registry.stores[storeName],
+                        value: getCommittedStoreValueRef(storeName, registry),
                         source: "hydrateStores",
                     })
                 );
