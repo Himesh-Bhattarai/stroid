@@ -100,6 +100,28 @@ test("enableRevalidateOnFocus handles debounce and staggered batches", async () 
   immediateCleanup();
 });
 
+test("enableRevalidateOnFocus cleanup cancels queued staggered refetch timers", async () => {
+  clearAllStores();
+  createStore("focusCancelA", { data: null, loading: false, error: null, status: "idle" });
+  createStore("focusCancelB", { data: null, loading: false, error: null, status: "idle" });
+  const calls: string[] = [];
+  const makeFactory = (name: string) => () => {
+    calls.push(name);
+    return Promise.resolve({ ok: true });
+  };
+
+  await fetchStore("focusCancelA", makeFactory("focusCancelA"));
+  await fetchStore("focusCancelB", makeFactory("focusCancelB"));
+  calls.length = 0;
+
+  const cleanup = enableRevalidateOnFocus("*", { debounceMs: 0, maxConcurrent: 1, staggerMs: 10 });
+  window.dispatchEvent(new Event("focus"));
+  cleanup();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.deepStrictEqual(calls, []);
+});
+
 test("enableRevalidateOnFocus honors priority ordering and empty registries", async () => {
   clearAllStores();
   createStore("prioA", { data: null, loading: false, error: null, status: "idle" });
