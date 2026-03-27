@@ -8,7 +8,7 @@
  */
 import test, { type TestContext } from "node:test";
 import assert from "node:assert";
-import { createStore, setStore, replaceStore, getStore, deleteStore, hasStore } from "../../src/store.js";
+import { createStore, setStore, replaceStore, getStore, deleteStore, hasStore, hydrateStores } from "../../src/store.js";
 import { clearAllStores } from "../../src/runtime-admin/index.js";
 import {
   createComputed,
@@ -85,6 +85,38 @@ test("computed", async (t) => {
     replaceStore("x", -1);
     await wait();
     assert.strictEqual(notifyCount, 1);
+  });
+
+  await runCase(t, "does not notify when computed returns the same object reference", async () => {
+    createStore("x", 1);
+    const stable = { ready: true };
+    createComputed("stableObject", ["x"], () => stable);
+
+    let notifyCount = 0;
+    const { subscribeStore } = await import("../../src/core/store-notify.js");
+    subscribeStore("stableObject", () => { notifyCount += 1; });
+
+    replaceStore("x", 2);
+    await wait();
+
+    assert.strictEqual(notifyCount, 0);
+    assert.deepStrictEqual(getStore("stableObject"), { ready: true });
+  });
+
+  await runCase(t, "hydrateStores does not notify when computed recomputes to the same object reference", async () => {
+    createStore("base", 1);
+    const stable = { ready: true };
+    createComputed("stableHydratedObject", ["base"], () => stable);
+
+    let notifyCount = 0;
+    const { subscribeStore } = await import("../../src/core/store-notify.js");
+    subscribeStore("stableHydratedObject", () => { notifyCount += 1; });
+
+    hydrateStores({ base: 2 }, {}, { allowTrusted: true });
+    await wait();
+
+    assert.strictEqual(notifyCount, 0);
+    assert.deepStrictEqual(getStore("stableHydratedObject"), { ready: true });
   });
 
   await runCase(t, "rejects direct cycle", async () => {

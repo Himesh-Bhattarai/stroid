@@ -206,7 +206,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
                     warn(`hydrateStores recompute for "${computedName}" returned a Promise; skipping.`);
                     return;
                 }
-                const current = getStore(computedName as any);
+                const current = getCommittedStoreValueRef(computedName, registry);
                 if (Object.is(next, current)) return;
                 replaceStore(computedName as any, next as StoreValue);
             } catch (err) {

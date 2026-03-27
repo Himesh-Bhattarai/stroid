@@ -17,7 +17,7 @@ import {
     isComputed,
 } from "./computed-graph.js";
 import { warn, isDev, log } from "../utils.js";
-import { getRegistry } from "../core/store-lifecycle/registry.js";
+import { getRegistry, getStoreValueRef } from "../core/store-lifecycle/registry.js";
 import type { StoreRegistry } from "../core/store-registry.js";
 import type { StoreDefinition, StoreKey, StoreName, StateFor, StoreValue } from "../core/store-lifecycle/types.js";
 import type { NonFunction } from "../types/utility.js";
@@ -200,7 +200,7 @@ const _recomputeAndFlush = (
 
     const next = _runCompute(name, deps, compute, onError);
     const handle = store(name);
-    const current = getStore(handle);
+    const current = getStoreValueRef(name, registry);
     if (Object.is(next, current)) return;
 
     replaceStore(handle, next);
@@ -257,5 +257,4 @@ export type {
     RuntimeNodeId,
     RuntimeNodeType,
 } from "./types.js";
-
 
