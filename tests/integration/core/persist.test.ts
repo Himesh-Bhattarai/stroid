@@ -452,6 +452,30 @@ test("setupPersistWatch notifies on clear/remove/missing and handles read errors
   assert.strictEqual(watchState.watchThrow?.lastPresent, false);
 });
 
+test("setupPersistWatch notifies when async drivers become missing", async () => {
+  const notifications: Array<{ reason: string }> = [];
+  let present = true;
+  const watchState: Record<string, { lastPresent?: boolean; dispose?: () => void }> = Object.create(null);
+  const persistConfig = {
+    key: "watch-async",
+    driver: {
+      getItem: async () => (present ? "value" : null),
+    },
+    onStorageCleared: (info: { reason: string }) => notifications.push(info),
+  };
+
+  setupPersistWatch({ name: "watchAsync", persistConfig: persistConfig as any, persistWatchState: watchState });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.strictEqual(watchState.watchAsync?.lastPresent, true);
+
+  present = false;
+  window.dispatchEvent(new Event("focus"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(notifications.map((entry) => entry.reason), ["missing"]);
+  assert.strictEqual(watchState.watchAsync?.lastPresent, false);
+});
+
 test("persist feature flushes on pagehide and cleans up on delete/reset", async () => {
   const runtime = createPersistFeatureRuntime();
   let setCalls = 0;

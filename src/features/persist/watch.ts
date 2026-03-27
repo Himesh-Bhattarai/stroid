@@ -9,6 +9,9 @@
 import type { PersistConfig } from "../../adapters/options.js";
 import type { PersistWatchState } from "./types.js";
 
+const isPromiseLike = (value: unknown): value is Promise<unknown> =>
+    !!value && typeof (value as { then?: unknown }).then === "function";
+
 export const setPersistPresence = (
     persistWatchState: PersistWatchState,
     name: string,
@@ -34,9 +37,14 @@ export const setupPersistWatch = ({
     persistWatchState[name]?.dispose();
     const hostWindow = window;
 
-    const readPresent = (): boolean => {
+    const readPresent = (): boolean | Promise<boolean> => {
         try {
-            return persistConfig.driver.getItem?.(persistConfig.key) != null;
+            const value = persistConfig.driver.getItem?.(persistConfig.key) ?? null;
+            if (!isPromiseLike(value)) return value != null;
+            return Promise.resolve(value).then(
+                (resolved) => resolved != null,
+                () => false
+            );
         } catch (_) {
             return false;
         }
@@ -44,14 +52,24 @@ export const setupPersistWatch = ({
 
     const notifyIfCleared = (reason: "clear" | "remove" | "missing"): void => {
         const state = persistWatchState[name];
-        const present = readPresent();
         if (!state) return;
-        if (!state.lastPresent || present) {
-            state.lastPresent = present;
+        const previousPresent = state.lastPresent;
+        const applyPresence = (present: boolean): void => {
+            const currentState = persistWatchState[name];
+            if (!currentState) return;
+            if (!previousPresent || present) {
+                currentState.lastPresent = present;
+                return;
+            }
+            currentState.lastPresent = false;
+            callback({ name, key: persistConfig.key, reason });
+        };
+        const present = readPresent();
+        if (typeof present === "boolean") {
+            applyPresence(present);
             return;
         }
-        state.lastPresent = false;
-        callback({ name, key: persistConfig.key, reason });
+        void present.then(applyPresence);
     };
 
     const onStorage = (event: StorageEvent): void => {
@@ -71,13 +89,19 @@ export const setupPersistWatch = ({
     hostWindow.addEventListener("storage", onStorage);
     hostWindow.addEventListener("focus", onFocus);
 
+    const initialPresence = readPresent();
     persistWatchState[name] = {
-        lastPresent: readPresent(),
+        lastPresent: typeof initialPresence === "boolean" ? initialPresence : false,
         dispose: () => {
             hostWindow.removeEventListener("storage", onStorage);
             hostWindow.removeEventListener("focus", onFocus);
         },
     };
+    if (typeof initialPresence !== "boolean") {
+        void initialPresence.then((present) => {
+            const state = persistWatchState[name];
+            if (state) state.lastPresent = present;
+        });
+    }
 };
-
 
