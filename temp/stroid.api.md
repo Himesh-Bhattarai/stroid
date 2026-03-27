@@ -370,7 +370,7 @@ export type WriteResult = {
     ok: true;
 } | {
     ok: false;
-    reason: "not-found" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" | "lazy-uninitialized" | "unsupported-op" | "unsupported-path-shape";
+    reason: "not-found" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" | "lazy-uninitialized";
 };
 
 // Warnings were encountered during analysis:

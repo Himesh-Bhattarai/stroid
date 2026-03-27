@@ -5258,7 +5258,7 @@
             {
               "kind": "PropertySignature",
               "canonicalReference": "stroid!SyncOptions#loopGuard:member",
-              "docComment": "/**\n * Optional guard to prevent rapid feedback loops when sync updates trigger local reactions.\n *\n * - true: enable with a default window (100ms) - `windowMs`: customize the guard window in milliseconds - false: disable (default is enabled when sync is truthy)\n */\n",
+              "docComment": "/**\n * Optional guard to prevent rapid feedback loops when sync updates trigger local reactions.\n *\n * - true: enable with a default window (100ms) - { windowMs }: customize the guard window in milliseconds - false: disable (default is enabled when sync is truthy)\n */\n",
               "excerptTokens": [
                 {
                   "kind": "Content",
@@ -5449,7 +5449,7 @@
             },
             {
               "kind": "Content",
-              "text": "{\n    ok: true;\n} | {\n    ok: false;\n    reason: \"not-found\" | \"validate\" | \"path\" | \"middleware\" | \"ssr\" | \"invalid-args\" | \"lazy-uninitialized\" | \"unsupported-op\" | \"unsupported-path-shape\";\n}"
+              "text": "{\n    ok: true;\n} | {\n    ok: false;\n    reason: \"not-found\" | \"validate\" | \"path\" | \"middleware\" | \"ssr\" | \"invalid-args\" | \"lazy-uninitialized\";\n}"
             },
             {
               "kind": "Content",
