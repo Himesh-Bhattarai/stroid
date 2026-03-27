@@ -9,7 +9,8 @@
 import test from "node:test";
 import assert from "node:assert";
 import { createStoreForRequest } from "../../../src/server/index.js";
-import { getStore, setStore } from "../../../src/store.js";
+import { getStore, setStore, createStore } from "../../../src/store.js";
+import { createSelector } from "../../../src/selectors/index.js";
 
 test("createStoreForRequest throws when set is called before create", () => {
   assert.throws(() => {
@@ -93,5 +94,17 @@ test("createStoreForRequest persists async render-time writes into snapshot and 
       user: "B",
       count: 1,
     });
+  });
+});
+
+test("createSelector reads request-scoped stores during hydrate", async () => {
+  const ctx = createStoreForRequest();
+
+  await ctx.hydrate(() => {
+    createStore("user", { name: "Ada", count: 1 });
+
+    const selectName = createSelector("user", (state: { name: string } | null) => state?.name ?? null);
+
+    assert.strictEqual(selectName(), "Ada");
   });
 });
