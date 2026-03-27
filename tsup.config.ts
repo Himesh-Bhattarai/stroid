@@ -4,11 +4,13 @@ export default defineConfig({
     tsconfig: "tsconfig.build.json",
     entry: {
         index: "src/index.ts",
+        psr: "src/psr/index.ts",
         core: "src/core/index.ts",
         "runtime-tools": "src/runtime-tools/index.ts",
         "runtime-admin": "src/runtime-admin/index.ts",
         selectors: "src/selectors/index.ts",
         computed: "src/computed/index.ts",
+        "computed-types": "src/computed/types.ts",
         helpers: "src/helpers/index.ts",
         server: "src/server/index.ts",
         "react/index": "src/react/index.ts",
@@ -27,6 +29,6 @@ export default defineConfig({
     treeshake: true,
     sourcemap: true,
     clean: true,
-    splitting: false,
+    splitting: true,
     drop: ["debugger"],
 });

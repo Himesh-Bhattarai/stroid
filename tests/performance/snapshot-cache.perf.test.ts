@@ -14,6 +14,18 @@ const now = (): number =>
     ? performance.now()
     : Date.now();
 
+const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitFor = async (predicate: () => boolean, timeoutMs = 5000): Promise<void> => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
+    if (predicate()) return;
+    await Promise.resolve();
+    await wait();
+  }
+  throw new Error("snapshot cache benchmark timed out waiting for final notification");
+};
+
 test("heavy snapshot cache benchmark (update + notify + snapshot read)", async () => {
   const store = await import(`../../src/store.js?snapshot-cache-heavy-${Date.now()}`);
 
@@ -30,11 +42,12 @@ test("heavy snapshot cache benchmark (update + notify + snapshot read)", async (
   const iterations = 100;
   const start = now();
   for (let i = 0; i < iterations; i++) {
-    store.setStore("bigSnapshot", "counter", i);
+    store.setStore("bigSnapshot", "counter", i + 1);
     // allow the queued flush microtask to run
     // eslint-disable-next-line no-await-in-loop
     await Promise.resolve();
   }
+  await waitFor(() => reads === iterations);
   const ms = now() - start;
 
   assert.strictEqual(reads, iterations);

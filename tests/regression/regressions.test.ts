@@ -29,7 +29,7 @@ import {
   _getStoreValueRef,
 } from "../../src/store.js";
 import { fetchStore } from "../../src/async/fetch.js";
-import { getStoreMeta, getStoreHealth, findColdStores } from "../../src/runtime-tools/index.js";
+import { getStoreMeta, getStoreHealth, findColdStores, getMetrics } from "../../src/runtime-tools/index.js";
 import { clearSsrGlobalAllowWarned } from "../../src/core/store-create.js";
 import { createSelector, subscribeWithSelector } from "../../src/selectors/index.js";
 import { broadcastSync } from "../../src/features/sync.js";
@@ -869,7 +869,7 @@ test("buildFlushPlan reuses the orderedNames buffer", () => {
   assert.deepStrictEqual(plan.names, ["alpha", "beta"]);
 });
 
-test("setStoreBatch preserves notifications from successful commits before a later feature hook failure", async () => {
+test("setStoreBatch isolates feature hook failures so atomic batches still commit fully", async () => {
   clearAllStores();
   resetRegisteredStoreFeaturesForTests();
 
@@ -885,10 +885,16 @@ test("setStoreBatch preserves notifications from successful commits before a lat
     createStore("batchNotifyFirst", { value: 0 });
     createStore("batchNotifySecond", { value: 0 });
 
-    const seen: number[] = [];
+    const seenFirst: number[] = [];
+    const seenSecond: number[] = [];
     subscribe("batchNotifyFirst", (value) => {
       if (value && typeof value === "object") {
-        seen.push((value as { value: number }).value);
+        seenFirst.push((value as { value: number }).value);
+      }
+    });
+    subscribe("batchNotifySecond", (value) => {
+      if (value && typeof value === "object") {
+        seenSecond.push((value as { value: number }).value);
       }
     });
 
@@ -900,11 +906,33 @@ test("setStoreBatch preserves notifications from successful commits before a lat
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.deepStrictEqual(getStore("batchNotifyFirst"), { value: 1 });
-    assert.deepStrictEqual(seen, [1]);
+    assert.deepStrictEqual(getStore("batchNotifySecond"), { value: 2 });
+    assert.deepStrictEqual(seenFirst, [1]);
+    assert.deepStrictEqual(seenSecond, [2]);
   } finally {
     resetRegisteredStoreFeaturesForTests();
     installAllFeatures();
   }
+});
+
+test("failed transactions roll back reset metrics along with staged state", () => {
+  clearAllStores();
+  createStore("resetMetrics", { value: 1 });
+  createStore("resetMetricsGuard", { value: 0 });
+
+  setStore("resetMetrics", { value: 2 });
+  const before = getMetrics("resetMetrics");
+  assert.strictEqual(before?.resetCount, 0);
+
+  setStoreBatch(() => {
+    resetStore("resetMetrics");
+    setStore("resetMetricsGuard", "missing", 1 as any);
+  });
+
+  assert.deepStrictEqual(getStore("resetMetrics"), { value: 2 });
+  const after = getMetrics("resetMetrics");
+  assert.strictEqual(after?.resetCount, 0);
+  assert.strictEqual(after?.lastResetMs, 0);
 });
 
 test("snapshotStrategy sets the default snapshot mode", () => {

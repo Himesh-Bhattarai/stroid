@@ -51,6 +51,10 @@ import {
     markTransactionFailed,
 } from "./store-transaction.js";
 import {
+    createCanonicalSetStorePatches,
+    type SetStorePatchIntent,
+} from "./runtime-patch.js";
+import {
     maybeWarnSlowMutator,
     resolveWriteContext,
     stageOrCommitUpdate,
@@ -119,6 +123,7 @@ const setStoreInternal = (
         return { ok: false, reason: "not-found" };
     }
     let updated: StoreValue;
+    let runtimePatchIntent: SetStorePatchIntent = { kind: "root" };
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(storeName) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(storeName, registry);
 
@@ -162,6 +167,7 @@ const setStoreInternal = (
             updated = (didReturn && !getConfig().strictMutatorReturns)
                 ? (returnedValue as StoreValue)
                 : (draft as StoreValue);
+            runtimePatchIntent = { kind: "root" };
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
             if (isTransactionActive()) markTransactionFailed(err);
@@ -190,6 +196,7 @@ const setStoreInternal = (
             return { ok: false, reason: "validate" };
         }
         updated = { ...(prev as Record<string, unknown>), ...partialResult.value as Record<string, unknown> };
+        runtimePatchIntent = { kind: "merge", value: partialResult.value };
     } else if (typeof keyOrData === "string" || Array.isArray(keyOrData)) {
         if (!validateDepth(keyOrData as PathInput)) {
             if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") received invalid path`);
@@ -212,6 +219,11 @@ const setStoreInternal = (
             return { ok: false, reason: "path" };
         }
         updated = setByPath(prev as Record<string, unknown>, keyOrData as PathInput, sanitizedValue);
+        runtimePatchIntent = {
+            kind: "path",
+            path: keyOrData as PathInput,
+            value: sanitizedValue,
+        };
     } else {
         const message =
             `setStore("${storeName}") - invalid arguments.\n` +
@@ -246,12 +258,22 @@ const setStoreInternal = (
         if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") aborted by middleware`);
         return { ok: false, reason: "middleware" };
     }
-    const reuseInput = usedMutator && next === updated;
+    const reuseInput = Object.is(next, updated);
     const committed = normalizeCommittedState(storeName, next, validateRule, undefined, reuseInput ? { reuseInput: true } : undefined);
     if (!committed.ok) {
         if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") failed validation`);
         return { ok: false, reason: "validate" };
     }
+    const runtimePatches = createCanonicalSetStorePatches({
+        store: storeName,
+        intent: runtimePatchIntent,
+        committedValue: committed.value,
+        preserveIntent:
+            runtimePatchIntent.kind !== "root"
+            && Object.is(next, updated)
+            && Object.is(committed.value, next),
+        context: writeContext,
+    });
 
     // Short-circuit: if the committed state is shallow-equal to the previous state, avoid notifying subscribers.
     try {
@@ -271,6 +293,7 @@ const setStoreInternal = (
         hookLabel: "onSet",
         logMessage: `Store "${storeName}" updated`,
         context: writeContext,
+        runtimePatches,
     });
     return { ok: true };
 };

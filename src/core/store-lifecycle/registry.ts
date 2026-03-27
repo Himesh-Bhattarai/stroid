@@ -177,6 +177,13 @@ export const getStoreValueRef = (name: string, registry: StoreRegistry = getActi
         const staged = getStagedTransactionValue(name);
         if (staged.has) return staged.value;
     }
+    return getCommittedStoreValueRef(name, registry);
+};
+
+export const getCommittedStoreValueRef = (
+    name: string,
+    registry: StoreRegistry = getActiveRegistry()
+): StoreValue | undefined => {
     const carrier = getRequestCarrier();
     if (carrier && Object.prototype.hasOwnProperty.call(carrier, name)) {
         return carrier[name] as StoreValue;

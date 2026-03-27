@@ -1,6 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { _subscribe, clearAllStores, createStore, setStore } from "../src/store.js";
-import "../src/devtools/index.js";
+import { installDevtools } from "../src/install.js";
 
 type Row = {
   count: number;
@@ -51,6 +51,7 @@ const createMarker = (name: string, readValue: (state: any) => number = (state) 
 const average = (values: number[]): number => values.reduce((sum, value) => sum + value, 0) / values.length;
 
 const main = async () => {
+  installDevtools();
   const counts = [50_000, 100_000, 150_000, 200_000, 250_000, 800_000];
   const rows: Row[] = [];
 

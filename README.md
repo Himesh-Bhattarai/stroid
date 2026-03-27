@@ -57,6 +57,7 @@ Each row is independent. Use only what you need.
 ## What Each Import Contains
 
 - `stroid`: Full runtime (batching, hydration, computed, async metrics, runtime tools). No React hooks.
+- `stroid/psr`: Native PSR contract (committed snapshots, committed-final subscriptions, serializable patches, runtime graph, timing/governance).
 - `stroid/core`: Minimal CRUD only (`createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, `deleteStore`).
 - `stroid/react`: React hooks (`useStore`, `useSelector`, `useAsyncStore`, `useFormStore`, `useAsyncStoreSuspense`) + `RegistryScope`.
 - `stroid/async`: `fetchStore`, cache, retry, revalidate helpers.
@@ -103,6 +104,11 @@ Each row is independent. Use only what you need.
 // Core
 import { createStore, setStore, getStore, hasStore,
          deleteStore, resetStore, setStoreBatch, hydrateStores } from "stroid"
+
+// Native PSR contract
+import { getStoreSnapshot, subscribeStore, applyStorePatch,
+         applyStorePatchesAtomic, getRuntimeGraph, getComputedDescriptor,
+         evaluateComputed, getTimingContract } from "stroid/psr"
 
 // Minimal core (bundle-size-sensitive)
 import { createStore, setStore, getStore, hasStore,
@@ -161,6 +167,19 @@ import { registerStoreFeature,
 
 ---
 
+## Native PSR Contract
+
+`stroid/psr` is the supported public surface for native PSR-style integration.
+
+- Committed reads: `getStoreSnapshot()` and `getStoreSnapshotNoTrack()` only expose committed state.
+- Committed-final observation: `subscribeStore()` delivers post-commit snapshots, including batched writes.
+- Serializable writes: `applyStorePatch()` and `applyStorePatchesAtomic()` support `set`, `merge`, `delete`, and `insert` with stable reason codes and `failedPatchId` reporting.
+- Faithfulness inputs: `getRuntimeGraph()`, `getComputedDescriptor()`, `evaluateComputed()`, `getTimingContract()`, and `getStoreMeta()` expose the runtime data PSR needs for preview, downgrade, and causality decisions.
+
+See [Native PSR Contract](./docs/guides/PSR.md) for the support matrix, patch/path rules, timing downgrade meanings, and metadata boundaries.
+
+---
+
 ## Docs
 
 Full documentation in [`/docs`](./docs/):
@@ -172,6 +191,7 @@ Full documentation in [`/docs`](./docs/):
 - [Persistence](./docs/guides/PERSIST.md) — `localStorage`, encryption, migrations
 - [Cross-tab Sync](./docs/guides/SYNC.md) — `BroadcastChannel`, conflict resolution
 - [Computed Stores](./docs/guides/COMPUTED.md) — reactive derived values
+- [Native PSR Contract](./docs/guides/PSR.md) — support matrix, patch coverage, timing/governance, graph identity
 - [Server & SSR](./docs/guides/SERVER.md) — request-scoped stores, hydration
 - [Testing](./docs/guides/TESTING.md) — mock stores, resets, benchmarks
 - [Devtools](./docs/guides/DEVTOOLS.md) — history, redaction

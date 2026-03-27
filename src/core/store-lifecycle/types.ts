@@ -89,7 +89,19 @@ export interface StoreDefinition<Name extends string = string, State = StoreValu
 
 export type WriteResult =
     | { ok: true }
-    | { ok: false; reason: "not-found" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" | "lazy-uninitialized" };
+    | {
+        ok: false;
+        reason:
+            | "not-found"
+            | "validate"
+            | "path"
+            | "middleware"
+            | "ssr"
+            | "invalid-args"
+            | "lazy-uninitialized"
+            | "unsupported-op"
+            | "unsupported-path-shape";
+    };
 
 export type Subscriber = (value: StoreValue | null) => void;
 

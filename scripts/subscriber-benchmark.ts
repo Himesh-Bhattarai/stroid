@@ -1,6 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { _subscribe, clearAllStores, createStore, setStore } from "../src/store.js";
-import "../src/devtools/index.js";
+import { installDevtools } from "../src/install.js";
 
 type Mode = "noop" | "compute";
 
@@ -42,7 +42,7 @@ const COUNTS = [
   100_000,
   150_000,
   200_000,
-  800_000,
+  250_000,
 ];
 
 const STORE_NAME = "subscriberBenchmark";
@@ -88,6 +88,14 @@ const createCallback = (mode: Mode) => {
   };
 };
 
+const createUniqueCallback = (mode: Mode, index: number) => {
+  const callback = createCallback(mode);
+  return (state: any) => {
+    sink += index & 0;
+    callback(state);
+  };
+};
+
 const prepareStore = (subscriberCount: number, mode: Mode) => {
   clearAllStores();
   createStore(
@@ -99,9 +107,8 @@ const prepareStore = (subscriberCount: number, mode: Mode) => {
     },
   );
 
-  const callback = createCallback(mode);
   for (let i = 0; i < subscriberCount; i++) {
-    _subscribe(STORE_NAME, callback);
+    _subscribe(STORE_NAME, createUniqueCallback(mode, i));
   }
 
   let expectedValue = 0;
@@ -208,6 +215,7 @@ const summarize = (rows: BenchRow[]): ThresholdSummary => ({
 });
 
 const main = async () => {
+  installDevtools();
   maybeGc();
   const noop = await benchmarkMode("noop");
   maybeGc();

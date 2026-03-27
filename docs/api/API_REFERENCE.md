@@ -17,11 +17,12 @@
 8. [Helpers — `stroid/helpers`](#helpers--stroidhelpers)
 9. [Testing — `stroid/testing`](#testing--stroidtesting)
 10. [Runtime Tools — `stroid/runtime-tools`](#runtime-tools--stroidruntime-tools)
-11. [Runtime Admin — `stroid/runtime-admin`](#runtime-admin--stroidruntime-admin)
-12. [Devtools — `stroid/devtools`](#devtools--stroiddevtools)
-13. [Config — `stroid` / `stroid/config`](#config)
-14. [Feature Plugin API — `stroid/feature`](#feature-plugin-api--stroidfeature)
-15. [Types](#types)
+11. [PSR — `stroid/psr`](#psr--stroidpsr)
+12. [Runtime Admin — `stroid/runtime-admin`](#runtime-admin--stroidruntime-admin)
+13. [Devtools — `stroid/devtools`](#devtools--stroiddevtools)
+14. [Config — `stroid` / `stroid/config`](#config)
+15. [Feature Plugin API — `stroid/feature`](#feature-plugin-api--stroidfeature)
+16. [Types](#types)
 
 ---
 
@@ -687,6 +688,162 @@ Returns the full computed dependency graph as `{ nodes, edges }`.
 ### `getComputedDeps(name)`
 
 Returns the dependency names for a specific computed store.
+
+---
+
+## PSR — `stroid/psr`
+
+Native public contract for PSR-style preview, commit, batch, graph, and governance integration.
+
+```ts
+import {
+  getStoreSnapshot,
+  getStoreSnapshotNoTrack,
+  subscribeStore,
+  applyStorePatch,
+  applyStorePatchesAtomic,
+  getTimingContract,
+  getRuntimeGraph,
+  getComputedGraph,
+  getComputedDescriptor,
+  evaluateComputed,
+  listStores,
+  getStoreMeta,
+  hasStore,
+} from "stroid/psr"
+```
+
+### `getStoreSnapshot(target)` / `getStoreSnapshotNoTrack(target)`
+
+Committed-only snapshot reads. They do not expose in-flight transactional state.
+
+- `target` may be a string store name, `StoreDefinition`, or `StoreKey`.
+- snapshots are committed-state only
+- reads are no-track, so they do not increment store read counters
+
+---
+
+### `subscribeStore(target, listener)`
+
+Subscribes per store and delivers committed final snapshots only.
+
+- notifications are queued after commit, not fired inline during the write
+- batching (`setStoreBatch` and `applyStorePatchesAtomic`) publishes only the final settled state
+- computed stores notify after dependency writes settle
+- returned unsubscribe is idempotent
+
+---
+
+### `applyStorePatch(patch)`
+
+Applies one serializable runtime patch.
+
+Supported public ops:
+
+| Op | Root path `[]` | Nested path |
+| --- | --- | --- |
+| `set` | replace store | set path |
+| `merge` | object merge | merge into object target |
+| `delete` | unsupported | delete key / remove array item |
+| `insert` | unsupported | insert into array |
+
+Canonical path rules:
+
+- path arrays are required
+- object segments use strings
+- array segments use non-negative integers
+- numeric strings are accepted for array indices, but numbers are canonical
+
+Stable failure reasons:
+
+- `invalid-args`
+- `unsupported-op`
+- `unsupported-path-shape`
+- `not-found`
+- `path`
+- `validate`
+
+Single-patch failures include `failedPatchId` when the patch carried an ID.
+
+---
+
+### `applyStorePatchesAtomic(patches)`
+
+Applies a batch transactionally.
+
+- all patches commit together or none commit
+- subscriber delivery stays committed-final only
+- the first failing patch is reported via `failedPatchId`
+
+Return type:
+
+```ts
+type PatchApplyResult =
+  | { ok: true }
+  | { ok: false, reason: string, failedPatchId?: string }
+```
+
+---
+
+### `getTimingContract(target?)`
+
+Returns the public timing/governance contract for a store or runtime slice:
+
+```ts
+{
+  simulationWindow,
+  executionModel,
+  effectScope,
+  governanceMode,
+  mutationAuthority,
+  causalityBoundary,
+  reasons,
+}
+```
+
+Use it to decide whether native governance is:
+
+- full (`pre-commit + sync + full-governor + exclusive`)
+- bounded (async-boundary present)
+- observer-only (shared authority, such as sync-enabled stores)
+
+---
+
+### `getRuntimeGraph()` / `getComputedGraph()`
+
+Returns the store-granularity runtime graph used for PSR propagation and causality work.
+
+Each node includes explicit:
+
+- `id`
+- `storeId`
+- `path`
+- `type`
+
+Runtime node IDs are currently JSON-encoded tuples of `[nodeType, storeId, path]`. Treat the ID as a stable opaque identifier and prefer the explicit fields for application logic.
+
+---
+
+### `getComputedDescriptor(nodeIdOrStoreName)` / `evaluateComputed(nodeId, snapshot)`
+
+Public deterministic computed preview hooks.
+
+- descriptor lookup accepts a stable node ID or computed store name
+- `evaluateComputed` requires a snapshot record
+- only deterministic nodes are preview-safe; opaque or async-boundary nodes throw
+- descriptor identity and evaluation identity are aligned
+
+---
+
+### `listStores()`, `getStoreMeta(name)`, `hasStore(target)`
+
+Convenience helpers re-exported on the PSR entrypoint.
+
+- `listStores()` enumerates visible stores
+- `getStoreMeta()` exposes normalized options and runtime metrics
+- `hasStore()` resolves string, `StoreDefinition`, and `StoreKey` targets
+
+For the full support matrix and downgrade guidance, see [`docs/guides/PSR.md`](../guides/PSR.md).
 
 ---
 
