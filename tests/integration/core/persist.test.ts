@@ -268,6 +268,52 @@ test("persistLoad reports non-string sync driver values", () => {
   assert.ok(errors.some((msg) => msg.includes("async value")));
 });
 
+test("persistLoad hydrates stores from async drivers without async crypto flags", async () => {
+  const applied: Array<{ ready: boolean }> = [];
+  const envelope = JSON.stringify({
+    v: 1,
+    checksum: null,
+    data: { ready: true },
+    updatedAtMs: Date.now(),
+  });
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    updatedAtMs: Date.now(),
+    options: {
+      persist: {
+        key: "persist-async-driver",
+        driver: { getItem: async () => envelope },
+        serialize: JSON.stringify,
+        deserialize: (value: any) => value,
+        encrypt: (v: string) => v,
+        decrypt: (v: string) => v,
+        checksum: "none",
+        allowPlaintext: true,
+      },
+    },
+  };
+
+  const loaded = persistLoad({
+    name: "persistAsyncDriver",
+    silent: true,
+    getMeta: () => meta as any,
+    getInitialState: () => ({ ready: false }),
+    applyFeatureState: (state: any) => applied.push(state),
+    reportStoreError: () => undefined,
+    validate: (value: any) => ({ ok: value.ready === true, value }),
+    log: () => undefined,
+    hashState: () => 1,
+    deepClone,
+    sanitize,
+    shouldApply: () => true,
+  });
+
+  assert.ok(loaded instanceof Promise);
+  assert.strictEqual(await loaded, true);
+  assert.deepStrictEqual(applied, [{ ready: true }]);
+});
+
 test("persistLoad handles schema failure after migration changes", () => {
   const applied: Array<{ ok: boolean }> = [];
   const errors: string[] = [];
