@@ -8,6 +8,11 @@ Versioning: [Semantic Versioning](https://semver.org/).
 <details open>
 <summary><strong>Unreleased</strong></summary>
 
+- Fixed async persist hydration so Promise-returning `persist.driver.getItem()` now loads stored state even when crypto hooks and checksums stay synchronous.
+- Fixed async persist clear detection so `onStorageCleared` now resolves Promise-based drivers instead of treating every pending read as "present".
+- Fixed focus revalidation cleanup so queued staggered and batched refetch timers are cancelled when the returned cleanup runs.
+- Fixed async inflight dedupe contracts so raw callers no longer inherit another caller's transformed result for the same cache slot.
+- Fixed computed identity checks so stable object outputs no longer trigger redundant `replaceStore()` writes during dependency recompute or `hydrateStores()` recompute.
 - Fixed request-scoped selectors so `createSelector(...)` now reads carrier-backed state during `createStoreForRequest().hydrate(...)`.
 - Fixed `resetStore()` in request scope so `onReset(prev)` receives the live pre-reset value instead of the registry placeholder.
 - Fixed `deleteStore()` in request scope so `onDelete(prev)` receives the live pre-delete value.
