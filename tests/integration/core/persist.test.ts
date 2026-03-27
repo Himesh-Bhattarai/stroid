@@ -589,6 +589,61 @@ test("persist feature removes unload flush listeners when a store is deleted and
   assert.strictEqual(setCalls, 1);
 });
 
+test("persist feature swallows async removeItem rejections during store delete", async () => {
+  const runtime = createPersistFeatureRuntime();
+  const persistConfig = {
+    key: "persist-async-remove",
+    driver: {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => Promise.reject(new Error("remove reject")),
+    },
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encrypt: (v: string) => v,
+    decrypt: (v: string) => v,
+    checksum: "none",
+    allowPlaintext: true,
+    onStorageCleared: () => undefined,
+  };
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    updatedAtMs: Date.now(),
+    options: { persist: persistConfig },
+  };
+  const ctx = {
+    name: "persistAsyncRemove",
+    options: { persist: persistConfig },
+    getMeta: () => meta as any,
+    getInitialState: () => ({ ok: true }),
+    applyFeatureState: () => undefined,
+    getStoreValue: () => ({ ok: true }),
+    hasStore: () => true,
+    reportStoreError: () => undefined,
+    warn: () => undefined,
+    log: () => undefined,
+    hashState: () => 1,
+    deepClone,
+    sanitize,
+    validate: () => ({ ok: true }),
+  };
+
+  let unhandled: unknown = null;
+  const onUnhandled = (reason: unknown) => {
+    unhandled = reason;
+  };
+  process.once("unhandledRejection", onUnhandled);
+
+  try {
+    runtime.beforeStoreDelete(ctx as any);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.strictEqual(unhandled, null);
+  } finally {
+    process.removeListener("unhandledRejection", onUnhandled);
+  }
+});
+
 test("persist feature handles async load failures with pending saves", async () => {
   const runtime = createPersistFeatureRuntime();
   let setCalls = 0;
