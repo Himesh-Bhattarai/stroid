@@ -177,8 +177,7 @@ const _runCompute = (
     } catch (err) {
         warn(`createComputed("${name}") compute function threw: ${(err as { message?: string })?.message ?? err}`);
         safeInvoke(onError, `computed.onError(${name})`, err);
-        const handle = store(name);
-        return hasStore(name) ? getStore(handle) : null;
+        return hasStore(name) ? getStoreValueRef(name, getRegistry()) : null;
     }
 };
 
@@ -257,4 +256,3 @@ export type {
     RuntimeNodeId,
     RuntimeNodeType,
 } from "./types.js";
-

@@ -271,6 +271,25 @@ test("computed", async (t) => {
     assert.strictEqual(getStore("safe"), 4);
   });
 
+  await runCase(t, "compute errors do not rewrite stable object values", async () => {
+    createStore("n", 1);
+    const stable = { ready: true };
+    createComputed("safeObject", ["n"], (v) => {
+      if ((v as number) > 5) throw new Error("too big");
+      return stable;
+    });
+
+    let notifyCount = 0;
+    const { subscribeStore } = await import("../../src/core/store-notify.js");
+    subscribeStore("safeObject", () => { notifyCount += 1; });
+
+    replaceStore("n", 10);
+    await wait();
+
+    assert.strictEqual(notifyCount, 0);
+    assert.deepStrictEqual(getStore("safeObject"), { ready: true });
+  });
+
   await runCase(t, "computed handles 50+ dependencies", async () => {
     const total = 60;
     let expected = 0;
