@@ -492,6 +492,9 @@ export async function fetchStore(
         if (signal) return;
         timeoutId = setTimeout(() => {
             timeoutId = null;
+            if (controller && !controller.signal.aborted) {
+                controller.abort();
+            }
             reject(new Error("Timeout: async request hung for 60 seconds without an AbortSignal"));
         }, 60000);
     });
@@ -685,5 +688,4 @@ export const _resetAsyncStateForTests = (): void => {
 export const cleanupAllRevalidateHandlers = (): void => {
     cleanupStoreCleanupsByKind("revalidate");
 };
-
 

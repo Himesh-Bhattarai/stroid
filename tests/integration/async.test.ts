@@ -242,6 +242,53 @@ test("fetchStore keeps the latest concurrent result when earlier requests settle
   assert.strictEqual(state?.status, "success");
 });
 
+test("timed-out requests do not overwrite a newer in-flight request when they resolve late", async () => {
+  clearAllStores();
+  ensureAsyncStore("timed");
+  const realSetTimeout = globalThis.setTimeout;
+  const first = deferred<{ label: string }>();
+  const second = deferred<{ label: string }>();
+  const controller = new AbortController();
+
+  globalThis.setTimeout = ((handler: (...args: any[]) => void, ms?: number, ...args: any[]) => {
+    if (ms === 60000) {
+      return realSetTimeout(handler, 0, ...args) as unknown as ReturnType<typeof setTimeout>;
+    }
+    return realSetTimeout(handler, ms, ...args);
+  }) as typeof setTimeout;
+
+  try {
+    const firstResult = await fetchStore("timed", first.promise, { dedupe: false });
+    assert.strictEqual(firstResult, null);
+
+    const secondRequest = fetchStore("timed", second.promise, {
+      dedupe: false,
+      signal: controller.signal,
+    });
+
+    assert.strictEqual(getStore("timed")?.status, "loading");
+
+    first.resolve({ label: "stale" });
+    await wait(0);
+
+    const stateDuringSecond = getStore("timed");
+    assert.strictEqual(stateDuringSecond?.status, "loading");
+    assert.strictEqual(stateDuringSecond?.data, null);
+
+    second.resolve({ label: "fresh" });
+    const secondResult = await secondRequest;
+    assert.deepStrictEqual(secondResult, { label: "fresh" });
+
+    const finalState = getStore("timed");
+    assert.deepStrictEqual(finalState?.data, { label: "fresh" });
+    assert.strictEqual(finalState?.status, "success");
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    controller.abort();
+    clearAllStores();
+  }
+});
+
 test("fetchStore aborts lifecycle-owned requests when the store is deleted", async () => {
   clearAllStores();
   ensureAsyncStore("lifecycledStore");
@@ -1107,6 +1154,5 @@ test("fetchStore caps no-signal warning cache size under high-cardinality stores
     clearAllStores();
   }
 });
-
 
 

@@ -33,6 +33,11 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - Added a dedicated public PSR guide and support matrix covering patch support, reason codes, runtime node ID treatment, subscription timing, and downgrade rules.
 - Hardened production SSR computed registration so computed stores inherit explicit global SSR opt-in from already-global dependencies and fail cleanly without leaving stray computed registrations when global creation is unsupported.
 - Added a 250K unique-subscriber benchmark, a 250K concurrent subscriber benchmark with real-world multi-store fanout scenarios, and lean performance-suite coverage for concurrent subscriber and sync broadcast timing; refreshed benchmark harnesses to use explicit feature installers and truly unique subscriber callbacks.
+- Fixed `createStoreForRequest` so the documented callback API now exposes `api.snapshot()`.
+- Fixed `createStoreForRequest().set(name, object)` so later external mutation of the caller payload no longer mutates request state.
+- Fixed `createStoreForRequest()` so request-scope writes made during `hydrate()` now persist into later `snapshot()` output and repeated `hydrate()` calls.
+- Fixed `fetchStore()` timeouts without a caller-provided signal so the internally created request is now aborted when the timeout fires.
+- Fixed `fetchStore()` request versioning so a timed-out request can no longer reuse a cleared version and overwrite a newer in-flight response.
 - Breaking: changed `stroid/persist`, `stroid/sync`, and `stroid/devtools` to side-effect-free modules that export explicit installers (`installPersist`, `installSync`, `installDevtools`) instead of auto-registering on import.
 - Updated package exports, docs, and feature-install guidance to make optional feature registration explicit and more tree-shakeable.
 - Stopped publishing `.map` source maps in the npm tarball to reduce package weight while keeping local build/debug output unchanged.

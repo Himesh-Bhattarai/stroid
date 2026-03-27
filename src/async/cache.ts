@@ -25,6 +25,8 @@ export const getInflightRegistry = (): ReturnType<typeof getActiveAsyncRegistry>
     getActiveAsyncRegistry().inflight;
 export const getRequestVersionRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["requestVersion"] =>
     getActiveAsyncRegistry().requestVersion;
+export const getRequestSequenceRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["requestSequence"] =>
+    getActiveAsyncRegistry().requestSequence;
 export const getCacheMeta = (): ReturnType<typeof getActiveAsyncRegistry>["cacheMeta"] =>
     getActiveAsyncRegistry().cacheMeta;
 export const getRateWindowStartRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["rateWindowStart"] =>
@@ -152,6 +154,7 @@ export const clearAsyncMeta = (name: string): void => {
     const cacheMeta = getCacheMeta();
     const inflight = getInflightRegistry();
     const requestVersion = getRequestVersionRegistry();
+    const requestSequence = getRequestSequenceRegistry();
     const rateWindowStart = getRateWindowStartRegistry();
     const rateCount = getRateCountRegistry();
     const warnedOnce = getWarnedOnce();
@@ -165,6 +168,7 @@ export const clearAsyncMeta = (name: string): void => {
 
     Object.keys(inflight).forEach((k) => { if (startsWithName(k)) delete inflight[k]; });
     Object.keys(requestVersion).forEach((k) => { if (startsWithName(k)) delete requestVersion[k]; });
+    Object.keys(requestSequence).forEach((k) => { if (startsWithName(k)) delete requestSequence[k]; });
     Object.keys(cacheMeta).forEach((k) => { if (startsWithName(k)) delete cacheMeta[k]; });
     Object.keys(rateWindowStart).forEach((k) => { if (startsWithName(k)) delete rateWindowStart[k]; });
     Object.keys(rateCount).forEach((k) => { if (startsWithName(k)) delete rateCount[k]; });
@@ -174,6 +178,7 @@ export const pruneAsyncCache = (name: string): void => {
     const prefix = `${name}:`;
     const cacheMeta = getCacheMeta();
     const requestVersion = getRequestVersionRegistry();
+    const requestSequence = getRequestSequenceRegistry();
     const slots = Object.entries(cacheMeta)
         .filter(([key, meta]) => {
             if (key !== name && !key.startsWith(prefix)) return false;
@@ -190,6 +195,7 @@ export const pruneAsyncCache = (name: string): void => {
     slots.slice(0, overflow).forEach(([key]) => {
         delete cacheMeta[key];
         delete requestVersion[key];
+        delete requestSequence[key];
     });
 };
 
