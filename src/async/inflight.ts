@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { getAsyncMetrics, getInflightRegistry, getRequestVersionRegistry } from "./cache.js";
+import { getAsyncMetrics, getInflightRegistry, getRequestSequenceRegistry, getRequestVersionRegistry } from "./cache.js";
 import type { FetchOptions } from "./cache.js";
 import { reportAsyncUsageError } from "./errors.js";
 
@@ -16,8 +16,10 @@ export const isCurrentRequest = (cacheSlot: string, version: number): boolean =>
     (getRequestVersionRegistry()[cacheSlot] ?? 0) === version;
 
 export const reserveRequestVersion = (cacheSlot: string): number => {
+    const requestSequence = getRequestSequenceRegistry();
     const requestVersion = getRequestVersionRegistry();
-    const currentVersion = (requestVersion[cacheSlot] ?? 0) + 1;
+    const currentVersion = (requestSequence[cacheSlot] ?? 0) + 1;
+    requestSequence[cacheSlot] = currentVersion;
     requestVersion[cacheSlot] = currentVersion;
     return currentVersion;
 };
@@ -61,5 +63,4 @@ export const tryDedupeRequest = (
     if (!transform || active.transform === transform) return active.promise;
     return active.raw.then((raw) => transform(raw));
 };
-
 

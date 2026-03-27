@@ -79,6 +79,7 @@ export type AsyncRegistry = {
     fetchRegistry: Record<string, { kind: "url"; url: string; options: FetchOptions } | { kind: "factory"; factory: () => string | Promise<unknown>; options: FetchOptions }>;
     inflight: Partial<Record<string, InflightEntry>>;
     requestVersion: Record<string, number>;
+    requestSequence: Record<string, number>;
     cacheMeta: Record<string, { timestamp: number; expiresAt: number | null; data: unknown }>;
     rateWindowStart: Record<string, number>;
     rateCount: Record<string, number>;
@@ -110,6 +111,7 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     fetchRegistry: Object.create(null),
     inflight: Object.create(null),
     requestVersion: Object.create(null),
+    requestSequence: Object.create(null),
     cacheMeta: Object.create(null),
     rateWindowStart: Object.create(null),
     rateCount: Object.create(null),
@@ -142,6 +144,7 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     Object.keys(registry.fetchRegistry).forEach((key) => delete registry.fetchRegistry[key]);
     Object.keys(registry.inflight).forEach((key) => delete registry.inflight[key]);
     Object.keys(registry.requestVersion).forEach((key) => delete registry.requestVersion[key]);
+    Object.keys(registry.requestSequence).forEach((key) => delete registry.requestSequence[key]);
     Object.keys(registry.cacheMeta).forEach((key) => delete registry.cacheMeta[key]);
     Object.keys(registry.rateWindowStart).forEach((key) => delete registry.rateWindowStart[key]);
     Object.keys(registry.rateCount).forEach((key) => delete registry.rateCount[key]);
@@ -168,5 +171,4 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     registry.asyncMetrics.avgMs = 0;
     registry.asyncMetrics.lastMs = 0;
 };
-
 
