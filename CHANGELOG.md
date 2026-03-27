@@ -8,7 +8,13 @@ Versioning: [Semantic Versioning](https://semver.org/).
 <details open>
 <summary><strong>Unreleased</strong></summary>
 
-- No unreleased changes yet.
+- Fixed request-scoped selectors so `createSelector(...)` now reads carrier-backed state during `createStoreForRequest().hydrate(...)`.
+- Fixed `resetStore()` in request scope so `onReset(prev)` receives the live pre-reset value instead of the registry placeholder.
+- Fixed `deleteStore()` in request scope so `onDelete(prev)` receives the live pre-delete value.
+- Fixed request-scope delete cleanup so removing a store also clears its carrier-backed value instead of leaving hidden stale request state behind.
+- Fixed request-scope `hydrateStores()` runtime patches so canonical root `set` patches always include the committed hydrated value.
+- Fixed public feature hook contexts so `onStoreCreate` and `onStoreWrite` expose committed request-scoped state through `ctx.getStoreValue()` and `ctx.getAllStores()`.
+- Fixed public delete feature hook contexts so `beforeStoreDelete` exposes committed request-scoped state through `ctx.prev`, `ctx.getStoreValue()`, and `ctx.getAllStores()`.
 
 </details>
 
