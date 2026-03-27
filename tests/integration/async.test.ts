@@ -665,7 +665,44 @@ test("fetchStore rejects deduped callers that use different transforms for one c
 
     assert.strictEqual(second, null);
     assert.deepStrictEqual(firstResult, { value: 2 });
-    assert.ok(errors.some((msg) => msg.includes('cannot dedupe callers that use different transform functions')));
+    assert.ok(errors.some((msg) => msg.includes("different result contracts")));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("fetchStore rejects deduped callers that use different request URLs for one cache slot", async () => {
+  clearAllStores();
+  ensureAsyncStore("dedupeRequestStore");
+  const realFetch = globalThis.fetch;
+  const errors: string[] = [];
+  let callCount = 0;
+
+  globalThis.fetch = (async (url: string) => {
+    callCount += 1;
+    await wait(10);
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => "application/json" },
+      json: async () => ({ value: url }),
+      text: async () => JSON.stringify({ value: url }),
+    } as any;
+  }) as typeof fetch;
+
+  try {
+    const first = fetchStore("dedupeRequestStore", "https://api.example.com/one");
+    const second = await fetchStore("dedupeRequestStore", "https://api.example.com/two", {
+      onError: (msg) => { errors.push(msg); },
+    });
+
+    const firstResult = await first;
+
+    assert.strictEqual(second, null);
+    assert.strictEqual(callCount, 1);
+    assert.deepStrictEqual(firstResult, { value: "https://api.example.com/one" });
+    assert.ok(errors.some((msg) => msg.includes("different request or state contracts")));
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -1154,5 +1191,3 @@ test("fetchStore caps no-signal warning cache size under high-cardinality stores
     clearAllStores();
   }
 });
-
-

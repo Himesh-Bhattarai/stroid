@@ -38,6 +38,7 @@ import {
     clearInflightEntry,
     clearRequestVersion,
     hasInflightEntry,
+    type InflightRequestContract,
     isCurrentRequest,
     reserveRequestVersion,
     setInflightEntry,
@@ -198,6 +199,21 @@ export async function fetchStore(
     const retryPolicy = normalizeRetryOptions(name, retry, retryDelay, retryBackoff);
     let promiseRetryNoticeIssued = false;
     const shouldWarnPromiseRetry = isDirectPromiseInput && retry > 0;
+    const dedupeContract: InflightRequestContract = (() => {
+        const requestKind = typeof urlOrRequest === "string"
+            ? "url"
+            : (typeof urlOrRequest === "function" ? "factory" : "promise");
+        return {
+            requestKind,
+            requestRef: requestKind === "url" ? undefined : urlOrRequest,
+            url: requestKind === "url" ? urlOrRequest : undefined,
+            method: requestKind === "promise" ? undefined : ((method ?? "GET").toUpperCase()),
+            headers: requestKind === "promise" ? undefined : headers,
+            body: requestKind === "promise" ? undefined : body,
+            responseType: requestKind === "promise" ? undefined : responseType,
+            stateAdapter,
+        };
+    })();
 
     const isProdServer = typeof window === "undefined"
         && (typeof process !== "undefined" ? process.env?.NODE_ENV : undefined) === "production";
@@ -293,7 +309,11 @@ export async function fetchStore(
     }
 
     if (dedupe) {
-        const deduped = tryDedupeRequest(name, cacheSlot, transform, onError);
+        const deduped = tryDedupeRequest(name, cacheSlot, {
+            contract: dedupeContract,
+            transform,
+            cloneResult: cloneMode,
+        }, onError);
         if (deduped !== undefined) return deduped;
     }
 
@@ -530,7 +550,7 @@ export async function fetchStore(
     });
     const rawPromise = execution.then((res) => res?.raw);
 
-    setInflightEntry(cacheSlot, { promise, raw: rawPromise, transform });
+    setInflightEntry(cacheSlot, { promise, raw: rawPromise, transform, cloneResult: cloneMode, contract: dedupeContract });
     if (typeof urlOrRequest === "function") {
         fetchRegistry[name] = { kind: "factory", factory: urlOrRequest, options: { ...options, cacheKey } };
     } else if (typeof urlOrRequest === "string") {
