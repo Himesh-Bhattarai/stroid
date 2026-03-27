@@ -9,6 +9,7 @@
 import test from "node:test";
 import assert from "node:assert";
 import { createStoreForRequest } from "../../../src/server/index.js";
+import { getStore, setStore } from "../../../src/store.js";
 
 test("createStoreForRequest throws when set is called before create", () => {
   assert.throws(() => {
@@ -64,5 +65,33 @@ test("createStoreForRequest isolates direct api.set payloads from later external
 
   assert.deepStrictEqual(ctx.snapshot(), {
     session: { user: "A", count: 1 },
+  });
+});
+
+test("createStoreForRequest persists async render-time writes into snapshot and later hydrate calls", async () => {
+  const ctx = createStoreForRequest((api) => {
+    api.create("session", { user: "A", count: 0 });
+  });
+
+  await ctx.hydrate(async () => {
+    await Promise.resolve();
+    setStore("session", "count", 1);
+    setStore("session", "user", "B");
+
+    assert.deepStrictEqual(getStore("session"), {
+      user: "B",
+      count: 1,
+    });
+  });
+
+  assert.deepStrictEqual(ctx.snapshot(), {
+    session: { user: "B", count: 1 },
+  });
+
+  await ctx.hydrate(() => {
+    assert.deepStrictEqual(getStore("session"), {
+      user: "B",
+      count: 1,
+    });
   });
 });

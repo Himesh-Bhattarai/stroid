@@ -93,6 +93,19 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
     const bufferedOptions: Record<string, StoreOptions<any>> = {};
     const hasBuffered = (name: RequestStoreName<StateMap>): boolean =>
         Object.prototype.hasOwnProperty.call(buffer, name);
+    const syncBufferFromCarrier = (carrier: CarrierContext): void => {
+        Object.keys(buffer).forEach((name) => {
+            delete buffer[name as RequestStoreName<StateMap>];
+        });
+
+        Object.keys(registry.metaEntries).forEach((name) => {
+            const value = Object.prototype.hasOwnProperty.call(carrier, name)
+                ? carrier[name]
+                : registry.stores[name];
+            buffer[name as RequestStoreName<StateMap>] =
+                deepClone(value) as RequestStoreValue<StateMap, RequestStoreName<StateMap>>;
+        });
+    };
     const api: RequestStoreApi<StateMap> = {
         create: (name, data, options = {}) => {
             buffer[name] = deepClone(data) as RequestStoreValue<StateMap, typeof name>;
@@ -146,7 +159,22 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
                         merged as Parameters<typeof hydrateStores>[1],
                         { allowTrusted: true }
                     );
-                    return renderFn();
+                    const carrier = serverAsyncContext.getStore();
+                    if (!carrier) return renderFn();
+
+                    try {
+                        const rendered = renderFn();
+                        if (rendered && typeof (rendered as PromiseLike<unknown>).then === "function") {
+                            return Promise.resolve(rendered).finally(() => {
+                                syncBufferFromCarrier(carrier);
+                            }) as T;
+                        }
+                        syncBufferFromCarrier(carrier);
+                        return rendered;
+                    } catch (err) {
+                        syncBufferFromCarrier(carrier);
+                        throw err;
+                    }
                 })
             );
         },
