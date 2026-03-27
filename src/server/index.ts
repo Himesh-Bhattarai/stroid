@@ -108,7 +108,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
                     buffer[name] as RequestStoreValue<StateMap, typeof name>,
                     updater as (draft: RequestStoreValue<StateMap, typeof name>) => void
                 )
-                : updater;
+                : deepClone(updater) as RequestStoreValue<StateMap, typeof name>;
             return buffer[name] as RequestStoreValue<StateMap, typeof name>;
         },
         get: (name) => (hasBuffered(name)

@@ -50,3 +50,19 @@ test("createStoreForRequest exposes api.snapshot inside the callback API", () =>
     user: { name: "Ada", count: 2 },
   });
 });
+
+test("createStoreForRequest isolates direct api.set payloads from later external mutation", () => {
+  let api: any = null;
+  const ctx = createStoreForRequest((requestApi) => {
+    api = requestApi;
+    api.create("session", { user: "Init", count: 0 });
+  });
+
+  const payload = { user: "A", count: 1 };
+  api.set("session", payload);
+  payload.count = 99;
+
+  assert.deepStrictEqual(ctx.snapshot(), {
+    session: { user: "A", count: 1 },
+  });
+});
