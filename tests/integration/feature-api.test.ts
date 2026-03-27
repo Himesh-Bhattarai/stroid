@@ -214,5 +214,41 @@ test("feature can apply state during create", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("feature hook contexts expose committed request-scoped state during create and write", () => {
+  const featurePath = path.join(repoRoot, "src", "feature.ts");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const serverPath = path.join(repoRoot, "src", "server", "index.ts");
 
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const feature = await import(pathToFileURL(${JSON.stringify(featurePath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const server = await import(pathToFileURL(${JSON.stringify(serverPath)}).href);
+
+    const events = [];
+    feature.registerStoreFeature("requestFeature", () => ({
+      onStoreCreate(ctx) {
+        events.push(["create", ctx.getStoreValue(), ctx.getAllStores()]);
+      },
+      onStoreWrite(ctx) {
+        events.push(["write", ctx.getStoreValue(), ctx.getAllStores(), ctx.prev, ctx.next]);
+      },
+    }));
+
+    const req = server.createStoreForRequest();
+    await req.hydrate(() => {
+      store.createStore("user", { count: 1 });
+      store.setStore("user", "count", 2);
+    });
+
+    assert.deepStrictEqual(events, [
+      ["create", { count: 1 }, { user: { count: 1 } }],
+      ["write", { count: 2 }, { user: { count: 2 } }, { count: 1 }, { count: 2 }],
+    ]);
+  `;
+
+  const result = runScript(script);
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
 

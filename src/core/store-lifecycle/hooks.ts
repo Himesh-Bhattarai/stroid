@@ -26,6 +26,7 @@ import {
     initialStates,
     featureRuntimes,
     applyFeatureState,
+    getCommittedStoreValueRef,
     getRegistry,
     initializeRegisteredFeatureRuntimes,
     setStoreValueInternal,
@@ -62,12 +63,20 @@ export const createBaseFeatureContext = (name: string): FeatureHookContext | nul
         return null;
     }
 
+    const getAllCommittedStores = (): Record<string, StoreValue> =>
+        Object.fromEntries(
+            Object.keys(registry.metaEntries).map((storeName) => [
+                storeName,
+                getCommittedStoreValueRef(storeName, registry) as StoreValue,
+            ])
+        ) as Record<string, StoreValue>;
+
     const ctx: FeatureHookContext = {
         name,
         options: metaEntry.options,
         getMeta: () => meta[name],
-        getStoreValue: () => stores[name],
-        getAllStores: () => stores,
+        getStoreValue: () => getCommittedStoreValueRef(name, registry) as StoreValue,
+        getAllStores: getAllCommittedStores,
         getInitialState: () => initialStates[name],
         hasStore: () => hasStoreEntryInternal(name),
         setStoreValue: (value: StoreValue) => {
@@ -295,5 +304,4 @@ export const resolveFeatureAvailability = (name: string, options: NormalizedOpti
 
     return next;
 };
-
 
