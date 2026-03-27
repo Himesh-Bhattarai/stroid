@@ -9,7 +9,7 @@
 import test from "node:test";
 import assert from "node:assert";
 import { createStoreForRequest } from "../../../src/server/index.js";
-import { getStore, setStore, createStore } from "../../../src/store.js";
+import { getStore, setStore, createStore, resetStore } from "../../../src/store.js";
 import { createSelector } from "../../../src/selectors/index.js";
 
 test("createStoreForRequest throws when set is called before create", () => {
@@ -106,5 +106,25 @@ test("createSelector reads request-scoped stores during hydrate", async () => {
     const selectName = createSelector("user", (state: { name: string } | null) => state?.name ?? null);
 
     assert.strictEqual(selectName(), "Ada");
+  });
+});
+
+test("resetStore passes the request-scoped previous value to onReset", async () => {
+  const ctx = createStoreForRequest();
+
+  await ctx.hydrate(() => {
+    let prevValue: { name: string; count: number } | undefined;
+
+    createStore("user", { name: "Ada", count: 1 }, {
+      onReset: (prev) => {
+        prevValue = prev;
+      },
+    });
+
+    setStore("user", "count", 2);
+    resetStore("user");
+
+    assert.deepStrictEqual(prevValue, { name: "Ada", count: 2 });
+    assert.deepStrictEqual(getStore("user"), { name: "Ada", count: 1 });
   });
 });

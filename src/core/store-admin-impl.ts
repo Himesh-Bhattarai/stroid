@@ -7,7 +7,7 @@
  * Consumers: store-admin.
  */
 import { warn, deepClone } from "../utils.js";
-import { getRegistry, getStoreAdmin } from "./store-lifecycle/registry.js";
+import { getRegistry, getStoreAdmin, getStoreValueRef } from "./store-lifecycle/registry.js";
 import { invalidatePathCache, materializeInitial } from "./store-lifecycle/validation.js";
 import { nameOf, exists, reportStoreWarning } from "./store-lifecycle/identity.js";
 import type {
@@ -80,7 +80,7 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         return { ok: false, reason: "not-found" };
     }
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
-    const prev = stagedPrev.has ? stagedPrev.value : registry.stores[name];
+    const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(name, registry);
     const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
     const resetValue = deepClone(registry.initialStates[name]);
     const elapsed = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) - start;
