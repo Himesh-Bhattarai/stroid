@@ -1,210 +1,1037 @@
-# Stroid
+﻿<div align="center">
 
-[![npm](https://img.shields.io/npm/v/stroid)](https://npmjs.com/package/stroid)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/stroid)](https://bundlephobia.com/package/stroid)
-[![types](https://img.shields.io/npm/types/stroid)](https://npmjs.com/package/stroid)
-[![license](https://img.shields.io/npm/l/stroid)](./LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/Himesh-Bhattarai/stroid/ci.yml)](https://github.com/Himesh-Bhattarai/stroid/actions)
+<img src="https://img.shields.io/npm/v/stroid?color=7F77DD&label=stroid&style=flat-square" alt="npm version" />
+<img src="https://img.shields.io/bundlephobia/minzip/stroid?color=1D9E75&label=minzipped&style=flat-square" alt="bundle size" />
+<img src="https://img.shields.io/npm/types/stroid?color=4A90E2&style=flat-square" alt="types" />
+<img src="https://img.shields.io/npm/l/stroid?color=3B8BD4&style=flat-square" alt="license" />
+<img src="https://img.shields.io/github/actions/workflow/status/Himesh-Bhattarai/stroid/ci.yml?color=639922&label=tests&style=flat-square" alt="tests" />
+<img src="https://img.shields.io/npm/dm/stroid?color=2E7D32&label=downloads&style=flat-square" alt="npm downloads" />
+<img src="https://img.shields.io/node/v/stroid?color=455A64&style=flat-square" alt="node version" />
+<br /><br />
 
+# 🟣 Stroid - State Engine for TypeScript and React
 **Named-store state engine for TypeScript and React.**
 
-Every store has a name. Write to it from anywhere — hooks, utilities, server, tests. Optional layers add persistence, sync, async fetch, SSR isolation, and devtools without coupling to your core logic.
+Every store has a name. Write to it from anywhere: hooks, utilities, server, tests. Optional layers add persistence, sync, async fetch, SSR isolation, and devtools without coupling to core logic.
+<br />
+[**Get Started**](#30-second-quickstart) | [**Why Stroid**](#why-stroid) | [**API Reference**](#full-api-reference) | [**PSR**](#psr---write-governance) | [**DevTools**](#devtools) | [**Examples**](#real-world-examples)
 
-```ts
-createStore("user", { name: "Ava", role: "admin" })  // define once
-setStore("user", "name", "Kai")                       // write from anywhere
-const name = useStore("user", s => s.name)            // React hook (stroid/react)
-```
+</div>
 
 ---
 
-## Install
+## 🧠 What Is Stroid?
+
+You get a small core plus opt-in modules:
+- Core store runtime (`createStore`, `setStore`, `getStore`, batching, hydration)
+- React hooks (`useStore`, `useSelector`, `useFormStore`, async hooks)
+- Async fetch/cache/revalidate (`fetchStore`, `refetchStore`, `enableRevalidateOnFocus`)
+- Optional features (`installPersist`, `installSync`, `installDevtools`)
+- SSR request isolation (`createStoreForRequest`)
+- Native PSR contract (`stroid/psr`) for governed patch-style writes and runtime graph inspection
+
+---
+
+<a id="30-second-quickstart"></a>
+## ⚡ 30-Second Quickstart
 
 ```bash
 npm install stroid
 ```
 
-**Requirements:** Node `>=18`. React `>=18` (only if using `stroid/react`).
+---
+```ts
+import { createStore, setStore, getStore, configureStroid } from "stroid";
+import { installPersist } from "stroid/persist";
+import { installSync } from "stroid/sync";
 
-**ESM-only:** Stroid ships ESM only. If your toolchain requires CJS, use a bundler with ESM support (Vite, webpack 5, esbuild).
+configureStroid({
+  asyncAutoCreate: false,
+  defaultSnapshotMode: "deep",
+});
+
+installPersist();
+installSync();
+//create store
+createStore("auth", { user: null, token: null });
+//create store with persist
+createStore("settings", { theme: "dark" }, { persist: true });
+//create store with sync and persist.
+createStore("session", { active: true }, { persist: true, sync: true });
+
+setStore("auth", "user", { id: "u1", name: "Asha" });
+const auth = getStore("auth");
+```
+---
+
+### Stroid PSR - Native support but different package. REPO: https://github.com/Himesh-Bhattarai/stroid-psr
+
+Stroid ships a native PSR contract in `stroid/psr`.
+It exposes committed snapshots, patch application APIs, and runtime graph/timing data used for governance flows.
+
+## 🗺️ Ecosystem Map
+
+Stroid is organized into focused sub-packages. Import only what you need.
+
+```
+stroid                    <- core public runtime
+|- stroid/react           <- React hooks
+|- stroid/core            <- minimal core surface
+|- stroid/psr             <- native PSR contract
+|- stroid/async           <- fetch/cache/revalidate
+|- stroid/selectors       <- selector helpers
+|- stroid/computed        <- computed stores
+|- stroid/persist         <- installPersist()
+|- stroid/sync            <- installSync()
+|- stroid/devtools        <- installDevtools(), history API
+|- stroid/server          <- SSR request-scoped registry
+|- stroid/helpers         <- entity/list/counter helpers
+|- stroid/testing         <- test helpers
+|- stroid/runtime-tools   <- observability APIs
+|- stroid/runtime-admin   <- clear helpers
+|- stroid/feature         <- feature plugin API
+|- stroid/install         <- installAllFeatures()
+```
 
 ---
 
-## Layer Map
+<a id="why-stroid"></a>
+## 🤔 Why Stroid?
+
+### Honest comparison
+
+
+| Feature | Stroid | Redux Toolkit | Zustand | Jotai | Valtio |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Write without reducers | ✅ | ❌ | ✅ | ✅ | ✅ |
+| Named global stores | ✅ | ✅ | ⚠️ manual | ❌ | ❌ |
+| Write governance (PSR) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Built-in DevTools extension | ✅ | ✅ | ⚠️ limited | ❌ | ❌ |
+| Computed / derived state | ✅ | ✅ | ⚠️ manual | ✅ | ✅ |
+| Async data built-in | ✅ | ✅ RTK Query | ❌ | ⚠️ | ❌ |
+| SSR / request isolation | ✅ | ⚠️ | ⚠️ | ✅ | ⚠️ |
+| Ring-buffer event timeline | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Bundle size (core) | ~6kb | ~11kb | ~1kb | ~3kb | ~3kb |
+| TypeScript-first | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+---
+> ⚠️ = possible with extra setup · ❌ = not supported natively
+
+**Stroid's unique position:** It is the only state library that lets you *govern* writes — validate, transform, or reject a state change before it commits — via PSR. This makes it uniquely suited for collaborative editing, optimistic UI, payment flows, and any domain where invalid state is expensive.
+
+Stroid is strongest when you need all of these together:
+- Named global stores with direct writes
+- Optional feature installs instead of mandatory side effects
+- Strict hydration trust gate (`hydrateStores(..., ..., { allowTrusted: true })`)
+- Request-scoped SSR runtime (`createStoreForRequest`) with server guards
+- PSR-style patch application and runtime graph inspection (`stroid/psr`)
+
+If you only need ultra-minimal local state, `stroid/core` exists for a smaller surface.
+
+---
+
+<a id="full-api-reference"></a>
+## 📚 Full API Reference
+
+All examples use real APIs from this repository's current source.
+
+### 1. Core - `stroid`
+
+#### `createStore`
+
+```ts
+import { createStore } from "stroid";
+
+createStore("cart", {
+  items: [],
+  total: 0,
+});
+```
+
+Creates a named store and registers its initial state.
+
+---
+
+#### `setStore`
+
+```ts
+import { setStore } from "stroid";
+
+setStore("cart", "total", 499);
+setStore("cart", { currency: "NPR" });
+setStore("cart", (draft: any) => {
+  draft.items.push({ id: "pizza", qty: 1 });
+});
+```
+Updates existing store state by path, partial object merge, or mutator function.
+---
+
+#### `getStore`
+
+```ts
+import { getStore } from "stroid";
+
+const cart = getStore("cart");
+const total = getStore("cart", "total");
+```
+Reads current store state, optionally at a nested path.
+---
+
+#### `hasStore`
+
+```ts
+import { hasStore, createStore } from "stroid";
+
+if (!hasStore("cart")) {
+  createStore("cart", { items: [], total: 0 });
+}
+```
+Checks whether a store is already registered.
+---
+
+#### `resetStore`
+
+```ts
+import { resetStore } from "stroid";
+
+resetStore("cart");
+```
+Resets a store back to its original initial state.
+---
+
+#### `deleteStore`
+
+```ts
+import { deleteStore } from "stroid";
+
+deleteStore("cart");
+```
+Removes a store and its runtime metadata/subscriptions.
+---
+
+#### `setStoreBatch`
+
+```ts
+import { setStoreBatch, setStore } from "stroid";
+
+setStoreBatch(() => {
+  setStore("checkout", "coupon", "SAVE20");
+  setStore("checkout", "deliveryType", "priority");
+  setStore("checkout", "tip", 50);
+});
+```
+
+`setStoreBatch` accepts only synchronous callbacks.
+Runs multiple synchronous writes in one transaction-style batch.
+---
+
+#### `hydrateStores`
+
+```ts
+import { hydrateStores } from "stroid";
+
+hydrateStores(
+  {
+    cart: { items: [{ id: "pizza", qty: 1 }], total: 499 },
+    profile: { name: "Asha" },
+  },
+  {},
+  { allowTrusted: true }
+);
+```
+Hydrates many stores from a trusted snapshot payload.
+---
+
+#### `configureStroid`
+
+```ts
+import { configureStroid } from "stroid";
+
+configureStroid({
+  asyncAutoCreate: false,
+  strictMutatorReturns: true,
+  defaultSnapshotMode: "deep",
+});
+```
+Sets global runtime behavior such as async and snapshot defaults.
+---
+
+### 2. React Hooks - `stroid/react`
+
+#### `useStore`
+
+```tsx
+import { useStore } from "stroid/react";
+
+function CartPanel() {
+  const cart = useStore("cart");
+  return <div>{cart ? `${cart.items.length} items` : "Cart empty"}</div>;
+}
+```
+Subscribes React components to a store value (full store, path, or selector form).
+---
+
+#### `useSelector`
+
+```tsx
+import { useSelector } from "stroid/react";
+
+function CartTotal() {
+  const total = useSelector("cart", (s: any) => s?.total ?? 0);
+  return <strong>Rs. {total}</strong>;
+}
+```
+Subscribes to a derived slice and re-renders only when selected output changes.
+---
+
+#### `useStoreField`
+
+```tsx
+import { useStoreField } from "stroid/react";
+
+function DeliveryTypeChip() {
+  const deliveryType = useStoreField("checkout", "deliveryType");
+  return <span>{deliveryType ?? "standard"}</span>;
+}
+```
+Subscribes directly to one field/path inside a store.
+---
+
+#### `useStoreStatic`
+
+```tsx
+import { useStoreStatic } from "stroid/react";
+
+function DebugPanel() {
+  const snapshot = useStoreStatic("cart");
+  return <pre>{JSON.stringify(snapshot, null, 2)}</pre>;
+}
+```
+Reads a snapshot once without live subscription updates.
+---
+
+#### `useAsyncStore`
+
+```tsx
+import { useEffect } from "react";
+import { useAsyncStore } from "stroid/react";
+import { fetchStore } from "stroid/async";
+
+function Menu() {
+  useEffect(() => {
+    void fetchStore("menu", "https://api.example.com/menu");
+  }, []);
+
+  const { loading, error, data } = useAsyncStore("menu");
+
+  if (loading) return <p>Loading menu...</p>;
+  if (error) return <p>Failed to load menu</p>;
+  return <MenuList items={data ?? []} />;
+}
+```
+Reads async store shape (`data/loading/error/status`) from an existing store.
+---
+
+#### `useAsyncStoreSuspense`
+
+```tsx
+import { useAsyncStoreSuspense } from "stroid/react";
+
+function MenuSuspense() {
+  const menu = useAsyncStoreSuspense<Array<{ id: string; name: string }>>(
+    "menu",
+    "https://api.example.com/menu"
+  );
+
+  return <MenuList items={menu} />;
+}
+```
+Integrates async store reads with React Suspense by throwing pending work.
+---
+
+#### `useFormStore`
+
+```tsx
+import { createStore } from "stroid";
+import { useFormStore } from "stroid/react";
+
+createStore("loginForm", { email: "", password: "" });
+
+function LoginForm() {
+  const email = useFormStore("loginForm", "email");
+  const password = useFormStore("loginForm", "password");
+
+  return (
+    <form>
+      <input value={email.value ?? ""} onChange={email.onChange} />
+      <input value={password.value ?? ""} onChange={password.onChange} type="password" />
+      <button disabled={!email.value || !password.value}>Sign in</button>
+    </form>
+  );
+}
+```
+Binds a store field to form-style `value` and `onChange` helpers.
+---
+
+#### `RegistryScope`
+
+```tsx
+import { RegistryScope } from "stroid/react";
+
+function App({ registry }: { registry: any }) {
+  return (
+    <RegistryScope value={registry}>
+      <CartPanel />
+      <ProfilePanel />
+    </RegistryScope>
+  );
+}
+```
+Scopes a React subtree to a specific store registry context.
+---
+
+### 3. Selectors & Computed
+
+#### `createSelector` - `stroid/selectors`
+
+```ts
+import { createSelector } from "stroid/selectors";
+
+const selectItemCount = createSelector("cart", (s: any) => s?.items?.length ?? 0);
+const count = selectItemCount();
+```
+Builds a memoized selector function for derived store reads.
+---
+
+#### `subscribeWithSelector` - `stroid/selectors`
+
+```ts
+import { subscribeWithSelector } from "stroid/selectors";
+
+const stop = subscribeWithSelector(
+  "cart",
+  (s: any) => s?.total,
+  Object.is,
+  (next, prev) => {
+    if (typeof prev === "number" && next > prev) {
+      // run side effect
+    }
+  }
+);
+
+stop();
+```
+Runs a listener only when the selected value changes by equality check.
+---
+
+#### `createComputed` - `stroid/computed`
+
+```ts
+import { createComputed } from "stroid/computed";
+import { getStore } from "stroid";
+
+createComputed("deliveryFee", ["cart"], (cart: any) => (cart?.total ?? 0) > 1000 ? 0 : 60);
+
+const fee = getStore("deliveryFee");
+```
+Creates a computed store derived from one or more dependency stores.
+---
+
+#### `invalidateComputed` / `deleteComputed` / `isComputedStore`
+
+```ts
+import { invalidateComputed, deleteComputed, isComputedStore } from "stroid/computed";
+
+invalidateComputed("deliveryFee");
+deleteComputed("deliveryFee");
+isComputedStore("deliveryFee");
+```
+Invalidates, removes, or checks computed-store registrations.
+---
+
+### 4. Async - `stroid/async`
+
+```ts
+import { fetchStore, refetchStore, enableRevalidateOnFocus } from "stroid/async";
+
+await fetchStore("menu", "https://api.example.com/menu");
+await refetchStore("menu");
+const stopFocusRevalidate = enableRevalidateOnFocus("menu");
+
+stopFocusRevalidate();
+```
+Fetches/refetches remote data into stores with cache, dedupe, retries, and focus revalidation.
+---
+
+### 5. PSR - Write Governance
+
+```ts
+import { applyStorePatch, applyStorePatchesAtomic } from "stroid/psr";
+
+applyStorePatch({
+  id: "cart-total-set",
+  store: "cart",
+  path: ["total"],
+  op: "set",
+  value: 549,
+  meta: { timestamp: Date.now(), source: "setStore" },
+});
+
+applyStorePatchesAtomic([
+  {
+    id: "wallet-set",
+    store: "wallet",
+    path: ["balance"],
+    op: "set",
+    value: 900,
+    meta: { timestamp: Date.now(), source: "setStore" },
+  },
+  {
+    id: "order-set",
+    store: "order",
+    path: ["status"],
+    op: "set",
+    value: "paid",
+    meta: { timestamp: Date.now(), source: "setStore" },
+  },
+]);
+```
+Applies patch-based governed writes with atomic multi-patch support.
+---
+
+### 6. Feature Install - Opt-In Capabilities
+
+```ts
+import { installPersist } from "stroid/persist";
+import { installSync } from "stroid/sync";
+import { installDevtools } from "stroid/devtools";
+
+installPersist();
+installSync();
+installDevtools();
+```
+Installs optional persist/sync/devtools features explicitly at app entry.
+---
+
+### 7. SSR - `stroid/server`
+
+```ts
+import { createStoreForRequest } from "stroid/server";
+
+const requestScope = createStoreForRequest((api) => {
+  api.create("session", { userId: "u-1" });
+  api.create("cart", { items: [], total: 0 });
+});
+
+const html = requestScope.hydrate(() => renderToString(<App />));
+const snapshot = requestScope.snapshot();
+```
+Creates per-request store scopes for SSR-safe hydrate/snapshot flows.
+---
+
+### 8. Helpers - `stroid/helpers`
+
+```ts
+import { createEntityStore, createListStore, createCounterStore } from "stroid/helpers";
+
+const users = createEntityStore<{ id?: string; name: string }>("users");
+users.upsert({ id: "u1", name: "Asha" });
+users.remove("u1");
+
+const tasks = createListStore("tasks", [] as string[]);
+tasks.push("pick up order");
+tasks.removeAt(0);
+tasks.clear();
+
+const retries = createCounterStore("retries", 0);
+retries.inc();
+retries.dec();
+retries.set(5);
+const retryValue = retries.get();
+```
+Provides ready-made entity, list, and counter store helpers.
+---
+
+### 9. Testing - `stroid/testing`
+
+```ts
+import {
+  createMockStore,
+  resetAllStoresForTest,
+  withMockedTime,
+  benchmarkStoreSet,
+} from "stroid/testing";
+
+const mockOrder = createMockStore("order", { status: "draft" });
+mockOrder.set({ status: "confirmed" });
+
+withMockedTime(1700000000000, () => {
+  // Date.now() is fixed in this callback
+});
+
+const result = benchmarkStoreSet({ name: "cart" } as any, 300);
+const avgMs = result.avgMs;
+
+resetAllStoresForTest();
+```
+Provides test helpers for mock stores, time control, reset, and micro-benchmarks.
+---
+
+### 10. Runtime Observability - `stroid/runtime-tools`
+
+```ts
+import {
+  listStores,
+  getStoreMeta,
+  getMetrics,
+  getSubscriberCount,
+  getStoreHealth,
+  findColdStores,
+  getComputedGraph,
+  getComputedDeps,
+  getPersistQueueDepth,
+} from "stroid/runtime-tools";
+
+const stores = listStores();
+const meta = getStoreMeta("cart");
+const metrics = getMetrics("cart");
+const subscribers = getSubscriberCount("cart");
+const health = getStoreHealth();
+const cold = findColdStores();
+const graph = getComputedGraph();
+const deps = getComputedDeps("deliveryFee");
+const persistDepth = getPersistQueueDepth("cart");
+```
+Exposes runtime diagnostics for stores, metrics, health, and computed graph state.
+---
+
+### 11. Runtime Admin - `stroid/runtime-admin`
+
+```ts
+import { clearAllStores, clearStores } from "stroid/runtime-admin";
+
+clearStores("cart*");
+clearAllStores();
+```
+Clears stores in bulk by pattern or globally.
+---
+
+### 12. DevTools Bridge - `stroid/devtools`
+
+```ts
+import { installDevtools, getHistory, clearHistory } from "stroid/devtools";
+
+installDevtools();
+
+const cartHistory = getHistory("cart");
+// Array<HistoryEntry> where entry has: ts, action, prev, next, diff
+
+clearHistory("cart");
+```
+Connects to devtools runtime and exposes local history read/clear APIs.
+---
+
+### 13. Plugin API - `stroid/feature`
+
+```ts
+import {
+  registerStoreFeature,
+  hasRegisteredStoreFeature,
+  getRegisteredFeatureNames,
+} from "stroid/feature";
+
+registerStoreFeature("auditFeature", () => ({
+  onStoreCreate(ctx) {
+    // fires when a store is created
+  },
+  onStoreWrite(ctx) {
+    // fires on store write
+  },
+}));
+
+const hasAudit = hasRegisteredStoreFeature("auditFeature");
+const featureNames = getRegisteredFeatureNames();
+```
+Registers custom feature runtimes with lifecycle hooks.
+---
+
+<a id="psr---write-governance"></a>
+## 🛡️ PSR - Write Governance
+
+PSR (`stroid/psr`) is the public contract for:
+- Committed snapshots
+- Post-commit subscriptions
+- Serializable patch application
+- Runtime graph and timing contract inspection
+
+### PSR API
+
+```ts
+import {
+  getStoreSnapshot,
+  getStoreSnapshotNoTrack,
+  subscribeStore,
+  applyStorePatch,
+  applyStorePatchesAtomic,
+  getRuntimeGraph,
+  getComputedDescriptor,
+  evaluateComputed,
+  getTimingContract,
+} from "stroid/psr";
+
+const committed = getStoreSnapshot("cart");
+const committedNoTrack = getStoreSnapshotNoTrack("cart");
+
+const unsubscribe = subscribeStore("cart", (next) => {
+  // handle committed updates
+});
+
+const graph = getRuntimeGraph();
+const checkoutNode = graph.nodes.find(
+  (n) => n.storeId === "checkoutTotal" && (n.type === "computed" || n.type === "async-boundary")
+);
+
+if (checkoutNode) {
+  const descriptor = getComputedDescriptor(checkoutNode.id);
+  const preview = evaluateComputed(checkoutNode.id, {
+    cart: { items: [{ id: "pizza", qty: 2 }], total: 998 },
+  });
+}
+
+const timing = getTimingContract("cart");
+```
+Exposes committed snapshots, subscriptions, patch APIs, runtime graph, and timing contract.
+---
+
+<a id="devtools"></a>
+## 🔬 DevTools
+
+`stroid/devtools` integrates with the Redux DevTools browser extension and also keeps in-memory history per store.
+
+What you get from code:
+- `installDevtools()` to enable the devtools feature runtime
+- `getHistory(name, limit?)` to read recorded store history
+- `clearHistory(name?)` to clear one store or all stores
+
+Setup:
+1. Install Redux DevTools extension in your browser.
+2. Call `installDevtools()` once in app entry.
+3. Open browser DevTools and inspect the connected `stroid` session.
+
+---
+
+<a id="real-world-examples"></a>
+## 🍕 Real-World Examples
+
+### Food delivery cart (full flow)
+
+```tsx
+// app/entry.ts
+import { configureStroid } from "stroid";
+import { installPersist } from "stroid/persist";
+import { installDevtools } from "stroid/devtools";
+
+configureStroid({ asyncAutoCreate: false });
+installPersist();
+installDevtools();
+
+// stores/cart.ts
+import { createStore, setStoreBatch, setStore } from "stroid";
+
+createStore("cart", { items: [], total: 0 });
+createStore("checkout", { coupon: null, deliveryType: "standard", tip: 0 });
+
+// components/CartPanel.tsx
+import { useSelector, useStoreField } from "stroid/react";
+
+function CartPanel() {
+  const total = useSelector("cart", (s: any) => s?.total ?? 0);
+  const deliveryType = useStoreField("checkout", "deliveryType");
+
+  function applyPromo() {
+    setStoreBatch(() => {
+      setStore("checkout", "coupon", "SAVE20");
+      setStore("checkout", "deliveryType", "priority");
+      setStore("checkout", "tip", 50);
+    });
+  }
+
+  return (
+    <div>
+      <p>Total: Rs. {total}</p>
+      <p>Delivery: {deliveryType}</p>
+      <button onClick={applyPromo}>Apply promo</button>
+    </div>
+  );
+}
+```
+
+### Atomic payment (wallet + order status)
+
+```ts
+import { getStore } from "stroid";
+import { applyStorePatchesAtomic } from "stroid/psr";
+
+function confirmPayment(amount: number) {
+  const wallet = getStore("wallet") as { balance: number } | null;
+  const nextBalance = (wallet?.balance ?? 0) - amount;
+
+  applyStorePatchesAtomic([
+    {
+      id: "pay-wallet",
+      store: "wallet",
+      path: ["balance"],
+      op: "set",
+      value: nextBalance,
+      meta: { timestamp: Date.now(), source: "setStore" },
+    },
+    {
+      id: "pay-order",
+      store: "order",
+      path: ["status"],
+      op: "set",
+      value: "paid",
+      meta: { timestamp: Date.now(), source: "setStore" },
+    },
+  ]);
+}
+```
+Applies related wallet/order updates atomically so both succeed or fail together.
+---
+### Menu with Suspense
+
+```tsx
+import { Suspense } from "react";
+import { useAsyncStoreSuspense } from "stroid/react";
+
+function MenuList() {
+  const menu = useAsyncStoreSuspense<Array<{ id: string; name: string }>>(
+    "menu",
+    "https://api.example.com/menu"
+  );
+
+  return <ul>{menu.map((item) => <li key={item.id}>{item.name}</li>)}</ul>;
+}
+
+export function MenuPage() {
+  return (
+    <Suspense fallback={<p>Loading menu...</p>}>
+      <MenuList />
+    </Suspense>
+  );
+}
+```
+Loads menu data through Suspense-friendly async store access.
+---
+
+## 🧱 Layer Map
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                        your app                         │
-├─────────────────────────────────────────────────────────┤
-│  useStore  useSelector  useAsyncStore  useFormStore      │  stroid/react
-├─────────────────────────────────────────────────────────┤
-│  createStore  setStore  getStore  setStoreBatch          │  stroid  ← core
-│  createComputed  createSelector  createEntityStore       │
-├──────────────┬──────────────┬───────────────────────────┤
-│ stroid/persist│ stroid/sync  │ stroid/async              │  opt-in features
-│ localStorage  │ BroadcastCh  │ fetch + cache + retry     │
-├──────────────┴──────────────┴───────────────────────────┤
-│  stroid/server   createStoreForRequest (AsyncLocalStorage)│  SSR
-├─────────────────────────────────────────────────────────┤
-│  stroid/devtools   stroid/testing   stroid/runtime-tools │  tooling
-└─────────────────────────────────────────────────────────┘
++---------------------------------------------------------+
+|                        your app                         |
++---------------------------------------------------------+
+|  useStore  useSelector  useAsyncStore  useFormStore     |  stroid/react
++---------------------------------------------------------+
+|  createStore  setStore  getStore  setStoreBatch         |  stroid
+|  createComputed  createSelector  createEntityStore      |
++--------------+--------------+---------------------------+
+| stroid/persist | stroid/sync | stroid/async             |
+| installPersist | installSync | fetch + cache + retry    |
++--------------+--------------+---------------------------+
+|  stroid/server   createStoreForRequest                  |  SSR
++---------------------------------------------------------+
+|  stroid/devtools  stroid/testing  stroid/runtime-tools  |
++---------------------------------------------------------+
 ```
 
 Each row is independent. Use only what you need.
 
-`stroid/core` exports only `createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, and `deleteStore`. Import from `stroid` for the full runtime (batching, hydration, computed). React hooks live in `stroid/react`.
+`stroid/core` exports only `createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, and `deleteStore`.
+Import from `stroid` for batching/hydration/computed plus runtime metrics and config.
 
-## What Each Import Contains
+## 📦 What Each Import Contains
 
-- `stroid`: Full runtime (batching, hydration, computed, async metrics, runtime tools). No React hooks.
-- `stroid/psr`: Native PSR contract (committed snapshots, committed-final subscriptions, serializable patches, runtime graph, timing/governance).
-- `stroid/core`: Minimal CRUD only (`createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, `deleteStore`).
-- `stroid/react`: React hooks (`useStore`, `useSelector`, `useAsyncStore`, `useFormStore`, `useAsyncStoreSuspense`) + `RegistryScope`.
-- `stroid/async`: `fetchStore`, cache, retry, revalidate helpers.
+- `stroid`: Core public runtime (`createStore`, `createStoreStrict`, `setStore`, `setStoreBatch`, `getStore`, `deleteStore`, `resetStore`, `hasStore`, `hydrateStores`), plus `configureStroid`, computed helpers, and health/metric helpers.
+- `stroid/psr`: PSR contract (`getStoreSnapshot`, `getStoreSnapshotNoTrack`, `subscribeStore`, `applyStorePatch`, `applyStorePatchesAtomic`, runtime graph/timing helpers).
+- `stroid/core`: Minimal CRUD runtime (`createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, `deleteStore`).
+- `stroid/react`: React hooks (`useStore`, `useSelector`, `useStoreField`, `useStoreStatic`, `useAsyncStore`, `useFormStore`, `useAsyncStoreSuspense`) and `RegistryScope`.
+- `stroid/async`: Async APIs (`fetchStore`, `refetchStore`, `enableRevalidateOnFocus`, `getAsyncMetrics`).
 - `stroid/selectors`: `createSelector`, `subscribeWithSelector`.
 - `stroid/computed`: `createComputed`, `invalidateComputed`, `deleteComputed`, `isComputedStore`.
-- `stroid/persist`: Explicit persistence installer (`installPersist`) and related types. Side-effect free.
-- `stroid/sync`: Explicit sync installer (`installSync`) and related types. Side-effect free.
-- `stroid/devtools`: Explicit devtools installer (`installDevtools`) plus history helpers. Side-effect free.
-- `stroid/server`: SSR registry helpers (`createStoreForRequest`).
-- `stroid/helpers`: Entity/list/counter store helpers.
-- `stroid/runtime-tools`: Observability and diagnostics.
-- `stroid/runtime-admin`: Admin utilities (clear/flush).
-- `stroid/testing`: Testing utilities (mocks, reset helpers, benchmarks).
+- `stroid/persist`: `installPersist`.
+- `stroid/sync`: `installSync`.
+- `stroid/devtools`: `installDevtools`, `getHistory`, `clearHistory`.
+- `stroid/server`: `createStoreForRequest`.
+- `stroid/helpers`: `createEntityStore`, `createListStore`, `createCounterStore`.
+- `stroid/testing`: `createMockStore`, `resetAllStoresForTest`, `withMockedTime`, `benchmarkStoreSet`.
+- `stroid/runtime-tools`: Store/runtime observability APIs.
+- `stroid/runtime-admin`: `clearAllStores`, `clearStores`.
+- `stroid/feature`: Feature registration APIs.
+- `stroid/install`: `installPersist`, `installSync`, `installDevtools`, `installAllFeatures`.
 
 ---
 
-## Quick API Reference
+## 🧾 Quick API Reference
 
 | API | Purpose |
 |-----|---------|
-| `createStore(name, state, options?)` | Define a store. Returns `StoreDefinition \| undefined`. |
-| `createStoreStrict(name, state, options?)` | Define a store; throw synchronously on failure. |
-| `setStore(name, update)` | Shallow-merge an object update into the store. |
-| `setStore(name, path, value)` | Write a value by dot-path or array path. |
-| `setStore(name, draft => { })` | Mutate with a function (optional Immer support). |
-| `replaceStore(name, value)` | Replace the entire store value. |
-| `getStore(name, path?)` | Read a store (or a nested path). |
-| `deleteStore(name)` | Remove a store from the registry. |
-| `resetStore(name)` | Restore a store to its initial state. |
-| `hasStore(name)` | Check if a store exists. |
-| `setStoreBatch(fn)` | Atomic multi-store write — rolls back all writes on failure. |
-| `hydrateStores(snapshot, options?, trust)` | Rehydrate on client from a server snapshot. |
-| `useStore(name, selector?)` | React hook — subscribes to a store. |
-| `useSelector(name, fn)` | React hook — fine-grained derived value. |
-| `fetchStore(name, url, options?)` | Async fetch wired to store state. |
-| `createComputed(name, deps, fn)` | Reactive derived store. |
-| `createStoreForRequest(fn)` | Per-request SSR registry. |
+| `createStore(name, state, options?)` | Define a store. Returns `StoreDefinition | undefined`. |
+| `createStoreStrict(name, state, options?)` | Define a store; throws if creation fails. |
+| `setStore(name, update)` | Merge object update into object store state. |
+| `setStore(name, path, value)` | Write by path. |
+| `setStore(name, draft => { ... })` | Mutator-style update. |
+| `getStore(name, path?)` | Read current state (or nested path). |
+| `deleteStore(name)` | Remove a store from registry. |
+| `resetStore(name)` | Restore initial state. |
+| `hasStore(name)` | Check if store exists. |
+| `setStoreBatch(fn)` | Group synchronous writes into one transaction. |
+| `hydrateStores(snapshot, options?, trust)` | Hydrate trusted snapshot into runtime. |
+| `configureStroid(config)` | Configure global/runtime behavior. |
+| `useStore(name, selectorOrPath?)` | React subscription hook. |
+| `useSelector(name, fn, equality?)` | Fine-grained React selector hook. |
+| `fetchStore(name, input, options?)` | Fetch remote data into store. |
+| `createComputed(name, deps, fn)` | Define computed store. |
+| `createStoreForRequest(fn)` | Build SSR request-scoped store runtime. |
 
 ---
 
-## Module Import Map
+## 🧭 Module Import Map
 
 ```ts
 // Core
-import { createStore, setStore, getStore, hasStore,
-         deleteStore, resetStore, setStoreBatch, hydrateStores } from "stroid"
+import {
+  createStore,
+  createStoreStrict,
+  setStore,
+  getStore,
+  hasStore,
+  deleteStore,
+  resetStore,
+  setStoreBatch,
+  hydrateStores,
+  configureStroid,
+} from "stroid";
 
 // Native PSR contract
-import { getStoreSnapshot, subscribeStore, applyStorePatch,
-         applyStorePatchesAtomic, getRuntimeGraph, getComputedDescriptor,
-         evaluateComputed, getTimingContract } from "stroid/psr"
+import {
+  getStoreSnapshot,
+  getStoreSnapshotNoTrack,
+  subscribeStore,
+  applyStorePatch,
+  applyStorePatchesAtomic,
+  getRuntimeGraph,
+  getComputedDescriptor,
+  evaluateComputed,
+  getTimingContract,
+} from "stroid/psr";
 
 // Minimal core (bundle-size-sensitive)
-import { createStore, setStore, getStore, hasStore,
-         resetStore, deleteStore } from "stroid/core"
+import { createStore, setStore, getStore, hasStore, resetStore, deleteStore } from "stroid/core";
 
 // React
-import { useStore, useSelector, useStoreField, useStoreStatic,
-         useAsyncStore, useFormStore, useAsyncStoreSuspense,
-         RegistryScope } from "stroid/react"
+import {
+  useStore,
+  useSelector,
+  useStoreField,
+  useStoreStatic,
+  useAsyncStore,
+  useFormStore,
+  useAsyncStoreSuspense,
+  RegistryScope,
+} from "stroid/react";
 
 // Async
-import { fetchStore, refetchStore, enableRevalidateOnFocus } from "stroid/async"
+import { fetchStore, refetchStore, enableRevalidateOnFocus } from "stroid/async";
 
 // Selectors & Computed
-import { createSelector, subscribeWithSelector } from "stroid/selectors"
-import { createComputed, invalidateComputed,
-         deleteComputed, isComputedStore }       from "stroid/computed"
+import { createSelector, subscribeWithSelector } from "stroid/selectors";
+import { createComputed, invalidateComputed, deleteComputed, isComputedStore } from "stroid/computed";
 
-// Features (explicit install — call once at app entry)
-import { installPersist } from "stroid/persist"
-import { installSync } from "stroid/sync"
-import { installDevtools } from "stroid/devtools"
+// Features (explicit install - call once at app entry)
+import { installPersist } from "stroid/persist";
+import { installSync } from "stroid/sync";
+import { installDevtools, getHistory, clearHistory } from "stroid/devtools";
 
-installPersist()
-installSync()
-installDevtools()
-
+installPersist();
+installSync();
+installDevtools();
 
 // Server / SSR
-import { createStoreForRequest } from "stroid/server"
+import { createStoreForRequest } from "stroid/server";
 
 // Helpers & Testing
-import { createEntityStore, createListStore, createCounterStore } from "stroid/helpers"
-import { createMockStore, resetAllStoresForTest,
-         withMockedTime, benchmarkStoreSet }     from "stroid/testing"
+import { createEntityStore, createListStore, createCounterStore } from "stroid/helpers";
+import { createMockStore, resetAllStoresForTest, withMockedTime, benchmarkStoreSet } from "stroid/testing";
 
-// Runtime Observability
-import { listStores, getStoreMeta, getMetrics,
-         getSubscriberCount, getStoreHealth, findColdStores,
-         getComputedGraph, getComputedDeps,
-         getPersistQueueDepth }                  from "stroid/runtime-tools"
-import { clearAllStores, clearStores }           from "stroid/runtime-admin"
-
-// Devtools API (after installDevtools())
-import { getHistory, clearHistory } from "stroid/devtools"
-
-// Config
-import { configureStroid, resetConfig,
-         registerMutatorProduce }               from "stroid"
+// Runtime Observability + Admin
+import {
+  listStores,
+  getStoreMeta,
+  getMetrics,
+  getSubscriberCount,
+  getStoreHealth,
+  findColdStores,
+  getComputedGraph,
+  getComputedDeps,
+  getPersistQueueDepth,
+} from "stroid/runtime-tools";
+import { clearAllStores, clearStores } from "stroid/runtime-admin";
 
 // Feature plugin API
-import { registerStoreFeature,
-         hasRegisteredStoreFeature,
-         getRegisteredFeatureNames }            from "stroid/feature"
+import { registerStoreFeature, hasRegisteredStoreFeature, getRegisteredFeatureNames } from "stroid/feature";
+
+// Optional all-in-one installer
+import { installAllFeatures } from "stroid/install";
 ```
 
 ---
 
-## Native PSR Contract
+## 🧷 Native PSR Contract
 
 `stroid/psr` is the supported public surface for native PSR-style integration.
 
-- Committed reads: `getStoreSnapshot()` and `getStoreSnapshotNoTrack()` only expose committed state.
-- Committed-final observation: `subscribeStore()` delivers post-commit snapshots, including batched writes.
-- Serializable writes: `applyStorePatch()` and `applyStorePatchesAtomic()` support `set`, `merge`, `delete`, and `insert` with stable reason codes and `failedPatchId` reporting.
-- Faithfulness inputs: `getRuntimeGraph()`, `getComputedDescriptor()`, `evaluateComputed()`, `getTimingContract()`, and `getStoreMeta()` expose the runtime data PSR needs for preview, downgrade, and causality decisions.
+- Committed reads: `getStoreSnapshot()` and `getStoreSnapshotNoTrack()`
+- Committed-final observation: `subscribeStore()`
+- Serializable writes: `applyStorePatch()` and `applyStorePatchesAtomic()` with `set`, `merge`, `delete`, and `insert`
+- Runtime inspection: `getRuntimeGraph()`, `getComputedDescriptor()`, `evaluateComputed()`, and `getTimingContract()`
 
-See [Native PSR Contract](./docs/guides/PSR.md) for the support matrix, patch/path rules, timing downgrade meanings, and metadata boundaries.
+See [Native PSR Contract](./docs/guides/PSR.md) for full details.
 
 ---
 
-## Docs
+## 📘 Docs
 
 Full documentation in [`/docs`](./docs/):
 
-- [Architecture](./docs/architecture/ARCHITECTURE.md) — layers, data flow, registry model
-- [Core Concepts](./docs/core-concepts/STORES.md) — store lifecycle, options, write modes
-- [React Layer](./docs/guides/REACT.md) — hooks, selectors, SSR
-- [Async Layer](./docs/guides/ASYNC.md) — `fetchStore`, caching, revalidation
-- [Persistence](./docs/guides/PERSIST.md) — `localStorage`, encryption, migrations
-- [Cross-tab Sync](./docs/guides/SYNC.md) — `BroadcastChannel`, conflict resolution
-- [Computed Stores](./docs/guides/COMPUTED.md) — reactive derived values
-- [Native PSR Contract](./docs/guides/PSR.md) — support matrix, patch coverage, timing/governance, graph identity
-- [Server & SSR](./docs/guides/SERVER.md) — request-scoped stores, hydration
-- [Testing](./docs/guides/TESTING.md) — mock stores, resets, benchmarks
-- [Devtools](./docs/guides/DEVTOOLS.md) — history, redaction
-- [Runtime Tools](./docs/guides/RUNTIME_TOOLS.md) — observability, health checks
+- [Architecture](./docs/architecture/ARCHITECTURE.md) - layers, data flow, registry model
+- [Core Concepts](./docs/core-concepts/STORES.md) - store lifecycle, options, write modes
+- [React Layer](./docs/guides/REACT.md) - hooks, selectors, SSR
+- [Async Layer](./docs/guides/ASYNC.md) - `fetchStore`, caching, revalidation
+- [Persistence](./docs/guides/PERSIST.md) - persist options, encryption, migrations
+- [Cross-tab Sync](./docs/guides/SYNC.md) - BroadcastChannel sync behavior
+- [Computed Stores](./docs/guides/COMPUTED.md) - reactive derived values
+- [Native PSR Contract](./docs/guides/PSR.md) - patch coverage, timing/governance, graph identity
+- [Server & SSR](./docs/guides/SERVER.md) - request-scoped stores, hydration
+- [Testing](./docs/guides/TESTING.md) - mock stores, resets, benchmarks
+- [Runtime Tools](./docs/guides/RUNTIME_TOOLS.md) - observability, health checks
+- [TypeScript Guide](./docs/guides/TYPESCRIPT.md)
 - [Full API Reference](./docs/api/API_REFERENCE.md)
 - [Project Status](./STATUS.MD)
 - [Contributing](./CONTRIBUTING.md)
 
 ---
 
-## Changelog & License
+## 📝 Changelog & License
 
 - [CHANGELOG](./CHANGELOG.md)
 - [MIT License](./LICENSE)
 - [Issues](https://github.com/Himesh-Bhattarai/stroid/issues)
 
+
+<div align="center">
+
+**Made with care for developers who think about state seriously.**
+
+[⭐ Star on GitHub](https://github.com/your-org/stroid) · [🐛 Report a bug](https://github.com/your-org/stroid/issues) · [💬 Discussions](https://github.com/your-org/stroid/discussions)
+
+</div>

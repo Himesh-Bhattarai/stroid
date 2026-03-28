@@ -194,7 +194,6 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
         }
     });
     if (hydratedSources.length > 0) {
-        // TODO: regression test for computed recompute after hydrateStores with out-of-order snapshot keys.
         const orderedComputeds = getTopoOrderedComputeds(hydratedSources);
         orderedComputeds.forEach((computedName) => {
             const entry = registry.computedEntries[computedName];
