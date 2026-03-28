@@ -56,3 +56,55 @@ test("fetchStore with autoCreate disabled requires an existing backing store", a
     clearAllStores();
   }
 });
+
+test("fetchStore with autoCreate disabled stays side-effect free under 3 concurrent callers", async () => {
+  clearAllStores();
+  configureStroid({ asyncAutoCreate: false });
+
+  const storeName = "mem";
+  const errors: string[] = [];
+  let fetchCalls = 0;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    return makeJsonResponse({ value: "unexpected" });
+  }) as typeof fetch;
+
+  try {
+    const p1 = fetchStore(storeName, "https://api.example.com/a", {
+      onError: (message) => {
+        errors.push(message);
+      },
+    });
+    await Promise.resolve();
+    const p2 = fetchStore(storeName, "https://api.example.com/b", {
+      onError: (message) => {
+        errors.push(message);
+      },
+    });
+    await Promise.resolve();
+    const p3 = fetchStore(storeName, "https://api.example.com/c", {
+      onError: (message) => {
+        errors.push(message);
+      },
+    });
+
+    const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
+
+    assert.strictEqual(r1, null);
+    assert.strictEqual(r2, null);
+    assert.strictEqual(r3, null);
+    assert.strictEqual(fetchCalls, 0);
+    assert.strictEqual(hasStore(storeName), false);
+    assert.strictEqual(getStore(storeName), null);
+    assert.deepStrictEqual(errors, [
+      missingStoreMessage(storeName),
+      missingStoreMessage(storeName),
+      missingStoreMessage(storeName),
+    ]);
+  } finally {
+    globalThis.fetch = realFetch;
+    resetConfig();
+    clearAllStores();
+  }
+});
