@@ -314,6 +314,109 @@ test("persistLoad hydrates stores from async drivers without async crypto flags"
   assert.deepStrictEqual(applied, [{ ready: true }]);
 });
 
+test("persistLoad preserves falsy serialized payloads from sync drivers", () => {
+  const payloads = ["", "0", "false"] as const;
+
+  payloads.forEach((payload) => {
+    const applied: string[] = [];
+    const errors: string[] = [];
+    const envelope = JSON.stringify({
+      v: 1,
+      checksum: null,
+      data: payload,
+      updatedAtMs: Date.now(),
+    });
+    const meta = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      updatedAtMs: Date.now(),
+      options: {
+        persist: {
+          key: `persist-falsy-sync-${payload || "empty"}`,
+          driver: { getItem: () => envelope },
+          serialize: (value: unknown) => String(value),
+          deserialize: (value: unknown) => value,
+          encrypt: (v: string) => v,
+          decrypt: (v: string) => v,
+          checksum: "none",
+          allowPlaintext: true,
+        },
+      },
+    };
+
+    const loaded = persistLoad({
+      name: `persistFalsySync-${payload || "empty"}`,
+      silent: true,
+      getMeta: () => meta as any,
+      getInitialState: () => "fallback",
+      applyFeatureState: (state: any) => applied.push(state),
+      reportStoreError: (_name, message) => errors.push(message),
+      validate: (value: any) => ({ ok: typeof value === "string", value }),
+      log: () => undefined,
+      hashState: () => 1,
+      deepClone,
+      sanitize,
+      shouldApply: () => true,
+    });
+
+    assert.strictEqual(loaded, true);
+    assert.deepStrictEqual(applied, [payload]);
+    assert.deepStrictEqual(errors, []);
+  });
+});
+
+test("persistLoad preserves falsy serialized payloads from async drivers", async () => {
+  const payloads = ["", "0", "false"] as const;
+
+  for (const payload of payloads) {
+    const applied: string[] = [];
+    const errors: string[] = [];
+    const envelope = JSON.stringify({
+      v: 1,
+      checksum: null,
+      data: payload,
+      updatedAtMs: Date.now(),
+    });
+    const meta = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      updatedAtMs: Date.now(),
+      options: {
+        persist: {
+          key: `persist-falsy-async-${payload || "empty"}`,
+          driver: { getItem: async () => envelope },
+          serialize: (value: unknown) => String(value),
+          deserialize: (value: unknown) => value,
+          encrypt: (v: string) => v,
+          decrypt: (v: string) => v,
+          checksum: "none",
+          allowPlaintext: true,
+        },
+      },
+    };
+
+    const loaded = persistLoad({
+      name: `persistFalsyAsync-${payload || "empty"}`,
+      silent: true,
+      getMeta: () => meta as any,
+      getInitialState: () => "fallback",
+      applyFeatureState: (state: any) => applied.push(state),
+      reportStoreError: (_name, message) => errors.push(message),
+      validate: (value: any) => ({ ok: typeof value === "string", value }),
+      log: () => undefined,
+      hashState: () => 1,
+      deepClone,
+      sanitize,
+      shouldApply: () => true,
+    });
+
+    assert.ok(loaded instanceof Promise);
+    assert.strictEqual(await loaded, true);
+    assert.deepStrictEqual(applied, [payload]);
+    assert.deepStrictEqual(errors, []);
+  }
+});
+
 test("persistLoad handles schema failure after migration changes", () => {
   const applied: Array<{ ok: boolean }> = [];
   const errors: string[] = [];

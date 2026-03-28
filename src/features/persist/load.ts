@@ -119,7 +119,7 @@ const persistLoadSync = ({
         normalizeFeatureState({ value: candidate, validate });
     try {
         const raw = rawOverride === undefined ? (cfg.driver.getItem?.(cfg.key) ?? null) : rawOverride;
-        if (!raw) return false;
+        if (raw == null) return false;
         if (typeof raw !== "string") {
             reportStoreError(
                 name,
@@ -141,7 +141,7 @@ const persistLoadSync = ({
         const decrypted = cfg.decrypt(raw);
         const envelope = JSON.parse(decrypted);
         const { v = 1, checksum, data, updatedAt, updatedAtMs } = envelope || {};
-        if (!data) return true;
+        if (data === undefined) return true;
         const safeUpdatedAt = resolveUpdatedAtMs({
             value: typeof updatedAtMs === "number" ? updatedAtMs : updatedAt,
             fallbackMs: Date.now(),
@@ -207,7 +207,7 @@ const persistLoadAsync = async ({
         normalizeFeatureState({ value: candidate, validate });
     try {
         const raw = await Promise.resolve(rawOverride === undefined ? (cfg.driver.getItem?.(cfg.key) ?? null) : rawOverride);
-        if (!raw) return false;
+        if (raw == null) return false;
         if (typeof cfg.maxSize !== "number" && typeof raw === "string" && raw.length > MAX_UNBOUNDED_PERSIST_WARN_BYTES) {
             warnMissingMaxSize?.(raw.length);
         }
@@ -223,7 +223,7 @@ const persistLoadAsync = async ({
             : cfg.decrypt(raw);
         const envelope = JSON.parse(decrypted);
         const { v = 1, checksum, data, updatedAt, updatedAtMs } = envelope || {};
-        if (!data) return true;
+        if (data === undefined) return true;
         const safeUpdatedAt = resolveUpdatedAtMs({
             value: typeof updatedAtMs === "number" ? updatedAtMs : updatedAt,
             fallbackMs: Date.now(),
