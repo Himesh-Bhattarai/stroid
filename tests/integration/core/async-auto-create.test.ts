@@ -108,3 +108,51 @@ test("fetchStore with autoCreate disabled stays side-effect free under 3 concurr
     clearAllStores();
   }
 });
+
+test("fetchStore with autoCreate disabled succeeds once a backing store exists", async () => {
+  clearAllStores();
+  configureStroid({ asyncAutoCreate: false });
+
+  const storeName = "mem";
+  const controller = new AbortController();
+  const errors: string[] = [];
+  let fetchCalls = 0;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    return makeJsonResponse({ value: 42 });
+  }) as typeof fetch;
+
+  try {
+    createStore(storeName, {
+      data: null,
+      loading: false,
+      error: null,
+      status: "idle",
+    });
+
+    const result = await fetchStore(storeName, "https://api.example.com/mem", {
+      signal: controller.signal,
+      onError: (message) => {
+        errors.push(message);
+      },
+    });
+
+    assert.deepStrictEqual(result, { value: 42 });
+    assert.strictEqual(fetchCalls, 1);
+    assert.strictEqual(errors.length, 0);
+    assert.strictEqual(hasStore(storeName), true);
+    assert.deepStrictEqual(getStore(storeName), {
+      data: { value: 42 },
+      loading: false,
+      error: null,
+      status: "success",
+      cached: false,
+      revalidating: false,
+    });
+  } finally {
+    globalThis.fetch = realFetch;
+    resetConfig();
+    clearAllStores();
+  }
+});
