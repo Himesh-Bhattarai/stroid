@@ -1314,6 +1314,37 @@ test("createSelector handles object replacement vs deep mutation", () => {
   const result = sel();
   assert.strictEqual(result.profile.name, "B");
 });
+
+test("createSelector clones frozen store refs when selectorCloneFrozen is enabled", () => {
+  clearAllStores();
+  configureStroid({ selectorCloneFrozen: true });
+
+  try {
+    createStore("selFrozen", {
+      user: { profile: { name: "A" } },
+    }, { snapshot: "ref" });
+
+    // In ref snapshot mode, reading a snapshot in dev freezes the live store reference.
+    const frozen = getStoreSnapshot("selFrozen") as Record<string, unknown> | null;
+    assert.ok(frozen && Object.isFrozen(frozen));
+
+    const sel = createSelector("selFrozen", (state: any) => {
+      state.user = { profile: { name: "B" } };
+      return state.user.profile.name;
+    });
+
+    const selected = sel();
+    assert.strictEqual(selected, "B");
+
+    // Selector writes must never mutate the committed store value.
+    assert.deepStrictEqual(getStore("selFrozen"), {
+      user: { profile: { name: "A" } },
+    });
+  } finally {
+    resetConfig();
+  }
+});
+
 test("failed transaction does not emit notifications", async () => {
   clearAllStores();
   createStore("txLeak", { value: 0 });

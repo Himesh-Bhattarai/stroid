@@ -94,7 +94,6 @@ export const createSelector = <TState, TResult>(storeName: string, selectorFn: (
             lastRef = state;
             return lastResult ?? null;
         }
-        // TODO: regression test for selectorCloneFrozen with frozen store refs.
         const shouldCloneFrozen = getConfig().selectorCloneFrozen;
         const trackState = (state && typeof state === "object" && Object.isFrozen(state as object) && shouldCloneFrozen)
             ? deepClone(state)
