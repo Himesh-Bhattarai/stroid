@@ -44,12 +44,18 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 <a id="30-second-quickstart"></a>
 ## ⚡ 30-Second Quickstart
 
+---
+
 >[!NOTES]
 >```bash
 >npm install stroid
 >```
->
 >---
+>
+>[!NOTES]
+>```ts
+>import { createStore, setStore, getStore } from "stroid";
+>
 >```ts
 >import { createStore, setStore, getStore, configureStroid } from "stroid";
 >import { installPersist } from "stroid/persist";
