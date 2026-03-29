@@ -50,22 +50,22 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 >```bash
 >npm install stroid
 >```
->---
->
+---
+
 >[!NOTES]
 >```ts
 >import { createStore, setStore, getStore } from "stroid";
 >
-```ts
+>
 >import { createStore, setStore, getStore, configureStroid } from "stroid";
 >import { installPersist } from "stroid/persist";
 >import { installSync } from "stroid/sync";
-
+>
 >configureStroid({
 >  asyncAutoCreate: false,
 >  defaultSnapshotMode: "deep",
 >});
-
+>
 >installPersist();
 >installSync();
 >//create store
@@ -78,7 +78,7 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 >setStore("auth", "user", { id: "u1", name: "Asha" });
 >const auth = getStore("auth");
 >
-```
+>```
 ---
 
 ### Stroid PSR
