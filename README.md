@@ -28,7 +28,7 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 </div>
 
 ---
-
+> [!IMPORTANT]
 > ## 🧠 What Is Stroid?
 >
 > A structured state management system focused on predictability, SSR safety, and debugging clarity.
