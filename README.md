@@ -44,33 +44,34 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 <a id="30-second-quickstart"></a>
 ## ⚡ 30-Second Quickstart
 
-```bash
-npm install stroid
-```
+>[!NOTES]
+>```bash
+>npm install stroid
+>```
+>
+>---
+>```ts
+>import { createStore, setStore, getStore, configureStroid } from "stroid";
+>import { installPersist } from "stroid/persist";
+>import { installSync } from "stroid/sync";
 
----
-```ts
-import { createStore, setStore, getStore, configureStroid } from "stroid";
-import { installPersist } from "stroid/persist";
-import { installSync } from "stroid/sync";
+>configureStroid({
+>  asyncAutoCreate: false,
+>  defaultSnapshotMode: "deep",
+>});
 
-configureStroid({
-  asyncAutoCreate: false,
-  defaultSnapshotMode: "deep",
-});
-
-installPersist();
-installSync();
-//create store
-createStore("auth", { user: null, token: null });
-//create store with persist
-createStore("settings", { theme: "dark" }, { persist: true });
-//create store with sync and persist.
-createStore("session", { active: true }, { persist: true, sync: true });
-
-setStore("auth", "user", { id: "u1", name: "Asha" });
-const auth = getStore("auth");
-```
+>installPersist();
+>installSync();
+>//create store
+>createStore("auth", { user: null, token: null });
+>//create store with persist
+>createStore("settings", { theme: "dark" }, { persist: true });
+>//create store with sync and persist.
+>createStore("session", { active: true }, { persist: true, sync: true });
+>
+>setStore("auth", "user", { id: "u1", name: "Asha" });
+>const auth = getStore("auth");
+>```
 ---
 
 ### Stroid PSR
