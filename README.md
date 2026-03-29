@@ -46,13 +46,13 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 
 ---
 
->[!NOTES]
+>[!NOTE]
 >```bash
 >npm install stroid
 >```
 ---
 
->[!NOTES]
+>[!NOTE]
 >```ts
 >import { createStore, setStore, getStore } from "stroid";
 >
