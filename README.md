@@ -135,7 +135,7 @@ stroid                    <- core public runtime
 | Bundle size (core) | ~6kb | ~11kb | ~1kb | ~3kb | ~3kb |
 | TypeScript-first | ✅ | ✅ | ✅ | ✅ | ✅ |
 
----
+
 > ⚠️ = possible with extra setup · ❌ = not supported natively
 
 **Stroid's unique position:** It is the only state library that lets you *govern* writes — validate, transform, or reject a state change before it commits — via PSR. This makes it uniquely suited for collaborative editing, optimistic UI, payment flows, and any domain where invalid state is expensive.
