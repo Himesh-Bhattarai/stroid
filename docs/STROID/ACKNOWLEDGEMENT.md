@@ -12,4 +12,4 @@ The named-store model allows stores to be accessible anywhere without complex im
 
 Stroid is designed for applications where state management complexity has become a primary bottleneck.
 
-— Himesh Bhattarai
+— Himesh Chanchal Bhattarai
