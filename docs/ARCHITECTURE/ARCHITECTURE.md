@@ -674,7 +674,7 @@ flowchart LR
 
 | Field | Value |
 |-------|-------|
-| **Version** | `1.0.0` |
+| **Version** | `0.1.3` |
 | **Released** | March 2026 |
 | **Scope** | Core runtime · Registry isolation · Computed stores · SSR request scoping · Feature hook model · Async fetch layer · Transaction batch / rollback |
 | **Changelog** | [CHANGELOG.md](./CHANGELOG.md) |
