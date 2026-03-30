@@ -1,7 +1,7 @@
 {
   "name": "stroid",
-  "version": "0.1.4-beta.0",
-  "description": "SSR-Safe, Named-store state engine for JavaScript/React with optional persistence, async caching, sync, and devtools.",
+  "version": "0.1.4",
+  "description": "Deterministic state engine for React and JavaScript with SSR-safe isolation, multi-store coordination, and decision-driven state workflows.",
   "keywords": [
     "state-management",
     "state",

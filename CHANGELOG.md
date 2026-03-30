@@ -3,10 +3,11 @@
 All notable changes to this project are documented in this file.  
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).  
 Versioning: [Semantic Versioning](https://semver.org/).
+Version_Migration : [.docs/STROID_VERSION_MIGRATION.md](.docs/STROID_VERSION_MIGRATION.md)
 
 ---
 <details open>
-<summary><strong>Unreleased</strong></summary>
+<summary><strong>0.1.4 --> 2026-3-30 </strong></summary>
 
 - Fixed async persist hydration so Promise-returning `persist.driver.getItem()` now loads stored state even when crypto hooks and checksums stay synchronous.
 - Fixed persist hydration payload guards so falsy serialized values (`""`, `"0"`, `"false"`) now hydrate correctly instead of being treated as missing data.
