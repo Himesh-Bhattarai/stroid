@@ -6,6 +6,12 @@ Versioning: [Semantic Versioning](https://semver.org/).
 Version_Migration : [.docs/STROID_VERSION_MIGRATION.md](.docs/STROID_VERSION_MIGRATION.md)
 
 ---
+>[!IMPORTANT]
+><details open>
+><summary><strong> Unreleased </strong></summary>
+></details>
+>
+---
 <details open>
 <summary><strong>0.1.4 --> 2026-3-30 </strong></summary>
 
