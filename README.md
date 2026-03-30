@@ -13,9 +13,9 @@
 <img src="https://img.shields.io/github/contributors/Himesh-Bhattarai/stroid?style=flat-square" alt="contributors" />
 <img src="https://img.shields.io/github/issues/Himesh-Bhattarai/stroid?style=flat-square" alt="issues" />
 <img src="https://img.shields.io/snyk/vulnerabilities/github/Himesh-Bhattarai/stroid?style=flat-square" alt="vulnerabilities" />
-<a href="https://your-demo-link.com">
+<!-- <a href="https://your-demo-link.com">
   <img src="https://img.shields.io/badge/demo-live-ff69b4?style=flat-square" alt="live demo" />
-</a>
+</a> -->
 <br /><br />
 
 # 🟣 Stroid - State Engine for TypeScript and React
