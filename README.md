@@ -132,6 +132,7 @@ stroid                    <- core public runtime
 | Bundle size (core import closure) | 77.6kb raw / 25.1kb gzip | ~11kb | ~1kb | ~3kb | ~3kb |
 | TypeScript-first | ✅ | ✅ | ✅ | ✅ | ✅ |
 
+NOTE: BUNDLE SIZE: 25.1 gzip include whole "Stroid". Stroid is treeshakable so, stroid size  will determine by your import.
 
 > ⚠️ = possible with extra setup · ❌ = not supported natively
 
