@@ -116,7 +116,7 @@ stroid                    <- core public runtime
 
 ### Honest comparison
 
-| Feature | **Stroid**| Redux Toolkit | Zustand | Jotai | Valtio |
+| Feature | **Stroid** | Redux Toolkit | Zustand | Jotai | Valtio |
 |---|:---:|:---:|:---:|:---:|:---:|
 | Write without reducers | ✅ | ❌ | ✅ | ✅ | ✅ |
 | Named global stores | ✅ | ✅ | ⚠️ manual | ❌ | ❌ |
@@ -125,6 +125,9 @@ stroid                    <- core public runtime
 | Computed / derived state | ✅ | ✅ | ⚠️ manual | ✅ | ✅ |
 | Async data built-in | ✅ | ✅ RTK Query | ❌ | ⚠️ | ❌ |
 | SSR / request isolation | ✅ | ⚠️ | ⚠️ | ✅ | ⚠️ |
+| Atomic rollback guarantee | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Race resistance proof | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Determinism replay | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Ring-buffer event timeline | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Bundle size (core) | ~6kb | ~11kb | ~1kb | ~3kb | ~3kb |
 | TypeScript-first | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -133,6 +136,7 @@ stroid                    <- core public runtime
 > ⚠️ = possible with extra setup · ❌ = not supported natively
 
 Stroid exposes governance-oriented write flows through `stroid/psr`, including committed snapshot reads, patch application APIs, runtime graph inspection, and timing contracts.
+Benchmark report: [docs/STROID/BENCHMARK.md](./docs/STROID/BENCHMARK.md).
 
 Stroid is a fit when you need these together:
 - Named global stores with direct writes
@@ -923,7 +927,7 @@ Import from `stroid` for batching/hydration/computed plus runtime metrics and co
 
 | API | Purpose |
 |-----|---------|
-| `createStore(name, state, options?)` | Define a store. Returns `StoreDefinition | undefined`. |
+| `createStore(name, state, options?)` | Define a store. Returns `StoreDefinition` or `undefined`. |
 | `createStoreStrict(name, state, options?)` | Define a store; throws if creation fails. |
 | `setStore(name, update)` | Merge object update into object store state. |
 | `setStore(name, path, value)` | Write by path. |
@@ -1055,7 +1059,7 @@ Full documentation in [`/docs`](./docs/):
 - [Core Concepts](./docs/STROID_CORE/INDEX.md) - store lifecycle, options, write modes
 - [React Layer](./docs/STROID_REACT/INDEX.md) - hooks, selectors, SSR
 - [Async Layer](./docs/STROID_ASYNC/INDEX.md) - `fetchStore`, caching, revalidation
-- [Persistence](./docs/STROID_PRESIST/INDEX.md) - persist options, encryption, migrations
+- [Persistence](./docs/STROID_PERSIST/INDEX.md) - persist options, encryption, migrations
 - [Cross-tab Sync](./docs/STROID_SYNC/INDEX.md) - BroadcastChannel sync behavior
 - [Computed Stores](./docs/STROID_COMPUTED/INDEX.md) - reactive derived values
 - [Native PSR Contract](./docs/STROID_PSR/INDEX.md) - patch coverage, timing/governance, graph identity
@@ -1080,6 +1084,6 @@ Full documentation in [`/docs`](./docs/):
 
 **Made with care for developers who think about state seriously.**
 
-[⭐ Star on GitHub](https://github.com/your-org/stroid) · [🐛 Report a bug](https://github.com/your-org/stroid/issues) · [💬 Discussions](https://github.com/your-org/stroid/discussions)
+[⭐ Star on GitHub](https://github.com/Himesh-Bhattarai/stroid) · [🐛 Report a bug](https://github.com/Himesh-Bhattarai/stroid/issues) · [💬 Discussions](https://github.com/Himesh-Bhattarai/stroid/discussions)
 
 </div>

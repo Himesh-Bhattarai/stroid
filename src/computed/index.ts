@@ -125,6 +125,11 @@ export function createComputed<TResult, Deps extends readonly (StoreName | DepHa
     getComputedOptionsMap(registry).set(name, { ...options });
 
     const initial = _runCompute(name, deps, compute as (...args: unknown[]) => unknown, options.onError);
+    const registeredEntry = getComputedEntry(name);
+    if (registeredEntry) {
+        registeredEntry.lastOutput = initial;
+        registeredEntry.hasLastOutput = true;
+    }
 
     const handle = store<string, TResult>(name);
     if (!hasStore(name)) {
@@ -199,8 +204,12 @@ const _recomputeAndFlush = (
 
     const next = _runCompute(name, deps, compute, onError);
     const handle = store(name);
-    const current = getStoreValueRef(name, registry);
-    if (Object.is(next, current)) return;
+    const currentCommitted = getStoreValueRef(name, registry);
+    const unchangedByRawComputeIdentity = entry.hasLastOutput && Object.is(next, entry.lastOutput);
+    if (unchangedByRawComputeIdentity || Object.is(next, currentCommitted)) return;
+
+    entry.lastOutput = next;
+    entry.hasLastOutput = true;
 
     replaceStore(handle, next);
     markStale(name);

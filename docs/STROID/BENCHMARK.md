@@ -10,6 +10,7 @@ Headline results:
 - Stroid sustained `250,000` single-store subscribers at `2.459ms` median (`noop`) and `2.904ms` median (`compute`)
 - Stroid sustained `250,000` concurrent subscribers across multi-store fanout at `1.593ms` to `1.806ms` median wave latency
 - in the cross-library subscriber comparison, Stroid was slower on raw notify latency than Redux and Zustand in this script, but memory stayed close to Zustand and below Redux
+- in a dedicated `stroid/core` small-range run (`100` to `10,000` subscribers), median single-write latency stayed under `1ms` up to `10,000` subscribers (`0.770ms` noop, `0.868ms` compute)
 
 Important comparison note:
 
@@ -81,6 +82,25 @@ Selected rows from `npm run benchmark:subscriber`.
 | `200,000` | `1.870ms` | `196.690ms` | `2.504ms` | `250.922ms` |
 | `250,000` | `2.459ms` | `255.050ms` | `2.904ms` | `327.526ms` |
 
+### Stroid/Core Small-Range (100 To 10K)
+
+Results from `npm run benchmark:core-small` on `2026-03-30` (`node v22.14.0`, `win32`, `x64`).
+
+| Subscribers | Core Noop Median | Core Noop Batch100 | Core Compute Median | Core Compute Batch100 |
+| --- | --- | --- | --- | --- |
+| `100` | `0.317ms` | `17.025ms` | `0.148ms` | `16.977ms` |
+| `500` | `0.226ms` | `12.431ms` | `0.238ms` | `14.632ms` |
+| `1,000` | `0.408ms` | `12.688ms` | `0.292ms` | `17.926ms` |
+| `2,500` | `0.466ms` | `23.248ms` | `0.475ms` | `25.168ms` |
+| `5,000` | `0.620ms` | `45.653ms` | `0.740ms` | `44.389ms` |
+| `7,500` | `1.055ms` | `40.460ms` | `0.875ms` | `41.936ms` |
+| `10,000` | `0.770ms` | `54.591ms` | `0.868ms` | `82.363ms` |
+
+Read note:
+
+- this range intentionally focuses on small subscriber counts for `stroid/core`
+- values can be non-monotonic at this scale due to scheduler jitter and GC timing
+
 ### 250K Concurrent Fanout
 
 Results from `npm run benchmark:subscriber:concurrent`.
@@ -125,6 +145,7 @@ Results from `npm run benchmark:guarantees`.
 | Purpose | Command |
 | --- | --- |
 | Cross-library compare | `npm run benchmark:compare` |
+| Core small-range | `npm run benchmark:core-small` |
 | Single-store fanout | `npm run benchmark:subscriber` |
 | Concurrent fanout | `npm run benchmark:subscriber:concurrent` |
 | Selector cost | `npm run benchmark:selector` |

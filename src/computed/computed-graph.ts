@@ -95,7 +95,14 @@ export const registerComputed = (
         removeComputedDependentLinks(name, entries[name].deps);
     }
 
-    entries[name] = { deps, compute, stale: true, classification } as ComputedEntry;
+    entries[name] = {
+        deps,
+        compute,
+        stale: true,
+        classification,
+        hasLastOutput: false,
+        lastOutput: undefined,
+    } as ComputedEntry;
 
     for (const dep of deps) {
         if (!dependents[dep]) dependents[dep] = new Set<string>();

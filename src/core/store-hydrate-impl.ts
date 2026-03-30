@@ -206,7 +206,10 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
                     return;
                 }
                 const current = getCommittedStoreValueRef(computedName, registry);
-                if (Object.is(next, current)) return;
+                const unchangedByRawComputeIdentity = entry.hasLastOutput && Object.is(next, entry.lastOutput);
+                if (unchangedByRawComputeIdentity || Object.is(next, current)) return;
+                entry.lastOutput = next;
+                entry.hasLastOutput = true;
                 replaceStore(computedName as any, next as StoreValue);
             } catch (err) {
                 warn(`hydrateStores recompute for "${computedName}" failed: ${(err as { message?: string })?.message ?? err}`);

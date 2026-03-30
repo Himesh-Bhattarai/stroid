@@ -56,6 +56,8 @@ export type ComputedEntry = {
     compute: (...args: unknown[]) => unknown;
     stale: boolean;
     classification: ComputedClassification;
+    hasLastOutput: boolean;
+    lastOutput: unknown;
 };
 
 export type NotifyState = {

@@ -128,6 +128,7 @@
     "typecheck:layers": "tsc -b tsconfig.layers.json",
     "build": "tsup && node scripts/normalize-dts.mjs",
     "benchmark:compare": "node --expose-gc --import tsx scripts/compare-state-libraries.ts",
+    "benchmark:core-small": "node --expose-gc --import tsx scripts/core-small-benchmark.ts",
     "benchmark:subscriber": "node --expose-gc --import tsx scripts/subscriber-benchmark.ts",
     "benchmark:subscriber:concurrent": "node --expose-gc --import tsx scripts/subscriber-concurrent-benchmark.ts",
     "benchmark:selector": "node --expose-gc --import tsx scripts/selector-benchmark.ts",

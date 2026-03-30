@@ -9,7 +9,7 @@
 ## Guides
 - [React Layer](./STROID_REACT/INDEX.md)
 - [Async Layer](./STROID_ASYNC/INDEX.md)
-- [Persistence](./STROID_PRESIST/INDEX.md)
+- [Persistence](./STROID_PERSIST/INDEX.md)
 - [Cross-tab Sync](./STROID_SYNC/INDEX.md)
 - [Computed Stores](./STROID_COMPUTED/INDEX.md)
 - [Server & SSR](./STROID_SERVER/INDEX.md)
