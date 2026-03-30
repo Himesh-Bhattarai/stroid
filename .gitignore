@@ -38,6 +38,7 @@ coverage/
 .turbo/
 .cache/
 .parcel-cache/
+temp/
 *.tgz
 *.tgz.sha512
 .tsbuild/

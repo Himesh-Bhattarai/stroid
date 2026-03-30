@@ -1,6 +1,6 @@
 # 📦 Version Migration Guide
 
-> **Version:** 0.1.4-beta &nbsp;|&nbsp; **Last Updated:** 2026-03-29 &nbsp;|&nbsp; **Confidence:** ![MEDIUM](https://img.shields.io/badge/confidence-MEDIUM-orange)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Per-release migration scripts and breaking changes*
 
@@ -18,13 +18,13 @@
 
 ## 📌 Current Version
 
-**Stroid v0.1.4-beta**
+**Stroid v0.1.4**
 
 ```json
 {
   "name": "stroid",
-  "version": "0.1.4-beta.0",
-  "description": "SSR-Safe, Named-store state engine for JavaScript/React with optional persistence, async caching, sync, and devtools."
+  "version": "0.1.4",
+  "description": "Deterministic state engine for React and JavaScript with SSR-safe isolation, multi-store coordination, and decision-driven state workflows."
 }
 ```
 
@@ -43,9 +43,53 @@ Since Stroid is in **active beta** (v0.1.x), breaking changes may occur. When up
 
 ## ⚠️ Breaking Changes
 
-### None documented yet
+### v0.1.4
 
-Stroid is still in early beta. This section will grow as the API stabilizes and versions increment.
+`0.1.4` itself is a fixes-only release. It does not add new breaking changes beyond the `0.1.4-beta.0` upgrade notes below.
+
+### Upgrading from `0.1.3` to `0.1.4`
+
+The `0.1.4` release line includes these upgrade-relevant breaking changes introduced in `0.1.4-beta.0`:
+
+#### Optional feature modules are now explicit installers
+
+`stroid/persist`, `stroid/sync`, and `stroid/devtools` are now side-effect-free modules. Importing them no longer registers the feature runtime automatically.
+
+**Before:**
+```ts
+import "stroid/persist";
+import "stroid/sync";
+import "stroid/devtools";
+```
+
+**After:**
+```ts
+import { installPersist } from "stroid/persist";
+import { installSync } from "stroid/sync";
+import { installDevtools } from "stroid/devtools";
+
+installPersist();
+installSync();
+installDevtools();
+```
+
+You can also install them from `stroid/install`:
+
+```ts
+import { installPersist, installSync, installDevtools } from "stroid/install";
+
+installPersist();
+installSync();
+installDevtools();
+```
+
+**Impact:** Stores configured with `persist`, `sync`, or DevTools support will stay inactive until the relevant installer is called.
+
+#### Removed placeholder framework exports
+
+Dead placeholder exports for `stroid/vue` and `stroid/svelte` were removed from the published package.
+
+**Migration:** Remove those imports or switch to supported public entrypoints only.
 
 ---
 
@@ -53,7 +97,7 @@ Stroid is still in early beta. This section will grow as the API stabilizes and 
 
 ### allowUntrustedHydration → allowTrustedHydration
 
-**Status:** Deprecated as of v0.1.4-beta
+**Status:** Deprecated before `0.1.4`; still supported in `0.1.4`
 
 **Old (deprecated):**
 ```ts
@@ -83,12 +127,11 @@ The old name still works but may be removed in v0.2.0.
 
 ## 🎯 Version History
 
-### v0.1.4-beta (Current)
+### v0.1.4 (Current)
 
-- ✅ Core stable for most use cases
-- ✅ React integration stable
-- ⚠️ Some features still in development (devtools, server APIs)
-- 📝 API subject to minor adjustments
+- ✅ Final `0.1.4` release is fixes-only
+- ⚠️ Upgrade from `0.1.3` still requires the explicit feature installer migration
+- 📝 Migration guidance should be read together with `CHANGELOG.md`
 
 **Key exports:**
 - `createStore`, `getStore`, `setStore` — Core API
@@ -118,6 +161,7 @@ When moving from one minor version to the next:
 - [ ] Run TypeScript type check: `npm run typecheck`
 - [ ] Run your test suite: `npm test`
 - [ ] Check imports are still valid
+- [ ] Call `installPersist()`, `installSync()`, and `installDevtools()` explicitly if you use those features
 - [ ] Test async operations (if using `fetchStore`)
 - [ ] Test SSR (if using `createStoreForRequest`)
 - [ ] Test persistence (if using `persist`)
@@ -141,7 +185,7 @@ Found a breaking change not documented here? Report it:
 
 - **Migration from other libraries:** See [STROID_MIGRATION](../STROID_MIGRATION/INDEX.md) for comparisons with Redux, Zustand, Jotai, etc.
 - **Configuration:** See [STROID_CONFIG](../STROID_CONFIG/INDEX.md) for all config options
-- **Core concepts:** See [Core Concepts](../core-concepts/STORES.md)
+- **Core concepts:** See [STROID_CORE](../STROID_CORE/INDEX.md)
 
 ---
 

@@ -200,17 +200,31 @@ export async function fetchStore(
     let promiseRetryNoticeIssued = false;
     const shouldWarnPromiseRetry = isDirectPromiseInput && retry > 0;
     const dedupeContract: InflightRequestContract = (() => {
-        const requestKind = typeof urlOrRequest === "string"
-            ? "url"
-            : (typeof urlOrRequest === "function" ? "factory" : "promise");
+        if (typeof urlOrRequest === "string") {
+            return {
+                requestKind: "url",
+                url: urlOrRequest,
+                method: (method ?? "GET").toUpperCase(),
+                headers,
+                body,
+                responseType,
+                stateAdapter,
+            };
+        }
+        if (typeof urlOrRequest === "function") {
+            return {
+                requestKind: "factory",
+                requestRef: urlOrRequest,
+                method: (method ?? "GET").toUpperCase(),
+                headers,
+                body,
+                responseType,
+                stateAdapter,
+            };
+        }
         return {
-            requestKind,
-            requestRef: requestKind === "url" ? undefined : urlOrRequest,
-            url: requestKind === "url" ? urlOrRequest : undefined,
-            method: requestKind === "promise" ? undefined : ((method ?? "GET").toUpperCase()),
-            headers: requestKind === "promise" ? undefined : headers,
-            body: requestKind === "promise" ? undefined : body,
-            responseType: requestKind === "promise" ? undefined : responseType,
+            requestKind: "promise",
+            requestRef: urlOrRequest,
             stateAdapter,
         };
     })();

@@ -208,10 +208,18 @@ const persistLoadAsync = async ({
     try {
         const raw = await Promise.resolve(rawOverride === undefined ? (cfg.driver.getItem?.(cfg.key) ?? null) : rawOverride);
         if (raw == null) return false;
-        if (typeof cfg.maxSize !== "number" && typeof raw === "string" && raw.length > MAX_UNBOUNDED_PERSIST_WARN_BYTES) {
+        if (typeof raw !== "string") {
+            reportStoreError(
+                name,
+                `Persist driver for "${name}" returned a non-string value during async hydration. ` +
+                `Persist payloads must resolve to strings before decrypt/deserialize runs.`
+            );
+            return true;
+        }
+        if (typeof cfg.maxSize !== "number" && raw.length > MAX_UNBOUNDED_PERSIST_WARN_BYTES) {
             warnMissingMaxSize?.(raw.length);
         }
-        if (typeof cfg.maxSize === "number" && typeof raw === "string" && raw.length > cfg.maxSize) {
+        if (typeof cfg.maxSize === "number" && raw.length > cfg.maxSize) {
             reportStoreError(
                 name,
                 `Persist payload for "${name}" exceeds maxSize (${raw.length} > ${cfg.maxSize}). Skipping hydration.`
@@ -393,4 +401,3 @@ const applyMigratedState = ({
 
     return { ok: true, state: validationResult.value ?? parsed };
 };
-
