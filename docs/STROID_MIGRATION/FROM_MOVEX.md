@@ -87,5 +87,5 @@ sync({
 ## 📚 Documentation
 
 - [Async Guide](../STROID_ASYNC/INDEX.md)
-- [Sync Module](../guides/SYNC.md)
-- [Core Concepts](../core-concepts/STORES.md)
+- [Sync Module](../STROID_SYNC/INDEX.md)
+- [Core Concepts](../STROID_CORE/INDEX.md)

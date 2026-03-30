@@ -1,6 +1,6 @@
 # 🧩 TypeScript & Advanced Patterns
 
-> **Version:** 1.0 &nbsp;|&nbsp; **Last Updated:** 2026-03-29 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/core/store-lifecycle/types.ts`, `src/adapters/options.ts`, and source-code type signatures.*
 
@@ -304,7 +304,14 @@ if (!result.ok) {
       // The path string was invalid or points at missing state
       break
     case "middleware":
-      // A middleware returned MIDDLEWARE_ABORT
+      // A middleware threw or returned an unsupported async result
+      break
+    case "ssr":
+      // A server-side write guard blocked the operation
+      break
+    case "unsupported-op":
+    case "unsupported-path-shape":
+      // PSR patch input was not supported
       break
     case "invalid-args":
       // Bad arguments passed to the write function
@@ -323,12 +330,15 @@ if (!result.ok) {
 | `not-found` | Store doesn't exist | Check store name / creation order |
 | `validate` | Validate rule rejected the value | Inspect the validation config |
 | `path` | Path is invalid or missing in state | Use `Path<T>` to catch typos at compile time |
-| `middleware` | Middleware returned `MIDDLEWARE_ABORT` | Check middleware logic for the relevant action |
+| `middleware` | Middleware threw or returned an unsupported async result | Check middleware logic for the relevant action |
+| `ssr` | A server-side write guard blocked the operation | Use request-scoped server APIs |
+| `unsupported-op` | A PSR patch used an unsupported operation | Use `set`, `merge`, `delete`, or `insert` |
+| `unsupported-path-shape` | A PSR patch used an unsupported path shape | Use canonical path arrays for patch writes |
 | `invalid-args` | Bad arguments (e.g. `undefined` store name) | Check call site arguments |
 | `lazy-uninitialized` | Lazy store written before first read | Trigger a read first, or use an eager store |
 
 > [!NOTE]
-> `result.ok === true` is a type narrowing discriminant. TypeScript will narrow the result to the success shape (with your committed value) inside the `if (result.ok)` branch, and to the failure shape (with `reason` and optional `failedPatchId`) in the `else` branch.
+> `result.ok === true` is a type narrowing discriminant. TypeScript will narrow the result to the success shape inside the `if (result.ok)` branch, and to the failure shape (with `reason`) in the `else` branch.
 
 > [!TIP]
 > For fire-and-forget writes where you don't need the result, you can safely discard it — `WriteResult` is a plain value, not a Promise, and ignoring it has no side effects.
@@ -433,20 +443,13 @@ Rule of thumb: register Immer if your state trees are deep or large and mutation
 
 ## 🔀 Middleware Pattern
 
-Lifecycle middleware lets you **intercept, transform, or veto** any write to a store before it commits:
+Lifecycle middleware lets you **intercept and transform** any write to a store before it commits:
 
 ```ts
-import { MIDDLEWARE_ABORT } from "stroid"
-
 createStore("order", { items: [], status: "pending" }, {
   lifecycle: {
     middleware: [
       (ctx) => {
-        // Veto the write — returns MIDDLEWARE_ABORT to reject:
-        if (ctx.action === "set" && ctx.next.items.length > 50) {
-          return MIDDLEWARE_ABORT
-        }
-
         // Transform the value — return a modified next:
         return { ...ctx.next, updatedAt: Date.now() }
 
@@ -464,19 +467,19 @@ createStore("order", { items: [], status: "pending" }, {
 | `ctx.action` | `"set" \| "reset" \| "hydrate" \| "replace"` | The write operation type |
 | `ctx.prev` | `StoreState` | The current committed value before this write |
 | `ctx.next` | `StoreState` | The proposed new value |
-| `ctx.path` | `string[]` | The path being written (empty `[]` for root writes) |
-| `ctx.correlationId` | `string` | Trace ID for this write (if tracing is configured) |
+| `ctx.path` | `unknown` | The path payload for the current write |
+| `ctx.correlationId` | `string \| undefined` | Trace ID for this write (if tracing is configured) |
 | `ctx.traceContext` | `object \| undefined` | Full trace context (if configured) |
 
 **Middleware return values:**
 
 ```mermaid
 flowchart LR
-    MW["middleware(ctx)"] --> R1["return MIDDLEWARE_ABORT"]
+    MW["middleware(ctx)"] --> R1["throw / return Promise"]
     MW --> R2["return { ...ctx.next, ... }"]
     MW --> R3["return undefined\n(or no return)"]
 
-    R1 --> VETO["❌ write vetoed\nresult.reason = 'middleware'"]
+    R1 --> VETO["❌ write failed\nresult.reason = 'middleware'"]
     R2 --> TRANSFORM["✅ transformed value committed"]
     R3 --> PASSTHROUGH["✅ ctx.next committed unchanged"]
 
@@ -486,10 +489,10 @@ flowchart LR
 ```
 
 > [!WARNING]
-> Middleware runs **synchronously inside the write pipeline** — do not perform async operations, trigger other store writes, or call `getStore` inside middleware. Side effects that cross the write boundary should use lifecycle `onCommit` hooks instead.
+> Middleware runs **synchronously inside the write pipeline**. Promise-returning middleware is rejected and the write fails with `reason: "middleware"`.
 
 > [!TIP]
-> Multiple middleware functions are applied **in array order**. Each middleware receives the `ctx.next` produced by the previous one — allowing composable transformations. `MIDDLEWARE_ABORT` from any middleware short-circuits the rest of the chain.
+> Multiple middleware functions are applied **in array order**. Each middleware receives the `ctx.next` produced by the previous one — allowing composable transformations.
 
 <details>
 <summary>🧠 <strong>Practical middleware patterns</strong></summary>
@@ -508,8 +511,8 @@ middleware: [
 ```ts
 middleware: [
   (ctx) => {
-    if (ctx.path.includes("id") && ctx.prev?.id !== undefined) {
-      return MIDDLEWARE_ABORT  // id is write-once
+    if (ctx.prev && typeof ctx.prev === "object" && typeof ctx.next === "object" && ctx.next) {
+      return { ...(ctx.next as Record<string, unknown>), id: (ctx.prev as Record<string, unknown>).id }
     }
   }
 ]

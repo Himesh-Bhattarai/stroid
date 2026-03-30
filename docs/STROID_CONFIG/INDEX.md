@@ -1,6 +1,6 @@
 # ⚙️ Configuration Guide
 
-> **Version:** 1.0 &nbsp;|&nbsp; **Last Updated:** 2026-03-29 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/internals/config.ts`, `src/config.ts`*
 
@@ -56,7 +56,7 @@ configureStroid(options?: StroidConfig): void
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `namespace` | `string` | `""` | Prefix for stores (useful for multi-app environments). Applied when reading/writing stores. |
-| `strictMissingFeatures` | `boolean` | `true` | Throw errors when using unloaded features (e.g., calling `fetchStore` without importing `"stroid/async"`). |
+| `strictMissingFeatures` | `boolean` | `true` | Throw when a store requests an unregistered feature such as `persist`, `sync`, or `devtools`. |
 | `strictMutatorReturns` | `boolean` | `true` | Throw if a mutator function returns a value (should use draft instead). |
 | `assertRuntime` | `boolean` | `false` | Throw errors for invalid runtime conditions. Useful for strict development. |
 
@@ -116,7 +116,7 @@ revalidateOnFocus?: {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `allowTrustedHydration` | `boolean` | `false` | Allow `hydrateStores()` to accept snapshots without explicit trust verification. Use only for trusted internal sources. |
-| `allowHydration` | `boolean` | `false` | Alias for `allowTrustedHydration` (deprecated name). |
+| `allowHydration` | `boolean` | `false` | Alias for `allowTrustedHydration`. |
 
 > [!WARNING]
 > Only set `allowTrustedHydration: true` for internal state sources (your server, not user input).
@@ -158,30 +158,33 @@ state.name = "Hacked"         // Original affected
 
 ### Middleware
 
-Intercept and validate writes before they hit a store:
+Intercept and transform writes before they hit a store:
 
 ```ts
-import { MIDDLEWARE_ABORT } from "stroid"
-
 configureStroid({
   middleware: [
     (ctx) => {
-      if (ctx.storeName === "admin" && !user.isAdmin) {
-        return MIDDLEWARE_ABORT // Reject write
+      if (ctx.name === "profile" && typeof ctx.next === "object" && ctx.next) {
+        return { ...(ctx.next as Record<string, unknown>), updatedAt: Date.now() }
       }
-      // Return void to allow write through unmodified
+      // Return undefined to pass the value through unchanged
     }
   ]
 })
 ```
 
+If a middleware throws or returns a `Promise`, the write fails with `reason: "middleware"`.
+
 **Middleware Context (`MiddlewareCtx`):**
 ```ts
 type MiddlewareCtx = {
-  storeName: string
-  path?: string
-  value: any
-  op: "merge" | "path" | "mutator" | "replace"
+  action: string
+  name: string
+  prev: unknown
+  next: unknown
+  path: unknown
+  correlationId?: string
+  traceContext?: object
 }
 ```
 

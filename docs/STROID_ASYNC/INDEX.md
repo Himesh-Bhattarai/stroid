@@ -2,7 +2,7 @@
 
 # ⚡ Async Layer Guide
 
-[![Version](https://img.shields.io/badge/version-1.0.0-6e40c9?style=for-the-badge)](.)
+[![Version](https://img.shields.io/badge/version-0.1.4-6e40c9?style=for-the-badge)](.)
 [![Confidence](https://img.shields.io/badge/confidence-HIGH-22c55e?style=for-the-badge)](.)
 [![Last Updated](https://img.shields.io/badge/last_updated-March_2026-3b82f6?style=for-the-badge)](.)
 [![Source](https://img.shields.io/badge/derived_from-fetch·cache·hooks--async-f59e0b?style=for-the-badge)](.)

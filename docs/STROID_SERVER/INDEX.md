@@ -1,6 +1,6 @@
 # 🖥️ Server / SSR Guide
 
-> **Version:** 1.0 &nbsp;|&nbsp; **Last Updated:** 2026-03-29 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/server/index.ts`, `src/core/store-registry.ts`*
 
@@ -273,7 +273,7 @@ import App from "./App"
 
 const initialState = window.__INITIAL_STATE__
 
-hydrateStores(initialState)
+hydrateStores(initialState, {}, { allowTrusted: true })
 
 hydrateRoot(document.getElementById("app")!, <App />)
 ```
@@ -391,13 +391,13 @@ res.send(`
 `)
 
 // Client hydrates
-hydrateStores(window.__INITIAL_STATE__)
+hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true })
 ```
 
 ---
 
 ## 📚 Related Guides
 
-- **Core Concepts:** [Stores](../core-concepts/STORES.md)
+- **Core Concepts:** [Stores](../STROID_CORE/INDEX.md)
 - **React Integration:** [React Hooks](../STROID_REACT/INDEX.md)
-- **Hydration:** [Core Hydration](../core-concepts/STORES.md#-hydration)
+- **Hydration:** [Server Hydration](../STROID_SERVER/INDEX.md#-hydration)

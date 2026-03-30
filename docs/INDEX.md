@@ -1,24 +1,24 @@
 # Stroid Documentation Index
 
 ## Architecture
-- [System Architecture](./architecture/ARCHITECTURE.md)
+- [System Architecture](./STROID_ARCHITECTURE/AECHITECTURE.md)
 
 ## Core Concepts
-- [Stores — lifecycle, write modes, options](./core-concepts/STORES.md)
+- [Stores — lifecycle, write modes, options](./STROID_CORE/INDEX.md)
 
 ## Guides
-- [React Layer](./guides/REACT.md)
-- [Async Layer](./guides/ASYNC.md)
-- [Persistence](./guides/PERSIST.md)
-- [Cross-tab Sync](./guides/SYNC.md)
-- [Computed Stores](./guides/COMPUTED.md)
-- [Server & SSR](./guides/SERVER.md)
-- [Testing](./guides/TESTING.md)
-- [Runtime Tools & Devtools](./guides/RUNTIME_TOOLS.md)
-- [TypeScript & Advanced Patterns](./guides/TYPESCRIPT.md)
+- [React Layer](./STROID_REACT/INDEX.md)
+- [Async Layer](./STROID_ASYNC/INDEX.md)
+- [Persistence](./STROID_PRESIST/INDEX.md)
+- [Cross-tab Sync](./STROID_SYNC/INDEX.md)
+- [Computed Stores](./STROID_COMPUTED/INDEX.md)
+- [Server & SSR](./STROID_SERVER/INDEX.md)
+- [Testing](./STROID_TESTING/INDEX.md)
+- [Runtime Tools & Devtools](./STROID_RUNTIME_TOOLS/INDEX.md)
+- [TypeScript & Advanced Patterns](./STROID_TYPESCRIPT/INDEX.md)
 
 ## API Reference
-- [Complete API Reference](./api/API_REFERENCE.md)
+- [Complete API Reference](./api/stroid.api.md)
 
 ## Reference
-- [Audit Report — code vs docs conflicts](./reference/AUDIT_REPORT.md)
+- [Project Status](../STATUS.MD)

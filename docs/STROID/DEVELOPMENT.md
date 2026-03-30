@@ -103,7 +103,7 @@ Runtime hook flow:
 - Delete: `runFeatureDeleteHooks`
 
 **Contribution Checklist**
-1. Update docs for public API changes (`API_REFERENCE.md` and `docs/api/API_REFERENCE.md`).
+1. Update docs for public API changes (`docs/api/stroid.api.md` and any affected `docs/STROID_*/INDEX.md` guide).
 2. Add or update tests under `tests/`.
 3. Run `npm test` and `npm run test:types` before opening a PR.
 4. Keep new modules small and follow the LAYER boundaries above.

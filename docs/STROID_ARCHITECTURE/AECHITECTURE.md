@@ -2,15 +2,15 @@
 
 # 🗂️ Stroid Architecture
 
-[![Version](https://img.shields.io/badge/version-1.0.0-6e40c9?style=for-the-badge)](.)
+[![Version](https://img.shields.io/badge/version-0.1.4-6e40c9?style=for-the-badge)](.)
 [![Confidence](https://img.shields.io/badge/confidence-HIGH-22c55e?style=for-the-badge)](.)
 [![Type](https://img.shields.io/badge/type-Architecture-f59e0b?style=for-the-badge)](.)
 [![Last Updated](https://img.shields.io/badge/last_updated-March_2026-3b82f6?style=for-the-badge)](.)
-[![Status](https://img.shields.io/badge/status-Production_Ready-22c55e?style=for-the-badge)](.)
+[![Status](https://img.shields.io/badge/status-Source_Derived-22c55e?style=for-the-badge)](.)
 
-**A named-store state engine — layered, zero-overhead, SSR-safe.**
+**A named-store state engine with layered, SSR-safe runtime boundaries.**
 
-*Fully audited · Derived from source · Built for contributors*
+*Derived from source structure for repository contributors*
 
 </div>
 
@@ -432,7 +432,7 @@ flowchart LR
 | `beforeStoreDelete` | Before store removed | Cleanup storage key | Unsubscribe channel | — | Cancel inflight |
 
 > [!WARNING]
-> If `persist: true` is set on a store but `installPersist()` was never called, Stroid emits a warning. Set `strictMissingFeatures: true` in config to promote this to a thrown error.
+> If `persist: true` is set on a store but `installPersist()` was never called, feature registration fails. By default this throws because `strictMissingFeatures` defaults to `true`; setting `strictMissingFeatures: false` downgrades it to a warning.
 
 <details>
 <summary>🔍 How to register a custom feature (click to expand)</summary>
@@ -643,10 +643,10 @@ configureStroid({
   },
 
   // Default snapshot mode for all stores (overridable per store)
-  snapshot: 'deep',                       // "deep" | "shallow" | "ref"
+  defaultSnapshotMode: 'deep',            // "deep" | "shallow" | "ref"
 
   // Feature safety
-  strictMissingFeatures: true,            // throw instead of warn on missing features
+  strictMissingFeatures: true,            // default: throw on missing feature registration
 });
 ```
 
@@ -677,7 +677,7 @@ flowchart LR
 | **Version** | `0.1.3` |
 | **Released** | March 2026 |
 | **Scope** | Core runtime · Registry isolation · Computed stores · SSR request scoping · Feature hook model · Async fetch layer · Transaction batch / rollback |
-| **Changelog** | [CHANGELOG.md](./CHANGELOG.md) |
+| **Changelog** | [CHANGELOG.md](../../CHANGELOG.md) |
 
 </div>
 

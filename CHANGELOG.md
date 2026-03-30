@@ -15,7 +15,7 @@
 
 ---
 >[!WARNING]
-><details open>
+><details >
 ><summary><strong>0.1.4 --> 2026-3-30 </strong></summary>
 
 >- Fixed async persist hydration so Promise-returning `persist.driver.getItem()` now loads stored state even when crypto hooks and checksums stay synchronous.

@@ -1,6 +1,6 @@
 # ⚛️ React Layer Guide
 
-> **Version:** 1.0 &nbsp;|&nbsp; **Last Updated:** 2026-03-29 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/react/hooks-core.ts`, `hooks-async.ts`, `hooks-form.ts`, `hooks-async-suspense.ts`, `registry.ts`*
 

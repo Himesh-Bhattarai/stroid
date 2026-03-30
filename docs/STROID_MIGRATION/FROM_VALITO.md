@@ -99,6 +99,6 @@ const { bind } = useFormStore("form", "data")
 
 ## 📚 Documentation
 
-- [Core Concepts](../core-concepts/STORES.md)
+- [Core Concepts](../STROID_CORE/INDEX.md)
 - [React Hooks](../STROID_REACT/INDEX.md)
-- [Form Integration](../guides/REACT.md#-form-integration)
+- [Form Integration](../STROID_REACT/INDEX.md#-useformstore)

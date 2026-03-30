@@ -330,6 +330,6 @@ function App() {
 
 ## 📚 Documentation
 
-- [Core Concepts](../core-concepts/STORES.md)
+- [Core Concepts](../STROID_CORE/INDEX.md)
 - [React Hooks](../STROID_REACT/INDEX.md)
 - [Async](../STROID_ASYNC/INDEX.md)

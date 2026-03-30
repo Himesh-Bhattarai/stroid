@@ -54,9 +54,6 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 
 >[!NOTE]
 >```ts
->import { createStore, setStore, getStore } from "stroid";
->
->
 >import { createStore, setStore, getStore, configureStroid } from "stroid";
 >import { installPersist } from "stroid/persist";
 >import { installSync } from "stroid/sync";
@@ -82,9 +79,6 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 ---
 
 ### Stroid PSR
-
-Native support via a separate package:  
-https://github.com/Himesh-Bhattarai/stroid-psr
 
 Stroid ships a native PSR contract in `stroid/psr`.
 It exposes committed snapshots, patch application APIs, and runtime graph/timing data used for governance flows.
@@ -138,9 +132,9 @@ stroid                    <- core public runtime
 
 > ⚠️ = possible with extra setup · ❌ = not supported natively
 
-**Stroid's unique position:** It is the only state library that lets you *govern* writes — validate, transform, or reject a state change before it commits — via PSR. This makes it uniquely suited for collaborative editing, optimistic UI, payment flows, and any domain where invalid state is expensive.
+Stroid exposes governance-oriented write flows through `stroid/psr`, including committed snapshot reads, patch application APIs, runtime graph inspection, and timing contracts.
 
-Stroid is strongest when you need all of these together:
+Stroid is a fit when you need these together:
 - Named global stores with direct writes
 - Optional feature installs instead of mandatory side effects
 - Strict hydration trust gate (`hydrateStores(..., ..., { allowTrusted: true })`)
@@ -1049,7 +1043,7 @@ import { installAllFeatures } from "stroid/install";
 - Serializable writes: `applyStorePatch()` and `applyStorePatchesAtomic()` with `set`, `merge`, `delete`, and `insert`
 - Runtime inspection: `getRuntimeGraph()`, `getComputedDescriptor()`, `evaluateComputed()`, and `getTimingContract()`
 
-See [Native PSR Contract](./docs/guides/PSR.md) for full details.
+See [Native PSR Contract](./docs/STROID_PSR/INDEX.md) for full details.
 
 ---
 
@@ -1057,19 +1051,19 @@ See [Native PSR Contract](./docs/guides/PSR.md) for full details.
 
 Full documentation in [`/docs`](./docs/):
 
-- [Architecture](./docs/architecture/ARCHITECTURE.md) - layers, data flow, registry model
-- [Core Concepts](./docs/core-concepts/STORES.md) - store lifecycle, options, write modes
-- [React Layer](./docs/guides/REACT.md) - hooks, selectors, SSR
-- [Async Layer](./docs/guides/ASYNC.md) - `fetchStore`, caching, revalidation
-- [Persistence](./docs/guides/PERSIST.md) - persist options, encryption, migrations
-- [Cross-tab Sync](./docs/guides/SYNC.md) - BroadcastChannel sync behavior
-- [Computed Stores](./docs/guides/COMPUTED.md) - reactive derived values
-- [Native PSR Contract](./docs/guides/PSR.md) - patch coverage, timing/governance, graph identity
-- [Server & SSR](./docs/guides/SERVER.md) - request-scoped stores, hydration
-- [Testing](./docs/guides/TESTING.md) - mock stores, resets, benchmarks
-- [Runtime Tools](./docs/guides/RUNTIME_TOOLS.md) - observability, health checks
-- [TypeScript Guide](./docs/guides/TYPESCRIPT.md)
-- [Full API Reference](./docs/api/API_REFERENCE.md)
+- [Architecture](./docs/STROID_ARCHITECTURE/AECHITECTURE.md) - layers, data flow, registry model
+- [Core Concepts](./docs/STROID_CORE/INDEX.md) - store lifecycle, options, write modes
+- [React Layer](./docs/STROID_REACT/INDEX.md) - hooks, selectors, SSR
+- [Async Layer](./docs/STROID_ASYNC/INDEX.md) - `fetchStore`, caching, revalidation
+- [Persistence](./docs/STROID_PRESIST/INDEX.md) - persist options, encryption, migrations
+- [Cross-tab Sync](./docs/STROID_SYNC/INDEX.md) - BroadcastChannel sync behavior
+- [Computed Stores](./docs/STROID_COMPUTED/INDEX.md) - reactive derived values
+- [Native PSR Contract](./docs/STROID_PSR/INDEX.md) - patch coverage, timing/governance, graph identity
+- [Server & SSR](./docs/STROID_SERVER/INDEX.md) - request-scoped stores, hydration
+- [Testing](./docs/STROID_TESTING/INDEX.md) - mock stores, resets, benchmarks
+- [Runtime Tools](./docs/STROID_RUNTIME_TOOLS/INDEX.md) - observability, health checks
+- [TypeScript Guide](./docs/STROID_TYPESCRIPT/INDEX.md)
+- [Full API Reference](./docs/api/stroid.api.md)
 - [Project Status](./STATUS.MD)
 - [Contributing](./CONTRIBUTING.md)
 

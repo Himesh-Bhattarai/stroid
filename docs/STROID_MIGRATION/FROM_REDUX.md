@@ -206,8 +206,7 @@ import { configureStroid } from "stroid"
 configureStroid({
   middleware: [
     (ctx) => {
-      console.log(`${ctx.storeName}: ${ctx.op}`, ctx.value)
-      // Optionally veto with: return MIDDLEWARE_ABORT
+      console.log(`${ctx.name}: ${ctx.action}`, ctx.next)
     }
   ]
 })
@@ -424,7 +423,7 @@ function Content() {
 
 ## 📚 Documentation
 
-- [Core Concepts](../core-concepts/STORES.md)
+- [Core Concepts](../STROID_CORE/INDEX.md)
 - [Async](../STROID_ASYNC/INDEX.md)
 - [React](../STROID_REACT/INDEX.md)
 - [Configuration](../STROID_CONFIG/INDEX.md)

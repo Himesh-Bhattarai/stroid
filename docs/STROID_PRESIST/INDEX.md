@@ -1,6 +1,6 @@
 # 💾 Persistence Guide
 
-> **Version:** 1.0 &nbsp;|&nbsp; **Last Updated:** 2026-03-29 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/features/persist.ts`, `src/features/persist/*`, `src/adapters/options.ts`*
 
@@ -65,7 +65,8 @@ installPersist()
 ```
 
 > [!WARNING]
-> Without calling `installPersist()`, any store configured with `persist` options will **silently do nothing**. If you prefer an explicit hard error, enable `strictMissingFeatures: true` in your global config — it will throw instead of failing silently.
+> Without calling `installPersist()`, any store configured with `persist` options fails feature registration. By default this throws because `strictMissingFeatures` defaults to `true`.
+> If you intentionally set `strictMissingFeatures: false`, Stroid downgrades that failure to a warning and leaves persistence inactive for that store.
 
 > [!TIP]
 > Call `installPersist()` before any `createStore()` call that uses `persist`. The install step registers the internal storage adapter and hydration hooks — stores created before it is called will miss their hydration window.

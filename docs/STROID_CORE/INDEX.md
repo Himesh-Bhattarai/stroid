@@ -2,7 +2,7 @@
 
 # 🗃️ Core Concepts — Stores
 
-[![Version](https://img.shields.io/badge/version-1.0.0-6e40c9?style=for-the-badge)](.)
+[![Version](https://img.shields.io/badge/version-0.1.4-6e40c9?style=for-the-badge)](.)
 [![Confidence](https://img.shields.io/badge/confidence-HIGH-22c55e?style=for-the-badge)](.)
 [![Last Updated](https://img.shields.io/badge/last_updated-March_2026-3b82f6?style=for-the-badge)](.)
 [![Source](https://img.shields.io/badge/derived_from-store--create·store--write·options-f59e0b?style=for-the-badge)](.)
@@ -29,7 +29,7 @@
 | 5 | [Scope](#-scope) | `request`, `global`, `temp` — lifetimes and SSR behavior |
 | 6 | [Validation](#-validation) | Function validators, Zod / Yup / Valibot schemas |
 | 7 | [Lifecycle Hooks](#-lifecycle-hooks) | `onCreate`, `onSet`, `onReset`, `onDelete` |
-| 8 | [Middleware](#-middleware) | Intercept, transform, veto writes — `MIDDLEWARE_ABORT` |
+| 8 | [Middleware](#-middleware) | Intercept and transform writes before commit |
 | 9 | [Snapshot Mode](#-snapshot-mode) | `deep`, `shallow`, `ref` — cloning depth and trade-offs |
 | 10 | [Transactions](#-transactions-setstorebatch) | Atomic multi-store writes, rollback semantics |
 | 11 | [WriteResult](#-writeresult) | Structured write outcomes, failure reasons |
@@ -105,7 +105,7 @@ getStore("user")                       // → { name: "Ava" }  — unchanged
 > This makes `createStore` safe to call multiple times — for example, in module initialisation code that may run more than once. The first caller wins; subsequent calls are harmless.
 
 > [!WARNING]
-> If you expect to overwrite a store, use `replaceStore` (full value replacement) or `deleteStore` + `createStore` instead. Silent deduplication can mask bugs if you're expecting an update.
+> If you expect a different initial value to win, delete the store first or choose a unique store name. Silent deduplication can mask bugs if you're expecting an update.
 
 ---
 
@@ -148,7 +148,7 @@ flowchart LR
 
 ## ✍️ Writing to a Store
 
-`setStore` supports **four write modes**. The mode is inferred from the arguments you pass.
+`setStore` supports **three public write modes**. The mode is inferred from the arguments you pass.
 
 ```mermaid
 flowchart TD
@@ -157,17 +157,13 @@ flowchart TD
     SET --> M1["Merge\nsetStore(name, partialObject)"]
     SET --> M2["Path\nsetStore(name, path, value)"]
     SET --> M3["Mutator\nsetStore(name, draftFn)"]
-    SET --> M4["Replace\nreplaceStore(name, newValue)"]
-
     M1 --> R1["Shallow merge\ninto existing object"]
     M2 --> R2["Set value at\ndot or array path"]
     M3 --> R3["Deep clone draft\nor Immer structural share"]
-    M4 --> R4["Entire value\nreplaced — no merge"]
 
     style M1 fill:#dbeafe,stroke:#3b82f6
     style M2 fill:#d1fae5,stroke:#10b981
     style M3 fill:#fef3c7,stroke:#f59e0b
-    style M4 fill:#fce7f3,stroke:#ec4899
 ```
 
 ---
@@ -249,15 +245,15 @@ setStore("cart", draft => {
 
 ### 🩷 Replace — full value replacement
 
-Use `replaceStore` (not `setStore`) when you want to **discard the existing value entirely**:
+The internal store write layer has replace semantics via `replaceStore`, but the published `stroid` and `stroid/core` entrypoints do not export that helper.
 
 ```ts
-replaceStore("user", { name: "Kai", role: "admin" })
-// No merge — the old value is completely replaced
+setStore("user", { role: "editor" })
+// Shallow merge — existing keys survive
 ```
 
 > [!WARNING]
-> `replaceStore` bypasses shallow merge. Use it for reset-to-server-state patterns or when you want to guarantee no stale keys survive.
+> For object stores, public `setStore(name, object)` is a shallow merge, not a full replacement. If you need to guarantee that old object keys do not survive, recreate the store with `deleteStore()` + `createStore()`.
 
 ---
 
@@ -268,7 +264,7 @@ replaceStore("user", { name: "Kai", role: "admin" })
 | Merge | `setStore(name, obj)` | ✅ Shallow | ❌ | ❌ |
 | Path | `setStore(name, path, val)` | ❌ | ❌ | ❌ (targeted) |
 | Mutator | `setStore(name, fn)` | ❌ | ✅ (on clone) | ❌ |
-| Replace | `replaceStore(name, val)` | ❌ | ❌ | ✅ |
+| Replace | `replaceStore(name, val)` *(internal write path)* | ❌ | ❌ | ✅ |
 
 ---
 
@@ -382,7 +378,7 @@ flowchart LR
 ```
 
 > [!TIP]
-> Validation runs **after** middleware. If middleware returns `MIDDLEWARE_ABORT`, the validator is never called — the write is already dead.
+> Validation runs **after** middleware. If middleware fails before commit (for example by throwing or returning a `Promise`), no validated value is committed.
 
 <details>
 <summary>🧠 Senior note: validation + TypeScript narrowing (click to expand)</summary>
@@ -445,7 +441,7 @@ stateDiagram-v2
 | Hook | Fires when | Arguments | Common uses |
 |------|-----------|-----------|-------------|
 | `onCreate` | Store is first created | `(initialValue)` | Seed side effects, analytics, logging |
-| `onSet` | Any `setStore` / `replaceStore` commits | `(prev, next)` | Dirty-tracking, external sync |
+| `onSet` | Any successful write commit | `(prev, next)` | Dirty-tracking, external sync |
 | `onReset` | `resetStore` is called | `(prev, next)` | Audit logs, undo history |
 | `onDelete` | `deleteStore` is called | `(lastValue)` | Cleanup, teardown side effects |
 
@@ -464,18 +460,17 @@ createStore("cart", [], { lifecycle: { onSet: (prev, next) => {} } })
 
 ## 🛡️ Middleware
 
-Middleware **intercepts every write** before it commits. It can inspect, transform, or veto the incoming value.
+Middleware **intercepts every write** before it commits. It can inspect and transform the incoming value.
 
 ```ts
-import { MIDDLEWARE_ABORT } from "stroid"
-
 createStore("cart", { items: [] }, {
   lifecycle: {
     middleware: [
       (ctx) => {
-        if (ctx.next.items.length > 100) return MIDDLEWARE_ABORT  // ← veto
-        return ctx.next                                           // ← accept as-is
-        // return undefined                                       // ← pass through (same as return ctx.next)
+        return {
+          ...(ctx.next as { items: unknown[] }),
+          updatedAt: Date.now(),
+        }
       }
     ]
   }
@@ -486,33 +481,35 @@ createStore("cart", { items: [] }, {
 
 ```ts
 interface MiddlewareContext {
-  action: "set" | "reset" | "hydrate" | "replace"  // what triggered the write
-  prev:   unknown                                    // current store value
-  next:   unknown                                    // incoming proposed value
-  path:   string[] | undefined                       // set for path writes
-  name:   string                                     // store name
+  action: string
+  name: string
+  prev: unknown
+  next: unknown
+  path: unknown
+  correlationId?: string
+  traceContext?: object
 }
 ```
 
 ```mermaid
 flowchart TD
-    WRITE["Incoming write\nsetStore / replaceStore / reset"]
+    WRITE["Incoming write\nsetStore / resetStore / hydrateStores"]
     MW1["Middleware 1\n(ctx) => ..."]
     MW2["Middleware 2\n(ctx) => ..."]
     MWN["Middleware N\n(ctx) => ..."]
 
-    ABORT(["⛔ MIDDLEWARE_ABORT\nwrite cancelled — no commit,\nno notification, no hooks"])
+    FAIL(["⛔ Middleware failed\nthrow or Promise return\nresult.reason = 'middleware'"])
     COMMIT(["✅ Write commits\nto registry"])
 
     WRITE --> MW1
-    MW1 -->|"returns MIDDLEWARE_ABORT"| ABORT
     MW1 -->|"returns next value"| MW2
-    MW2 -->|"returns MIDDLEWARE_ABORT"| ABORT
+    MW1 -->|"throws / Promise"| FAIL
     MW2 -->|"returns next value"| MWN
-    MWN -->|"returns MIDDLEWARE_ABORT"| ABORT
+    MW2 -->|"throws / Promise"| FAIL
     MWN -->|"returns value"| COMMIT
+    MWN -->|"throws / Promise"| FAIL
 
-    style ABORT fill:#fca5a5,stroke:#ef4444,color:#7f1d1d
+    style FAIL fill:#fca5a5,stroke:#ef4444,color:#7f1d1d
     style COMMIT fill:#d1fae5,stroke:#10b981,color:#064e3b
 ```
 
@@ -520,9 +517,9 @@ flowchart TD
 
 | Return value | Effect |
 |-------------|--------|
-| `MIDDLEWARE_ABORT` | Write is cancelled. Nothing commits. No notification. |
 | `ctx.next` or any value | Passes that value forward to the next middleware (or commits if last) |
 | `undefined` | Pass-through — same as returning `ctx.next` unchanged |
+| `throw` / `Promise` | Write fails with `reason: "middleware"` |
 
 > [!TIP]
 > Middleware runs **in array order** — the output of middleware N becomes the `ctx.next` of middleware N+1. The final surviving value is what commits to the store.
@@ -542,7 +539,7 @@ configureStroid({
 ```
 
 > [!NOTE]
-> Global middleware runs **before** store-level middleware. Store middleware can still abort a write even after global middleware has passed it through.
+> Store-level middleware runs **before** global middleware. Global middleware sees the output produced by the store-level chain.
 
 ---
 
@@ -640,13 +637,13 @@ stateDiagram-v2
 | Operation | Allowed? | Reason |
 |-----------|----------|--------|
 | `setStore` | ✅ Yes | Core purpose |
-| `replaceStore` | ✅ Yes | Treated as staged write |
+| `replaceStore` | ✅ Yes *(internal write path)* | Treated as staged write |
 | `createStore` | ❌ No | Throws or warns |
 | `deleteStore` | ❌ No | Throws or warns |
 | `hydrateStores` | ❌ No | Throws or warns |
 
 > [!WARNING]
-> `createStore`, `deleteStore`, and `hydrateStores` will throw (or warn, depending on `strictMode` config) if called inside a batch. All stores that will be written to inside the batch **must already exist** before `setStoreBatch` is called.
+> `createStore`, `deleteStore`, and `hydrateStores` cannot be called inside a batch. They mark the active batch as failed instead of committing partial transaction state.
 
 > [!TIP]
 > **Senior note:** Batches are the correct tool for any operation that must update multiple stores atomically — checkout flows, form submissions, optimistic UI updates with paired state. Without a batch, each `setStore` triggers a separate notification flush, which can cause intermediate renders with inconsistent state between related stores.
@@ -674,9 +671,12 @@ if (result.ok) {
 | `"not-found"` | No store exists with that name | Call `createStore` first |
 | `"validate"` | Validator or schema rejected the value | Fix the value or the validator |
 | `"path"` | Intermediate path segment does not exist | Use `pathCreate: true` or ensure path exists |
-| `"middleware"` | A middleware returned `MIDDLEWARE_ABORT` | Inspect middleware logic |
+| `"middleware"` | A middleware threw or returned an unsupported async result | Inspect middleware logic |
 | `"invalid-args"` | Invalid argument types passed to `setStore` | Check argument shapes |
 | `"lazy-uninitialized"` | Tried to write to a lazy store before its first read | Call `getStore` first to initialise |
+| `"ssr"` | A server-only write guard blocked the operation | Use request-scoped APIs on the server |
+| `"unsupported-op"` | A PSR patch used an unsupported operation | Use `set`, `merge`, `delete`, or `insert` |
+| `"unsupported-path-shape"` | A PSR patch used an unsupported path shape | Use canonical path arrays for patch writes |
 
 ```mermaid
 flowchart TD
@@ -689,9 +689,12 @@ flowchart TD
     REASON --> R1["'not-found'\nStore doesn't exist"]
     REASON --> R2["'validate'\nSchema / fn rejected"]
     REASON --> R3["'path'\nMissing intermediate key"]
-    REASON --> R4["'middleware'\nMIDDLEWARE_ABORT returned"]
+    REASON --> R4["'middleware'\nMiddleware failed"]
     REASON --> R5["'invalid-args'\nBad argument types"]
     REASON --> R6["'lazy-uninitialized'\nLazy store not yet read"]
+    REASON --> R7["'ssr'\nServer write guard blocked"]
+    REASON --> R8["'unsupported-op'\nUnsupported PSR patch op"]
+    REASON --> R9["'unsupported-path-shape'\nUnsupported PSR patch path"]
 
     style SUCCESS fill:#d1fae5,stroke:#10b981
     style R1 fill:#fca5a5,stroke:#ef4444
@@ -700,6 +703,9 @@ flowchart TD
     style R4 fill:#fca5a5,stroke:#ef4444
     style R5 fill:#fca5a5,stroke:#ef4444
     style R6 fill:#fca5a5,stroke:#ef4444
+    style R7 fill:#fca5a5,stroke:#ef4444
+    style R8 fill:#fca5a5,stroke:#ef4444
+    style R9 fill:#fca5a5,stroke:#ef4444
 ```
 
 <details>
@@ -715,9 +721,11 @@ type WriteResult =
         | "validate"
         | "path"
         | "middleware"
+        | "ssr"
         | "invalid-args"
         | "lazy-uninitialized"
-      message?: string
+        | "unsupported-op"
+        | "unsupported-path-shape"
     }
 ```
 
