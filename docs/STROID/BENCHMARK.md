@@ -2,124 +2,132 @@
 
 ## Summary
 
-This report captures the full validation and subscriber-focused benchmark pass run on `dev-psr` on 2026-03-23.
+This report is based on rerunning the benchmark scripts in this repository on `2026-03-30`.
 
-Top-level outcome:
+Headline results:
 
-- all typechecks, build checks, API checks, declaration checks, main tests, and the lean performance suite passed
-- the subscriber benchmark now uses truly unique callbacks, so the 250K result reflects 250K real subscribers rather than `Set` deduplication
-- the single-store 250K subscriber target completed in both `noop` and `compute` modes
-- the concurrent 250K subscriber benchmark also completed for both same-tick fanout and atomic batch scenarios
+- the guarantee suite passed end-to-end
+- Stroid sustained `250,000` single-store subscribers at `2.459ms` median (`noop`) and `2.904ms` median (`compute`)
+- Stroid sustained `250,000` concurrent subscribers across multi-store fanout at `1.593ms` to `1.806ms` median wave latency
+- in the cross-library subscriber comparison, Stroid was slower on raw notify latency than Redux and Zustand in this script, but memory stayed close to Zustand and below Redux
 
-## Index
+Important comparison note:
 
-1. Validation Sequence
-2. Environment
-3. 250K Single-Store Subscriber Benchmark
-4. 250K Concurrent Real-World Subscriber Benchmark
-5. Performance Suite Highlights
-6. Notes
-
-## Validation Sequence
-
-| Step | Command | Result |
-| --- | --- | --- |
-| 1 | `npm run typecheck` | Passed |
-| 2 | `npm run typecheck:layers` | Passed |
-| 3 | `npm run build` | Passed |
-| 4 | `npm run check:react-types` | Passed |
-| 5 | `npm run docs:api` | Passed |
-| 6 | `npm run test:dts` | Passed |
-| 7 | `tsc -p tsconfig.typetests.json` | Passed |
-| 8 | `npm test` | Passed |
-| 9 | `npm run test:performance` | Passed |
-| 10 | `npm run benchmark:subscriber` | Passed |
-| 11 | `npm run benchmark:subscriber:concurrent` | Passed |
+- Stroid numbers in the cross-library script are measured end-to-end until its async notification flush reaches the final marker subscriber
+- Redux and Zustand numbers are measured synchronously inside `dispatch()` / `setState()`
+- treat that table as a practical comparison, not a perfectly apples-to-apples scheduler comparison
 
 ## Environment
 
 | Field | Value |
 | --- | --- |
-| Node | `v22.14.0` |
-| Platform | `win32` |
-| Arch | `x64` |
-| Branch | `dev-psr` |
-| Benchmark focus | subscriber fanout, concurrent subscriber fanout, sync-lite performance |
+| Date | `2026-03-30` |
+| Node | `v25.8.2` |
+| Platform | `darwin` |
+| Arch | `arm64` |
 
-## 250K Single-Store Subscriber Benchmark
+## Cross-Library Comparison
 
-Semantics:
+### Single Write Average
 
-- latency is measured end to end from `setStore()` until the final marker subscriber observes the committed value
-- `noop` mode uses unique no-op subscribers
-- `compute` mode uses unique subscribers that perform a tiny amount of per-notification work
+All values are `singleAvgMs` from `scripts/compare-state-libraries.ts`.
 
-### Key Results
+| Subscribers | Stroid | Redux plain | Redux + Immer | Zustand |
+| --- | --- | --- | --- | --- |
+| `5,000` | `0.142ms` | `0.056ms` | `0.065ms` | `0.064ms` |
+| `10,000` | `0.175ms` | `0.093ms` | `0.093ms` | `0.102ms` |
+| `25,000` | `0.263ms` | `0.141ms` | `0.192ms` | `0.211ms` |
+| `50,000` | `0.526ms` | `0.269ms` | `0.281ms` | `0.290ms` |
+| `75,000` | `0.759ms` | `0.417ms` | `0.427ms` | `0.432ms` |
 
-| Subscribers | Noop Median ms | Noop P95 ms | Noop Batch100 ms | Compute Median ms | Compute P95 ms | Compute Batch100 ms |
+### 100 Write Batch Total
+
+All values are `batch100Ms` from `scripts/compare-state-libraries.ts`.
+
+| Subscribers | Stroid | Redux plain | Redux + Immer | Zustand |
+| --- | --- | --- | --- | --- |
+| `5,000` | `7.017ms` | `3.078ms` | `3.151ms` | `3.149ms` |
+| `10,000` | `10.497ms` | `5.805ms` | `6.369ms` | `5.870ms` |
+| `25,000` | `18.405ms` | `14.147ms` | `14.199ms` | `14.550ms` |
+| `50,000` | `30.489ms` | `27.787ms` | `28.345ms` | `28.829ms` |
+| `75,000` | `44.467ms` | `41.270ms` | `41.601ms` | `42.739ms` |
+
+### Memory At 75K Subscribers
+
+| Library | Heap Delta MB | Bytes / Subscriber |
+| --- | --- | --- |
+| Stroid | `6.514` | `91.074` |
+| Redux plain | `7.532` | `105.307` |
+| Redux + Immer | `7.523` | `105.184` |
+| Zustand | `6.519` | `91.140` |
+
+### Cross-Library Read
+
+- fastest raw single-write result in this script: `redux-plain` at every measured subscriber count
+- smallest memory footprint in this script: Stroid and Zustand were effectively tied; both stayed materially below Redux
+- the gap is mostly about delivery model: the Stroid measurement waits for its async flush to finish, while Redux and Zustand do not
+
+## Stroid Scale Results
+
+### Single-Store Subscriber Fanout
+
+Selected rows from `npm run benchmark:subscriber`.
+
+| Subscribers | Noop Median | Noop Batch100 | Compute Median | Compute Batch100 |
+| --- | --- | --- | --- | --- |
+| `10,000` | `0.140ms` | `9.138ms` | `0.143ms` | `10.240ms` |
+| `50,000` | `0.551ms` | `33.275ms` | `0.662ms` | `43.617ms` |
+| `100,000` | `1.231ms` | `65.200ms` | `1.152ms` | `123.875ms` |
+| `200,000` | `1.870ms` | `196.690ms` | `2.504ms` | `250.922ms` |
+| `250,000` | `2.459ms` | `255.050ms` | `2.904ms` | `327.526ms` |
+
+### 250K Concurrent Fanout
+
+Results from `npm run benchmark:subscriber:concurrent`.
+
+| Scenario | Mode | Stores | Total Subscribers | Median | P95 | Peak Heap Delta MB |
 | --- | --- | --- | --- | --- | --- | --- |
-| 10,000 | 0.956 | 1.350 | 145.415 | 1.471 | 48.358 | 290.264 |
-| 50,000 | 3.694 | 6.162 | 595.949 | 4.445 | 40.065 | 1044.587 |
-| 100,000 | 4.519 | 10.969 | 997.927 | 11.801 | 57.253 | 2451.186 |
-| 150,000 | 11.781 | 44.964 | 1718.933 | 18.165 | 44.162 | 3370.350 |
-| 200,000 | 12.846 | 43.155 | 1953.102 | 26.352 | 56.500 | 3329.176 |
-| 250,000 | 23.263 | 37.294 | 2473.250 | 35.630 | 53.556 | 3645.122 |
+| `realtime-dashboard-concurrent` | `concurrent` | `5` | `250,000` | `1.593ms` | `2.348ms` | `12.868` |
+| `ops-dashboard-atomic-batch` | `batch` | `10` | `250,000` | `1.806ms` | `2.941ms` | `15.877` |
 
-### Threshold Summary
+### Selector Benchmark
 
-| Metric | Noop | Compute |
-| --- | --- | --- |
-| First noticeable slowdown (`>= 5ms`) | 150,000 | 40,000 |
-| First `>= 10ms` median | 150,000 | 100,000 |
-| Max count still under `16ms` median | 200,000 | 100,000 |
-| First `100 writes > 1s` | 150,000 | 50,000 |
-| Max tested stable | 250,000 | 250,000 |
+Selected rows from `npm run benchmark:selector`.
 
-### Memory Summary
+| Subscribers | Raw Ms | Simple Selector Ms | Complex Selector Ms | Raw Heap MB | Simple Heap MB | Complex Heap MB |
+| --- | --- | --- | --- | --- | --- | --- |
+| `50,000` | `0.887` | `37.457` | `90.230` | `3.945` | `54.076` | `57.363` |
+| `200,000` | `1.825` | `154.645` | `377.481` | `15.443` | `229.316` | `229.319` |
+| `800,000` | `7.224` | `627.527` | `1492.579` | `62.733` | `917.228` | `916.079` |
 
-| Subscribers | Noop Peak Heap Delta MB | Compute Peak Heap Delta MB |
-| --- | --- | --- |
-| 20,000 | 9.551 | 10.280 |
-| 100,000 | 19.404 | 19.357 |
-| 250,000 | 24.930 | 24.915 |
+### Additional Script Outputs
 
-## 250K Concurrent Real-World Subscriber Benchmark
-
-These runs model real application fanout more closely than the single-store benchmark:
-
-- `realtime-dashboard-concurrent`: five hot stores updated in the same tick, like websocket-driven dashboard shards
-- `ops-dashboard-atomic-batch`: ten related stores updated in one batch, like a server-pushed dashboard refresh
-
-| Scenario | Mode | Stores | Total Subscribers | Layout | Waves | Median ms | P95 ms | Max ms | Peak Heap Delta MB |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `realtime-dashboard-concurrent` | `concurrent` | 5 | 250,000 | `75k, 60k, 50k, 40k, 25k` | 5 | 22.934 | 52.314 | 52.314 | 17.029 |
-| `ops-dashboard-atomic-batch` | `batch` | 10 | 250,000 | `25k x 10` | 5 | 18.637 | 57.361 | 57.361 | 13.950 |
-
-### Practical Takeaways
-
-- 250K total subscribers is achievable in this runtime on this machine for both same-tick and atomic-batch fanout
-- sharding the subscriber load across stores keeps median wave latency in the `18ms` to `23ms` band even at 250K total subscribers
-- the atomic ten-store dashboard batch was slightly faster than the five-store concurrent wave in median latency on this run
-
-## Performance Suite Highlights
-
-These are the timings printed by the lean `npm run test:performance` suite:
-
-| Test | Result |
+| Script | Key Numeric Result |
 | --- | --- |
-| single-store notify flush | `150.274ms` |
-| snapshot cache benchmark | `1871.632ms` |
-| heavy fanout under subscriber load | `340.457ms` |
-| concurrent multi-store subscriber fanout | `161.239ms` |
-| sync local broadcast timing | `98.680ms` |
-| sync ten-store dashboard batch | `36.784ms` |
+| `npm run benchmark:deep-update` | deep path update at `250,000` subscribers: `1.664ms`; at `800,000`: `18.273ms` |
+| `npm run benchmark:lifecycle` | at `100,000` subscribers: base `1.559ms`, hook `2.562ms`, middleware `1.044ms`, async helper `3.360ms` |
 
-## Notes
+## Guarantee Results
 
-- Benchmark numbers are machine-specific and should be treated as comparative guidance, not universal guarantees.
-- The subscriber benchmark harness was corrected to use unique subscriber callbacks because stroid intentionally de-duplicates identical listeners via `Set`.
-- The performance suite was tightened during this pass:
-  - the snapshot-cache test now performs 100 real writes instead of starting with a no-op write
-  - the concurrent subscriber performance test was added
-  - the sync performance entry was slimmed to a lean broadcast-oriented harness so `npm run test:performance` finishes reliably
-- API Extractor initially failed because the computed type entrypoint name collided with tsup's internal declaration output naming. Renaming the build entry to `computed-types` fixed that package-level validation blocker.
+Results from `npm run benchmark:guarantees`.
+
+| Benchmark | Numeric Result | Status |
+| --- | --- | --- |
+| SSR isolation | `64` requests, `6.370ms` median, `10.996ms` p95, `foreignReadCount = 0` | Pass |
+| Atomic rollback | `48` iterations, `36` forced rollbacks, `partialCommitCount = 0` | Pass |
+| Race resistance | `24` waves x `80` ops, `1.030ms` median, `invariantViolations = 0` | Pass |
+| Determinism replay | `20` replays, `uniqueOutputCount = 1` | Pass |
+| Memory leak detection | `240` measured cycles, retained growth `2.496MB` | Pass |
+| Governance lifecycle | `5` proposals, `1` rejected, `previewCommitMismatchCount = 0` | Pass |
+
+## Commands Used
+
+| Purpose | Command |
+| --- | --- |
+| Cross-library compare | `npm run benchmark:compare` |
+| Single-store fanout | `npm run benchmark:subscriber` |
+| Concurrent fanout | `npm run benchmark:subscriber:concurrent` |
+| Selector cost | `npm run benchmark:selector` |
+| Deep path updates | `npm run benchmark:deep-update` |
+| Lifecycle overhead | `npm run benchmark:lifecycle` |
+| Guarantee suite | `npm run benchmark:guarantees` |
