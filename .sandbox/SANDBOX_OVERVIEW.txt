@@ -1,0 +1,289 @@
+════════════════════════════════════════════════════════════════════════════════
+🟣 STROID SANDBOX - COMPLETE DEVELOPER LEARNING ENVIRONMENT
+════════════════════════════════════════════════════════════════════════════════
+
+This sandbox provides production-ready, runnable examples for learning Stroid.
+Every example is:
+  ✓ Fully commented
+  ✓ Runnable immediately
+  ✓ Self-contained
+  ✓ Real-world focused
+  ✓ Progressive complexity
+
+════════════════════════════════════════════════════════════════════════════════
+📚 WHAT'S INCLUDED
+════════════════════════════════════════════════════════════════════════════════
+
+ROOT FILES:
+  README.md               ← Overview of all examples
+  QUICK_START.md          ← 5-minute quick start guide
+  GUIDE.md                ← Comprehensive learning guide
+  OVERVIEW.txt            ← This file
+
+EXAMPLES (6 progressively complex):
+  01-basics/              ← Core store operations (15 min)
+  02-react-hooks/         ← React integration (20 min)
+  03-async-fetching/      ← Data loading & caching (25 min)
+  04-persistence/         ← localStorage saving (15 min)
+  05-tab-sync/            ← Multi-tab sync (20 min)
+  06-selectors/           ← Performance optimization (20 min)
+
+TOTAL LEARNING TIME: ~2 hours
+
+════════════════════════════════════════════════════════════════════════════════
+🚀 GETTING STARTED (3 STEPS)
+════════════════════════════════════════════════════════════════════════════════
+
+Step 1: Read this
+  File: .sandbox/QUICK_START.md
+  Time: 5 minutes
+
+Step 2: Run your first example
+  Command: cd .sandbox/01-basics && node --import tsx index.ts
+  Time: 5 minutes
+
+Step 3: Pick what interests you
+  - Async data loading? Try 03-async-fetching
+  - React components? Try 02-react-hooks
+  - Performance? Try 06-selectors
+
+════════════════════════════════════════════════════════════════════════════════
+📖 RECOMMENDED LEARNING PATH
+════════════════════════════════════════════════════════════════════════════════
+
+BEGINNER (Foundation - 30 min):
+  1. Read: QUICK_START.md
+  2. Run: 01-basics/index.ts
+  3. Learn: createStore, setStore, getStore
+
+INTERMEDIATE (Practical - 1+ hour):
+  4. Run: 02-react-hooks/index.tsx
+  5. Run: 03-async-fetching/index.tsx
+  6. Run: 04-persistence/index.ts
+  7. Learn: React hooks, async patterns
+
+ADVANCED (Optimization - 1+ hour):
+  8. Run: 05-tab-sync/index.ts
+  9. Run: 06-selectors/index.tsx
+  10. Learn: Performance, advanced patterns
+
+════════════════════════════════════════════════════════════════════════════════
+📋 EXAMPLE OVERVIEW
+════════════════════════════════════════════════════════════════════════════════
+
+✅ EXAMPLE 01: CORE OPERATIONS
+   File: 01-basics/index.ts
+   Teaches: createStore, setStore, getStore, hasStore, subscribeStore, deleteStore
+   Time: 15 min
+   Runnable: node --import tsx 01-basics/index.ts
+   Key Code:
+     createStore("cart", { items: [], total: 0 })
+     setStore("cart", "total", 99.99)
+     const cart = getStore("cart")
+
+✅ EXAMPLE 02: REACT HOOKS
+   File: 02-react-hooks/index.tsx
+   Teaches: useStore, useSelector, component re-renders
+   Time: 20 min
+   Runnable: Copy to React app or study code
+   Key Code:
+     const cart = useStore("cart")
+     const total = useSelector("cart", s => s.total)
+
+✅ EXAMPLE 03: ASYNC FETCHING
+   File: 03-async-fetching/index.tsx
+   Teaches: fetchStore, loading states, error handling
+   Time: 25 min
+   Runnable: Copy to React app
+   Key Code:
+     await fetchStore("users", fetchPromise, { stateAdapter: ... })
+
+✅ EXAMPLE 04: PERSISTENCE
+   File: 04-persistence/index.ts
+   Teaches: installPersist, persist option, auto-restore
+   Time: 15 min
+   Runnable: node --import tsx 04-persistence/index.ts
+   Key Code:
+     installPersist()
+     createStore("settings", {...}, { persist: true })
+
+✅ EXAMPLE 05: TAB SYNC
+   File: 05-tab-sync/index.ts
+   Teaches: installSync, sync option, multi-tab collaboration
+   Time: 20 min
+   Runnable: node --import tsx 05-tab-sync/index.ts
+   Key Code:
+     installSync()
+     createStore("cart", {...}, { sync: true })
+
+✅ EXAMPLE 06: SELECTORS
+   File: 06-selectors/index.tsx
+   Teaches: selectStore, useSelector, performance optimization
+   Time: 20 min
+   Runnable: Study code in React context
+   Key Code:
+     const selectTotal = (state) => state.total
+     const total = useSelector("cart", selectTotal)
+
+════════════════════════════════════════════════════════════════════════════════
+🎯 COMMON USE CASES
+════════════════════════════════════════════════════════════════════════════════
+
+Building a Todo App?
+  → Run: 01-basics, 02-react-hooks, 04-persistence
+  → Learn: Stores, React integration, saving data
+
+Building a Shopping Cart?
+  → Run: 01-basics, 03-async-fetching, 05-tab-sync
+  → Learn: Data loading, multi-tab sync
+
+Building a Performance-Critical App?
+  → Run: All 6 examples in order
+  → Then: Focus on 06-selectors
+
+Building a Collaborative App?
+  → Run: 01-basics, 03-async-fetching, 05-tab-sync
+  → Learn: Data sync and real-time updates
+
+════════════════════════════════════════════════════════════════════════════════
+🔧 RUNNING EXAMPLES
+════════════════════════════════════════════════════════════════════════════════
+
+Method 1: Node.js (TypeScript examples)
+  Requirements: Node.js 18+, tsx installed
+  Command: node --import tsx index.ts
+  Examples: 01-basics, 04-persistence, 05-tab-sync
+
+Method 2: React Component (React examples)
+  Requirements: React project
+  Steps:
+    1. Copy index.tsx to your project
+    2. Import the App component
+    3. Use in your app
+
+Method 3: Study Code
+  Requirements: Any text editor
+  Steps:
+    1. Open any index.ts or index.tsx
+    2. Read the comments
+    3. Understand the patterns
+
+════════════════════════════════════════════════════════════════════════════════
+💡 LEARNING TIPS
+════════════════════════════════════════════════════════════════════════════════
+
+✓ Run BEFORE reading (see it working first)
+✓ Read ALL comments (they explain everything)
+✓ Modify the code (change values, see what happens)
+✓ Use DevTools (inspect components, state)
+✓ Test performance (React Profiler for re-renders)
+✓ Build incrementally (one example at a time)
+✓ Take notes (document your understanding)
+
+════════════════════════════════════════════════════════════════════════════════
+⚠️ COMMON MISTAKES TO AVOID
+════════════════════════════════════════════════════════════════════════════════
+
+❌ Mutating state directly:
+   getStore("cart").total = 100;  ← WRONG!
+
+✅ Use setStore:
+   setStore("cart", "total", 100);  ← RIGHT!
+
+---
+
+❌ Forgetting to use hooks in React:
+   const cart = getStore("cart");  ← Won't re-render!
+
+✅ Use React hooks:
+   const cart = useStore("cart");  ← Re-renders!
+
+---
+
+❌ Not installing features:
+   createStore("cart", {}, { persist: true });  ← Won't work!
+
+✅ Install first:
+   installPersist();
+   createStore("cart", {}, { persist: true });
+
+---
+
+❌ Selecting whole store when you need one field:
+   const cart = useStore("cart");
+
+✅ Use selector:
+   const total = useSelector("cart", s => s.total);
+
+════════════════════════════════════════════════════════════════════════════════
+🔗 RESOURCES
+════════════════════════════════════════════════════════════════════════════════
+
+Quick Things:
+  • QUICK_START.md    - 5 minute primer
+  • README.md         - Overview of examples
+  • GUIDE.md          - Comprehensive guide
+
+Documentation:
+  • ../README.md      - Main Stroid docs
+  • ../IMPORT.md      - API reference
+  • ../DEVELOPMENT.md - For contributors
+
+Learning:
+  • 01-basics/README.md     - First steps
+  • Any example's index.ts/tsx - Source of truth
+
+════════════════════════════════════════════════════════════════════════════════
+📊 SKILL PROGRESSION
+════════════════════════════════════════════════════════════════════════════════
+
+After 01-basics:
+  ✓ Understand stores
+  ✓ Can create stores in Node.js
+  ✓ Know read/write/subscribe patterns
+
+After 02-react-hooks:
+  ✓ Can build React components with stores
+  ✓ Know when to use useStore vs useSelector
+  ✓ Can make basic interactive apps
+
+After 03-async-fetching:
+  ✓ Can load data from APIs
+  ✓ Understand loading/error states
+  ✓ Can build data-driven apps
+
+After 04-persistence:
+  ✓ Can save user preferences
+  ✓ Understand localStorage integration
+  ✓ Can persist important state
+
+After 05-tab-sync:
+  ✓ Can build collaborative features
+  ✓ Understand BroadcastChannel API
+  ✓ Can sync across browser tabs
+
+After 06-selectors:
+  ✓ Can optimize performance
+  ✓ Know best practices for large apps
+  ✓ Can build high-performance React apps
+
+════════════════════════════════════════════════════════════════════════════════
+🎓 NOW YOU'RE READY!
+════════════════════════════════════════════════════════════════════════════════
+
+You have everything you need to master Stroid state management.
+
+Next Steps:
+  1. Read QUICK_START.md
+  2. Run 01-basics example
+  3. Follow the learning path
+  4. Build your first app!
+
+Questions?
+  • Check the README in each example
+  • Read the comments in the code
+  • Review main documentation
+
+Happy coding! 🚀
+
+════════════════════════════════════════════════════════════════════════════════
