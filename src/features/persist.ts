@@ -46,6 +46,11 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
     const maxSizeWarned = new Set<string>();
     const persistLoadState: Record<string, { loading: boolean; pendingSave: boolean }> = Object.create(null);
     const persistWindowFlushCleanup: Record<string, () => void> = Object.create(null);
+    const ignoreAsyncDriverCleanup = (result: unknown): void => {
+        if (result && typeof (result as { then?: unknown }).then === "function") {
+            void Promise.resolve(result).catch(() => undefined);
+        }
+    };
 
     return {
         api: {
@@ -263,7 +268,7 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
             delete persistSequence[ctx.name];
 
             try {
-                cfg.driver.removeItem?.(cfg.key);
+                ignoreAsyncDriverCleanup(cfg.driver.removeItem?.(cfg.key));
             } catch (_) {
                 // ignore driver cleanup errors
             }
@@ -304,5 +309,4 @@ export const registerPersistFeature = (): void => {
     _registered = true;
     registerStoreFeature("persist", createPersistFeatureRuntime);
 };
-
 

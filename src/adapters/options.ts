@@ -155,7 +155,7 @@ export interface SyncOptions {
      * Optional guard to prevent rapid feedback loops when sync updates trigger local reactions.
      *
      * - true: enable with a default window (100ms)
-     * - { windowMs }: customize the guard window in milliseconds
+     * - `windowMs`: customize the guard window in milliseconds
      * - false: disable (default is enabled when sync is truthy)
      */
     loopGuard?: boolean | { windowMs?: number };

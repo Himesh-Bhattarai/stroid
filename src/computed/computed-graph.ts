@@ -14,8 +14,20 @@ import {
 } from "../core/store-registry.js";
 import { error } from "../utils.js";
 import { setComputedOrderResolver } from "../internals/computed-order.js";
+import type {
+    ComputedClassification,
+    ComputedDescriptor,
+    RuntimeEdgeType,
+    RuntimeGraph,
+    RuntimeGraphEdge,
+    RuntimeGraphNode,
+    RuntimeNodeId,
+    RuntimeNodeType,
+    RuntimePathSegment,
+} from "./types.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
+const DEFAULT_COMPUTED_CLASSIFICATION: ComputedClassification = "opaque";
 
 const getEntries = () => getRegistry().computedEntries;
 const getDependents = () => getRegistry().computedDependents;
@@ -63,7 +75,8 @@ const removeComputedDependentLinks = (name: string, deps: string[]): void => {
 export const registerComputed = (
     name: string,
     deps: string[],
-    compute: (...args: unknown[]) => unknown
+    compute: (...args: unknown[]) => unknown,
+    classification: ComputedClassification = DEFAULT_COMPUTED_CLASSIFICATION
 ): boolean => {
     const cycleTrace = detectCycle(name, deps);
     if (cycleTrace) {
@@ -82,7 +95,14 @@ export const registerComputed = (
         removeComputedDependentLinks(name, entries[name].deps);
     }
 
-    entries[name] = { deps, compute, stale: true } as ComputedEntry;
+    entries[name] = {
+        deps,
+        compute,
+        stale: true,
+        classification,
+        hasLastOutput: false,
+        lastOutput: undefined,
+    } as ComputedEntry;
 
     for (const dep of deps) {
         if (!dependents[dep]) dependents[dep] = new Set<string>();
@@ -111,6 +131,93 @@ export const isComputed = (name: string): boolean =>
 
 export const getComputedEntry = (name: string): ComputedEntry | undefined =>
     getEntries()[name];
+
+const getComputedNodeType = (
+    classification: ComputedClassification
+): Extract<RuntimeNodeType, "computed" | "async-boundary"> =>
+    classification === "asyncBoundary" ? "async-boundary" : "computed";
+
+const createRuntimeNodeId = (
+    type: RuntimeNodeType,
+    storeId: string,
+    path: readonly RuntimePathSegment[] = []
+): RuntimeNodeId => JSON.stringify([type, storeId, [...path]]);
+
+const isRuntimeNodeType = (value: unknown): value is RuntimeNodeType =>
+    value === "leaf"
+    || value === "computed"
+    || value === "async-boundary";
+
+const parseRuntimeNodeId = (
+    nodeId: RuntimeNodeId
+): { type: RuntimeNodeType; storeId: string; path: RuntimePathSegment[] } | null => {
+    try {
+        const parsed = JSON.parse(nodeId) as unknown;
+        if (!Array.isArray(parsed) || parsed.length !== 3) return null;
+        const [type, storeId, path] = parsed;
+        if (!isRuntimeNodeType(type) || typeof storeId !== "string" || !Array.isArray(path)) return null;
+        if (path.some((segment) => typeof segment !== "string" && typeof segment !== "number")) return null;
+        return {
+            type,
+            storeId,
+            path: [...path],
+        };
+    } catch (_) {
+        return null;
+    }
+};
+
+const buildRuntimeNode = (
+    type: RuntimeNodeType,
+    storeId: string
+): RuntimeGraphNode => ({
+    id: createRuntimeNodeId(type, storeId),
+    storeId,
+    path: [],
+    type,
+});
+
+const getDependencyNode = (name: string): RuntimeGraphNode => {
+    const entry = getEntries()[name];
+    if (!entry) return buildRuntimeNode("leaf", name);
+    return buildRuntimeNode(getComputedNodeType(entry.classification), name);
+};
+
+const resolveComputedEntryName = (nodeId: RuntimeNodeId): string | null => {
+    const entries = getEntries();
+    if (entries[nodeId]) return nodeId;
+
+    const parsed = parseRuntimeNodeId(nodeId);
+    if (!parsed || parsed.path.length !== 0) return null;
+    if (parsed.type !== "computed" && parsed.type !== "async-boundary") return null;
+
+    const entry = entries[parsed.storeId];
+    if (!entry) return null;
+    return getComputedNodeType(entry.classification) === parsed.type
+        ? parsed.storeId
+        : null;
+};
+
+const buildComputedDescriptor = (name: string, entry: ComputedEntry): ComputedDescriptor => {
+    const nodeType = getComputedNodeType(entry.classification);
+    return {
+        id: createRuntimeNodeId(nodeType, name),
+        storeId: name,
+        path: [],
+        dependencies: entry.deps.map((dep) => getDependencyNode(dep).id),
+        nodeType,
+        classification: entry.classification,
+        ...(entry.classification === "asyncBoundary" ? { asyncBoundary: true } : {}),
+    };
+};
+
+export const getComputedDescriptor = (nodeId: RuntimeNodeId): ComputedDescriptor | null => {
+    const name = resolveComputedEntryName(nodeId);
+    if (!name) return null;
+    const entry = getEntries()[name];
+    if (!entry) return null;
+    return buildComputedDescriptor(name, entry);
+};
 
 export const getTopoOrderedComputeds = (changedSources: string[]): string[] => {
     const entries = getEntries();
@@ -231,6 +338,127 @@ export const getComputedDepsFor = (name: string): { deps: string[]; dependents: 
         deps: [...entry.deps],
         dependents: dependents ? [...dependents] : [],
     };
+};
+
+export const getRuntimeComputedGraph = (): RuntimeGraph => {
+    const entries = getEntries();
+    const nodeMap = new Map<RuntimeNodeId, RuntimeGraphNode>();
+    const edgeMap = new Map<string, RuntimeGraphEdge>();
+
+    for (const [name, entry] of Object.entries(entries)) {
+        const descriptor = buildComputedDescriptor(name, entry);
+        nodeMap.set(descriptor.id, {
+            id: descriptor.id,
+            storeId: descriptor.storeId,
+            path: descriptor.path,
+            type: descriptor.nodeType,
+        });
+
+        entry.deps.forEach((dep, index) => {
+            const depNode = getDependencyNode(dep);
+            const edgeType: RuntimeEdgeType = getEntries()[dep]
+                ? "computed-input"
+                : "leaf-input";
+            nodeMap.set(depNode.id, depNode);
+            edgeMap.set(`${depNode.id}|${descriptor.id}|${index}`, {
+                from: depNode.id,
+                to: descriptor.id,
+                type: edgeType,
+            });
+        });
+    }
+
+    const nodes = Array.from(nodeMap.values()).sort((left, right) =>
+        left.id.localeCompare(right.id)
+    );
+    const edges = Array.from(edgeMap.values()).sort((left, right) => {
+        const fromCompare = left.from.localeCompare(right.from);
+        if (fromCompare !== 0) return fromCompare;
+        const toCompare = left.to.localeCompare(right.to);
+        if (toCompare !== 0) return toCompare;
+        return left.type.localeCompare(right.type);
+    });
+
+    return {
+        granularity: "store",
+        nodes,
+        edges,
+    };
+};
+
+const hasOwn = (value: Record<string, unknown>, key: string): boolean =>
+    Object.prototype.hasOwnProperty.call(value, key);
+
+const readSnapshotValue = (snapshot: Record<string, unknown>, name: string): unknown =>
+    hasOwn(snapshot, name) ? snapshot[name] : null;
+
+type EvaluationState = {
+    memo: Map<string, unknown>;
+    stack: Set<string>;
+};
+
+const evaluateDeterministicComputed = (
+    name: string,
+    snapshot: Record<string, unknown>,
+    state: EvaluationState
+): unknown => {
+    if (state.memo.has(name)) return state.memo.get(name);
+    if (state.stack.has(name)) {
+        throw new Error(`evaluateComputed("${name}") detected a computed cycle`);
+    }
+
+    const entry = getEntries()[name];
+    if (!entry) {
+        throw new Error(`evaluateComputed("${name}") could not find a computed descriptor`);
+    }
+    if (entry.classification !== "deterministic") {
+        throw new Error(
+            `evaluateComputed("${name}") only supports deterministic computed nodes`
+        );
+    }
+
+    state.stack.add(name);
+    try {
+        const args = entry.deps.map((dep) => {
+            const depEntry = getEntries()[dep];
+            if (!depEntry) return readSnapshotValue(snapshot, dep);
+            if (depEntry.classification !== "deterministic") {
+                throw new Error(
+                    `evaluateComputed("${name}") cannot cross non-deterministic dependency "${dep}"`
+                );
+            }
+            return evaluateDeterministicComputed(dep, snapshot, state);
+        });
+
+        let next: unknown;
+        try {
+            next = entry.compute(...args);
+        } catch (_) {
+            next = readSnapshotValue(snapshot, name);
+        }
+
+        state.memo.set(name, next);
+        return next;
+    } finally {
+        state.stack.delete(name);
+    }
+};
+
+export const evaluateComputedFromSnapshot = (
+    nodeId: RuntimeNodeId,
+    snapshot: Record<string, unknown>
+): unknown => {
+    if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+        throw new Error(`evaluateComputed("${nodeId}") requires a snapshot record`);
+    }
+    const name = resolveComputedEntryName(nodeId);
+    if (!name) {
+        throw new Error(`evaluateComputed("${nodeId}") could not find a computed descriptor`);
+    }
+    return evaluateDeterministicComputed(name, snapshot, {
+        memo: new Map<string, unknown>(),
+        stack: new Set<string>(),
+    });
 };
 
 

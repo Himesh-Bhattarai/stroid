@@ -13,6 +13,18 @@ import { computePersistChecksum } from "./checksum.js";
 
 const MAX_UNBOUNDED_PERSIST_WARN_BYTES = 1_000_000;
 
+const isPromiseLike = (value: unknown): value is Promise<unknown> =>
+    !!value && typeof (value as { then?: unknown }).then === "function";
+
+const reportPersistLoadFailure = (
+    name: string,
+    reportStoreError: (name: string, message: string) => void,
+    error: unknown
+): true => {
+    reportStoreError(name, `Could not load store "${name}" (${(error as { message?: string })?.message || error})`);
+    return true;
+};
+
 const resolvePersistMigrations = (meta: PersistMeta | undefined, cfg: PersistConfig | null | undefined) => {
     const migrations = meta?.options?.migrations ?? {};
     if (Object.keys(migrations).length > 0) return migrations;
@@ -68,11 +80,20 @@ export const persistLoad = (args: PersistLoadArgs): boolean | Promise<boolean> =
     const meta: PersistMeta | undefined = args.getMeta();
     const cfg = meta?.options?.persist;
     if (!cfg) return false;
+    let raw: unknown;
+    try {
+        raw = cfg.driver.getItem?.(cfg.key) ?? null;
+    } catch (error) {
+        return reportPersistLoadFailure(args.name, args.reportStoreError, error);
+    }
+    if (isPromiseLike(raw)) {
+        return persistLoadAsync(args, raw);
+    }
     const needsAsync = !!cfg.decryptAsync || cfg.checksum === "sha256";
     if (!needsAsync) {
-        return persistLoadSync(args);
+        return persistLoadSync(args, raw);
     }
-    return persistLoadAsync(args);
+    return persistLoadAsync(args, raw);
 };
 
 const persistLoadSync = ({
@@ -89,7 +110,7 @@ const persistLoadSync = ({
     deepClone,
     sanitize,
     shouldApply,
-}: PersistLoadArgs): boolean => {
+}: PersistLoadArgs, rawOverride?: unknown): boolean => {
     const meta: PersistMeta | undefined = getMeta();
     const cfg = meta?.options?.persist;
     if (!cfg) return false;
@@ -97,8 +118,8 @@ const persistLoadSync = ({
     const validateState = (candidate: StoreValue): { ok: boolean; value?: StoreValue } =>
         normalizeFeatureState({ value: candidate, validate });
     try {
-        const raw = cfg.driver.getItem?.(cfg.key) ?? null;
-        if (!raw) return false;
+        const raw = rawOverride === undefined ? (cfg.driver.getItem?.(cfg.key) ?? null) : rawOverride;
+        if (raw == null) return false;
         if (typeof raw !== "string") {
             reportStoreError(
                 name,
@@ -120,7 +141,7 @@ const persistLoadSync = ({
         const decrypted = cfg.decrypt(raw);
         const envelope = JSON.parse(decrypted);
         const { v = 1, checksum, data, updatedAt, updatedAtMs } = envelope || {};
-        if (!data) return true;
+        if (data === undefined) return true;
         const safeUpdatedAt = resolveUpdatedAtMs({
             value: typeof updatedAtMs === "number" ? updatedAtMs : updatedAt,
             fallbackMs: Date.now(),
@@ -159,8 +180,7 @@ const persistLoadSync = ({
         }
         return true;
     } catch (e) {
-        reportStoreError(name, `Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
-        return true;
+        return reportPersistLoadFailure(name, reportStoreError, e);
     }
 };
 
@@ -178,7 +198,7 @@ const persistLoadAsync = async ({
     deepClone,
     sanitize,
     shouldApply,
-}: PersistLoadArgs): Promise<boolean> => {
+}: PersistLoadArgs, rawOverride?: unknown): Promise<boolean> => {
     const meta: PersistMeta | undefined = getMeta();
     const cfg = meta?.options?.persist;
     if (!cfg) return false;
@@ -186,12 +206,20 @@ const persistLoadAsync = async ({
     const validateState = (candidate: StoreValue): { ok: boolean; value?: StoreValue } =>
         normalizeFeatureState({ value: candidate, validate });
     try {
-        const raw = await Promise.resolve(cfg.driver.getItem?.(cfg.key) ?? null);
-        if (!raw) return false;
-        if (typeof cfg.maxSize !== "number" && typeof raw === "string" && raw.length > MAX_UNBOUNDED_PERSIST_WARN_BYTES) {
+        const raw = await Promise.resolve(rawOverride === undefined ? (cfg.driver.getItem?.(cfg.key) ?? null) : rawOverride);
+        if (raw == null) return false;
+        if (typeof raw !== "string") {
+            reportStoreError(
+                name,
+                `Persist driver for "${name}" returned a non-string value during async hydration. ` +
+                `Persist payloads must resolve to strings before decrypt/deserialize runs.`
+            );
+            return true;
+        }
+        if (typeof cfg.maxSize !== "number" && raw.length > MAX_UNBOUNDED_PERSIST_WARN_BYTES) {
             warnMissingMaxSize?.(raw.length);
         }
-        if (typeof cfg.maxSize === "number" && typeof raw === "string" && raw.length > cfg.maxSize) {
+        if (typeof cfg.maxSize === "number" && raw.length > cfg.maxSize) {
             reportStoreError(
                 name,
                 `Persist payload for "${name}" exceeds maxSize (${raw.length} > ${cfg.maxSize}). Skipping hydration.`
@@ -203,7 +231,7 @@ const persistLoadAsync = async ({
             : cfg.decrypt(raw);
         const envelope = JSON.parse(decrypted);
         const { v = 1, checksum, data, updatedAt, updatedAtMs } = envelope || {};
-        if (!data) return true;
+        if (data === undefined) return true;
         const safeUpdatedAt = resolveUpdatedAtMs({
             value: typeof updatedAtMs === "number" ? updatedAtMs : updatedAt,
             fallbackMs: Date.now(),
@@ -242,8 +270,7 @@ const persistLoadAsync = async ({
         }
         return true;
     } catch (e) {
-        reportStoreError(name, `Could not load store "${name}" (${(e as { message?: string })?.message || e})`);
-        return true;
+        return reportPersistLoadFailure(name, reportStoreError, e);
     }
 };
 
@@ -374,5 +401,3 @@ const applyMigratedState = ({
 
     return { ok: true, state: validationResult.value ?? parsed };
 };
-
-

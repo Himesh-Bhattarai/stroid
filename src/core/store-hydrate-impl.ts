@@ -8,7 +8,7 @@
  */
 import { warn, warnAlways, isDev, isValidStoreName } from "../utils.js";
 import { type StoreOptions } from "../adapters/options.js";
-import { getRegistry, hasStoreEntryInternal } from "./store-lifecycle/registry.js";
+import { getCommittedStoreValueRef, getRegistry, hasStoreEntryInternal } from "./store-lifecycle/registry.js";
 import type {
     StoreStateMap,
     StrictStoreMap,
@@ -22,6 +22,8 @@ import { isTransactionActive, markTransactionFailed } from "./store-transaction.
 import { getStore } from "./store-read.js";
 import { getTopoOrderedComputeds } from "../computed/computed-graph.js";
 import { replaceStore, replaceStoreState } from "./store-replace-impl.js";
+import { createRootSetRuntimePatch, setLastRuntimePatches } from "./runtime-patch.js";
+import type { RuntimePatch } from "./runtime-patch.js";
 
 type HydrateSnapshot = HydrateSnapshotFor<StoreStateMap & StrictStoreMap>;
 type HydrateOptions<Snapshot extends object> =
@@ -71,6 +73,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     };
     if (!snapshot || typeof snapshot !== "object") return result;
     const registry = getRegistry();
+    const runtimePatches: RuntimePatch[] = [];
 
     const trustInput = trust ?? {};
     const allowHydration =
@@ -161,6 +164,13 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
             else {
                 result.hydrated.push(storeName);
                 hydratedSources.push(storeName);
+                runtimePatches.push(
+                    createRootSetRuntimePatch({
+                        store: storeName,
+                        value: getCommittedStoreValueRef(storeName, registry),
+                        source: "hydrateStores",
+                    })
+                );
             }
         } else {
             const optionMap = options as Record<string, StoreOptions<any>> & { default?: StoreOptions<any> };
@@ -168,6 +178,13 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
             if (created) {
                 result.created.push(storeName);
                 hydratedSources.push(storeName);
+                runtimePatches.push(
+                    createRootSetRuntimePatch({
+                        store: storeName,
+                        value: getCommittedStoreValueRef(storeName, registry),
+                        source: "hydrateStores",
+                    })
+                );
             }
             else result.failed.push({
                 name: storeName,
@@ -177,7 +194,6 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
         }
     });
     if (hydratedSources.length > 0) {
-        // TODO: regression test for computed recompute after hydrateStores with out-of-order snapshot keys.
         const orderedComputeds = getTopoOrderedComputeds(hydratedSources);
         orderedComputeds.forEach((computedName) => {
             const entry = registry.computedEntries[computedName];
@@ -189,13 +205,19 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
                     warn(`hydrateStores recompute for "${computedName}" returned a Promise; skipping.`);
                     return;
                 }
-                const current = getStore(computedName as any);
-                if (Object.is(next, current)) return;
+                const current = getCommittedStoreValueRef(computedName, registry);
+                const unchangedByRawComputeIdentity = entry.hasLastOutput && Object.is(next, entry.lastOutput);
+                if (unchangedByRawComputeIdentity || Object.is(next, current)) return;
+                entry.lastOutput = next;
+                entry.hasLastOutput = true;
                 replaceStore(computedName as any, next as StoreValue);
             } catch (err) {
                 warn(`hydrateStores recompute for "${computedName}" failed: ${(err as { message?: string })?.message ?? err}`);
             }
         });
+    }
+    if (runtimePatches.length > 0) {
+        setLastRuntimePatches(runtimePatches, registry);
     }
     return result;
 };

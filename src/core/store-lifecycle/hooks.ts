@@ -26,6 +26,7 @@ import {
     initialStates,
     featureRuntimes,
     applyFeatureState,
+    getCommittedStoreValueRef,
     getRegistry,
     initializeRegisteredFeatureRuntimes,
     setStoreValueInternal,
@@ -62,12 +63,20 @@ export const createBaseFeatureContext = (name: string): FeatureHookContext | nul
         return null;
     }
 
+    const getAllCommittedStores = (): Record<string, StoreValue> =>
+        Object.fromEntries(
+            Object.keys(registry.metaEntries).map((storeName) => [
+                storeName,
+                getCommittedStoreValueRef(storeName, registry) as StoreValue,
+            ])
+        ) as Record<string, StoreValue>;
+
     const ctx: FeatureHookContext = {
         name,
         options: metaEntry.options,
         getMeta: () => meta[name],
-        getStoreValue: () => stores[name],
-        getAllStores: () => stores,
+        getStoreValue: () => getCommittedStoreValueRef(name, registry) as StoreValue,
+        getAllStores: getAllCommittedStores,
         getInitialState: () => initialStates[name],
         hasStore: () => hasStoreEntryInternal(name),
         setStoreValue: (value: StoreValue) => {
@@ -130,8 +139,16 @@ export const runFeatureCreateHooks = (name: string, notify: (name: string) => vo
     if (!baseContext) return;
     baseContext.notify = () => notify(name);
     validateFeatureContext(name, baseContext);
-    featureRuntimes.forEach((runtime) => {
-        runtime.onStoreCreate?.(baseContext);
+    featureRuntimes.forEach((runtime, featureName) => {
+        try {
+            runtime.onStoreCreate?.(baseContext);
+        } catch (err) {
+            reportStoreWarning(
+                name,
+                `Feature "${String(featureName)}" onStoreCreate for "${name}" failed: ${(err as { message?: string })?.message ?? err}`,
+                "always"
+            );
+        }
     });
 };
 
@@ -147,8 +164,16 @@ export const runFeatureWriteHooks = (name: string, action: string, prev: StoreVa
     }) as FeatureWriteContext;
     validateFeatureContext(name, ctx);
 
-    featureRuntimes.forEach((runtime) => {
-        runtime.onStoreWrite?.(ctx);
+    featureRuntimes.forEach((runtime, featureName) => {
+        try {
+            runtime.onStoreWrite?.(ctx);
+        } catch (err) {
+            reportStoreWarning(
+                name,
+                `Feature "${String(featureName)}" onStoreWrite for "${name}" failed: ${(err as { message?: string })?.message ?? err}`,
+                "always"
+            );
+        }
     });
 };
 
@@ -174,7 +199,15 @@ export const runFeatureWriteHooksExcept = (
 
     featureRuntimes.forEach((runtime, featureName) => {
         if (excludedSet.has(featureName)) return;
-        runtime.onStoreWrite?.(ctx);
+        try {
+            runtime.onStoreWrite?.(ctx);
+        } catch (err) {
+            reportStoreWarning(
+                name,
+                `Feature "${String(featureName)}" onStoreWrite for "${name}" failed: ${(err as { message?: string })?.message ?? err}`,
+                "always"
+            );
+        }
     });
 };
 
@@ -187,11 +220,27 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
         prev,
     }) as FeatureDeleteContext;
     validateFeatureContext(name, ctx);
-    featureRuntimes.forEach((runtime) => {
-        runtime.beforeStoreDelete?.(ctx);
+    featureRuntimes.forEach((runtime, featureName) => {
+        try {
+            runtime.beforeStoreDelete?.(ctx);
+        } catch (err) {
+            reportStoreWarning(
+                name,
+                `Feature "${String(featureName)}" beforeStoreDelete for "${name}" failed: ${(err as { message?: string })?.message ?? err}`,
+                "always"
+            );
+        }
     });
-    featureRuntimes.forEach((runtime) => {
-        runtime.afterStoreDelete?.(ctx);
+    featureRuntimes.forEach((runtime, featureName) => {
+        try {
+            runtime.afterStoreDelete?.(ctx);
+        } catch (err) {
+            reportStoreWarning(
+                name,
+                `Feature "${String(featureName)}" afterStoreDelete for "${name}" failed: ${(err as { message?: string })?.message ?? err}`,
+                "always"
+            );
+        }
     });
     getBaseFeatureContexts(getRegistry()).delete(name);
 };
@@ -255,5 +304,4 @@ export const resolveFeatureAvailability = (name: string, options: NormalizedOpti
 
     return next;
 };
-
 

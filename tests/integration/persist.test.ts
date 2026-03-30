@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import "../../src/persist.js";
+import { installPersist } from "../../src/persist.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 import { clearAllStores } from "../../src/runtime-admin/index.js";
 import { getStoreMeta } from "../../src/runtime-tools/index.js";
@@ -20,6 +20,8 @@ import { resetAllStoresForTest } from "../../src/helpers/testing.js";
 import { flushPersistImmediately } from "../../src/features/persist/save.js";
 import { isIdentityCrypto } from "../../src/features/persist/crypto.js";
 import { hashState } from "../../src/utils.js";
+
+installPersist();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -358,8 +360,9 @@ test("persist critical failures still surface via onError in production", () => 
   const script = `
     const assert = (await import("node:assert")).default;
     const { pathToFileURL } = await import("node:url");
-    await import(pathToFileURL(${JSON.stringify(persistPath)}).href);
+    const { installPersist } = await import(pathToFileURL(${JSON.stringify(persistPath)}).href);
     const { createStore, getStore, clearAllStores } = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    installPersist();
 
     const checksumErrors = [];
     const serialized = JSON.stringify({ items: [9] });

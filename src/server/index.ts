@@ -63,6 +63,11 @@ type RequestHydrateOptionsInternal = Record<string, StoreOptions<any> | undefine
     default?: StoreOptions<any>;
 };
 
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
+    value !== null
+    && (typeof value === "object" || typeof value === "function")
+    && typeof (value as { then?: unknown }).then === "function";
+
 export type RequestStoreApi<StateMap extends StoreStateMap = StoreStateMap> = {
     create: <Name extends RequestStoreName<StateMap>>(
         name: Name,
@@ -76,6 +81,7 @@ export type RequestStoreApi<StateMap extends StoreStateMap = StoreStateMap> = {
     get: <Name extends RequestStoreName<StateMap>>(
         name: Name
     ) => RequestStoreValue<StateMap, Name> | undefined;
+    snapshot: () => RequestSnapshot<StateMap>;
 };
 
 type RequestStoreContext<StateMap extends StoreStateMap> = {
@@ -92,6 +98,19 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
     const bufferedOptions: Record<string, StoreOptions<any>> = {};
     const hasBuffered = (name: RequestStoreName<StateMap>): boolean =>
         Object.prototype.hasOwnProperty.call(buffer, name);
+    const syncBufferFromCarrier = (carrier: CarrierContext): void => {
+        Object.keys(buffer).forEach((name) => {
+            delete buffer[name as RequestStoreName<StateMap>];
+        });
+
+        Object.keys(registry.metaEntries).forEach((name) => {
+            const value = Object.prototype.hasOwnProperty.call(carrier, name)
+                ? carrier[name]
+                : registry.stores[name];
+            buffer[name as RequestStoreName<StateMap>] =
+                deepClone(value) as RequestStoreValue<StateMap, RequestStoreName<StateMap>>;
+        });
+    };
     const api: RequestStoreApi<StateMap> = {
         create: (name, data, options = {}) => {
             buffer[name] = deepClone(data) as RequestStoreValue<StateMap, typeof name>;
@@ -107,12 +126,13 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
                     buffer[name] as RequestStoreValue<StateMap, typeof name>,
                     updater as (draft: RequestStoreValue<StateMap, typeof name>) => void
                 )
-                : updater;
+                : deepClone(updater) as RequestStoreValue<StateMap, typeof name>;
             return buffer[name] as RequestStoreValue<StateMap, typeof name>;
         },
         get: (name) => (hasBuffered(name)
             ? deepClone(buffer[name]) as RequestStoreValue<StateMap, typeof name>
             : undefined),
+        snapshot: () => deepClone(buffer) as RequestSnapshot<StateMap>,
     };
     if (typeof initializer === "function") initializer(api);
     return {
@@ -144,7 +164,22 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
                         merged as Parameters<typeof hydrateStores>[1],
                         { allowTrusted: true }
                     );
-                    return renderFn();
+                    const carrier = serverAsyncContext.getStore();
+                    if (!carrier) return renderFn();
+
+                    try {
+                        const rendered = renderFn();
+                        if (isPromiseLike(rendered)) {
+                            return Promise.resolve(rendered).finally(() => {
+                                syncBufferFromCarrier(carrier);
+                            }) as T;
+                        }
+                        syncBufferFromCarrier(carrier);
+                        return rendered;
+                    } catch (err) {
+                        syncBufferFromCarrier(carrier);
+                        throw err;
+                    }
                 })
             );
         },

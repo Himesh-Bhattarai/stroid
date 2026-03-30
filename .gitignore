@@ -10,6 +10,7 @@ AUDIT_REPORT_2/
 /AUDIT_REPORT_2.md
 AUDIT_REPORT/
 /AUDIT_REPORT.md
+/PSR_TEAM.md
 # silent
 stroid-website/
 coverage/
@@ -37,6 +38,7 @@ coverage/
 .turbo/
 .cache/
 .parcel-cache/
+temp/
 *.tgz
 *.tgz.sha512
 .tsbuild/
@@ -44,3 +46,7 @@ coverage/
 
 # tests tmp output
 tests/.tmp-*.txt
+
+# local planning docs
+EXPOSE.md
+PSR_NATIVE_REPORT.md

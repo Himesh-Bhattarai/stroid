@@ -38,6 +38,7 @@ import {
     clearInflightEntry,
     clearRequestVersion,
     hasInflightEntry,
+    type InflightRequestContract,
     isCurrentRequest,
     reserveRequestVersion,
     setInflightEntry,
@@ -198,6 +199,35 @@ export async function fetchStore(
     const retryPolicy = normalizeRetryOptions(name, retry, retryDelay, retryBackoff);
     let promiseRetryNoticeIssued = false;
     const shouldWarnPromiseRetry = isDirectPromiseInput && retry > 0;
+    const dedupeContract: InflightRequestContract = (() => {
+        if (typeof urlOrRequest === "string") {
+            return {
+                requestKind: "url",
+                url: urlOrRequest,
+                method: (method ?? "GET").toUpperCase(),
+                headers,
+                body,
+                responseType,
+                stateAdapter,
+            };
+        }
+        if (typeof urlOrRequest === "function") {
+            return {
+                requestKind: "factory",
+                requestRef: urlOrRequest,
+                method: (method ?? "GET").toUpperCase(),
+                headers,
+                body,
+                responseType,
+                stateAdapter,
+            };
+        }
+        return {
+            requestKind: "promise",
+            requestRef: urlOrRequest,
+            stateAdapter,
+        };
+    })();
 
     const isProdServer = typeof window === "undefined"
         && (typeof process !== "undefined" ? process.env?.NODE_ENV : undefined) === "production";
@@ -293,14 +323,18 @@ export async function fetchStore(
     }
 
     if (dedupe) {
-        const deduped = tryDedupeRequest(name, cacheSlot, transform, onError);
+        const deduped = tryDedupeRequest(name, cacheSlot, {
+            contract: dedupeContract,
+            transform,
+            cloneResult: cloneMode,
+        }, onError);
         if (deduped !== undefined) return deduped;
     }
 
     const nowTs = Date.now();
     pruneRateCounters(nowTs);
     scheduleRatePrune();
-    if (registerRateHit(name, nowTs)) {
+    if (registerRateHit(cacheSlot, nowTs)) {
         return reportAsyncUsageError(
             name,
             `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for store "${name}".`,
@@ -492,6 +526,9 @@ export async function fetchStore(
         if (signal) return;
         timeoutId = setTimeout(() => {
             timeoutId = null;
+            if (controller && !controller.signal.aborted) {
+                controller.abort();
+            }
             reject(new Error("Timeout: async request hung for 60 seconds without an AbortSignal"));
         }, 60000);
     });
@@ -527,7 +564,7 @@ export async function fetchStore(
     });
     const rawPromise = execution.then((res) => res?.raw);
 
-    setInflightEntry(cacheSlot, { promise, raw: rawPromise, transform });
+    setInflightEntry(cacheSlot, { promise, raw: rawPromise, transform, cloneResult: cloneMode, contract: dedupeContract });
     if (typeof urlOrRequest === "function") {
         fetchRegistry[name] = { kind: "factory", factory: urlOrRequest, options: { ...options, cacheKey } };
     } else if (typeof urlOrRequest === "string") {
@@ -606,8 +643,27 @@ export function enableRevalidateOnFocus(
     const maxConcurrent = Math.max(1, overrides?.maxConcurrent ?? focusConfig.maxConcurrent);
     const staggerMs = Math.max(0, overrides?.staggerMs ?? focusConfig.staggerMs);
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
+    const scheduledTimers = new Set<ReturnType<typeof setTimeout>>();
+
+    const clearScheduledTimer = (timer: ReturnType<typeof setTimeout> | null): void => {
+        if (timer === null) return;
+        clearTimeout(timer);
+        scheduledTimers.delete(timer);
+    };
+
+    const schedule = (callback: () => void, delayMs: number): ReturnType<typeof setTimeout> => {
+        const timer = setTimeout(() => {
+            scheduledTimers.delete(timer);
+            if (disposed) return;
+            callback();
+        }, delayMs);
+        scheduledTimers.add(timer);
+        return timer;
+    };
 
     const runRefetch = () => {
+        if (disposed) return;
         const fetchRegistry = getFetchRegistry();
         let targets = key === "*" ? Object.keys(fetchRegistry) : [key];
         if (overrides?.priority === "high" && key !== "*") {
@@ -616,9 +672,11 @@ export function enableRevalidateOnFocus(
         if (targets.length === 0) return;
         let index = 0;
         const launchNext = () => {
+            if (disposed) return;
             const batch = targets.slice(index, index + maxConcurrent);
             batch.forEach((storeName, offset) => {
                 const fire = () => {
+                    if (disposed) return;
                     const fetchRegistry = getFetchRegistry();
                     const last = fetchRegistry[storeName];
                     if (!last) {
@@ -632,7 +690,7 @@ export function enableRevalidateOnFocus(
                     }
                 };
                 if (staggerMs > 0) {
-                    setTimeout(fire, offset * staggerMs);
+                    schedule(fire, offset * staggerMs);
                 } else {
                     fire();
                 }
@@ -640,33 +698,35 @@ export function enableRevalidateOnFocus(
             index += batch.length;
             if (index < targets.length) {
                 const delayMs = staggerMs > 0 ? staggerMs * Math.max(1, batch.length) : 0;
-                setTimeout(launchNext, delayMs);
+                schedule(launchNext, delayMs);
             }
         };
         launchNext();
     };
 
     const handler = () => {
+        if (disposed) return;
         // For zero-debounce configs, run immediately to avoid relying on timers
         // (helps test environments and keeps default behaviour snappy).
         if (debounceMs === 0) {
             runRefetch();
             return;
         }
-        if (debounceTimer !== null) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(runRefetch, debounceMs);
+        clearScheduledTimer(debounceTimer);
+        debounceTimer = schedule(runRefetch, debounceMs);
     };
 
     window.addEventListener("focus", handler);
     window.addEventListener("online", handler);
     revalidateKeys.add(key);
     const cleanup = () => {
+        disposed = true;
         window.removeEventListener("focus", handler);
         window.removeEventListener("online", handler);
-        if (debounceTimer !== null) {
-            clearTimeout(debounceTimer);
-            debounceTimer = null;
-        }
+        clearScheduledTimer(debounceTimer);
+        debounceTimer = null;
+        scheduledTimers.forEach((timer) => clearTimeout(timer));
+        scheduledTimers.clear();
         revalidateKeys.delete(key);
         delete revalidateHandlers[key];
         unregisterStoreCleanup(key, cleanup, "revalidate");
@@ -685,5 +745,3 @@ export const _resetAsyncStateForTests = (): void => {
 export const cleanupAllRevalidateHandlers = (): void => {
     cleanupStoreCleanupsByKind("revalidate");
 };
-
-

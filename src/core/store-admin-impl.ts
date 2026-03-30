@@ -7,7 +7,7 @@
  * Consumers: store-admin.
  */
 import { warn, deepClone } from "../utils.js";
-import { getRegistry, getStoreAdmin } from "./store-lifecycle/registry.js";
+import { getRegistry, getStoreAdmin, getStoreValueRef } from "./store-lifecycle/registry.js";
 import { invalidatePathCache, materializeInitial } from "./store-lifecycle/validation.js";
 import { nameOf, exists, reportStoreWarning } from "./store-lifecycle/identity.js";
 import type {
@@ -24,6 +24,7 @@ import {
     getStagedTransactionValue,
     markTransactionFailed,
 } from "./store-transaction.js";
+import { createRootSetRuntimePatch } from "./runtime-patch.js";
 import { stageOrCommitUpdate, clearSlowMutatorWarnings, forgetSlowMutatorWarning } from "./store-write-shared.js";
 
 export function deleteStore<Name extends string, State>(name: StoreDefinition<Name, State>): void;
@@ -79,16 +80,10 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         return { ok: false, reason: "not-found" };
     }
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
-    const prev = stagedPrev.has ? stagedPrev.value : registry.stores[name];
+    const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(name, registry);
     const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
     const resetValue = deepClone(registry.initialStates[name]);
     const elapsed = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) - start;
-    const metrics = registry.metaEntries[name]?.metrics;
-    if (metrics) {
-        metrics.resetCount = (metrics.resetCount ?? 0) + 1;
-        metrics.totalResetMs = (metrics.totalResetMs ?? 0) + elapsed;
-        metrics.lastResetMs = elapsed;
-    }
 
     stageOrCommitUpdate(registry, {
         name,
@@ -97,6 +92,16 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         action: "reset",
         hookLabel: "onReset",
         logMessage: `Store "${name}" reset to initial state/value`,
+        metricsUpdate: {
+            resetElapsedMs: elapsed,
+        },
+        runtimePatches: [
+            createRootSetRuntimePatch({
+                store: name,
+                value: resetValue,
+                source: "resetStore",
+            }),
+        ],
     });
     return { ok: true };
 }

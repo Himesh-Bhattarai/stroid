@@ -8,7 +8,7 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import { clearAllStores, createStore } from "../../../src/store.js";
+import { clearAllStores, createStore, getStore } from "../../../src/store.js";
 import { fetchStore, refetchStore } from "../../../src/async.js";
 
 test("refetchStore replays factory fetchers", async () => {
@@ -120,4 +120,44 @@ test("fetchStore reports auto-create failures for invalid store names", async ()
   const controller = new AbortController();
   const result = await fetchStore("__proto__", Promise.resolve({ ok: true }), { signal: controller.signal, autoCreate: true });
   assert.strictEqual(result, null);
+});
+
+test("fetchStore aborts the internal request when the timeout fires", async () => {
+  clearAllStores();
+  createStore("timeoutAbort", { data: null, loading: false, error: null, status: "idle" });
+  const realFetch = globalThis.fetch;
+  const realSetTimeout = globalThis.setTimeout;
+  let seenSignal: AbortSignal | undefined;
+
+  globalThis.fetch = ((_: RequestInfo | URL, init?: RequestInit) => {
+    seenSignal = init?.signal as AbortSignal | undefined;
+    return new Promise((_, reject) => {
+      seenSignal?.addEventListener("abort", () => {
+        const err = new Error("aborted") as Error & { name: string };
+        err.name = "AbortError";
+        reject(err);
+      });
+    });
+  }) as typeof fetch;
+
+  globalThis.setTimeout = ((handler: (...args: any[]) => void, ms?: number, ...args: any[]) => {
+    if (ms === 60000) {
+      return realSetTimeout(handler, 0, ...args) as unknown as ReturnType<typeof setTimeout>;
+    }
+    return realSetTimeout(handler, ms, ...args);
+  }) as typeof setTimeout;
+
+  try {
+    const result = await fetchStore("timeoutAbort", "https://example.com/slow");
+    assert.strictEqual(result, null);
+    assert.ok(seenSignal);
+    assert.strictEqual(seenSignal.aborted, true);
+    const state = getStore("timeoutAbort");
+    assert.strictEqual(state?.status, "error");
+    assert.ok(state?.error?.includes("Timeout: async request hung for 60 seconds"));
+  } finally {
+    globalThis.fetch = realFetch;
+    globalThis.setTimeout = realSetTimeout;
+    clearAllStores();
+  }
 });

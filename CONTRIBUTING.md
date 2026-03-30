@@ -97,7 +97,7 @@ Follow [STATUS.md](./STATUS.md) conventions. Short, descriptive imperative sente
 
 - Documentation lives in `docs/`.
 - The README is intentionally concise — no deep internals.
-- When you add or change an API, update the relevant file in `docs/api/` and any affected guide in `docs/guides/`.
+- When you add or change an API, update `docs/api/stroid.api.md` and any affected guide under `docs/STROID_*/`.
 - Mark any documentation that cannot be confirmed from source code with: `> Derived from documentation, not verified in code`.
 
 ---

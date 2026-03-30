@@ -8,7 +8,8 @@
  */
 import { runStoreHook } from "../features/lifecycle.js";
 import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../features/feature-registry.js";
-import { hasStoreEntry, emitLifecycleEvent, type StoreRegistry } from "../core/store-registry.js";
+import { getRequestCarrier, hasStoreEntry, emitLifecycleEvent, type StoreRegistry } from "../core/store-registry.js";
+import { getCommittedStoreValueRef } from "../core/store-lifecycle/registry.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn, warnAlways } from "./diagnostics.js";
 import { reportIssue } from "./reporting.js";
@@ -27,6 +28,13 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
     const snapshotCache = registry.snapshotCache as Record<string, { version: number; snapshot: unknown | null; source?: unknown | null; mode?: "deep" | "shallow" | "ref" }>;
     const featureRuntimes = registry.featureRuntimes;
     const deletingStores = registry.deletingStores;
+    const getAllCommittedStores = (): Record<string, unknown> =>
+        Object.fromEntries(
+            Object.keys(metaEntries).map((storeName) => [
+                storeName,
+                getCommittedStoreValueRef(storeName, registry),
+            ])
+        );
 
     const reportStoreError = (name: string, message: string): void => {
         reportIssue(message, {
@@ -43,6 +51,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
         initialState,
         getMeta,
         getStoreValue,
+        getAllStores,
         hasStore,
     }: {
         name: string;
@@ -51,6 +60,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
         initialState: unknown;
         getMeta: () => MetaEntry | undefined;
         getStoreValue: () => unknown;
+        getAllStores: () => Record<string, unknown>;
         hasStore: () => boolean;
     }): FeatureDeleteContext => ({
         name,
@@ -58,7 +68,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
         prev,
         getMeta,
         getStoreValue,
-        getAllStores: () => stores,
+        getAllStores,
         getInitialState: () => initialState,
         hasStore,
         setStoreValue: () => undefined,
@@ -100,7 +110,8 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             options,
             initialState,
             getMeta: () => metaEntries[name],
-            getStoreValue: () => stores[name],
+            getStoreValue: () => getCommittedStoreValueRef(name, registry),
+            getAllStores: getAllCommittedStores,
             hasStore: () => hasStoreEntry(registry, name),
         });
 
@@ -111,6 +122,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             initialState,
             getMeta: () => undefined,
             getStoreValue: () => prev,
+            getAllStores: getAllCommittedStores,
             hasStore: () => false,
         });
 
@@ -124,7 +136,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
     const deleteExistingStore = (name: string): void => {
         if (!hasStoreEntry(registry, name)) return;
 
-        const prev = stores[name];
+        const prev = getCommittedStoreValueRef(name, registry);
         const options = metaEntries[name].options;
         const initialState = initialStates[name];
         const subs = subscribers[name];
@@ -161,6 +173,10 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                 phase: "before",
             });
 
+            const carrier = getRequestCarrier();
+            if (carrier) {
+                delete carrier[name];
+            }
             delete stores[name];
             delete subscribers[name];
             delete initialStates[name];
@@ -257,5 +273,3 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
         reportStoreError,
     };
 };
-
-

@@ -8,7 +8,9 @@
  */
 import assert from "node:assert";
 import test from "node:test";
-import "../../src/sync.js";
+import { installSync } from "../../src/sync.js";
+
+installSync();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 

@@ -100,6 +100,28 @@ test("enableRevalidateOnFocus handles debounce and staggered batches", async () 
   immediateCleanup();
 });
 
+test("enableRevalidateOnFocus cleanup cancels queued staggered refetch timers", async () => {
+  clearAllStores();
+  createStore("focusCancelA", { data: null, loading: false, error: null, status: "idle" });
+  createStore("focusCancelB", { data: null, loading: false, error: null, status: "idle" });
+  const calls: string[] = [];
+  const makeFactory = (name: string) => () => {
+    calls.push(name);
+    return Promise.resolve({ ok: true });
+  };
+
+  await fetchStore("focusCancelA", makeFactory("focusCancelA"));
+  await fetchStore("focusCancelB", makeFactory("focusCancelB"));
+  calls.length = 0;
+
+  const cleanup = enableRevalidateOnFocus("*", { debounceMs: 0, maxConcurrent: 1, staggerMs: 10 });
+  window.dispatchEvent(new Event("focus"));
+  cleanup();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  assert.deepStrictEqual(calls, []);
+});
+
 test("enableRevalidateOnFocus honors priority ordering and empty registries", async () => {
   clearAllStores();
   createStore("prioA", { data: null, loading: false, error: null, status: "idle" });
@@ -161,16 +183,104 @@ test("pruneRateCounters evicts expired rate entries", () => {
   assert.strictEqual(after, false);
 });
 
-test("tryDedupeRequest returns inflight promise or transforms raw data", async () => {
+test("tryDedupeRequest returns the inflight promise when the request contract matches", () => {
   const cacheSlot = "dedupe-path";
   const rawPayload = { value: 3 };
-  const inflightPromise = Promise.resolve("done");
-  setInflightEntry(cacheSlot, { promise: inflightPromise, raw: Promise.resolve(rawPayload) });
+  const inflightPromise = Promise.resolve(rawPayload);
+  setInflightEntry(cacheSlot, {
+    promise: inflightPromise,
+    raw: Promise.resolve(rawPayload),
+    cloneResult: "none",
+    contract: {
+      requestKind: "url",
+      url: "https://api.example.com/value",
+      method: "GET",
+      responseType: "auto",
+    },
+  });
   try {
-    const same = tryDedupeRequest("dedupe", cacheSlot, undefined);
+    const same = tryDedupeRequest("dedupe", cacheSlot, {
+      contract: {
+        requestKind: "url",
+        url: "https://api.example.com/value",
+        method: "GET",
+        responseType: "auto",
+      },
+      cloneResult: "none",
+    });
     assert.strictEqual(same, inflightPromise);
-    const transformed = await tryDedupeRequest("dedupe", cacheSlot, (raw: any) => raw.value + 1);
-    assert.strictEqual(transformed, 4);
+  } finally {
+    clearInflightEntry(cacheSlot);
+  }
+});
+
+test("tryDedupeRequest rejects callers that change the inflight request contract", () => {
+  const cacheSlot = "dedupe-transform-mismatch";
+  const errors: string[] = [];
+  setInflightEntry(cacheSlot, {
+    promise: Promise.resolve({ value: 1 }),
+    raw: Promise.resolve({ value: 1 }),
+    cloneResult: "none",
+    contract: {
+      requestKind: "url",
+      url: "https://api.example.com/one",
+      method: "GET",
+      responseType: "auto",
+    },
+  });
+
+  try {
+    const deduped = tryDedupeRequest("dedupe", cacheSlot, {
+      contract: {
+        requestKind: "url",
+        url: "https://api.example.com/two",
+        method: "GET",
+        responseType: "auto",
+      },
+      cloneResult: "none",
+    }, (message) => {
+      errors.push(message);
+    });
+
+    assert.strictEqual(deduped, null);
+    assert.ok(errors.some((message) => message.includes("different request or state contracts")));
+  } finally {
+    clearInflightEntry(cacheSlot);
+  }
+});
+
+test("tryDedupeRequest rejects callers that change the inflight result contract", () => {
+  const cacheSlot = "dedupe-result-mismatch";
+  const errors: string[] = [];
+  const transform = (raw: any) => raw.value + 1;
+  setInflightEntry(cacheSlot, {
+    promise: Promise.resolve(2),
+    raw: Promise.resolve({ value: 1 }),
+    transform,
+    cloneResult: "none",
+    contract: {
+      requestKind: "url",
+      url: "https://api.example.com/value",
+      method: "GET",
+      responseType: "auto",
+    },
+  });
+
+  try {
+    const deduped = tryDedupeRequest("dedupe", cacheSlot, {
+      contract: {
+        requestKind: "url",
+        url: "https://api.example.com/value",
+        method: "GET",
+        responseType: "auto",
+      },
+      cloneResult: "deep",
+    }, (message) => {
+      errors.push(message);
+    });
+
+    assert.strictEqual(deduped, null);
+    assert.ok(errors.some((message) => message.includes("different result contracts")));
   } finally {
     clearInflightEntry(cacheSlot);
   }

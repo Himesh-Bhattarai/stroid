@@ -49,6 +49,57 @@ test("installPersist enables persist when strictMissingFeatures is on", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("pure feature entrypoints require explicit install", () => {
+  const configPath = path.join(repoRoot, "src", "config.ts");
+  const persistPath = path.join(repoRoot, "src", "persist.ts");
+  const syncPath = path.join(repoRoot, "src", "sync.ts");
+  const devtoolsPath = path.join(repoRoot, "src", "devtools", "index.ts");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
+    const persist = await import(pathToFileURL(${JSON.stringify(persistPath)}).href);
+    const sync = await import(pathToFileURL(${JSON.stringify(syncPath)}).href);
+    const devtools = await import(pathToFileURL(${JSON.stringify(devtoolsPath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+
+    config.configureStroid({ strictMissingFeatures: true });
+
+    assert.throws(() => {
+      store.createStore("persistPure", { value: 1 }, { persist: true });
+    }, /not registered/);
+
+    assert.throws(() => {
+      store.createStore("syncPure", { value: 1 }, { sync: { channel: "pure-sync", policy: "insecure" } });
+    }, /not registered/);
+
+    assert.throws(() => {
+      store.createStore("devtoolsPure", { value: 1 }, { devtools: true });
+    }, /not registered/);
+
+    persist.installPersist();
+    sync.installSync();
+    devtools.installDevtools();
+
+    assert.doesNotThrow(() => {
+      store.createStore("persistPureOk", { value: 1 }, { persist: true });
+    });
+
+    assert.doesNotThrow(() => {
+      store.createStore("syncPureOk", { value: 1 }, { sync: { channel: "pure-sync", policy: "insecure" } });
+    });
+
+    assert.doesNotThrow(() => {
+      store.createStore("devtoolsPureOk", { value: 1 }, { devtools: true });
+    });
+  `;
+
+  const result = runScript(script);
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("public feature API registers custom features and forwards feature options", () => {
   const featurePath = path.join(repoRoot, "src", "feature.ts");
   const storePath = path.join(repoRoot, "src", "store.ts");
@@ -163,5 +214,77 @@ test("feature can apply state during create", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("feature hook contexts expose committed request-scoped state during create and write", () => {
+  const featurePath = path.join(repoRoot, "src", "feature.ts");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const serverPath = path.join(repoRoot, "src", "server", "index.ts");
 
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const feature = await import(pathToFileURL(${JSON.stringify(featurePath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const server = await import(pathToFileURL(${JSON.stringify(serverPath)}).href);
 
+    const events = [];
+    feature.registerStoreFeature("requestFeature", () => ({
+      onStoreCreate(ctx) {
+        events.push(["create", ctx.getStoreValue(), ctx.getAllStores()]);
+      },
+      onStoreWrite(ctx) {
+        events.push(["write", ctx.getStoreValue(), ctx.getAllStores(), ctx.prev, ctx.next]);
+      },
+    }));
+
+    const req = server.createStoreForRequest();
+    await req.hydrate(() => {
+      store.createStore("user", { count: 1 });
+      store.setStore("user", "count", 2);
+    });
+
+    assert.deepStrictEqual(events, [
+      ["create", { count: 1 }, { user: { count: 1 } }],
+      ["write", { count: 2 }, { user: { count: 2 } }, { count: 1 }, { count: 2 }],
+    ]);
+  `;
+
+  const result = runScript(script);
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("beforeStoreDelete exposes committed request-scoped state", () => {
+  const featurePath = path.join(repoRoot, "src", "feature.ts");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const serverPath = path.join(repoRoot, "src", "server", "index.ts");
+
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const feature = await import(pathToFileURL(${JSON.stringify(featurePath)}).href);
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const server = await import(pathToFileURL(${JSON.stringify(serverPath)}).href);
+
+    let captured = null;
+    feature.registerStoreFeature("requestDeleteFeature", () => ({
+      beforeStoreDelete(ctx) {
+        captured = [ctx.getStoreValue(), ctx.getAllStores(), ctx.prev];
+      },
+    }));
+
+    const req = server.createStoreForRequest();
+    await req.hydrate(() => {
+      store.createStore("user", { count: 1 });
+      store.setStore("user", "count", 2);
+      store.deleteStore("user");
+    });
+
+    assert.deepStrictEqual(captured, [
+      { count: 2 },
+      { user: { count: 2 } },
+      { count: 2 },
+    ]);
+  `;
+
+  const result = runScript(script);
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});

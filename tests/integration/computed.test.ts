@@ -8,7 +8,7 @@
  */
 import test, { type TestContext } from "node:test";
 import assert from "node:assert";
-import { createStore, setStore, replaceStore, getStore, deleteStore, hasStore } from "../../src/store.js";
+import { createStore, setStore, replaceStore, getStore, deleteStore, hasStore, hydrateStores } from "../../src/store.js";
 import { clearAllStores } from "../../src/runtime-admin/index.js";
 import {
   createComputed,
@@ -85,6 +85,38 @@ test("computed", async (t) => {
     replaceStore("x", -1);
     await wait();
     assert.strictEqual(notifyCount, 1);
+  });
+
+  await runCase(t, "does not notify when computed returns the same object reference", async () => {
+    createStore("x", 1);
+    const stable = { ready: true };
+    createComputed("stableObject", ["x"], () => stable);
+
+    let notifyCount = 0;
+    const { subscribeStore } = await import("../../src/core/store-notify.js");
+    subscribeStore("stableObject", () => { notifyCount += 1; });
+
+    replaceStore("x", 2);
+    await wait();
+
+    assert.strictEqual(notifyCount, 0);
+    assert.deepStrictEqual(getStore("stableObject"), { ready: true });
+  });
+
+  await runCase(t, "hydrateStores does not notify when computed recomputes to the same object reference", async () => {
+    createStore("base", 1);
+    const stable = { ready: true };
+    createComputed("stableHydratedObject", ["base"], () => stable);
+
+    let notifyCount = 0;
+    const { subscribeStore } = await import("../../src/core/store-notify.js");
+    subscribeStore("stableHydratedObject", () => { notifyCount += 1; });
+
+    hydrateStores({ base: 2 }, {}, { allowTrusted: true });
+    await wait();
+
+    assert.strictEqual(notifyCount, 0);
+    assert.deepStrictEqual(getStore("stableHydratedObject"), { ready: true });
   });
 
   await runCase(t, "rejects direct cycle", async () => {
@@ -239,6 +271,25 @@ test("computed", async (t) => {
     assert.strictEqual(getStore("safe"), 4);
   });
 
+  await runCase(t, "compute errors do not rewrite stable object values", async () => {
+    createStore("n", 1);
+    const stable = { ready: true };
+    createComputed("safeObject", ["n"], (v) => {
+      if ((v as number) > 5) throw new Error("too big");
+      return stable;
+    });
+
+    let notifyCount = 0;
+    const { subscribeStore } = await import("../../src/core/store-notify.js");
+    subscribeStore("safeObject", () => { notifyCount += 1; });
+
+    replaceStore("n", 10);
+    await wait();
+
+    assert.strictEqual(notifyCount, 0);
+    assert.deepStrictEqual(getStore("safeObject"), { ready: true });
+  });
+
   await runCase(t, "computed handles 50+ dependencies", async () => {
     const total = 60;
     let expected = 0;
@@ -265,7 +316,8 @@ test("computed", async (t) => {
   });
 
   await runCase(t, "computed updates even when base store uses persist", async () => {
-    await import("../../src/persist.js");
+    const { installPersist } = await import("../../src/persist.js");
+    installPersist();
     const writes: string[] = [];
     const driver = {
       getItem: () => null,

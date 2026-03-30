@@ -1,7 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { _subscribe, clearAllStores, createStore, setStore } from "../src/store.js";
 import { fetchStore } from "../src/async.js";
-import "../src/devtools/index.js";
+import { installDevtools } from "../src/install.js";
 
 const round = (value: number): number => Number(value.toFixed(3));
 let sink = 0;
@@ -56,6 +56,7 @@ const measure = async (name: string, options: Record<string, unknown>, subscribe
 };
 
 const main = async () => {
+  installDevtools();
   const subscribers = 100_000;
   const baseMs = await measure("lifecycleBase", {}, subscribers);
   const hookMs = await measure("lifecycleHook", {

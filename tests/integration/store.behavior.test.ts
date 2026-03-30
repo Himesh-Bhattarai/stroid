@@ -8,12 +8,11 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import "../../src/persist.js";
-import "../../src/sync.js";
-import "../../src/devtools/index.js";
+import { installPersist } from "../../src/persist.js";
+import { installSync } from "../../src/sync.js";
 import { devDeepFreeze } from "../../src/utils/devfreeze.js";
 import { isDev } from "../../src/utils.js";
-import { getHistory, clearHistory } from "../../src/devtools/index.js";
+import { getHistory, clearHistory, installDevtools } from "../../src/devtools/index.js";
 import { clearAllStores } from "../../src/runtime-admin/index.js";
 import {
   listStores,
@@ -37,6 +36,10 @@ import { createCounterStore, createListStore, createEntityStore } from "../../sr
 import { fetchStore, refetchStore } from "../../src/async.js";
 import { subscribeWithSelector, createSelector } from "../../src/selectors/index.js";
 import { createStoreForRequest } from "../../src/server/index.js";
+
+installPersist();
+installSync();
+installDevtools();
 
 test("createStore with object data", () => {
   clearAllStores();

@@ -8,9 +8,11 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import "../../src/sync.js";
+import { installSync } from "../../src/sync.js";
 import { createStore, deleteStore, getStore } from "../../src/store.js";
 import { hashState } from "../../src/utils.js";
+
+installSync();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 

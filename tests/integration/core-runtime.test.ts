@@ -281,7 +281,8 @@ test("store-shared notify handler bridges to store-notify", async () => {
 
 test("runtime-tools persist queue depth reports pending saves", async () => {
   resetAllStoresForTest();
-  await import("../../src/persist.js");
+  const { installPersist } = await import("../../src/persist.js");
+  installPersist();
 
   const driver = {
     getItem: () => null,

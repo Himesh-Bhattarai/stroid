@@ -268,6 +268,155 @@ test("persistLoad reports non-string sync driver values", () => {
   assert.ok(errors.some((msg) => msg.includes("async value")));
 });
 
+test("persistLoad hydrates stores from async drivers without async crypto flags", async () => {
+  const applied: Array<{ ready: boolean }> = [];
+  const envelope = JSON.stringify({
+    v: 1,
+    checksum: null,
+    data: { ready: true },
+    updatedAtMs: Date.now(),
+  });
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    updatedAtMs: Date.now(),
+    options: {
+      persist: {
+        key: "persist-async-driver",
+        driver: { getItem: async () => envelope },
+        serialize: JSON.stringify,
+        deserialize: (value: any) => value,
+        encrypt: (v: string) => v,
+        decrypt: (v: string) => v,
+        checksum: "none",
+        allowPlaintext: true,
+      },
+    },
+  };
+
+  const loaded = persistLoad({
+    name: "persistAsyncDriver",
+    silent: true,
+    getMeta: () => meta as any,
+    getInitialState: () => ({ ready: false }),
+    applyFeatureState: (state: any) => applied.push(state),
+    reportStoreError: () => undefined,
+    validate: (value: any) => ({ ok: value.ready === true, value }),
+    log: () => undefined,
+    hashState: () => 1,
+    deepClone,
+    sanitize,
+    shouldApply: () => true,
+  });
+
+  assert.ok(loaded instanceof Promise);
+  assert.strictEqual(await loaded, true);
+  assert.deepStrictEqual(applied, [{ ready: true }]);
+});
+
+test("persistLoad preserves falsy serialized payloads from sync drivers", () => {
+  const payloads = ["", "0", "false"] as const;
+
+  payloads.forEach((payload) => {
+    const applied: string[] = [];
+    const errors: string[] = [];
+    const envelope = JSON.stringify({
+      v: 1,
+      checksum: null,
+      data: payload,
+      updatedAtMs: Date.now(),
+    });
+    const meta = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      updatedAtMs: Date.now(),
+      options: {
+        persist: {
+          key: `persist-falsy-sync-${payload || "empty"}`,
+          driver: { getItem: () => envelope },
+          serialize: (value: unknown) => String(value),
+          deserialize: (value: unknown) => value,
+          encrypt: (v: string) => v,
+          decrypt: (v: string) => v,
+          checksum: "none",
+          allowPlaintext: true,
+        },
+      },
+    };
+
+    const loaded = persistLoad({
+      name: `persistFalsySync-${payload || "empty"}`,
+      silent: true,
+      getMeta: () => meta as any,
+      getInitialState: () => "fallback",
+      applyFeatureState: (state: any) => applied.push(state),
+      reportStoreError: (_name, message) => errors.push(message),
+      validate: (value: any) => ({ ok: typeof value === "string", value }),
+      log: () => undefined,
+      hashState: () => 1,
+      deepClone,
+      sanitize,
+      shouldApply: () => true,
+    });
+
+    assert.strictEqual(loaded, true);
+    assert.deepStrictEqual(applied, [payload]);
+    assert.deepStrictEqual(errors, []);
+  });
+});
+
+test("persistLoad preserves falsy serialized payloads from async drivers", async () => {
+  const payloads = ["", "0", "false"] as const;
+
+  for (const payload of payloads) {
+    const applied: string[] = [];
+    const errors: string[] = [];
+    const envelope = JSON.stringify({
+      v: 1,
+      checksum: null,
+      data: payload,
+      updatedAtMs: Date.now(),
+    });
+    const meta = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      updatedAtMs: Date.now(),
+      options: {
+        persist: {
+          key: `persist-falsy-async-${payload || "empty"}`,
+          driver: { getItem: async () => envelope },
+          serialize: (value: unknown) => String(value),
+          deserialize: (value: unknown) => value,
+          encrypt: (v: string) => v,
+          decrypt: (v: string) => v,
+          checksum: "none",
+          allowPlaintext: true,
+        },
+      },
+    };
+
+    const loaded = persistLoad({
+      name: `persistFalsyAsync-${payload || "empty"}`,
+      silent: true,
+      getMeta: () => meta as any,
+      getInitialState: () => "fallback",
+      applyFeatureState: (state: any) => applied.push(state),
+      reportStoreError: (_name, message) => errors.push(message),
+      validate: (value: any) => ({ ok: typeof value === "string", value }),
+      log: () => undefined,
+      hashState: () => 1,
+      deepClone,
+      sanitize,
+      shouldApply: () => true,
+    });
+
+    assert.ok(loaded instanceof Promise);
+    assert.strictEqual(await loaded, true);
+    assert.deepStrictEqual(applied, [payload]);
+    assert.deepStrictEqual(errors, []);
+  }
+});
+
 test("persistLoad handles schema failure after migration changes", () => {
   const applied: Array<{ ok: boolean }> = [];
   const errors: string[] = [];
@@ -406,6 +555,30 @@ test("setupPersistWatch notifies on clear/remove/missing and handles read errors
   assert.strictEqual(watchState.watchThrow?.lastPresent, false);
 });
 
+test("setupPersistWatch notifies when async drivers become missing", async () => {
+  const notifications: Array<{ reason: string }> = [];
+  let present = true;
+  const watchState: Record<string, { lastPresent?: boolean; dispose?: () => void }> = Object.create(null);
+  const persistConfig = {
+    key: "watch-async",
+    driver: {
+      getItem: async () => (present ? "value" : null),
+    },
+    onStorageCleared: (info: { reason: string }) => notifications.push(info),
+  };
+
+  setupPersistWatch({ name: "watchAsync", persistConfig: persistConfig as any, persistWatchState: watchState });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.strictEqual(watchState.watchAsync?.lastPresent, true);
+
+  present = false;
+  window.dispatchEvent(new Event("focus"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepStrictEqual(notifications.map((entry) => entry.reason), ["missing"]);
+  assert.strictEqual(watchState.watchAsync?.lastPresent, false);
+});
+
 test("persist feature flushes on pagehide and cleans up on delete/reset", async () => {
   const runtime = createPersistFeatureRuntime();
   let setCalls = 0;
@@ -517,6 +690,61 @@ test("persist feature removes unload flush listeners when a store is deleted and
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.strictEqual(setCalls, 1);
+});
+
+test("persist feature swallows async removeItem rejections during store delete", async () => {
+  const runtime = createPersistFeatureRuntime();
+  const persistConfig = {
+    key: "persist-async-remove",
+    driver: {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => Promise.reject(new Error("remove reject")),
+    },
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    encrypt: (v: string) => v,
+    decrypt: (v: string) => v,
+    checksum: "none",
+    allowPlaintext: true,
+    onStorageCleared: () => undefined,
+  };
+  const meta = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    updatedAtMs: Date.now(),
+    options: { persist: persistConfig },
+  };
+  const ctx = {
+    name: "persistAsyncRemove",
+    options: { persist: persistConfig },
+    getMeta: () => meta as any,
+    getInitialState: () => ({ ok: true }),
+    applyFeatureState: () => undefined,
+    getStoreValue: () => ({ ok: true }),
+    hasStore: () => true,
+    reportStoreError: () => undefined,
+    warn: () => undefined,
+    log: () => undefined,
+    hashState: () => 1,
+    deepClone,
+    sanitize,
+    validate: () => ({ ok: true }),
+  };
+
+  let unhandled: unknown = null;
+  const onUnhandled = (reason: unknown) => {
+    unhandled = reason;
+  };
+  process.once("unhandledRejection", onUnhandled);
+
+  try {
+    runtime.beforeStoreDelete(ctx as any);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.strictEqual(unhandled, null);
+  } finally {
+    process.removeListener("unhandledRejection", onUnhandled);
+  }
 });
 
 test("persist feature handles async load failures with pending saves", async () => {

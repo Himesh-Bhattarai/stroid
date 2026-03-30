@@ -8,9 +8,12 @@
  */
 import assert from "node:assert";
 import test from "node:test";
-import "../../src/sync.js";
-import "../../src/devtools/index.js";
+import { installSync } from "../../src/sync.js";
+import { installDevtools } from "../../src/devtools/index.js";
 import { withMockedTime } from "../../src/helpers/testing.js";
+
+installSync();
+installDevtools();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -71,7 +74,7 @@ test("sync broadcasts updates and rejects oversized payloads", async () => {
 
   try {
     createStore("shared", { value: "a" }, {
-      sync: { maxPayloadBytes: 1024 },
+      sync: { maxPayloadBytes: 1024, policy: "insecure" },
       onError: (msg) => { errors.push(msg); },
     });
 
@@ -88,7 +91,7 @@ test("sync broadcasts updates and rejects oversized payloads", async () => {
     MockBroadcastChannel.sent = [];
 
     createStore("large", { blob: "seed" }, {
-      sync: { maxPayloadBytes: 120 },
+      sync: { maxPayloadBytes: 120, policy: "insecure" },
       onError: (msg) => { errors.push(msg); },
     });
 
@@ -124,8 +127,8 @@ test("sync ordering prefers monotonic clocks over wall-clock skew", async () => 
   const b = await import(`../../src/store.js?sync-b-${Date.now()}`);
 
   try {
-    a.createStore("shared", { value: "seed" }, { sync: true });
-    b.createStore("shared", { value: "seed" }, { sync: true });
+    a.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
+    b.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
     await wait();
 
     await withMockedNow(200_000, async () => {
@@ -167,11 +170,11 @@ test("sync requests the latest snapshot when a tab reconnects", async () => {
   const b = await import(`../../src/store.js?sync-reopen-b-${Date.now()}`);
 
   try {
-    a.createStore("shared", { value: "seed" }, { sync: true });
+    a.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
     a.setStore("shared", { value: "latest" });
     await wait();
 
-    b.createStore("shared", { value: "stale" }, { sync: true });
+    b.createStore("shared", { value: "stale" }, { sync: { policy: "insecure" } });
     await wait();
     await wait();
 
@@ -200,10 +203,10 @@ test("sync broadcasts canonical state even when a redactor is configured", async
 
   try {
     a.createStore("shared", { visible: "seed", secret: "keep" }, {
-      sync: true,
+      sync: { policy: "insecure" },
       redactor: (state: any) => ({ visible: state.visible }),
     });
-    b.createStore("shared", { visible: "seed", secret: "keep" }, { sync: true });
+    b.createStore("shared", { visible: "seed", secret: "keep" }, { sync: { policy: "insecure" } });
     await wait();
 
     a.setStore("shared", { visible: "next", secret: "top-secret" });
@@ -236,7 +239,7 @@ test("late sync messages after delete are ignored safely", async () => {
   const store = await import(`../../src/store.js?sync-late-delete-${Date.now()}`);
 
   try {
-    store.createStore("shared", { value: "seed" }, { sync: true });
+    store.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
     const channel = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? [])[0];
     assert.ok(channel);
 
@@ -279,6 +282,7 @@ test("conflictResolver can resolve contested incoming sync state against local s
   try {
     store.createStore("shared", { local: "seed", remote: "seed" }, {
       sync: {
+        policy: "insecure",
         conflictResolver: ({ local, incoming }: any) => ({
           local: local.local,
           remote: incoming.remote,
@@ -335,6 +339,7 @@ test("conflictResolver rebroadcasts resolved state so peers converge", async () 
   try {
     a.createStore("shared", { local: "seed", remote: "seed", resolved: false }, {
       sync: {
+        policy: "insecure",
         conflictResolver: ({ local, incoming }: any) => ({
           local: local.local,
           remote: incoming.remote,
@@ -342,8 +347,8 @@ test("conflictResolver rebroadcasts resolved state so peers converge", async () 
         }),
       },
     });
-    b.createStore("shared", { local: "seed", remote: "seed", resolved: false }, { sync: true });
-    c.createStore("shared", { local: "seed", remote: "seed", resolved: false }, { sync: true });
+    b.createStore("shared", { local: "seed", remote: "seed", resolved: false }, { sync: { policy: "insecure" } });
+    c.createStore("shared", { local: "seed", remote: "seed", resolved: false }, { sync: { policy: "insecure" } });
     await wait();
 
     a.setStore("shared", { local: "local-win", remote: "seed", resolved: false });
@@ -407,7 +412,7 @@ test("sync ignores protocol-mismatched messages", async () => {
 
   try {
     store.createStore("shared", { value: "seed" }, {
-      sync: true,
+      sync: { policy: "insecure" },
       onError: (msg: string) => { errors.push(msg); },
     });
     await wait();
@@ -453,7 +458,7 @@ test("incoming sync state is sanitized and validated before commit", async () =>
 
   try {
     store.createStore("shared", { when: "seed" }, {
-      sync: true,
+      sync: { policy: "insecure" },
       validate: (next: any) => typeof next?.when === "string" && next.when.endsWith("Z"),
     });
     await wait();
@@ -498,8 +503,8 @@ test("sync convergence is stable for equal-clock equal-timestamp writes delivere
   const second = await import(`../../src/store.js?sync-order-second-${Date.now()}`);
 
   try {
-    first.createStore("shared", { value: "seed" }, { sync: true });
-    second.createStore("shared", { value: "seed" }, { sync: true });
+    first.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
+    second.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
     await wait();
 
     const channels = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? []);
@@ -558,7 +563,7 @@ test("repeated sync create delete cycles clean up channels and ignore stale hand
 
   try {
     for (let i = 0; i < 5; i++) {
-      store.createStore("shared", { cycle: i }, { sync: true });
+      store.createStore("shared", { cycle: i }, { sync: { policy: "insecure" } });
       await wait();
 
       const channel = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? [])[0];
