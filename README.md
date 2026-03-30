@@ -129,7 +129,7 @@ stroid                    <- core public runtime
 | Race resistance proof | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Determinism replay | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Ring-buffer event timeline | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Bundle size (core) | ~6kb | ~11kb | ~1kb | ~3kb | ~3kb |
+| Bundle size (core import closure) | 77.6kb raw / 25.1kb gzip | ~11kb | ~1kb | ~3kb | ~3kb |
 | TypeScript-first | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 
