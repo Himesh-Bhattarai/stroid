@@ -12,25 +12,26 @@ Version_Migration : [.docs/STROID_VERSION_MIGRATION.md](.docs/STROID_VERSION_MIG
 ></details>
 >
 ---
-<details open>
-<summary><strong>0.1.4 --> 2026-3-30 </strong></summary>
+>[!NOTE]
+><details open>
+><summary><strong>0.1.4 --> 2026-3-30 </strong></summary>
 
-- Fixed async persist hydration so Promise-returning `persist.driver.getItem()` now loads stored state even when crypto hooks and checksums stay synchronous.
-- Fixed persist hydration payload guards so falsy serialized values (`""`, `"0"`, `"false"`) now hydrate correctly instead of being treated as missing data.
-- Fixed async persist clear detection so `onStorageCleared` now resolves Promise-based drivers instead of treating every pending read as "present".
-- Fixed focus revalidation cleanup so queued staggered and batched refetch timers are cancelled when the returned cleanup runs.
-- Fixed async inflight dedupe contracts so raw callers no longer inherit another caller's transformed result for the same cache slot.
-- Fixed computed identity checks so stable object outputs no longer trigger redundant `replaceStore()` writes during dependency recompute or `hydrateStores()` recompute.
-- Fixed request-scoped selectors so `createSelector(...)` now reads carrier-backed state during `createStoreForRequest().hydrate(...)`.
-- Fixed `resetStore()` in request scope so `onReset(prev)` receives the live pre-reset value instead of the registry placeholder.
-- Fixed `deleteStore()` in request scope so `onDelete(prev)` receives the live pre-delete value.
-- Fixed request-scope delete cleanup so removing a store also clears its carrier-backed value instead of leaving hidden stale request state behind.
-- Fixed request-scope `hydrateStores()` runtime patches so canonical root `set` patches always include the committed hydrated value.
-- Fixed public feature hook contexts so `onStoreCreate` and `onStoreWrite` expose committed request-scoped state through `ctx.getStoreValue()` and `ctx.getAllStores()`.
-- Fixed public delete feature hook contexts so `beforeStoreDelete` exposes committed request-scoped state through `ctx.prev`, `ctx.getStoreValue()`, and `ctx.getAllStores()`.
-
-</details>
-
+>- Fixed async persist hydration so Promise-returning `persist.driver.getItem()` now loads stored state even when crypto hooks and checksums stay synchronous.
+>- Fixed persist hydration payload guards so falsy serialized values (`""`, `"0"`, `"false"`) now hydrate correctly instead of being treated as missing data.
+>- Fixed async persist clear detection so `onStorageCleared` now resolves Promise-based drivers instead of treating every pending read as "present".
+>- Fixed focus revalidation cleanup so queued staggered and batched refetch timers are cancelled when the returned cleanup runs.
+>- Fixed async inflight dedupe contracts so raw callers no longer inherit another caller's transformed result for the same cache slot.
+>- Fixed computed identity checks so stable object outputs no longer trigger redundant `replaceStore()` writes during dependency >recompute or `hydrateStores()` recompute.
+>- Fixed request-scoped selectors so `createSelector(...)` now reads carrier-backed state during `createStoreForRequest().hydrate(...)`.
+>- Fixed `resetStore()` in request scope so `onReset(prev)` receives the live pre-reset value instead of the registry placeholder.
+>- Fixed `deleteStore()` in request scope so `onDelete(prev)` receives the live pre-delete value.
+>- Fixed request-scope delete cleanup so removing a store also clears its carrier-backed value instead of leaving hidden stale request state behind.
+>- Fixed request-scope `hydrateStores()` runtime patches so canonical root `set` patches always include the committed hydrated value.
+>- Fixed public feature hook contexts so `onStoreCreate` and `onStoreWrite` expose committed request-scoped state through `ctx.getStoreValue()` and `ctx.getAllStores()`.
+>- Fixed public delete feature hook contexts so `beforeStoreDelete` exposes committed request-scoped state through `ctx.prev`, `ctx.getStoreValue()`, and `ctx.getAllStores()`.
+>
+></details>
+>
 ---
 
 <details>
