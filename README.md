@@ -81,9 +81,13 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 ## Operational Notes
 
 - Store names are runtime-validated. Avoid spaces and reserved keys like `__proto__`, `constructor`, and `prototype`.
+- `useStore("name")` without a path or selector subscribes to the full store. Prefer `useSelector(...)` or path reads in hot React components.
+- Hook string names are only strongly typed after `StoreStateMap` augmentation. Without it, `useStore("name")` reads are intentionally loose and typically resolve to `unknown`.
+- Selector-heavy dev flows that read frozen state deep-clone by default for safe dependency tracking. If that overhead matters more than the extra safety, tune `selectorCloneFrozen`.
 - `fetchStore(name, promise, ...)` accepts a direct Promise, but direct Promise inputs cannot use retries or replayable `refetchStore()` semantics. Use a URL string or factory when you need retry/backoff behavior.
-- `stroid/sync` uses same-origin `BroadcastChannel` transport. Stroid requests a fresh snapshot on startup, focus, and reconnect, but listener registration can still race under load and open channels may reduce BFCache restores.
-- `stroid/persist` relies on browser storage. Safari/WebKit can evict script-writable storage after roughly 7 days of inactivity, so persisted auth, carts, and drafts should have a server-backed recovery path.
+- `asyncAutoCreate` is a development convenience, not a production safety feature. Leave it off in production to avoid typo-created phantom stores.
+- `stroid/sync` uses same-origin `BroadcastChannel` transport. Stroid requests a fresh snapshot on startup, focus, and reconnect, but listener registration can still race under load, `policy: "insecure"` is an explicit opt-out, and open channels may reduce BFCache restores.
+- `stroid/persist` relies on browser storage. `checksum: "hash"` is non-cryptographic, and Safari/WebKit can evict script-writable storage after roughly 7 days of inactivity, so persisted auth, carts, and drafts should have a server-backed recovery path.
 
 ---
 
@@ -193,6 +197,7 @@ setStore("cart", (draft: any) => {
 });
 ```
 Updates existing store state by path, partial object merge, or mutator function.
+The public root API intentionally does not export `replaceStore`; explicit full-store replacement is kept on the internal runtime/PSR side to reduce accidental overwrite mistakes.
 
 ---
 
