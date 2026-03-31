@@ -296,7 +296,11 @@ configureStroid({
 Sets global runtime behavior such as async and snapshot defaults.
 
 ---
-
+>[!TIP]
+> - **Beginners:** If you are building a personal portfolio or a small app, you likely only need `createStore`, `getStore`, and the basic React hooks like `useStore`. I don't want you to read whole README.
+> - **Intermediate:** We recommend reading the full README to understand features like batching, persistence,SSR Isolation,Sync,and async fetching. Don't take overhead about PSR FOR NOW, THINK THAT NOT EXIST AT ALL. UNTIL, I MAKE PROPER EXPLANATION VIDEO.
+> - **Advanced:** Explore the `/docs` directory for deep dives into architecture, SSR isolation, and the PSR contract, DevTools.
+---
 ## ⚛️ React Hooks - `stroid/react`
 
 ### `useStore`

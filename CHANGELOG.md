@@ -21,7 +21,7 @@
 >[!WARNING]
 ><details >
 ><summary><strong>0.1.4 --> 2026-3-30 </strong></summary>
-
+>
 >- Fixed async persist hydration so Promise-returning `persist.driver.getItem()` now loads stored state even when crypto hooks and checksums stay synchronous.
 >- Fixed persist hydration payload guards so falsy serialized values (`""`, `"0"`, `"false"`) now hydrate correctly instead of being treated as missing data.
 >- Fixed async persist clear detection so `onStorageCleared` now resolves Promise-based drivers instead of treating every pending read as "present".
