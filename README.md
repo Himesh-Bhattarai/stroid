@@ -2,6 +2,7 @@
 
 <img src="https://img.shields.io/npm/v/stroid?color=7F77DD&label=stroid&style=flat-square" alt="npm version" />
 <img src="https://img.shields.io/bundlephobia/minzip/stroid?color=1D9E75&label=minzipped&style=flat-square" alt="bundle size" />
+<img src="https://img.shields.io/badge/tree--shakeable-subpaths-0F766E?style=flat-square" alt="tree-shakeable via subpaths" />
 <img src="https://img.shields.io/npm/types/stroid?color=4A90E2&style=flat-square" alt="types" />
 <img src="https://img.shields.io/npm/l/stroid?color=3B8BD4&style=flat-square" alt="license" />
 <img src="https://img.shields.io/github/actions/workflow/status/Himesh-Bhattarai/stroid/ci.yml?color=639922&label=tests&style=flat-square" alt="tests" />
@@ -88,6 +89,7 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 - `asyncAutoCreate` is a development convenience, not a production safety feature. Leave it off in production to avoid typo-created phantom stores.
 - `stroid/sync` uses same-origin `BroadcastChannel` transport. Stroid requests a fresh snapshot on startup, focus, and reconnect, but listener registration can still race under load, `policy: "insecure"` is an explicit opt-out, and open channels may reduce BFCache restores.
 - `stroid/persist` relies on browser storage. `checksum: "hash"` is non-cryptographic, and Safari/WebKit can evict script-writable storage after roughly 7 days of inactivity, so persisted auth, carts, and drafts should have a server-backed recovery path.
+- If bundle size matters, prefer targeted subpaths such as `stroid/core`, `stroid/query`, `stroid/persist`, `stroid/sync`, `stroid/devtools`, and `stroid/runtime-tools` instead of reaching through the root namespace for everything.
 
 ---
 
@@ -108,6 +110,7 @@ stroid                    <- core public runtime
 |- stroid/core            <- minimal core surface
 |- stroid/psr             <- native PSR contract
 |- stroid/async           <- fetch/cache/revalidate
+|- stroid/query           <- reactQueryKey(), swrKey()
 |- stroid/selectors       <- selector helpers
 |- stroid/computed        <- computed stores
 |- stroid/persist         <- installPersist()
@@ -121,6 +124,11 @@ stroid                    <- core public runtime
 |- stroid/feature         <- feature plugin API
 |- stroid/install         <- installAllFeatures()
 ```
+
+Bundle-sensitive note:
+- `stroid/query` is the lean path for `reactQueryKey()` and `swrKey()`.
+- `stroid/install` is a convenience aggregator; import `stroid/persist`, `stroid/sync`, and `stroid/devtools` directly when you only need one feature.
+- In a local esbuild bundle-closure probe on `2026-03-31`, `installPersist` dropped from about `42.5 KB` to `21.6 KB`, and `stroid/query` key helpers bundle to about `0.1 KB`; root `stroid` `createStore` still retains about `69.9 KB`, and `stroid/runtime-tools` `listStores` stayed roughly flat at about `27.9 KB`, so the harder wins are still in the root/shared-runtime path.
 
 ---
 
@@ -142,10 +150,14 @@ stroid                    <- core public runtime
 | Race resistance proof | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Determinism replay | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Ring-buffer event timeline | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Bundle size (core import closure) | 77.6kb raw / 25.1kb gzip | ~11kb | ~1kb | ~3kb | ~3kb |
+| Bundle size (lean import closure) | ~41.9kb raw via `stroid/core`* | ~11kb | ~1kb | ~3kb | ~3kb |
 | TypeScript-first | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-NOTE: BUNDLE SIZE: 25.1 gzip include whole "Stroid". Stroid is treeshakable so, stroid size  will determine by your import.
+NOTE: `*` measured from a local `2026-03-31` esbuild bundle-closure probe against built `dist/`. The root `stroid` `createStore` closure is still about `69.9 KB`, so import choice matters.
+
+Bundle note:
+- Prefer `stroid/core` for minimal CRUD imports, `stroid/query` for query keys, and direct feature subpaths for installers.
+- The root `stroid` namespace remains compatibility-first and currently retains materially more code than the narrower subpaths.
 
 > ⚠️ = possible with extra setup · ❌ = not supported natively
 
@@ -668,6 +680,20 @@ const deps = getComputedDeps("deliveryFee");
 const persistDepth = getPersistQueueDepth("cart");
 ```
 Exposes runtime diagnostics for stores, metrics, health, and computed graph state.
+Import only the functions you need. The internal helpers are grouped more narrowly now, but the published multi-entry build still shares runtime chunks, so the biggest remaining wins are still deeper than this surface split.
+
+---
+
+## 🗝️ Query Keys - `stroid/query`
+
+```ts
+import { reactQueryKey, swrKey } from "stroid/query";
+
+const tanstackKey = reactQueryKey("cart");
+const swrCacheKey = swrKey("cart", "summary");
+```
+Use `stroid/query` when you only need stable cache keys for TanStack Query or SWR.
+The root `queryIntegrations` namespace still exists for compatibility, but `stroid/query` is the leaner path.
 
 ---
 
@@ -927,6 +953,7 @@ Import from `stroid` for batching/hydration/computed plus runtime metrics and co
 - `stroid/core`: Minimal CRUD runtime (`createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, `deleteStore`).
 - `stroid/react`: React hooks (`useStore`, `useSelector`, `useStoreField`, `useStoreStatic`, `useAsyncStore`, `useFormStore`, `useAsyncStoreSuspense`) and `RegistryScope`.
 - `stroid/async`: Async APIs (`fetchStore`, `refetchStore`, `enableRevalidateOnFocus`, `getAsyncMetrics`).
+- `stroid/query`: cache-key helpers (`reactQueryKey`, `swrKey`) without the fetcher helpers.
 - `stroid/selectors`: `createSelector`, `subscribeWithSelector`.
 - `stroid/computed`: `createComputed`, `invalidateComputed`, `deleteComputed`, `isComputedStore`.
 - `stroid/persist`: `installPersist`.
@@ -1013,6 +1040,9 @@ import {
 
 // Async
 import { fetchStore, refetchStore, enableRevalidateOnFocus } from "stroid/async";
+
+// Query keys only
+import { reactQueryKey, swrKey } from "stroid/query";
 
 // Selectors & Computed
 import { createSelector, subscribeWithSelector } from "stroid/selectors";

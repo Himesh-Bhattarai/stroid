@@ -264,4 +264,7 @@ export const registerDevtoolsFeature = (): void => {
     registerStoreFeature("devtools", createDevtoolsFeatureRuntime);
 };
 
+export const installDevtools = (): void => {
+    registerDevtoolsFeature();
+};
 

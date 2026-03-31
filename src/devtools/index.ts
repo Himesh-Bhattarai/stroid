@@ -8,6 +8,5 @@
  */
 export { getHistory, clearHistory } from "./api.js";
 export type { HistoryEntry, HistoryDiff } from "../features/devtools.js";
-export { installDevtools } from "../install.js";
-
+export { installDevtools } from "../features/devtools.js";
 

@@ -28,6 +28,7 @@ import {
   type RuntimeGraphNode,
   type RuntimePatch,
 } from "stroid/psr";
+import { reactQueryKey, swrKey } from "stroid/query";
 import { useStore } from "stroid/react";
 
 const handle = createStoreStrict("dtsSmoke", { value: 1 });
@@ -39,6 +40,8 @@ const health = getStoreHealth("dtsSmoke");
 const core = createCoreStore("dtsSmokeCore", { value: 1 });
 const coreHandle = core ?? store("dtsSmokeCore");
 const hook = useStore(coreHandle);
+const queryKey = reactQueryKey(handle);
+const swrCacheKey = swrKey(coreHandle, "smoke");
 const psrSnapshot = getPsrStoreSnapshot(handle);
 const timingContract = getTimingContract(handle);
 const governanceMode: GovernanceMode = "full-governor";
@@ -92,6 +95,8 @@ void metrics;
 void asyncMetrics;
 void health;
 void hook;
+void queryKey;
+void swrCacheKey;
 void psrSnapshot;
 void timingContract;
 void governanceMode;

@@ -10,7 +10,11 @@
 >[!NOTE]
 ><details open>
 ><summary><strong> Unreleased </strong></summary>
->
+>- Added a dedicated `stroid/query` entrypoint for `reactQueryKey` and `swrKey`, so cache-key helpers can be imported without pulling the heavier async query fetcher surface.
+>- Reduced `stroid/persist` import retention by routing the leaf entrypoint to the direct feature installer, and regrouped `runtime-tools` internals plus query-key helpers for narrower future tree-shaking work.
+>- Removed the dead `computed-types` JavaScript build entry and added `module` plus explicit `./query` export metadata for bundler compatibility.
+>- Removed incorrect `sideEffects` metadata that pointed at unpublished source paths; the package now stays conservative until the remaining import-time effects are isolated explicitly.
+>- Added bundle-sensitive import guidance and bundle-closure benchmark notes to the README and docs, including the new `stroid/query` path, the measurable `stroid/persist` win, and the current root-entry limitations.
 >- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, instead of collapsing that branch into `not-found`.
 >- Documented runtime caveats for validated store names, direct-Promise async fetches, BroadcastChannel startup/BFCache limits, and Safari/WebKit storage eviction in the README and guides.
 >- Added `STATUS.md` so the commit and issue-close workflow referenced by `CONTRIBUTING.md` is now present in the repository.

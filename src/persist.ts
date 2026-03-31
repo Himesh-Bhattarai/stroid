@@ -6,6 +6,5 @@
  *
  * Consumers: Internal imports and public API.
  */
-export { installPersist } from "./install.js";
-
+export { installPersist } from "./features/persist.js";
 

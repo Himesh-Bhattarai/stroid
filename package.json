@@ -15,10 +15,12 @@
     "sync",
     "broadcastchannel",
     "devtools",
-    "ssr"
+    "ssr",
+    "tree-shakeable"
   ],
   "type": "module",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -31,6 +33,10 @@
     "./core": {
       "types": "./dist/core.d.ts",
       "import": "./dist/core.js"
+    },
+    "./query": {
+      "types": "./dist/query.d.ts",
+      "import": "./dist/query.js"
     },
     "./runtime-tools": {
       "types": "./dist/runtime-tools.d.ts",
@@ -111,9 +117,19 @@
     "url": "https://github.com/Himesh-Bhattarai/stroid/issues"
   },
   "homepage": "https://github.com/Himesh-Bhattarai/stroid#readme",
-  "sideEffects": [
-    "./src/core/store-notify.ts"
-  ],
+  "stroid": {
+    "treeShakeable": true,
+    "recommendedEntrypoints": [
+      "./core",
+      "./query",
+      "./runtime-tools",
+      "./persist",
+      "./sync",
+      "./devtools",
+      "./async",
+      "./react"
+    ]
+  },
   "scripts": {
     "test": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",
     "test:coverage": "c8 node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",

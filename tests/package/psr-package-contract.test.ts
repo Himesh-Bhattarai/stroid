@@ -7,13 +7,14 @@ const distImport = async <T>(relativePath: string): Promise<T> =>
   import(pathToFileURL(path.resolve(process.cwd(), "dist", relativePath)).href) as Promise<T>;
 
 const loadBuiltPackage = async () => {
-  const [main, psr, runtimeAdmin, install] = await Promise.all([
+  const [main, psr, query, runtimeAdmin, install] = await Promise.all([
     distImport<any>("index.js"),
     distImport<any>("psr.js"),
+    distImport<any>("query.js"),
     distImport<any>("runtime-admin.js"),
     distImport<any>("install.js"),
   ]);
-  return { main, psr, runtimeAdmin, install };
+  return { main, psr, query, runtimeAdmin, install };
 };
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -179,6 +180,23 @@ test("built package PSR patch parity supports nested merge, delete, insert, and 
       { id: 3, label: "three" },
     ],
   });
+});
+
+test("built package query entry exposes standalone cache-key helpers", async () => {
+  const { main, query, runtimeAdmin } = await loadBuiltPackage();
+  runtimeAdmin.clearAllStores();
+
+  const definition = main.createStore("letterQueryCart", {
+    items: [{ sku: "starter", qty: 1 }],
+    total: 1,
+  });
+  assert.ok(definition);
+
+  const key = main.store("letterQueryCart");
+
+  assert.deepStrictEqual(query.reactQueryKey("letterQueryCart"), ["stroid", "letterQueryCart"]);
+  assert.deepStrictEqual(query.reactQueryKey(definition, "v1"), ["stroid", "letterQueryCart", "v1"]);
+  assert.deepStrictEqual(query.swrKey(key, 7), ["stroid", "letterQueryCart", 7]);
 });
 
 test("built package runtime graph and descriptors expose deterministic computed stores", async () => {

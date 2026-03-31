@@ -8,6 +8,7 @@
  */
 import type { Expect, Equal } from "./assert.js";
 import type { PersistOptions, StoreOptions, SyncOptions } from "../../dist/index.d.ts";
+import type { QueryStoreTarget } from "../../dist/query.d.ts";
 import type {
   CausalityBoundary,
   ComputedClassification,
@@ -24,9 +25,10 @@ import type {
 
 type PackageApi = typeof import("../../dist/index.d.ts");
 type PsrApi = typeof import("../../dist/psr.d.ts");
-type DevtoolsApi = typeof import("../../src/devtools/index.js");
-type RuntimeToolsApi = typeof import("../../src/runtime-tools/index.js");
-type RuntimeAdminApi = typeof import("../../src/runtime-admin/index.js");
+type QueryApi = typeof import("../../dist/query.d.ts");
+type DevtoolsApi = typeof import("../../dist/devtools.d.ts");
+type RuntimeToolsApi = typeof import("../../dist/runtime-tools.d.ts");
+type RuntimeAdminApi = typeof import("../../dist/runtime-admin.d.ts");
 type ReactApi = typeof import("../../dist/react/index.d.ts");
 
 declare const createStore: PackageApi["createStore"];
@@ -107,6 +109,10 @@ type MissingUseAsyncStore = PackageApi["useAsyncStore"];
 type MissingUseAsyncStoreSuspense = PackageApi["useAsyncStoreSuspense"];
 // @ts-expect-error lean root package no longer exports async helpers
 type MissingFetchStore = PackageApi["fetchStore"];
+// @ts-expect-error lean root package does not export standalone query keys
+type MissingReactQueryKey = PackageApi["reactQueryKey"];
+// @ts-expect-error lean root package does not export standalone SWR keys
+type MissingSwrKey = PackageApi["swrKey"];
 // @ts-expect-error lean root package no longer exports mergeStore
 type MissingMergeStore = PackageApi["mergeStore"];
 // @ts-expect-error lean root package no longer exports server helpers
@@ -138,6 +144,8 @@ type PsrSubscribeStore = PsrApi["subscribeStore"];
 
 type DevtoolsGetHistory = DevtoolsApi["getHistory"];
 type DevtoolsClearHistory = DevtoolsApi["clearHistory"];
+type QueryReactQueryKey = QueryApi["reactQueryKey"];
+type QuerySwrKey = QueryApi["swrKey"];
 type RuntimeToolsListStores = RuntimeToolsApi["listStores"];
 type RuntimeToolsGetStoreMeta = RuntimeToolsApi["getStoreMeta"];
 type RuntimeToolsGetInitialState = RuntimeToolsApi["getInitialState"];
@@ -146,6 +154,8 @@ type RuntimeToolsGetRuntimeGraph = RuntimeToolsApi["getRuntimeGraph"];
 type RuntimeAdminClearAllStores = RuntimeAdminApi["clearAllStores"];
 void (0 as unknown as DevtoolsGetHistory);
 void (0 as unknown as DevtoolsClearHistory);
+void (0 as unknown as QueryReactQueryKey);
+void (0 as unknown as QuerySwrKey);
 void (0 as unknown as RuntimeToolsListStores);
 void (0 as unknown as RuntimeToolsGetStoreMeta);
 void (0 as unknown as RuntimeToolsGetInitialState);
@@ -227,9 +237,11 @@ void (0 as unknown as PsrComputedGraph);
 const governanceMode: GovernanceMode = "bounded-governor";
 const mutationAuthority: MutationAuthority = "shared";
 const causalityBoundary: CausalityBoundary = "async-boundary";
+const queryStoreTarget: QueryStoreTarget = declaredStrictStore;
 void governanceMode;
 void mutationAuthority;
 void causalityBoundary;
+void queryStoreTarget;
 
 type ReactUseStore = ReactApi["useStore"];
 type ReactUseSelector = ReactApi["useSelector"];
@@ -241,5 +253,3 @@ void (0 as unknown as ReactUseAsyncStore);
 // @ts-expect-error package declarations should reject unsupported onMigrationFail literals
 const badPersist: PersistOptions = { onMigrationFail: "ignore" };
 void badPersist;
-
-

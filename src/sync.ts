@@ -6,6 +6,5 @@
  *
  * Consumers: Internal imports and public API.
  */
-export { installSync } from "./install.js";
-
+export { installSync } from "./features/sync.js";
 

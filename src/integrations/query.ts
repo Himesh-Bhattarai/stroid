@@ -6,18 +6,15 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { fetchStore } from "../async.js";
+import { fetchStore } from "../async/fetch.js";
 import type { FetchInput, FetchOptions } from "../async/cache.js";
-import type { StoreDefinition, StoreKey, StoreName } from "../core/store-lifecycle/types.js";
+import {
+    reactQueryKey,
+    swrKey,
+    type QueryStoreTarget as StoreTarget,
+} from "./query-keys.js";
 
-type StoreTarget = StoreDefinition<string, unknown> | StoreKey<string, unknown> | StoreName;
-const resolveStoreName = (storeName: StoreTarget): string =>
-    (typeof storeName === "string" ? storeName : storeName.name);
-
-export const reactQueryKey = (storeName: StoreTarget, cacheKey?: string | number) => {
-    const name = resolveStoreName(storeName);
-    return cacheKey !== undefined ? ["stroid", name, cacheKey] : ["stroid", name];
-};
+export { reactQueryKey, swrKey } from "./query-keys.js";
 
 export const createReactQueryFetcher = (
     storeName: StoreTarget,
@@ -30,8 +27,6 @@ export const createReactQueryFetcher = (
     return fetchStore(storeName, input, options);
 };
 
-export const swrKey = reactQueryKey;
-
 export const createSwrFetcher = (
     storeName: StoreTarget,
     input: FetchInput,
@@ -42,5 +37,4 @@ export const createSwrFetcher = (
     }
     return fetchStore(storeName, input, options);
 };
-
 

@@ -1,6 +1,6 @@
 # 📈 Runtime Tools
 
-> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-31 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/runtime-tools/index.ts`*
 
@@ -30,6 +30,7 @@ import {
 ```
 
 These helpers read from the active registry context. Outside request scope they fall back to the default registry.
+Import only the helpers you use. Store inspection and computed graph helpers are grouped separately internally, but the published multi-entry build still shares runtime chunks, so the largest bundle wins are still elsewhere.
 
 ---
 

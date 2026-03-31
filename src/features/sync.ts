@@ -718,4 +718,7 @@ export const registerSyncFeature = (): void => {
     registerStoreFeature("sync", createSyncFeatureRuntime);
 };
 
+export const installSync = (): void => {
+    registerSyncFeature();
+};
 

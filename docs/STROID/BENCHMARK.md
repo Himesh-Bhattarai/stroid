@@ -27,6 +27,28 @@ Important comparison note:
 | Platform | `darwin` |
 | Arch | `arm64` |
 
+## Bundle-Closure Probe
+
+Local esbuild bundle-closure probes were rerun against built `dist/` entrypoints on `2026-03-31` after the latest tree-shaking cleanup work.
+These numbers are raw bundled output bytes for each isolated import probe, not gzip size claims.
+
+| Import probe | Before | After | Read |
+| --- | --- | --- | --- |
+| `createStore` from `stroid` root | `69.9 KB` | `69.9 KB` | root compatibility surface is still materially heavier than the lean subpaths |
+| `createStore` from `stroid/core` | `42.2 KB` | `42.2 KB` | minimal CRUD entry remains the leaner default |
+| `listStores` from `stroid/runtime-tools` | `27.9 KB` | `27.9 KB` | internal regrouping alone does not help while the published build still shares runtime chunks |
+| `installPersist` from `stroid/persist` | `42.5 KB` | `21.6 KB` | direct feature entry now avoids sibling installer retention |
+| `installSync` from `stroid/sync` | `42.4 KB` | `42.4 KB` | no material change yet |
+| `reactQueryKey` from `stroid/query` | `n/a` | `0.1 KB` | new dedicated key-only entrypoint |
+| `queryIntegrations.reactQueryKey` from `stroid` root | `69.9 KB` | `70.0 KB` | compatibility namespace is still expensive |
+
+Read note:
+
+- prefer `stroid/core`, `stroid/query`, and direct feature entrypoints when you care about import closure size
+- the root `stroid` namespace still needs harder wins around import-time retention and side-effect boundaries
+- the published multi-entry build still needs shared chunks to preserve one runtime across `stroid`, `stroid/psr`, and sibling entrypoints; disabling splitting broke the built-package contract
+- these probes used a local esbuild bundle with `bundle: true`, `format: "esm"`, `minify: true`, and `treeShaking: true`
+
 ## Cross-Library Comparison
 
 ### Single Write Average

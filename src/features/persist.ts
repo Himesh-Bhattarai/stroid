@@ -310,3 +310,6 @@ export const registerPersistFeature = (): void => {
     registerStoreFeature("persist", createPersistFeatureRuntime);
 };
 
+export const installPersist = (): void => {
+    registerPersistFeature();
+};
