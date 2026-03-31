@@ -77,7 +77,7 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         if (isTransactionActive()) {
             markTransactionFailed(message);
         }
-        return { ok: false, reason: "not-found" };
+        return { ok: false, reason: "no-initial-state" };
     }
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(name, registry);

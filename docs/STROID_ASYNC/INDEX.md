@@ -276,6 +276,9 @@ flowchart LR
 > [!TIP]
 > Use the **factory form** when you need a fresh request on every call — for example, when the URL includes a timestamp, nonce, or user-specific parameter that changes between invocations.
 
+> [!WARNING]
+> Direct Promise inputs are awaited as-is. Because Stroid cannot recreate the Promise, retry settings do not apply and `refetchStore()` can only fall back to the most recent cached value. Use a URL string or factory when you need retries, backoff, or replayable refetches.
+
 ---
 
 ## 🔄 Stale-While-Revalidate

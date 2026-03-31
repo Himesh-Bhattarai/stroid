@@ -36,7 +36,7 @@ import { broadcastSync } from "../../src/features/sync.js";
 import { hashState, warn } from "../../src/utils.js";
 import { createStoreRegistry, runWithRegistry, createTransactionState } from "../../src/core/store-registry.js";
 import { stores, validatePathSafety, pathValidationCache, getStoreAdmin, getRegistry } from "../../src/core/store-lifecycle.js";
-import { onStoreLifecycle } from "../../src/core/store-lifecycle/registry.js";
+import { initialStates, onStoreLifecycle } from "../../src/core/store-lifecycle/registry.js";
 import { createStoreForRequest } from "../../src/server/index.js";
 import { setComputedOrderResolver } from "../../src/internals/computed-order.js";
 import { getTopoOrderedComputeds } from "../../src/computed/computed-graph.js";
@@ -998,6 +998,15 @@ test("lazy store lifecycle helpers report pending vs materialized", () => {
   assert.deepStrictEqual(resetResult, { ok: true });
 });
 
+test("resetStore distinguishes missing initial state from a missing store", () => {
+  clearAllStores();
+  createStore("missingResetSeed", { value: 1 });
+  delete (initialStates as Record<string, unknown>)["missingResetSeed"];
+
+  const result = resetStore("missingResetSeed");
+  assert.deepStrictEqual(result, { ok: false, reason: "no-initial-state" });
+});
+
 test("lifecycle flush hooks fire once per store flush", async () => {
   clearAllStores();
   configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 5 } });
@@ -1459,5 +1468,4 @@ test("nested transaction failure rolls back the entire transaction", () => {
 
   assert.deepStrictEqual(getStore("nested-tx-failure"), { value: 0 });
 });
-
 

@@ -93,6 +93,7 @@ export type WriteResult =
         ok: false;
         reason:
             | "not-found"
+            | "no-initial-state"
             | "validate"
             | "path"
             | "middleware"
@@ -104,5 +105,4 @@ export type WriteResult =
     };
 
 export type Subscriber = (value: StoreValue | null) => void;
-
 

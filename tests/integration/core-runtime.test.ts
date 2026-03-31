@@ -591,7 +591,7 @@ test("store-write reset/delete branches for lazy stores and batching", async () 
   createStore("missingInit", { value: 1 });
   delete (initialStates as Record<string, unknown>)["missingInit"];
   const resetMissing = resetStore("missingInit");
-  assert.strictEqual(resetMissing.ok, false);
+  assert.deepStrictEqual(resetMissing, { ok: false, reason: "no-initial-state" });
 });
 
 test("store-write guards fire inside manual transaction", () => {
@@ -660,7 +660,7 @@ test("resetStore reports missing initial state branch", () => {
   delete (initialStates as Record<string, unknown>)["missingInitBranch"];
 
   const result = resetStore("missingInitBranch");
-  assert.strictEqual(result.ok, false);
+  assert.deepStrictEqual(result, { ok: false, reason: "no-initial-state" });
 });
 
 test("hashState covers numeric and structural branches", () => {

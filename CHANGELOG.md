@@ -10,6 +10,10 @@
 >[!NOTE]
 ><details open>
 ><summary><strong> Unreleased </strong></summary>
+>
+>- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, instead of collapsing that branch into `not-found`.
+>- Documented runtime caveats for validated store names, direct-Promise async fetches, BroadcastChannel startup/BFCache limits, and Safari/WebKit storage eviction in the README and guides.
+>- Added `STATUS.md` so the commit and issue-close workflow referenced by `CONTRIBUTING.md` is now present in the repository.
 ></details>
 >
 

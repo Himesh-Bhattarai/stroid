@@ -35,5 +35,17 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(infinity)`: Gold master / fully trusted.
 - `status(404)`: Human chaos/debugging note (does not imply code quality).
 
+# Workflow Notes
+- Use short imperative subjects after the status code.
+- Prefer one issue-focused commit per fix when the work is separable.
+- Reference the GitHub issue when it adds clarity, for example: `status(601): Return no-initial-state from resetStore (#66)`.
+- If runtime behavior changes, add regression coverage and update `CHANGELOG.md` under `Unreleased`.
+- If the issue is a browser or platform limitation rather than a runtime bug, update `README.md` and the relevant guide before closing it.
+
+# Issue Workflow
+1. Verify the issue against the current `dev` branch.
+2. Classify it as `fixed`, `fix-now`, `docs`, `external`, or `planned`.
+3. Close it only after the code or docs exist in the repository and the closing note states exactly what changed.
+
 # If you feel Good and useful, Give it what it deserve.
-- `QUICK EXPLORE`: https://github.com/Himesh-Bhattarai/STATUS_COMMIT 
+- `QUICK EXPLORE`: https://github.com/Himesh-Bhattarai/STATUS_COMMIT

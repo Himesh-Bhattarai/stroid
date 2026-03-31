@@ -89,7 +89,7 @@ npx eslint src/
 
 ## Commit Messages
 
-Follow [STATUS.md](./STATUS.md) conventions. Short, descriptive imperative sentences. Reference issue numbers where applicable.
+Follow [STATUS.MD](./STATUS.MD) conventions. Short, descriptive imperative sentences. Reference issue numbers where applicable.
 
 ---
 

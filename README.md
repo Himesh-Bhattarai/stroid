@@ -78,6 +78,15 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 >```
 ---
 
+## Operational Notes
+
+- Store names are runtime-validated. Avoid spaces and reserved keys like `__proto__`, `constructor`, and `prototype`.
+- `fetchStore(name, promise, ...)` accepts a direct Promise, but direct Promise inputs cannot use retries or replayable `refetchStore()` semantics. Use a URL string or factory when you need retry/backoff behavior.
+- `stroid/sync` uses same-origin `BroadcastChannel` transport. Stroid requests a fresh snapshot on startup, focus, and reconnect, but listener registration can still race under load and open channels may reduce BFCache restores.
+- `stroid/persist` relies on browser storage. Safari/WebKit can evict script-writable storage after roughly 7 days of inactivity, so persisted auth, carts, and drafts should have a server-backed recovery path.
+
+---
+
 ### Stroid PSR
 
 Stroid ships a native PSR contract in `stroid/psr`.
