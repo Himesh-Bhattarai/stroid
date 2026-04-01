@@ -24,7 +24,7 @@ SSR gets you a correct initial snapshot. The remaining problem is what happens r
 ```ts
 import { hydrateStores } from "stroid"
 
-hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
+const hydration = hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
   contract: {
     snapshotVersion: 3,
     timestamp: Date.now(),
@@ -35,7 +35,10 @@ hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
       filters: { authority: "mergeable" },
     },
   },
-  bootWindowMs: 30,
+  bootWindow: {
+    mode: "manual",
+    fallbackMs: 3000,
+  },
   policyMap: {
     session: "server_wins",
     draft: "client_wins",
@@ -54,9 +57,11 @@ hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
     console.warn(event.store, event.source, event.resolution)
   },
 })
+
+hydration.bootWindow?.close()
 ```
 
-The fourth argument is optional. Existing trusted hydration calls stay valid.
+The fourth argument is optional. Existing trusted hydration calls stay valid. When a boot window is active, `hydrateStores(...)` returns `HydrationResult.bootWindow` so the caller can inspect or close it.
 
 ---
 
@@ -83,7 +88,14 @@ You can still override any store explicitly through `policyMap`.
 
 ## Boot Window
 
-`bootWindowMs` enables a short post-hydration gate.
+`bootWindow` is the preferred way to control the post-hydration gate.
+
+Supported shapes:
+
+- `bootWindow: { mode: "manual" }`: queue until you call `hydration.bootWindow?.close()`
+- `bootWindow: { mode: "manual", fallbackMs: 3000 }`: manual close with a safety timer
+- `bootWindow: { mode: "timer", ms: 30 }`: explicit timer mode
+- `bootWindowMs: 30`: legacy shorthand for timer mode
 
 During that window, Stroid defers writes tagged as:
 
@@ -99,7 +111,23 @@ Those writes are replayed in insertion order once the window closes. This is mai
 - immediate websocket bursts
 - eager revalidation after boot
 
-If you do not want deferral, omit `bootWindowMs` or set it to `0`.
+Manual mode is the strong contract because your app decides when the gate closes. Timer mode is still useful for low-friction adoption, but it is best-effort because it guesses.
+
+If you do not want deferral, omit `bootWindow` and `bootWindowMs`, or set the timer to `0`.
+
+In React apps, the practical pattern is to close the boot window from a root effect or another readiness signal you control:
+
+```tsx
+import { useEffect } from "react"
+
+function HydrationReady({ bootWindow }: { bootWindow?: { close: () => void } }) {
+  useEffect(() => {
+    bootWindow?.close()
+  }, [bootWindow])
+
+  return null
+}
+```
 
 ---
 
@@ -155,6 +183,8 @@ Use these helpers to answer:
 - which policy each store uses
 - when drift first appeared
 - whether the boot window is still active
+- whether the current gate is `timer` or `manual`
+- whether manual close is available
 - how many writes were queued or replayed
 
 ---
@@ -163,10 +193,10 @@ Use these helpers to answer:
 
 Release-specific upgrade notes belong in the [Version Migration Guide](../STROID_VERSION_MIGRATION/INDEX.md). This section is only about operational rollout defaults once you choose to adopt post-hydration consistency.
 
-If you want the lowest-friction rollout, start with a short boot window, explicit drift logging, and only tighten the stores that really need server authority:
+If you want the strongest contract, start with manual close plus a fallback timer, explicit drift logging, and only tighten the stores that really need server authority:
 
 ```ts
-hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
+const hydration = hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
   contract: {
     authority: "client-authoritative",
     stores: {
@@ -175,12 +205,19 @@ hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
       feed: { authority: "server-authoritative" },
     },
   },
-  bootWindowMs: 20,
+  bootWindow: {
+    mode: "manual",
+    fallbackMs: 3000,
+  },
   onDrift: (event) => {
     console.warn(event.store, event.source, event.resolution)
   },
 })
+
+hydration.bootWindow?.close()
 ```
+
+Close the returned control from the readiness signal your app trusts, not from an unrelated timeout.
 
 Policy defaults that usually map well:
 
@@ -191,12 +228,13 @@ Policy defaults that usually map well:
 
 Suggested rollout sequence:
 
-1. Keep the existing trusted hydration call and add only `bootWindowMs` plus `onDrift`.
-2. Set a default authority that matches your rollout goal:
+1. Keep the existing trusted hydration call and add either manual `bootWindow` control or a short timer plus `onDrift`.
+2. Prefer manual close for certification-grade protection; keep timer mode only when your app cannot emit a readiness signal yet.
+3. Set a default authority that matches your rollout goal:
    use `client-authoritative` for the least disruptive adoption, or `server-authoritative` for the strictest SSR lock.
-3. Override only the sensitive stores first:
+4. Override only the sensitive stores first:
    `session/auth` -> `server-authoritative`, `drafts` -> `client-authoritative`, `filters` -> `mergeable`.
-4. Inspect `getHydrationConsistency(...)`, `getHydrationDriftEvents(...)`, and `getHydrationDriftMetrics()` before tightening more stores.
+5. Inspect `getHydrationConsistency(...)`, `getHydrationDriftEvents(...)`, and `getHydrationDriftMetrics()` before tightening more stores.
 
 ---
 

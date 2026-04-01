@@ -113,6 +113,14 @@ If you want to adopt the new consistency layer, the lowest-friction rollout is:
 - use `merge` for shallow mergeable objects
 - use `invalidate_and_refetch` only when the store already has a replayable `fetchStore(...)` recipe
 
+If you need the strongest guarantee boundary instead of a timer guess, prefer:
+
+- `bootWindow: { mode: "manual", fallbackMs?: number }`
+- close the returned `HydrationResult.bootWindow` from your app's readiness signal
+- treat timer mode as a compatibility fallback, not the certified path
+
+The hydration-divergence certification suite only claims guarantees for the manual-close boundary.
+
 Operational usage, policy defaults, and runtime-tools inspection live in [Post-Hydration Consistency](../STROID_SERVER/POST_HYDRATION_CONSISTENCY.md).
 
 ---
@@ -187,6 +195,7 @@ When moving from one minor version to the next:
 - [ ] Check imports are still valid
 - [ ] Call `installPersist()`, `installSync()`, and `installDevtools()` explicitly if you use those features
 - [ ] If adopting post-hydration consistency, add the optional fourth `hydrateStores(..., consistency?)` argument deliberately instead of changing every hydration call at once
+- [ ] If adopting the strongest hydration guarantee, switch from `bootWindowMs` to `bootWindow: { mode: "manual" }` and wire `result.bootWindow?.close()` into your app's readiness boundary
 - [ ] Test async operations (if using `fetchStore`)
 - [ ] Test SSR (if using `createStoreForRequest`)
 - [ ] Test persistence (if using `persist`)

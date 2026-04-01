@@ -7,7 +7,7 @@ Use `Cmd+F` / `Ctrl+F` on this page with the keywords below to jump to the right
 | Search for | Start here |
 | --- | --- |
 | `ssr`, `request`, `AsyncLocalStorage`, `hydrate` | [Server & SSR](./STROID_SERVER/INDEX.md) |
-| `post-hydration`, `drift`, `bootWindowMs`, `server_wins`, `client_wins`, `merge`, `invalidate_and_refetch` | [Post-Hydration Consistency](./STROID_SERVER/POST_HYDRATION_CONSISTENCY.md) |
+| `post-hydration`, `drift`, `bootWindow`, `bootWindowMs`, `manual`, `fallbackMs`, `close()`, `server_wins`, `client_wins`, `merge`, `invalidate_and_refetch` | [Post-Hydration Consistency](./STROID_SERVER/POST_HYDRATION_CONSISTENCY.md) |
 | `persist`, `storage`, `checksum`, `migrations`, `localStorage` | [Persistence](./STROID_PERSIST/INDEX.md) |
 | `sync`, `BroadcastChannel`, `cross-tab`, `worker` | [Cross-tab Sync](./STROID_SYNC/INDEX.md) |
 | `computed`, `derived`, `runtime graph`, `deps` | [Computed Stores](./STROID_COMPUTED/INDEX.md) |

@@ -224,6 +224,9 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     if (runtimePatches.length > 0) {
         setLastRuntimePatches(runtimePatches, registry);
     }
-    initializeHydrationConsistency(registry, snapshot, consistency);
+    const bootWindow = initializeHydrationConsistency(registry, snapshot, consistency);
+    if (bootWindow) {
+        result.bootWindow = bootWindow;
+    }
     return result;
 };

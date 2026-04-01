@@ -14,6 +14,7 @@ export type {
     PartialDeep,
     HydrateSnapshotFor,
     HydrationFailure,
+    HydrationBootWindowControl,
     HydrationResult,
     StoreDefinition,
     StoreValue,
@@ -26,6 +27,8 @@ export type {
 } from "./core/store-lifecycle/types.js";
 export type {
     HydrationConsistencyAuthority,
+    HydrationBootWindowMode,
+    HydrationBootWindowOptions,
     HydrationConsistencyContract,
     HydrationConsistencyOptions,
     HydrationConsistencyPolicy,
@@ -80,4 +83,3 @@ export {
 export { clearAllStores, clearStores } from "./runtime-admin/index.js";
 
 export { store, namespace } from "./core/store-name.js";
-

@@ -6,6 +6,8 @@
  *
  * Consumers: Internal imports and public API.
  */
+import type { HydrationBootWindowControl } from "../hydration-consistency.js";
+
 type Primitive = string | number | boolean | bigint | symbol | null | undefined;
 type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 type PathInternal<T, Depth extends number> = Depth extends 0
@@ -58,7 +60,13 @@ export type HydrationResult = {
     created: string[];
     failed: HydrationFailure[];
     blocked?: { reason: HydrationBlockReason; cause?: unknown };
+    /**
+     * Present when post-hydration consistency enabled an active boot window.
+     * Use it to inspect or close timer/manual deferral after `hydrateStores(...)`.
+     */
+    bootWindow?: HydrationBootWindowControl;
 };
+export type { HydrationBootWindowControl };
 
 // Ambient map users can augment to get typed string access to stores.
 // Example:
@@ -105,4 +113,3 @@ export type WriteResult =
     };
 
 export type Subscriber = (value: StoreValue | null) => void;
-

@@ -2,12 +2,12 @@
 
 ## Summary
 
-This report combines the serialized benchmark-script rerun from `2026-03-31` with the dedicated hydration-divergence lane that was added and rerun on `2026-04-01`.
+This report combines the serialized benchmark-script rerun from `2026-03-31` with the upgraded hydration-divergence certification rerun from `2026-04-01`.
 
 Headline results:
 
 - the expanded SSR isolation certification passed with `0` correctness violations across `2 x 1,024` burst requests, `8,192` sustained requests, `256` concurrent React streaming HTTP requests, and `50,000` long-tail memory cycles
-- the dedicated hydration-divergence certification lane completed `96` scenario runs with `0` unexpected outcomes; median settle latency was `28.853ms` for stale storage, `28.892ms` for sync bursts, `28.957ms` for early effect input, and `35.185ms` for slow network revalidate
+- the hydration-divergence certification now runs as a first-class guarantee suite under the manual-close boundary: `54` certified runs, `1,028` queued writes, `0` unexpected outcomes, and `0` invariant violations across `try`, `hit`, `stress`, and `hammer` campaigns
 - Stroid sustained `250,000` single-store subscribers at `2.530ms` median (`noop`) and `3.044ms` median (`compute`)
 - Stroid sustained `250,000` concurrent subscribers across multi-store fanout at `1.666ms` to `1.766ms` median wave latency
 - in the cross-library subscriber comparison, Stroid was still slower on raw notify latency than Redux and Zustand in this script, but memory stayed close to Zustand and below both Redux variants at `75,000` subscribers
@@ -25,7 +25,7 @@ Headline results:
 
 | Field | Value |
 | --- | --- |
-| Date | `2026-03-31` |
+| Date | `2026-03-31` and `2026-04-01` |
 | Node | `v25.8.2` |
 | Platform | `darwin` |
 | Arch | `arm64` |
@@ -35,24 +35,30 @@ Headline results:
 - benchmark commands were run serially on the same machine to avoid cross-process contention skewing the measurements
 - the guarantee suite intentionally emits warning lines during the atomic rollback benchmark because it injects controlled failures; those warnings are expected and the benchmark still passed
 - the bundle-closure probe below is kept as a separate build-oriented study; it is not produced by the `npm run benchmark:*` scripts
-- the hydration-divergence numbers below were captured separately with `npm run benchmark:hydration-divergence` on `2026-04-01`; they were not part of the original `2026-03-31` batch rerun
+- the hydration-divergence certification below now matches the first-class suite included in `npm run benchmark:guarantees`; the detailed per-campaign numbers were captured from a standalone `npm run benchmark:hydration-divergence` rerun on `2026-04-01`
 
 ## Hydration Divergence Certification
 
 Dedicated results from `scripts/hydration-divergence-benchmark.ts` as exercised on `2026-04-01`.
 
-| Scenario | Iterations | Queued / Replayed / Drift | Median | P95 | Read |
+| Campaign | Runs | Writes / Run | Median | P95 | Read |
 | --- | --- | --- | --- | --- | --- |
-| Early user input during hydration | `24` | `2 / 2 / 2` | `28.957ms` | `29.807ms` | queued `effect > effect`, replay stayed deterministic, final `count = 2` |
-| Stale local storage restore | `24` | `1 / 1 / 1` | `28.853ms` | `28.976ms` | queued `storage`, baseline stayed stable until replay, final `revision = 1` |
-| Websocket burst right after boot | `24` | `3 / 3 / 3` | `28.892ms` | `29.034ms` | queued `sync > sync > sync`, replay preserved insertion order, final `revision = 3` |
-| Slow network revalidate | `24` | `2 / 2 / 2` | `35.185ms` | `36.257ms` | queued `network > network`, final async state settled to `data = "fresh"` |
+| Try | `16` | `5` | `18.596ms` | `30.248ms` | mixed `effect > storage > sync > network > network`, no pre-close leak, final remote state settled to `fresh` |
+| Hit | `12` | `4` | `19.468ms` | `22.587ms` | policy matrix stayed deterministic: `server_wins`, `client_wins`, `merge`, `invalidate_and_refetch` |
+| Stress | `18` | `18` | `15.246ms` | `31.544ms` | repeated mixed-source replay preserved exact insertion order across async boundaries |
+| Hammer | `8` | `72` | `31.262ms` | `32.413ms` | high-volume queued writes survived without leak or reorder across three stores |
 
 Hydration certification read:
 
-- `certifiedRuns = 96`
-- `bootWindowMs = 10`
+- `guaranteeBoundary = manual-close`
+- `certifiedRuns = 54`
+- `totalQueuedWrites = 1028`
 - `unexpectedOutcomes = 0`
+- `invariantViolations = 0`
+
+Guarantee note:
+
+- timer mode (`bootWindowMs` or `bootWindow: { mode: "timer" }`) remains supported for lower-friction adoption, but this certification only claims guarantees for explicit manual close
 
 ## Bundle-Closure Probe
 
@@ -81,13 +87,13 @@ Detailed results from the expanded `scripts/ssr-isolation-benchmark.ts` as exerc
 
 | Phase | Load | Median | P95 | Read |
 | --- | --- | --- | --- | --- |
-| Burst chaos A | `1,024` concurrent requests | `232.035ms` | `251.314ms` | seeded mixed async boundaries with request-local writes and controlled aborts |
-| Burst chaos B | `1,024` concurrent requests | `185.915ms` | `199.598ms` | second seeded burst to avoid overfitting to one interleave shape |
-| Sustained pressure | `8` waves x `1,024` concurrent (`8,192` total) | request `178.964ms`, wave `194.614ms` | request `208.448ms`, wave `223.486ms` | sustained throughput measured at `4,930.232 req/s` |
-| Cross-request interleaving | `96` A/B pairs (`192` requests) | `6.524ms` | `6.713ms` | explicit pause-resume A/B mutation ordering with no contamination |
-| Lifecycle escape | `512` requests, `1,536` detached probes | `31.718ms` | `38.634ms` | detached timeout/immediate/third-party callback probes saw no stale access |
-| React streaming HTTP | `256` concurrent HTTP requests | response `95.062ms`, shell `0.080ms`, all-ready `5.084ms` | response `127.056ms`, shell `0.514ms`, all-ready `7.356ms` | local `http` server + `renderToPipeableStream` + nested `Suspense` waterfalls |
-| Long-tail memory | `2,000` warmup + `50,000` measured cycles | batch `7.356ms` | batch `17.765ms` | slope `0.002 MB / 1k`, retained growth `-0.511 MB`, invariants stayed `0` |
+| Burst chaos A | `1,024` concurrent requests | `199.620ms` | `218.522ms` | seeded mixed async boundaries with request-local writes and controlled aborts |
+| Burst chaos B | `1,024` concurrent requests | `175.425ms` | `190.808ms` | second seeded burst to avoid overfitting to one interleave shape |
+| Sustained pressure | `8` waves x `1,024` concurrent (`8,192` total) | request `166.844ms`, wave `184.425ms` | request `199.227ms`, wave `210.578ms` | sustained throughput measured at `5,249.724 req/s` |
+| Cross-request interleaving | `96` A/B pairs (`192` requests) | `6.823ms` | `6.988ms` | explicit pause-resume A/B mutation ordering with no contamination |
+| Lifecycle escape | `512` requests, `1,536` detached probes | `32.137ms` | `39.955ms` | detached timeout/immediate/third-party callback probes saw no stale access |
+| React streaming HTTP | `256` concurrent HTTP requests | response `91.202ms`, shell `0.085ms`, all-ready `5.197ms` | response `123.662ms`, shell `0.440ms`, all-ready `7.754ms` | local `http` server + `renderToPipeableStream` + nested `Suspense` waterfalls |
+| Long-tail memory | `2,000` warmup + `50,000` measured cycles | batch `7.214ms` | batch `8.716ms` | slope `0.002 MB / 1k`, retained growth `-0.478 MB`, invariants stayed `0` |
 
 Certification read:
 
@@ -204,11 +210,12 @@ Results from `npm run benchmark:guarantees`.
 
 | Benchmark | Numeric Result | Status |
 | --- | --- | --- |
-| SSR isolation certification | `2 x 1,024` burst requests, `8,192` sustained requests at `4,930.232 req/s`, `256` React streaming HTTP requests, `50,000` memory cycles, all invariants `0` | Pass |
+| SSR isolation certification | `2 x 1,024` burst requests, `8,192` sustained requests at `5,249.724 req/s`, `256` React streaming HTTP requests, `50,000` memory cycles, all invariants `0` | Pass |
 | Atomic rollback | `48` iterations, `36` forced rollbacks, `partialCommitCount = 0` | Pass |
 | Race resistance | `24` waves x `80` ops, `0.956ms` median, `invariantViolations = 0`, `stateMismatchCount = 0` | Pass |
-| Determinism replay | `20` replays, `uniqueOutputCount = 1`, `23.495ms` median | Pass |
-| Memory leak detection | `240` measured cycles, retained growth `2.474MB` | Pass |
+| Hydration divergence | `54` certified runs, `1,028` queued writes, `guaranteeBoundary = manual-close`, `unexpectedOutcomes = 0`, `invariantViolations = 0` | Pass |
+| Determinism replay | `20` replays, `uniqueOutputCount = 1`, `23.152ms` median | Pass |
+| Memory leak detection | `240` measured cycles, retained growth `2.517MB` | Pass |
 | Governance lifecycle | `5` proposals, `1` rejected mutation, `previewCommitMismatchCount = 0` | Pass |
 
 Guarantee read:
@@ -228,4 +235,5 @@ Guarantee read:
 | Selector cost | `npm run benchmark:selector` |
 | Deep path updates | `npm run benchmark:deep-update` |
 | Lifecycle overhead | `npm run benchmark:lifecycle` |
+| Hydration divergence certification | `npm run benchmark:hydration-divergence` |
 | Guarantee suite | `npm run benchmark:guarantees` |

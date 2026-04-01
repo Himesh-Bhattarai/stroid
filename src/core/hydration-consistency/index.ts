@@ -11,6 +11,7 @@ export {
     createHydrationRuntimeState,
     resetHydrationRuntimeState,
     closeHydrationBootWindow,
+    getHydrationBootWindowControl,
     initializeHydrationConsistency,
     shouldQueueHydrationWrite,
     enqueueHydrationWrite,

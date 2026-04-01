@@ -15,7 +15,9 @@ import {
     resolveHydrationPolicy,
 } from "./helpers.js";
 import type {
+    HydrationBootWindowControl,
     HydrationConsistencyOptions,
+    HydrationBootWindowOptions,
     HydrationConsistencySource,
     HydrationConsistencyStorePolicy,
     HydrationRuntimeState,
@@ -35,9 +37,12 @@ export const createHydrationRuntimeState = (): HydrationRuntimeState => ({
     onDrift: null,
     maxEvents: DEFAULT_MAX_EVENTS,
     deferSources: new Set(DEFAULT_DEFER_SOURCES),
+    bootWindowMode: null,
+    bootWindowActive: false,
     bootWindowStartedAtMs: null,
     bootWindowEndsAtMs: null,
     bootWindowTimer: null,
+    bootWindowToken: null,
     replaying: false,
     sequence: 0,
 });
@@ -58,8 +63,11 @@ export const resetHydrationRuntimeState = (state: HydrationRuntimeState): void =
     state.onDrift = null;
     state.maxEvents = DEFAULT_MAX_EVENTS;
     state.deferSources = new Set(DEFAULT_DEFER_SOURCES);
+    state.bootWindowMode = null;
+    state.bootWindowActive = false;
     state.bootWindowStartedAtMs = null;
     state.bootWindowEndsAtMs = null;
+    state.bootWindowToken = null;
     state.replaying = false;
     state.sequence = 0;
 };
@@ -69,18 +77,90 @@ export const closeHydrationBootWindow = (state: HydrationRuntimeState): void => 
         clearTimeout(state.bootWindowTimer);
         state.bootWindowTimer = null;
     }
-    state.bootWindowStartedAtMs = null;
+    state.bootWindowActive = false;
     state.bootWindowEndsAtMs = null;
+};
+
+const resolveBootWindowSettings = (
+    consistency: Pick<HydrationConsistencyOptions, "bootWindow" | "bootWindowMs"> | undefined
+): {
+    mode: "timer" | "manual" | null;
+    durationMs: number | null;
+} => {
+    if (!consistency) {
+        return {
+            mode: null,
+            durationMs: null,
+        };
+    }
+    const bootWindow = consistency.bootWindow;
+    if (bootWindow === undefined) {
+        const bootWindowMs = Math.max(0, consistency.bootWindowMs ?? 0);
+        return {
+            mode: bootWindowMs > 0 ? "timer" : null,
+            durationMs: bootWindowMs > 0 ? bootWindowMs : null,
+        };
+    }
+    const config: Exclude<HydrationBootWindowOptions, "timer" | "manual"> =
+        typeof bootWindow === "string"
+            ? { mode: bootWindow }
+            : bootWindow;
+    if (config.mode === "manual") {
+        const fallbackMs = typeof config.fallbackMs === "number"
+            ? Math.max(0, config.fallbackMs)
+            : null;
+        return {
+            mode: "manual",
+            durationMs: fallbackMs !== null && fallbackMs > 0 ? fallbackMs : null,
+        };
+    }
+    const durationMs = Math.max(
+        0,
+        config.ms
+        ?? consistency.bootWindowMs
+        ?? 0
+    );
+    return {
+        mode: durationMs > 0 ? "timer" : null,
+        durationMs: durationMs > 0 ? durationMs : null,
+    };
+};
+
+export const getHydrationBootWindowControl = (
+    registry: StoreRegistry
+): HydrationBootWindowControl | null => {
+    const state = registry.hydration;
+    const mode = state.bootWindowMode;
+    const token = state.bootWindowToken;
+    if (!mode || token === null) return null;
+    return {
+        mode,
+        get startedAtMs() {
+            return state.bootWindowToken === token
+                ? state.bootWindowStartedAtMs
+                : null;
+        },
+        get endsAtMs() {
+            return state.bootWindowToken === token
+                ? state.bootWindowEndsAtMs
+                : null;
+        },
+        close: () => {
+            if (state.bootWindowToken !== token) return;
+            flushHydrationWriteQueue(registry);
+        },
+        isActive: () => state.bootWindowToken === token && state.bootWindowActive,
+    };
 };
 
 export const initializeHydrationConsistency = <Snapshot extends object>(
     registry: StoreRegistry,
     snapshot: Snapshot,
     consistency?: HydrationConsistencyOptions<Snapshot>
-): void => {
+): HydrationBootWindowControl | null => {
     const state = registry.hydration;
     resetHydrationRuntimeState(state);
-    if (!consistency) return;
+    if (!consistency) return null;
 
     state.onDrift = consistency.onDrift as HydrationRuntimeState["onDrift"];
     state.maxEvents = Math.max(1, consistency.maxEvents ?? DEFAULT_MAX_EVENTS);
@@ -131,14 +211,23 @@ export const initializeHydrationConsistency = <Snapshot extends object>(
         };
     });
 
-    const bootWindowMs = Math.max(0, consistency.bootWindowMs ?? 0);
-    if (bootWindowMs > 0 && typeof setTimeout === "function") {
-        state.bootWindowStartedAtMs = hydratedAtMs;
-        state.bootWindowEndsAtMs = hydratedAtMs + bootWindowMs;
+    const resolvedBootWindow = resolveBootWindowSettings(consistency);
+    if (!resolvedBootWindow.mode) {
+        return null;
+    }
+    state.bootWindowMode = resolvedBootWindow.mode;
+    state.bootWindowActive = true;
+    state.bootWindowStartedAtMs = hydratedAtMs;
+    state.bootWindowEndsAtMs = resolvedBootWindow.durationMs !== null
+        ? hydratedAtMs + resolvedBootWindow.durationMs
+        : null;
+    state.bootWindowToken = nextHydrationSequence(state);
+    if (resolvedBootWindow.durationMs !== null && typeof setTimeout === "function") {
         state.bootWindowTimer = setTimeout(() => {
             flushHydrationWriteQueue(registry);
-        }, bootWindowMs);
+        }, resolvedBootWindow.durationMs);
     }
+    return getHydrationBootWindowControl(registry);
 };
 
 export const shouldQueueHydrationWrite = (
@@ -148,7 +237,7 @@ export const shouldQueueHydrationWrite = (
 ): boolean => {
     const state = registry.hydration;
     if (state.replaying) return false;
-    if (state.bootWindowEndsAtMs === null) return false;
+    if (!state.bootWindowActive) return false;
     if (!state.deferSources.has(source)) return false;
     return !!state.stores[store];
 };

@@ -91,7 +91,9 @@ test("hydration boot window defers early writes and replays mutators in order", 
     invalidations: 0,
     pendingWrites: 2,
     bootWindowActive: true,
+    bootWindowMode: "timer",
     bootWindowEndsAtMs: getHydrationDriftMetrics().bootWindowEndsAtMs,
+    manualCloseAvailable: false,
   });
 
   await wait(30);
@@ -102,6 +104,92 @@ test("hydration boot window defers early writes and replays mutators in order", 
   assert.strictEqual(metrics.replayedWrites, 2);
   assert.strictEqual(metrics.pendingWrites, 0);
   assert.strictEqual(metrics.bootWindowActive, false);
+  assert.strictEqual(metrics.bootWindowMode, "timer");
+  assert.strictEqual(metrics.manualCloseAvailable, false);
+});
+
+test("manual hydration boot window stays queued until the returned control closes it", async () => {
+  resetAllStoresForTest();
+  createStore("draft", { value: "server" });
+
+  const hydration = hydrateStores(
+    { draft: { value: "server" } },
+    {},
+    { allowTrusted: true },
+    {
+      bootWindow: {
+        mode: "manual",
+      },
+      policyMap: {
+        draft: "client_wins",
+      },
+    }
+  );
+
+  assert.ok(hydration.bootWindow);
+  assert.strictEqual(hydration.bootWindow?.mode, "manual");
+  assert.strictEqual(hydration.bootWindow?.isActive(), true);
+  assert.strictEqual(getHydrationDriftMetrics().manualCloseAvailable, true);
+  assert.strictEqual(getHydrationDriftMetrics().bootWindowMode, "manual");
+
+  setStore("draft", "value", "client");
+
+  assert.deepStrictEqual(getStore("draft"), { value: "server" });
+  assert.strictEqual(getHydrationDriftMetrics().pendingWrites, 1);
+
+  await wait(25);
+
+  assert.deepStrictEqual(getStore("draft"), { value: "server" });
+  assert.strictEqual(getHydrationDriftMetrics().pendingWrites, 1);
+
+  hydration.bootWindow?.close();
+
+  assert.strictEqual(hydration.bootWindow?.isActive(), false);
+  assert.deepStrictEqual(getStore("draft"), { value: "client" });
+  assert.strictEqual(getHydrationDriftMetrics().pendingWrites, 0);
+  assert.strictEqual(getHydrationDriftMetrics().bootWindowActive, false);
+});
+
+test("manual hydration boot window can fall back to an automatic close", async () => {
+  resetAllStoresForTest();
+  createStore("fallbackDraft", { value: "server" });
+
+  const hydration = hydrateStores(
+    { fallbackDraft: { value: "server" } },
+    {},
+    { allowTrusted: true },
+    {
+      bootWindow: {
+        mode: "manual",
+        fallbackMs: 15,
+      },
+      policyMap: {
+        fallbackDraft: "client_wins",
+      },
+    }
+  );
+
+  assert.ok(hydration.bootWindow);
+  assert.strictEqual(hydration.bootWindow?.mode, "manual");
+  assert.strictEqual(hydration.bootWindow?.isActive(), true);
+
+  setStore("fallbackDraft", "value", "client");
+
+  assert.deepStrictEqual(getStore("fallbackDraft"), { value: "server" });
+  assert.strictEqual(getHydrationDriftMetrics().pendingWrites, 1);
+
+  await wait(25);
+
+  assert.deepStrictEqual(getStore("fallbackDraft"), { value: "client" });
+  assert.strictEqual(hydration.bootWindow?.isActive(), false);
+
+  const metrics = getHydrationDriftMetrics();
+  assert.strictEqual(metrics.bootWindowMode, "manual");
+  assert.strictEqual(metrics.manualCloseAvailable, true);
+  assert.strictEqual(metrics.bootWindowActive, false);
+  assert.strictEqual(metrics.pendingWrites, 0);
+  assert.strictEqual(metrics.queuedWrites, 1);
+  assert.strictEqual(metrics.replayedWrites, 1);
 });
 
 test("hydration boot window defers slow network revalidation until replay", async () => {

@@ -9,6 +9,7 @@
 import { deepClone } from "../../utils.js";
 import type { StoreRegistry } from "../store-registry.js";
 import type {
+    HydrationBootWindowMode,
     HydrationConsistencyMetrics,
     HydrationConsistencyStoreState,
     HydrationDriftEvent,
@@ -48,10 +49,14 @@ export const getHydrationMetrics = (
 ): HydrationConsistencyMetrics & {
     pendingWrites: number;
     bootWindowActive: boolean;
+    bootWindowMode: HydrationBootWindowMode | null;
     bootWindowEndsAtMs: number | null;
+    manualCloseAvailable: boolean;
 } => ({
     ...registry.hydration.metrics,
     pendingWrites: registry.hydration.queue.length,
-    bootWindowActive: registry.hydration.bootWindowEndsAtMs !== null,
+    bootWindowActive: registry.hydration.bootWindowActive,
+    bootWindowMode: registry.hydration.bootWindowMode,
     bootWindowEndsAtMs: registry.hydration.bootWindowEndsAtMs,
+    manualCloseAvailable: registry.hydration.bootWindowMode === "manual",
 });

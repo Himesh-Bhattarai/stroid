@@ -121,6 +121,25 @@ export type HydrateSnapshotFor<Map extends object> = Partial<{
 // @public (undocumented)
 export const hydrateStores: <Snapshot extends object = HydrateSnapshot>(snapshot: Snapshot, options: HydrateOptions<Snapshot> | undefined, trust: HydrationTrust<Snapshot>, consistency?: HydrationConsistencyOptions<Snapshot>) => HydrationResult;
 
+// @public
+export type HydrationBootWindowControl = {
+    mode: HydrationBootWindowMode;
+    startedAtMs: number | null;
+    endsAtMs: number | null;
+    close: () => void;
+    isActive: () => boolean;
+};
+
+// @public
+export type HydrationBootWindowMode = "timer" | "manual";
+
+// @public
+export type HydrationBootWindowOptions = HydrationBootWindowMode | {
+    mode: HydrationBootWindowMode;
+    ms?: number;
+    fallbackMs?: number;
+};
+
 // @public (undocumented)
 export type HydrationConsistencyAuthority = "server-authoritative" | "client-authoritative" | "mergeable";
 
@@ -140,6 +159,7 @@ export type HydrationConsistencyOptions<Snapshot extends object = Record<string,
     }>;
     onDrift?: (event: HydrationDriftEvent<Snapshot>) => void;
     bootWindowMs?: number;
+    bootWindow?: HydrationBootWindowOptions;
     deferSources?: readonly HydrationConsistencySource[];
     maxEvents?: number;
 };
@@ -201,6 +221,7 @@ export type HydrationResult = {
         reason: HydrationBlockReason;
         cause?: unknown;
     };
+    bootWindow?: HydrationBootWindowControl;
 };
 
 // @public (undocumented)
@@ -446,11 +467,11 @@ export type WriteResult = {
 
 // Warnings were encountered during analysis:
 //
-// dist/feature-internal.d.ts:27:5 - (ae-forgotten-export) The symbol "HydrationConsistencyStoreContract" needs to be exported by the entry point index.d.ts
-// dist/feature-internal.d.ts:45:5 - (ae-forgotten-export) The symbol "HydrationMergeArgs" needs to be exported by the entry point index.d.ts
-// dist/feature-internal.d.ts:46:5 - (ae-forgotten-export) The symbol "HydrationInvalidateArgs" needs to be exported by the entry point index.d.ts
-// dist/types.d.ts:26:5 - (ae-forgotten-export) The symbol "HydrationFailureReason" needs to be exported by the entry point index.d.ts
-// dist/types.d.ts:36:9 - (ae-forgotten-export) The symbol "HydrationBlockReason" needs to be exported by the entry point index.d.ts
+// dist/types-internal.d.ts:52:5 - (ae-forgotten-export) The symbol "HydrationConsistencyStoreContract" needs to be exported by the entry point index.d.ts
+// dist/types-internal.d.ts:70:5 - (ae-forgotten-export) The symbol "HydrationMergeArgs" needs to be exported by the entry point index.d.ts
+// dist/types-internal.d.ts:71:5 - (ae-forgotten-export) The symbol "HydrationInvalidateArgs" needs to be exported by the entry point index.d.ts
+// dist/types.d.ts:29:5 - (ae-forgotten-export) The symbol "HydrationFailureReason" needs to be exported by the entry point index.d.ts
+// dist/types.d.ts:39:9 - (ae-forgotten-export) The symbol "HydrationBlockReason" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 

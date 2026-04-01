@@ -21,6 +21,7 @@ import {
     type HydrationConsistencyAuthority,
     type HydrationConsistencyPolicy,
     type HydrationConsistencySource,
+    type HydrationBootWindowMode,
     type HydrationDriftEvent,
     type HydrationSnapshotMetadata,
 } from "../core/hydration-consistency.js";
@@ -52,7 +53,9 @@ export type HydrationConsistencyReport = HydrationSnapshotMetadata & {
 export type HydrationDriftMetrics = HydrationConsistencyMetrics & {
     pendingWrites: number;
     bootWindowActive: boolean;
+    bootWindowMode: HydrationBootWindowMode | null;
     bootWindowEndsAtMs: number | null;
+    manualCloseAvailable: boolean;
 };
 
 const toReport = (entry: ReturnType<typeof getHydrationStoreStates>[number]): HydrationConsistencyReport => ({

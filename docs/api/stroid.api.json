@@ -2375,6 +2375,107 @@
         },
         {
           "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationBootWindowControl:type",
+          "docComment": "/**\n * Runtime control returned from `hydrateStores(...)` when a boot window is active.\n */\n",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationBootWindowControl = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    mode: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationBootWindowMode",
+              "canonicalReference": "stroid!HydrationBootWindowMode:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    startedAtMs: number | null;\n    endsAtMs: number | null;\n    close: () => void;\n    isActive: () => boolean;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationBootWindowControl",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 4
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationBootWindowMode:type",
+          "docComment": "/**\n * How the post-hydration boot window is controlled. - `timer`: closes automatically after a configured duration. - `manual`: stays open until `close()` is called, optionally with a fallback timer.\n */\n",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationBootWindowMode = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"timer\" | \"manual\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationBootWindowMode",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationBootWindowOptions:type",
+          "docComment": "/**\n * Boot-window configuration for post-hydration write deferral.\n *\n * `timer` mode uses `ms` to guess when hydration should be considered settled. `manual` mode returns a `HydrationBootWindowControl` so the app can close the window explicitly. `fallbackMs` can be used as a safety timer while still preferring manual close.\n */\n",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationBootWindowOptions = "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationBootWindowMode",
+              "canonicalReference": "stroid!HydrationBootWindowMode:type"
+            },
+            {
+              "kind": "Content",
+              "text": " | {\n    mode: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationBootWindowMode",
+              "canonicalReference": "stroid!HydrationBootWindowMode:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    ms?: number;\n    fallbackMs?: number;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationBootWindowOptions",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 5
+          }
+        },
+        {
+          "kind": "TypeAlias",
           "canonicalReference": "stroid!HydrationConsistencyAuthority:type",
           "docComment": "",
           "excerptTokens": [
@@ -2391,7 +2492,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/feature-internal.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyAuthority",
           "typeTokenRange": {
@@ -2470,7 +2571,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/feature-internal.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyContract",
           "typeParameters": [
@@ -2559,7 +2660,16 @@
             },
             {
               "kind": "Content",
-              "text": "<Snapshot>) => void;\n    bootWindowMs?: number;\n    deferSources?: readonly "
+              "text": "<Snapshot>) => void;\n    bootWindowMs?: number;\n    bootWindow?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationBootWindowOptions",
+              "canonicalReference": "stroid!HydrationBootWindowOptions:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    deferSources?: readonly "
             },
             {
               "kind": "Reference",
@@ -2575,7 +2685,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/feature-internal.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyOptions",
           "typeParameters": [
@@ -2593,7 +2703,7 @@
           ],
           "typeTokenRange": {
             "startIndex": 6,
-            "endIndex": 17
+            "endIndex": 19
           }
         },
         {
@@ -2614,7 +2724,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/feature-internal.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyPolicy",
           "typeTokenRange": {
@@ -2640,7 +2750,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/feature-internal.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyResolution",
           "typeTokenRange": {
@@ -2666,7 +2776,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/feature-internal.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencySource",
           "typeTokenRange": {
@@ -2732,7 +2842,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/feature-internal.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyStorePolicy",
           "typeParameters": [
@@ -2837,7 +2947,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/feature-internal.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "HydrationDriftEvent",
           "typeParameters": [
@@ -2922,7 +3032,16 @@
             },
             {
               "kind": "Content",
-              "text": ";\n        cause?: unknown;\n    };\n}"
+              "text": ";\n        cause?: unknown;\n    };\n    bootWindow?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationBootWindowControl",
+              "canonicalReference": "stroid!HydrationBootWindowControl:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n}"
             },
             {
               "kind": "Content",
@@ -2934,7 +3053,7 @@
           "name": "HydrationResult",
           "typeTokenRange": {
             "startIndex": 1,
-            "endIndex": 6
+            "endIndex": 8
           }
         },
         {
@@ -2955,7 +3074,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/feature-internal.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "HydrationSnapshotMetadata",
           "typeTokenRange": {

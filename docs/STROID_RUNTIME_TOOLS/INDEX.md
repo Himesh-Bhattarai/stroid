@@ -73,7 +73,7 @@ const health = getStoreHealth("cart")
 
 - `getHydrationConsistency(name?)` returns one store report, all reports, or `null` when a named store was not hydrated under a consistency contract.
 - `getHydrationDriftEvents(limit?)` returns the most recent structured drift events.
-- `getHydrationDriftMetrics()` returns counters plus boot-window state (`pendingWrites`, `bootWindowActive`, `bootWindowEndsAtMs`).
+- `getHydrationDriftMetrics()` returns counters plus boot-window state (`pendingWrites`, `bootWindowActive`, `bootWindowMode`, `bootWindowEndsAtMs`, `manualCloseAvailable`).
 
 ```ts
 import {
@@ -92,6 +92,7 @@ These helpers are intended for post-SSR debugging:
 - which hydrated stores are `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`
 - when a store first diverged from the hydrated baseline
 - whether writes were queued during the boot window
+- whether the active gate is running in `timer` or `manual` mode
 - which source triggered drift (`effect`, `storage`, `network`, `sync`)
 
 ---

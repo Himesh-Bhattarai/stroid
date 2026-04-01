@@ -283,7 +283,7 @@ Runs multiple synchronous writes in one transaction-style batch.
 ```ts
 import { hydrateStores } from "stroid";
 
-hydrateStores(
+const hydration = hydrateStores(
   {
     cart: { items: [{ id: "pizza", qty: 1 }], total: 499 },
     profile: { name: "Asha" },
@@ -299,18 +299,24 @@ hydrateStores(
         profile: { authority: "client-authoritative" },
       },
     },
-    bootWindowMs: 30,
+    bootWindow: {
+      mode: "manual",
+      fallbackMs: 3000,
+    },
     policyMap: {
       cart: "server_wins",
       profile: "client_wins",
     },
   }
 );
+
+hydration.bootWindow?.close();
 ```
-Hydrates many stores from a trusted snapshot payload. The optional fourth argument adds post-hydration drift controls, write deferral during the boot window, and structured drift diagnostics.
+Hydrates many stores from a trusted snapshot payload. The optional fourth argument adds post-hydration drift controls, write deferral during the boot window, and structured drift diagnostics. Manual mode returns `hydration.bootWindow`, so your app can close the gate when its critical hydration boundary is ready.
 
 Recommended rollout defaults:
-- use a short `bootWindowMs` (`15-30ms`)
+- use `bootWindow: { mode: "manual", fallbackMs: 3000 }` when you need certification-grade control
+- keep `bootWindowMs` or `bootWindow: { mode: "timer", ms: ... }` only as a compatibility fallback when you cannot close manually yet
 - keep auth/session stores `server_wins`
 - keep drafts/forms `client_wins`
 - use `merge` for filters or preference bags and `invalidate_and_refetch` for replayable async caches

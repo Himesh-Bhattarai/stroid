@@ -12,9 +12,10 @@
 ><summary><strong> Unreleased </strong></summary>
 >- Added an optional fourth `hydrateStores(..., options, trust, consistency?)` argument for post-hydration consistency contracts, including snapshot metadata, per-store authorities, per-store reconciliation policies, and `onDrift` diagnostics.
 >- Added hydration boot-window write deferral with deterministic replay for early `effect`, `storage`, `network`, and `sync` writes, plus policy execution for `server_wins`, `client_wins`, `merge`, and `invalidate_and_refetch`.
+>- Added manual hydration boot-window control through `HydrationResult.bootWindow`, including `bootWindow: { mode: "manual" }`, optional `fallbackMs`, and runtime metrics that expose whether manual close is available.
 >- Added `stroid/runtime-tools` hydration observability helpers: `getHydrationConsistency()`, `getHydrationDriftEvents()`, and `getHydrationDriftMetrics()`.
 >- Hardened integration, regression, and public type coverage for post-hydration drift governance, including early effect input, stale storage restore ordering, websocket/sync burst replay, and invalidation-driven async refetch recovery.
->- Added a dedicated `benchmark:hydration-divergence` lane and folded it into the guarantee benchmark suite, with numeric certification results now recorded in the benchmark report.
+>- Upgraded `benchmark:hydration-divergence` into a first-class hydration guarantee suite with `try`, `hit`, `stress`, and `hammer` campaigns under the manual-close boundary, and folded that certification into `benchmark:guarantees`.
 >- Added a dedicated Post-Hydration Consistency guide with adoption defaults and updated the README, server guide, runtime-tools guide, benchmark report, version migration guide, and `NEXT_PHASE.md` status note to reflect the shipped consistency layer.
 >- Added a dedicated `stroid/query` entrypoint for `reactQueryKey` and `swrKey`, so cache-key helpers can be imported without pulling the heavier async query fetcher surface.
 >- Reduced `stroid/persist` import retention by routing the leaf entrypoint to the direct feature installer, and regrouped `runtime-tools` internals plus query-key helpers for narrower future tree-shaking work.

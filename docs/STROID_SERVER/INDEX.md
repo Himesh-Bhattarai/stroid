@@ -224,7 +224,7 @@ const html = stores.hydrate(
 Use it when the server snapshot is trusted, but you still want bounded behavior once browser-only writes begin.
 
 ```ts
-hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
+const hydration = hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
   contract: {
     snapshotVersion: 3,
     timestamp: Date.now(),
@@ -234,21 +234,30 @@ hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
       filters: { authority: "mergeable" },
     },
   },
-  bootWindowMs: 30,
+  bootWindow: {
+    mode: "manual",
+    fallbackMs: 3000,
+  },
   policyMap: {
     session: "server_wins",
     draft: "client_wins",
     filters: "merge",
   },
 })
+
+hydration.bootWindow?.close()
 ```
+
+`hydration.bootWindow?.close()` should be called from the readiness boundary your app controls, not guessed with an arbitrary timeout when you can avoid it.
 
 The consistency layer can:
 
-- defer early `effect`, `storage`, `network`, and `sync` writes during a short boot window
+- defer early `effect`, `storage`, `network`, and `sync` writes during the boot window
 - replay queued writes in deterministic order once hydration settles
 - emit structured drift events through `consistency.onDrift`
 - reconcile each store with `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`
+
+Manual close is the strongest contract. Short timers are still supported, but they are best-effort because they guess when hydration is done.
 
 For the full contract, adoption defaults, and runtime-tools inspection APIs, see [Post-Hydration Consistency](./POST_HYDRATION_CONSISTENCY.md).
 

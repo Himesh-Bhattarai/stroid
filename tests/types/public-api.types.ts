@@ -18,6 +18,8 @@ import {
   hydrateStores,
   type StoreDefinition,
   type HydrateSnapshotFor,
+  type HydrationBootWindowControl,
+  type HydrationBootWindowOptions,
   type HydrationConsistencyOptions,
   type HydrationDriftEvent,
   type HydrationResult,
@@ -269,6 +271,10 @@ const hydratedLoose = hydrateStores(
   { allowTrusted: true }
 );
 type HydratedLooseReturn = Expect<Equal<typeof hydratedLoose, HydrationResult>>;
+const manualBootWindow: HydrationBootWindowOptions = {
+  mode: "manual",
+  fallbackMs: 100,
+};
 const typedConsistency: HydrationConsistencyOptions<RequestHydrateSnapshot> = {
   contract: {
     snapshotVersion: 1,
@@ -290,7 +296,7 @@ const typedConsistency: HydrationConsistencyOptions<RequestHydrateSnapshot> = {
     void event.policy;
     void event.source;
   },
-  bootWindowMs: 10,
+  bootWindow: manualBootWindow,
 };
 const hydratedConsistent = hydrateStores<RequestHydrateSnapshot>(
   requestHydrateInput,
@@ -299,6 +305,10 @@ const hydratedConsistent = hydrateStores<RequestHydrateSnapshot>(
   typedConsistency
 );
 type HydratedConsistentReturn = Expect<Equal<typeof hydratedConsistent, HydrationResult>>;
+const maybeBootWindow: HydrationBootWindowControl | undefined = hydratedConsistent.bootWindow;
+void maybeBootWindow?.close();
+const maybeBootWindowMode = maybeBootWindow?.mode;
+type ManualBootWindowMode = Expect<Equal<typeof maybeBootWindowMode, "timer" | "manual" | undefined>>;
 // @ts-expect-error options should only accept keys from the snapshot
 hydrateStores({ hydrateLoose: { value: 1 } }, { missing: { persist: true } }, { allowTrusted: true });
 // @ts-expect-error consistency policy map should only accept keys from the snapshot
