@@ -13,6 +13,7 @@
 - [Cross-tab Sync](./STROID_SYNC/INDEX.md)
 - [Computed Stores](./STROID_COMPUTED/INDEX.md)
 - [Server & SSR](./STROID_SERVER/INDEX.md)
+- [Post-Hydration Consistency](./STROID_SERVER/POST_HYDRATION_CONSISTENCY.md)
 - [Testing](./STROID_TESTING/INDEX.md)
 - [Runtime Tools & Devtools](./STROID_RUNTIME_TOOLS/INDEX.md)
 - [TypeScript & Advanced Patterns](./STROID_TYPESCRIPT/INDEX.md)

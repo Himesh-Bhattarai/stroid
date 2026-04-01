@@ -151,7 +151,12 @@ const persistLoadSync = ({
         });
         if (cfg.checksum !== "none" && checksum !== hashState(data)) {
             reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
-            if (!shouldApply || shouldApply()) applyFeatureState(deepClone(getInitialState()), Date.now());
+            if (!shouldApply || shouldApply()) {
+                applyFeatureState(deepClone(getInitialState()), Date.now(), {
+                    source: "storage",
+                    validate: validateState,
+                });
+            }
             return true;
         }
         let parsed = cfg.deserialize(data);
@@ -175,7 +180,10 @@ const persistLoadSync = ({
         if (!result.ok) return true;
         parsed = result.state;
         if (!shouldApply || shouldApply()) {
-            applyFeatureState(result.state, safeUpdatedAt);
+            applyFeatureState(result.state, safeUpdatedAt, {
+                source: "storage",
+                validate: validateState,
+            });
             if (!silent) log(`Store "${name}" loaded from persistence`);
         }
         return true;
@@ -242,7 +250,12 @@ const persistLoadAsync = async ({
         const computedChecksum = await computePersistChecksum(cfg.checksum, data, hashState);
         if (cfg.checksum !== "none" && checksum !== computedChecksum) {
             reportStoreError(name, `Checksum mismatch loading store "${name}". Falling back to initial state.`);
-            if (!shouldApply || shouldApply()) applyFeatureState(deepClone(getInitialState()), Date.now());
+            if (!shouldApply || shouldApply()) {
+                applyFeatureState(deepClone(getInitialState()), Date.now(), {
+                    source: "storage",
+                    validate: validateState,
+                });
+            }
             return true;
         }
         let parsed = cfg.deserialize(data);
@@ -265,7 +278,10 @@ const persistLoadAsync = async ({
         });
         if (!result.ok) return true;
         if (!shouldApply || shouldApply()) {
-            applyFeatureState(result.state, safeUpdatedAt);
+            applyFeatureState(result.state, safeUpdatedAt, {
+                source: "storage",
+                validate: validateState,
+            });
             if (!silent) log(`Store "${name}" loaded from persistence`);
         }
         return true;
@@ -302,7 +318,14 @@ const applyMigratedState = ({
     deepClone: <T>(value: T) => T;
     validateState: (candidate: StoreValue) => { ok: boolean; value?: StoreValue };
     safeUpdatedAt: number;
-    applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
+    applyFeatureState: (
+        value: StoreValue,
+        updatedAtMs?: number,
+        options?: {
+            source?: "storage";
+            validate?: (candidate: StoreValue) => { ok: boolean; value?: StoreValue };
+        }
+    ) => void;
     shouldApply?: () => boolean;
 }): { ok: boolean; state: StoreValue } => {
     if (v !== targetVersion) {
@@ -324,7 +347,12 @@ const applyMigratedState = ({
             });
             parsed = fallback.state;
             if (!fallback.requiresValidation) {
-                if (!shouldApply || shouldApply()) applyFeatureState(parsed, safeUpdatedAt);
+                if (!shouldApply || shouldApply()) {
+                    applyFeatureState(parsed, safeUpdatedAt, {
+                        source: "storage",
+                        validate: validateState,
+                    });
+                }
                 return { ok: false, state: parsed };
             }
         }
@@ -355,12 +383,22 @@ const applyMigratedState = ({
 
         if (migrationFailed) {
             if (!migrationFailureRequiresValidation) {
-                if (!shouldApply || shouldApply()) applyFeatureState(parsed, safeUpdatedAt);
+                if (!shouldApply || shouldApply()) {
+                    applyFeatureState(parsed, safeUpdatedAt, {
+                        source: "storage",
+                        validate: validateState,
+                    });
+                }
                 return { ok: false, state: parsed };
             }
             const recoveredValidation = validateState(parsed);
             if (!recoveredValidation.ok) {
-                if (!shouldApply || shouldApply()) applyFeatureState(deepClone(getInitialState()), Date.now());
+                if (!shouldApply || shouldApply()) {
+                    applyFeatureState(deepClone(getInitialState()), Date.now(), {
+                        source: "storage",
+                        validate: validateState,
+                    });
+                }
                 return { ok: false, state: parsed };
             }
             return { ok: true, state: recoveredValidation.value ?? parsed };
@@ -382,7 +420,12 @@ const applyMigratedState = ({
                 deepClone,
             });
             if (!fallback.requiresValidation) {
-                if (!shouldApply || shouldApply()) applyFeatureState(fallback.state, safeUpdatedAt);
+                if (!shouldApply || shouldApply()) {
+                    applyFeatureState(fallback.state, safeUpdatedAt, {
+                        source: "storage",
+                        validate: validateState,
+                    });
+                }
                 return { ok: false, state: fallback.state };
             }
 
@@ -395,7 +438,12 @@ const applyMigratedState = ({
             }
         }
         reportStoreError(name, `Persisted state for "${name}" failed schema; resetting to initial.`);
-        if (!shouldApply || shouldApply()) applyFeatureState(deepClone(getInitialState()), Date.now());
+        if (!shouldApply || shouldApply()) {
+            applyFeatureState(deepClone(getInitialState()), Date.now(), {
+                source: "storage",
+                validate: validateState,
+            });
+        }
         return { ok: false, state: parsed };
     }
 

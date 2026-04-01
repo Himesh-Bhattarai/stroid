@@ -8,6 +8,7 @@
  */
 import type { NormalizedOptions, StoreValue } from "../adapters/options.js";
 import type { TraceContext } from "../types/utility.js";
+import type { HydrationConsistencySource } from "../core/hydration-consistency.js";
 
 export type BuiltInFeatureName = "persist" | "sync" | "devtools";
 export type FeatureName = BuiltInFeatureName | (string & {});
@@ -47,7 +48,14 @@ export interface FeatureHookContext {
     getInitialState: () => StoreValue;
     hasStore: () => boolean;
     setStoreValue: (value: StoreValue) => void;
-    applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
+    applyFeatureState: (
+        value: StoreValue,
+        updatedAtMs?: number,
+        options?: {
+            source?: HydrationConsistencySource;
+            validate?: (candidate: StoreValue) => { ok: boolean; value?: StoreValue };
+        }
+    ) => StoreValue;
     notify: () => void;
     reportStoreError: (message: string) => void;
     warn: (message: string) => void;
@@ -120,5 +128,3 @@ export const resetRegisteredStoreFeaturesForTests = (): void => {
     _featureFactories.clear();
     _onFeatureRegistered = null;
 };
-
-

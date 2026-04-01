@@ -1,6 +1,6 @@
 # 🖥️ Server / SSR Guide
 
-> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-04-01 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/server/index.ts`, `src/core/store-registry.ts`*
 
@@ -13,6 +13,7 @@
 - [createStoreForRequest](#-createstorefor-request)
 - [API: RequestStoreApi](#-api-requeststoreapi)
 - [Hydration](#-hydration)
+- [Post-Hydration Consistency](#-post-hydration-consistency)
 - [Practical Example](#-practical-example)
 - [Request Isolation](#-request-isolation)
 - [AsyncLocalStorage](#-asynclocalstorage)
@@ -214,6 +215,42 @@ const html = stores.hydrate(
   }
 )
 ```
+
+---
+
+## 🛡️ Post-Hydration Consistency
+
+`hydrateStores(...)` now accepts an optional fourth `consistency` argument on the client.
+Use it when the server snapshot is trusted, but you still want bounded behavior once browser-only writes begin.
+
+```ts
+hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
+  contract: {
+    snapshotVersion: 3,
+    timestamp: Date.now(),
+    stores: {
+      session: { authority: "server-authoritative" },
+      draft: { authority: "client-authoritative" },
+      filters: { authority: "mergeable" },
+    },
+  },
+  bootWindowMs: 30,
+  policyMap: {
+    session: "server_wins",
+    draft: "client_wins",
+    filters: "merge",
+  },
+})
+```
+
+The consistency layer can:
+
+- defer early `effect`, `storage`, `network`, and `sync` writes during a short boot window
+- replay queued writes in deterministic order once hydration settles
+- emit structured drift events through `consistency.onDrift`
+- reconcile each store with `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`
+
+For the full contract and runtime-tools inspection APIs, see [Post-Hydration Consistency](./POST_HYDRATION_CONSISTENCY.md).
 
 ---
 

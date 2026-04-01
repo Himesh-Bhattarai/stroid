@@ -82,9 +82,10 @@ export const createBaseFeatureContext = (name: string): FeatureHookContext | nul
         setStoreValue: (value: StoreValue) => {
             setStoreValueInternal(name, value);
         },
-        applyFeatureState: (value: StoreValue, updatedAtMs?: number) => {
-            applyFeatureState(name, value, updatedAtMs);
+        applyFeatureState: (value: StoreValue, updatedAtMs?: number, options?) => {
+            const next = applyFeatureState(name, value, updatedAtMs, options);
             invalidatePathCache(name);
+            return next;
         },
         notify: () => {
             // noop placeholder to be bound by store-notify
@@ -304,4 +305,3 @@ export const resolveFeatureAvailability = (name: string, options: NormalizedOpti
 
     return next;
 };
-

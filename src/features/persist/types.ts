@@ -7,6 +7,7 @@
  * Consumers: Internal imports and public API.
  */
 import type { PersistConfig, StoreValue } from "../../adapters/options.js";
+import type { HydrationConsistencySource } from "../../core/hydration-consistency.js";
 
 export type PersistWatchEntry = { lastPresent: boolean; dispose: () => void };
 export type PersistWatchState = Record<string, PersistWatchEntry>;
@@ -30,7 +31,14 @@ export type PersistLoadArgs = {
     silent?: boolean;
     getMeta: () => PersistMeta | undefined;
     getInitialState: () => StoreValue;
-    applyFeatureState: (value: StoreValue, updatedAtMs?: number) => void;
+    applyFeatureState: (
+        value: StoreValue,
+        updatedAtMs?: number,
+        options?: {
+            source?: HydrationConsistencySource;
+            validate?: (candidate: StoreValue) => { ok: boolean; value?: StoreValue };
+        }
+    ) => StoreValue;
     shouldApply?: () => boolean;
     reportStoreError: (name: string, message: string) => void;
     warnMissingMaxSize?: (rawLength: number) => void;
@@ -54,5 +62,3 @@ export type PersistSaveArgs = {
     reportStoreError: (name: string, message: string) => void;
     hashState: (value: unknown) => number;
 };
-
-

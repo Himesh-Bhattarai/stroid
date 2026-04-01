@@ -22,7 +22,7 @@
 # 🟣 Stroid - State Engine for TypeScript and React
 **Named-store state engine for TypeScript and React.**
 
-Every store has a name. Write to it from anywhere: hooks, utilities, server, tests. Optional layers add persistence, sync, async fetch, SSR isolation, and devtools without coupling to core logic.
+Every store has a name. Write to it from anywhere: hooks, utilities, server, tests. Optional layers add persistence, sync, async fetch, SSR isolation, post-hydration consistency controls, and devtools without coupling to core logic.
 <br />
 [**Get Started**](#30-second-quickstart) | [**Why Stroid**](#why-stroid) | [**API Reference**](#full-api-reference) | [**PSR**](#psr---write-governance) | [**DevTools**](#devtools) | [**Examples**](#real-world-examples)
 
@@ -89,6 +89,7 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 - `asyncAutoCreate` is a development convenience, not a production safety feature. Leave it off in production to avoid typo-created phantom stores.
 - `stroid/sync` uses same-origin `BroadcastChannel` transport. Stroid requests a fresh snapshot on startup, focus, and reconnect, but listener registration can still race under load, `policy: "insecure"` is an explicit opt-out, and open channels may reduce BFCache restores.
 - `stroid/persist` relies on browser storage. `checksum: "hash"` is non-cryptographic, and Safari/WebKit can evict script-writable storage after roughly 7 days of inactivity, so persisted auth, carts, and drafts should have a server-backed recovery path.
+- `hydrateStores(snapshot, options, trust, consistency?)` can add a bounded post-hydration consistency window. Stroid can defer early client writes, emit structured drift events, and reconcile per store with `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`.
 - If bundle size matters, prefer targeted subpaths such as `stroid/core`, `stroid/query`, `stroid/persist`, `stroid/sync`, `stroid/devtools`, and `stroid/runtime-tools` instead of reaching through the root namespace for everything.
 
 ---
@@ -168,6 +169,7 @@ Stroid is a fit when you need these together:
 - Named global stores with direct writes
 - Optional feature installs instead of mandatory side effects
 - Strict hydration trust gate (`hydrateStores(..., ..., { allowTrusted: true })`)
+- Governed post-hydration drift handling with per-store consistency policies
 - Request-scoped SSR runtime (`createStoreForRequest`) with server guards
 - PSR-style patch application and runtime graph inspection (`stroid/psr`)
 
@@ -287,10 +289,25 @@ hydrateStores(
     profile: { name: "Asha" },
   },
   {},
-  { allowTrusted: true }
+  { allowTrusted: true },
+  {
+    contract: {
+      snapshotVersion: 3,
+      timestamp: Date.now(),
+      stores: {
+        cart: { authority: "server-authoritative" },
+        profile: { authority: "client-authoritative" },
+      },
+    },
+    bootWindowMs: 30,
+    policyMap: {
+      cart: "server_wins",
+      profile: "client_wins",
+    },
+  }
 );
 ```
-Hydrates many stores from a trusted snapshot payload.
+Hydrates many stores from a trusted snapshot payload. The optional fourth argument adds post-hydration drift controls, write deferral during the boot window, and structured drift diagnostics.
 
 ---
 
@@ -974,7 +991,7 @@ Import from `stroid` for batching/hydration/computed plus runtime metrics and co
 - `stroid/server`: `createStoreForRequest`.
 - `stroid/helpers`: `createEntityStore`, `createListStore`, `createCounterStore`.
 - `stroid/testing`: `createMockStore`, `resetAllStoresForTest`, `withMockedTime`, `benchmarkStoreSet`.
-- `stroid/runtime-tools`: Store/runtime observability APIs.
+- `stroid/runtime-tools`: Store/runtime observability APIs, including hydration drift reports and counters.
 - `stroid/runtime-admin`: `clearAllStores`, `clearStores`.
 - `stroid/feature`: Feature registration APIs.
 - `stroid/install`: `installPersist`, `installSync`, `installDevtools`, `installAllFeatures`.
@@ -995,7 +1012,7 @@ Import from `stroid` for batching/hydration/computed plus runtime metrics and co
 | `resetStore(name)` | Restore initial state. |
 | `hasStore(name)` | Check if store exists. |
 | `setStoreBatch(fn)` | Group synchronous writes into one transaction. |
-| `hydrateStores(snapshot, options?, trust)` | Hydrate trusted snapshot into runtime. |
+| `hydrateStores(snapshot, options?, trust, consistency?)` | Hydrate trusted snapshot into runtime, optionally governing post-hydration drift. |
 | `configureStroid(config)` | Configure global/runtime behavior. |
 | `useStore(name, selectorOrPath?)` | React subscription hook. |
 | `useSelector(name, fn, equality?)` | Fine-grained React selector hook. |

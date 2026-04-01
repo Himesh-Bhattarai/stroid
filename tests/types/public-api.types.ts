@@ -18,6 +18,8 @@ import {
   hydrateStores,
   type StoreDefinition,
   type HydrateSnapshotFor,
+  type HydrationConsistencyOptions,
+  type HydrationDriftEvent,
   type HydrationResult,
   type StoreStateMap,
   store,
@@ -267,8 +269,40 @@ const hydratedLoose = hydrateStores(
   { allowTrusted: true }
 );
 type HydratedLooseReturn = Expect<Equal<typeof hydratedLoose, HydrationResult>>;
+const typedConsistency: HydrationConsistencyOptions<RequestHydrateSnapshot> = {
+  contract: {
+    snapshotVersion: 1,
+    authority: "server-authoritative",
+    stores: {
+      requestUser: {
+        schemaSignature: "request-user@1",
+      },
+    },
+  },
+  policyMap: {
+    requestUser: {
+      policy: "merge",
+      merge: ({ baseline, live }) => live ?? baseline,
+    },
+    flags: "client_wins",
+  },
+  onDrift: (event: HydrationDriftEvent<RequestHydrateSnapshot>) => {
+    void event.policy;
+    void event.source;
+  },
+  bootWindowMs: 10,
+};
+const hydratedConsistent = hydrateStores<RequestHydrateSnapshot>(
+  requestHydrateInput,
+  {},
+  { allowTrusted: true },
+  typedConsistency
+);
+type HydratedConsistentReturn = Expect<Equal<typeof hydratedConsistent, HydrationResult>>;
 // @ts-expect-error options should only accept keys from the snapshot
 hydrateStores({ hydrateLoose: { value: 1 } }, { missing: { persist: true } }, { allowTrusted: true });
+// @ts-expect-error consistency policy map should only accept keys from the snapshot
+hydrateStores(requestHydrateInput, {}, { allowTrusted: true }, { policyMap: { missing: "server_wins" } });
 
 createStore("legacyTyped", { count: 1 }, {
   historyLimit: 10,
@@ -287,5 +321,3 @@ createStore("legacyTyped", { count: 1 }, {
 createStore("badScope", { value: 1 }, { scope: "scoped" });
 // @ts-expect-error invalid sync maxPayloadBytes type should be rejected
 createStore("badSync", { value: 1 }, { sync: { maxPayloadBytes: "big" } });
-
-

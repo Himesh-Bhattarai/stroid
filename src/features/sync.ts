@@ -207,7 +207,7 @@ export const setupSync = ({
     validate,
     reportStoreError,
     warn,
-    setStoreValue,
+    applyIncomingState,
     normalizeIncomingState,
     acceptIncomingSyncVersion,
     resolveSyncVersion,
@@ -230,7 +230,7 @@ export const setupSync = ({
     validate: (name: string, next: StoreValue) => { ok: boolean; value?: StoreValue };
     reportStoreError: (name: string, message: string) => void;
     warn: (message: string) => void;
-    setStoreValue: (name: string, value: StoreValue) => void;
+    applyIncomingState: (name: string, value: StoreValue, updatedAtMs: number) => StoreValue;
     normalizeIncomingState: (name: string, value: StoreValue) => StoreValue | null;
     acceptIncomingSyncVersion: (name: string, updatedAtMs: number, incomingClock: number, source: string) => void;
     resolveSyncVersion: (name: string, updatedAtMs: number, incomingClock: number) => number;
@@ -366,13 +366,13 @@ export const setupSync = ({
                         const normalizedResolved = normalizeIncomingState(name, resolved);
                         if (normalizedResolved === null) return;
                         const prev = getStoreValue(name);
-                        setStoreValue(name, normalizedResolved);
                         const resolveUpdatedAt = typeof syncOption === "object" ? syncOption.resolveUpdatedAt : null;
                         const resolvedUpdatedAt = resolveUpdatedAt
                             ? resolveUpdatedAt({ localUpdated, incomingUpdated, now: Date.now() })
                             : Math.max(Date.now(), localUpdated, incomingUpdated);
+                        const appliedValue = applyIncomingState(name, normalizedResolved, resolvedUpdatedAt);
                         resolveSyncVersion(name, resolvedUpdatedAt, typeof msg.clock === "number" ? msg.clock : 0);
-                        runFeatureWriteHooksExcept(name, "sync", prev, normalizedResolved, () => notify(name), ["sync"]);
+                        runFeatureWriteHooksExcept(name, "sync", prev, appliedValue, () => notify(name), ["sync"]);
                         if (loopGuardMs) markLoopGuard(name, loopGuardMs);
                         notify(name);
                         broadcastSync(name);
@@ -383,14 +383,18 @@ export const setupSync = ({
             const normalizedIncoming = normalizeIncomingState(name, msg.data);
             if (normalizedIncoming === null) return;
             const prev = getStoreValue(name);
-            setStoreValue(name, normalizedIncoming);
+            const appliedValue = applyIncomingState(
+                name,
+                normalizedIncoming,
+                typeof msg.updatedAt === "number" ? msg.updatedAt : Date.now()
+            );
             acceptIncomingSyncVersion(
                 name,
                 typeof msg.updatedAt === "number" ? msg.updatedAt : Date.now(),
                 typeof msg.clock === "number" ? msg.clock : 0,
                 typeof msg.source === "string" ? msg.source : ""
             );
-            runFeatureWriteHooksExcept(name, "sync", prev, normalizedIncoming, () => notify(name), ["sync"]);
+            runFeatureWriteHooksExcept(name, "sync", prev, appliedValue, () => notify(name), ["sync"]);
             if (loopGuardMs) markLoopGuard(name, loopGuardMs);
             notify(name);
         };
@@ -595,7 +599,11 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                 validate: (name, next) => ctx.validate(next),
                 reportStoreError: (name, message) => ctx.reportStoreError(message),
                 warn: ctx.warn,
-                setStoreValue: (name, value) => ctx.setStoreValue(value),
+                applyIncomingState: (name, value, updatedAtMs) =>
+                    ctx.applyFeatureState(value, updatedAtMs, {
+                        source: "sync",
+                        validate: ctx.validate,
+                    }),
                 normalizeIncomingState: (name, value) => {
                     const normalized = normalizeFeatureState({
                         value,
@@ -611,7 +619,6 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                     return normalized.value;
                 },
                 acceptIncomingSyncVersion: (name, updatedAtMs, incomingClock, source) => {
-                    ctx.applyFeatureState(ctx.getStoreValue(), updatedAtMs);
                     syncClocks[ctx.name] = Math.max(syncClocks[ctx.name] ?? 0, incomingClock);
                     syncVersions[ctx.name] = {
                         clock: incomingClock,
@@ -620,7 +627,6 @@ export const createSyncFeatureRuntime = (): StoreFeatureRuntime => {
                     };
                 },
                 resolveSyncVersion: (name, updatedAtMs, incomingClock) => {
-                    ctx.applyFeatureState(ctx.getStoreValue(), updatedAtMs);
                     const resolvedClock = absorbSyncClock(ctx.name, incomingClock, syncClocks);
                     syncVersions[ctx.name] = {
                         clock: resolvedClock,
@@ -721,4 +727,3 @@ export const registerSyncFeature = (): void => {
 export const installSync = (): void => {
     registerSyncFeature();
 };
-

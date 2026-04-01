@@ -24,6 +24,7 @@ import {
     setLifecycleListener,
 } from "../store-registry.js";
 import { registerTestResetHook } from "../../internals/test-reset.js";
+import { warn } from "../../internals/diagnostics.js";
 import {
     getStoreFeatureFactory,
     getRegisteredFeatureNames,
@@ -35,6 +36,13 @@ import {
 import { createStoreAdmin } from "../../internals/store-admin.js";
 import type { StoreValue, Subscriber } from "./types.js";
 import { getStagedTransactionValue, isTransactionActive } from "../store-transaction.js";
+import {
+    enqueueHydrationWrite,
+    reconcileHydrationValue,
+    runHydrationInvalidationHandler,
+    shouldQueueHydrationWrite,
+    type HydrationConsistencySource,
+} from "../hydration-consistency.js";
 
 export { defaultRegistryScope } from "../store-registry.js";
 export type { StoreLifecycleEvent } from "../store-registry.js";
@@ -203,9 +211,37 @@ export const setStoreValueInternal = (name: string, value: StoreValue, registry:
     }
 };
 
-export const applyFeatureState = (name: string, value: StoreValue, updatedAtMs = Date.now()): void => {
-    setStoreValueInternal(name, value);
-    if (!meta[name]) return;
+export const applyFeatureState = (
+    name: string,
+    value: StoreValue,
+    updatedAtMs = Date.now(),
+    options: {
+        source?: HydrationConsistencySource;
+        validate?: (candidate: StoreValue) => { ok: boolean; value?: StoreValue };
+        bypassHydrationQueue?: boolean;
+    } = {}
+): StoreValue => {
+    const registry = getActiveRegistry();
+    const source = options.source ?? "unknown";
+    if (!options.bypassHydrationQueue && shouldQueueHydrationWrite(registry, name, source)) {
+        enqueueHydrationWrite(registry, name, source, () => {
+            applyFeatureState(name, value, updatedAtMs, {
+                ...options,
+                bypassHydrationQueue: true,
+            });
+        });
+        return value;
+    }
+    const reconciled = reconcileHydrationValue({
+        registry,
+        store: name,
+        value,
+        source,
+        normalize: options.validate,
+    });
+    const nextValue = reconciled.value as StoreValue;
+    setStoreValueInternal(name, nextValue, registry);
+    if (!meta[name]) return nextValue;
     meta[name].updatedAt = new Date(updatedAtMs).toISOString();
     meta[name].updatedAtMs = updatedAtMs;
     meta[name].lastCorrelationId = null;
@@ -218,6 +254,23 @@ export const applyFeatureState = (name: string, value: StoreValue, updatedAtMs =
         meta[name].updateCount += 1;
     }
     _invalidatePathCache?.(name);
+    if (reconciled.invalidated) {
+        runHydrationInvalidationHandler(registry, name, reconciled.event?.live ?? value, source);
+        if (reconciled.needsRefetch && registry.async.fetchRegistry[name]) {
+            queueMicrotask(() => {
+                void import("../../async/fetch.js")
+                    .then(async ({ refetchStore }) => {
+                        await refetchStore({ name } as { name: string });
+                    })
+                    .catch((error) => {
+                        warn(
+                            `Post-hydration refetch for "${name}" failed: ${(error as { message?: string })?.message ?? error}`
+                        );
+                    });
+            });
+        }
+    }
+    return nextValue;
 };
 
 export const recordStoreRead = (name: string, registry: StoreRegistry = getActiveRegistry()): void => {
@@ -261,5 +314,3 @@ export const resolveScope = (scopeOrRegistry?: string | ReturnType<typeof getSto
         : scopeOrRegistry ?? getStoreRegistry(_scope);
     return { scope: resolvedScope, registry };
 };
-
-

@@ -119,7 +119,70 @@ export type HydrateSnapshotFor<Map extends object> = Partial<{
 // Warning: (ae-forgotten-export) The symbol "HydrationTrust" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
-export const hydrateStores: <Snapshot extends object = HydrateSnapshot>(snapshot: Snapshot, options: HydrateOptions<Snapshot> | undefined, trust: HydrationTrust<Snapshot>) => HydrationResult;
+export const hydrateStores: <Snapshot extends object = HydrateSnapshot>(snapshot: Snapshot, options: HydrateOptions<Snapshot> | undefined, trust: HydrationTrust<Snapshot>, consistency?: HydrationConsistencyOptions<Snapshot>) => HydrationResult;
+
+// @public (undocumented)
+export type HydrationConsistencyAuthority = "server-authoritative" | "client-authoritative" | "mergeable";
+
+// @public (undocumented)
+export type HydrationConsistencyContract<Snapshot extends object = Record<string, unknown>> = HydrationSnapshotMetadata & {
+    authority?: HydrationConsistencyAuthority;
+    stores?: Partial<{
+        [K in keyof Snapshot & string]: HydrationConsistencyStoreContract;
+    }>;
+};
+
+// @public (undocumented)
+export type HydrationConsistencyOptions<Snapshot extends object = Record<string, unknown>> = {
+    contract?: HydrationConsistencyContract<Snapshot>;
+    policyMap?: Partial<{
+        [K in keyof Snapshot & string]: HydrationConsistencyStorePolicy<Snapshot[K]>;
+    }>;
+    onDrift?: (event: HydrationDriftEvent<Snapshot>) => void;
+    bootWindowMs?: number;
+    deferSources?: readonly HydrationConsistencySource[];
+    maxEvents?: number;
+};
+
+// @public (undocumented)
+export type HydrationConsistencyPolicy = "server_wins" | "client_wins" | "merge" | "invalidate_and_refetch";
+
+// @public (undocumented)
+export type HydrationConsistencyResolution = "stable" | "server_reverted" | "client_kept" | "merged" | "invalidated";
+
+// @public
+export type HydrationConsistencySource = "effect" | "storage" | "network" | "sync" | "hydrate" | "unknown";
+
+// @public (undocumented)
+export type HydrationConsistencyStorePolicy<State = unknown> = HydrationConsistencyPolicy | {
+    policy: HydrationConsistencyPolicy;
+    merge?: (args: HydrationMergeArgs<State>) => State;
+    onInvalidate?: (args: HydrationInvalidateArgs<State>) => void;
+};
+
+// @public (undocumented)
+export type HydrationDriftEvent<Snapshot extends object = Record<string, unknown>> = {
+    id: string;
+    store: keyof Snapshot & string | string;
+    source: HydrationConsistencySource;
+    authority: HydrationConsistencyAuthority;
+    policy: HydrationConsistencyPolicy;
+    resolution: HydrationConsistencyResolution;
+    detectedAt: string;
+    detectedAtMs: number;
+    firstDivergedAt: string;
+    firstDivergedAtMs: number;
+    hydratedAt: string;
+    hydratedAtMs: number;
+    baselineHash: number;
+    liveHash: number;
+    resolvedHash: number;
+    invalidated: boolean;
+    metadata: HydrationSnapshotMetadata;
+    baseline: unknown;
+    live: unknown;
+    resolved: unknown;
+};
 
 // @public (undocumented)
 export type HydrationFailure = {
@@ -138,6 +201,14 @@ export type HydrationResult = {
         reason: HydrationBlockReason;
         cause?: unknown;
     };
+};
+
+// @public (undocumented)
+export type HydrationSnapshotMetadata = {
+    snapshotVersion?: string | number;
+    timestamp?: number;
+    checksum?: string | number;
+    schemaSignature?: string;
 };
 
 // @public (undocumented)
@@ -375,6 +446,9 @@ export type WriteResult = {
 
 // Warnings were encountered during analysis:
 //
+// dist/feature-internal.d.ts:27:5 - (ae-forgotten-export) The symbol "HydrationConsistencyStoreContract" needs to be exported by the entry point index.d.ts
+// dist/feature-internal.d.ts:45:5 - (ae-forgotten-export) The symbol "HydrationMergeArgs" needs to be exported by the entry point index.d.ts
+// dist/feature-internal.d.ts:46:5 - (ae-forgotten-export) The symbol "HydrationInvalidateArgs" needs to be exported by the entry point index.d.ts
 // dist/types.d.ts:26:5 - (ae-forgotten-export) The symbol "HydrationFailureReason" needs to be exported by the entry point index.d.ts
 // dist/types.d.ts:36:9 - (ae-forgotten-export) The symbol "HydrationBlockReason" needs to be exported by the entry point index.d.ts
 

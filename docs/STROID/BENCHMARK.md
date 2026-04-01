@@ -34,6 +34,7 @@ Headline results:
 - benchmark commands were run serially on the same machine to avoid cross-process contention skewing the measurements
 - the guarantee suite intentionally emits warning lines during the atomic rollback benchmark because it injects controlled failures; those warnings are expected and the benchmark still passed
 - the bundle-closure probe below is kept as a separate build-oriented study; it is not produced by the `npm run benchmark:*` scripts
+- post-hydration consistency now has deterministic integration/type certification and runtime-tools coverage in the repository, but this `2026-03-31` report does not yet include a dedicated numeric benchmark lane for that new surface
 
 ## Bundle-Closure Probe
 

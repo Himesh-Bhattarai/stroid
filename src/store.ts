@@ -25,6 +25,17 @@ export type {
     WriteResult,
 } from "./core/store-lifecycle/types.js";
 export type {
+    HydrationConsistencyAuthority,
+    HydrationConsistencyContract,
+    HydrationConsistencyOptions,
+    HydrationConsistencyPolicy,
+    HydrationConsistencyResolution,
+    HydrationConsistencySource,
+    HydrationConsistencyStorePolicy,
+    HydrationDriftEvent,
+    HydrationSnapshotMetadata,
+} from "./core/hydration-consistency.js";
+export type {
     FeatureOptions,
     FeatureOptionsMap,
     PersistConfig,
@@ -69,5 +80,4 @@ export {
 export { clearAllStores, clearStores } from "./runtime-admin/index.js";
 
 export { store, namespace } from "./core/store-name.js";
-
 

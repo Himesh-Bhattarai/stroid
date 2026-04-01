@@ -42,3 +42,12 @@ export type {
     RuntimeNodeType,
 } from "./graph.js";
 
+export {
+    getHydrationConsistency,
+    getHydrationDriftEvents,
+    getHydrationDriftMetrics,
+} from "./hydration.js";
+export type {
+    HydrationConsistencyReport,
+    HydrationDriftMetrics,
+} from "./hydration.js";

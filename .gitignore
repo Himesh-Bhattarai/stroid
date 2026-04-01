@@ -50,3 +50,4 @@ tests/.tmp-*.txt
 # local planning docs
 EXPOSE.md
 PSR_NATIVE_REPORT.md
+NEXT_PHASE.md

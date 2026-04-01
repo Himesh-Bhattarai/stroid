@@ -59,6 +59,10 @@ import {
     resolveWriteContext,
     stageOrCommitUpdate,
 } from "./store-write-shared.js";
+import {
+    enqueueHydrationWrite,
+    shouldQueueHydrationWrite,
+} from "./hydration-consistency.js";
 
 type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: any) => void);
 // If store names are loose (not registered via StoreStateMap), fall back to untyped paths/values.
@@ -108,7 +112,8 @@ const setStoreInternal = (
     name: string | StoreDefinition<string, StoreValue>,
     keyOrData: KeyOrData,
     value?: unknown,
-    context?: WriteContext | null
+    context?: WriteContext | null,
+    deferOptions: { bypassHydrationQueue?: boolean } = {}
 ): WriteResult => {
     const storeName = nameOf(name);
     const registry = getRegistry();
@@ -121,6 +126,13 @@ const setStoreInternal = (
         reportStoreError(storeName, message);
         if (isTransactionActive()) markTransactionFailed(message);
         return { ok: false, reason: "not-found" };
+    }
+    const sourceHint = context?.sourceHint ?? "effect";
+    if (!deferOptions.bypassHydrationQueue && shouldQueueHydrationWrite(registry, storeName, sourceHint)) {
+        enqueueHydrationWrite(registry, storeName, sourceHint, () => {
+            setStoreInternal(name, keyOrData, value, context, { bypassHydrationQueue: true });
+        });
+        return { ok: true };
     }
     let updated: StoreValue;
     let runtimePatchIntent: SetStorePatchIntent = { kind: "root" };
@@ -294,6 +306,8 @@ const setStoreInternal = (
         logMessage: `Store "${storeName}" updated`,
         context: writeContext,
         runtimePatches,
+        normalizeHydrationCandidate: (candidate) =>
+            normalizeCommittedState(storeName, candidate, validateRule),
     });
     return { ok: true };
 };

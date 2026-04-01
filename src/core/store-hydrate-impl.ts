@@ -24,6 +24,10 @@ import { getTopoOrderedComputeds } from "../computed/computed-graph.js";
 import { replaceStore, replaceStoreState } from "./store-replace-impl.js";
 import { createRootSetRuntimePatch, setLastRuntimePatches } from "./runtime-patch.js";
 import type { RuntimePatch } from "./runtime-patch.js";
+import {
+    initializeHydrationConsistency,
+    type HydrationConsistencyOptions,
+} from "./hydration-consistency.js";
 
 type HydrateSnapshot = HydrateSnapshotFor<StoreStateMap & StrictStoreMap>;
 type HydrateOptions<Snapshot extends object> =
@@ -53,7 +57,8 @@ type HydrationTrust<Snapshot extends object> =
 export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     snapshot: Snapshot,
     options: HydrateOptions<Snapshot> = {},
-    trust: HydrationTrust<Snapshot>
+    trust: HydrationTrust<Snapshot>,
+    consistency?: HydrationConsistencyOptions<Snapshot>
 ): HydrationResult => {
     if (isTransactionActive()) {
         const message = `hydrateStores(...) cannot be called inside setStoreBatch.`;
@@ -219,5 +224,6 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     if (runtimePatches.length > 0) {
         setLastRuntimePatches(runtimePatches, registry);
     }
+    initializeHydrationConsistency(registry, snapshot, consistency);
     return result;
 };

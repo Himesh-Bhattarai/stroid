@@ -33,8 +33,17 @@ export type {
     PathValue,
     PartialDeep,
     HydrateSnapshotFor,
+    HydrationConsistencyAuthority,
+    HydrationConsistencyContract,
+    HydrationConsistencyOptions,
+    HydrationConsistencyPolicy,
+    HydrationConsistencyResolution,
+    HydrationConsistencySource,
+    HydrationConsistencyStorePolicy,
+    HydrationDriftEvent,
     HydrationFailure,
     HydrationResult,
+    HydrationSnapshotMetadata,
     StoreDefinition,
     StoreValue,
     StoreKey,
@@ -51,5 +60,4 @@ export type {
 } from "./store.js";
 export { configureStroid } from "./config.js";
 export * as queryIntegrations from "./integrations/query.js";
-
 

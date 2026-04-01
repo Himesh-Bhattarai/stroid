@@ -1,0 +1,283 @@
+/**
+ * @module tests/integration/hydration-consistency
+ *
+ * LAYER: Integration
+ * OWNS:  Coverage for post-hydration consistency contracts, replay, and drift tooling.
+ *
+ * Consumers: Test runner.
+ */
+import test from "node:test";
+import assert from "node:assert";
+import {
+  createStore,
+  getStore,
+  hydrateStores,
+  replaceStore,
+  setStore,
+} from "../../src/store.js";
+import { fetchStore } from "../../src/async.js";
+import {
+  getHydrationConsistency,
+  getHydrationDriftEvents,
+  getHydrationDriftMetrics,
+} from "../../src/runtime-tools/index.js";
+import { resetAllStoresForTest } from "../../src/helpers/testing.js";
+import { applyFeatureState } from "../../src/core/store-lifecycle/registry.js";
+
+const wait = async (ms: number): Promise<void> =>
+  await new Promise((resolve) => setTimeout(resolve, ms));
+
+test("hydrateStores exposes hydration consistency metadata through runtime-tools", () => {
+  resetAllStoresForTest();
+  createStore("profile", { name: "server" });
+
+  hydrateStores(
+    { profile: { name: "server" } },
+    {},
+    { allowTrusted: true },
+    {
+      contract: {
+        snapshotVersion: 7,
+        timestamp: 1_717_171_717,
+        stores: {
+          profile: {
+            authority: "server-authoritative",
+            schemaSignature: "profile@1",
+          },
+        },
+      },
+    }
+  );
+
+  const report = getHydrationConsistency("profile");
+  assert.ok(report && !Array.isArray(report));
+  assert.strictEqual(report.snapshotVersion, 7);
+  assert.strictEqual(report.timestamp, 1_717_171_717);
+  assert.strictEqual(report.schemaSignature, "profile@1");
+  assert.strictEqual(report.authority, "server-authoritative");
+  assert.strictEqual(report.policy, "server_wins");
+  assert.strictEqual(report.driftCount, 0);
+});
+
+test("hydration boot window defers early writes and replays mutators in order", async () => {
+  resetAllStoresForTest();
+  createStore("counter", { count: 0 });
+
+  hydrateStores(
+    { counter: { count: 0 } },
+    {},
+    { allowTrusted: true },
+    {
+      bootWindowMs: 20,
+      policyMap: {
+        counter: "client_wins",
+      },
+    }
+  );
+
+  setStore("counter", (draft: { count: number }) => {
+    draft.count += 1;
+  });
+  setStore("counter", (draft: { count: number }) => {
+    draft.count += 1;
+  });
+
+  assert.deepStrictEqual(getStore("counter"), { count: 0 });
+  assert.deepStrictEqual(getHydrationDriftMetrics(), {
+    driftEvents: 0,
+    queuedWrites: 2,
+    replayedWrites: 0,
+    reconciliations: 0,
+    invalidations: 0,
+    pendingWrites: 2,
+    bootWindowActive: true,
+    bootWindowEndsAtMs: getHydrationDriftMetrics().bootWindowEndsAtMs,
+  });
+
+  await wait(30);
+
+  assert.deepStrictEqual(getStore("counter"), { count: 2 });
+  const metrics = getHydrationDriftMetrics();
+  assert.strictEqual(metrics.queuedWrites, 2);
+  assert.strictEqual(metrics.replayedWrites, 2);
+  assert.strictEqual(metrics.pendingWrites, 0);
+  assert.strictEqual(metrics.bootWindowActive, false);
+});
+
+test("server_wins drift policy restores the hydrated baseline and records diagnostics", () => {
+  resetAllStoresForTest();
+  createStore("profile", { name: "server" });
+
+  hydrateStores(
+    { profile: { name: "server" } },
+    {},
+    { allowTrusted: true },
+    {
+      contract: {
+        snapshotVersion: "req-1",
+      },
+      policyMap: {
+        profile: "server_wins",
+      },
+    }
+  );
+
+  setStore("profile", "name", "client");
+
+  assert.deepStrictEqual(getStore("profile"), { name: "server" });
+
+  const [event] = getHydrationDriftEvents(1);
+  assert.ok(event);
+  assert.strictEqual(event.store, "profile");
+  assert.strictEqual(event.source, "effect");
+  assert.strictEqual(event.policy, "server_wins");
+  assert.strictEqual(event.resolution, "server_reverted");
+  assert.strictEqual(event.metadata.snapshotVersion, "req-1");
+
+  const report = getHydrationConsistency("profile");
+  assert.ok(report && !Array.isArray(report));
+  assert.strictEqual(report.driftCount, 1);
+  assert.strictEqual(report.lastResolution, "server_reverted");
+});
+
+test("merge policy combines hydrated baseline fields with client drift", () => {
+  resetAllStoresForTest();
+  createStore("settings", {
+    theme: "light",
+    lang: "en",
+    nested: { server: true, client: false },
+  });
+
+  hydrateStores(
+    {
+      settings: {
+        theme: "light",
+        lang: "en",
+        nested: { server: true, client: false },
+      },
+    },
+    {},
+    { allowTrusted: true },
+    {
+      contract: {
+        stores: {
+          settings: {
+            authority: "mergeable",
+          },
+        },
+      },
+      policyMap: {
+        settings: "merge",
+      },
+    }
+  );
+
+  setStore("settings", {
+    lang: "np",
+    nested: { client: true },
+  } as any);
+
+  assert.deepStrictEqual(getStore("settings"), {
+    theme: "light",
+    lang: "np",
+    nested: { server: true, client: true },
+  });
+
+  const [event] = getHydrationDriftEvents(1);
+  assert.strictEqual(event?.resolution, "merged");
+});
+
+test("feature-driven storage and sync writes surface drift source hints", () => {
+  resetAllStoresForTest();
+  createStore("prefs", { theme: "light" });
+  createStore("presence", { online: false });
+
+  hydrateStores(
+    {
+      prefs: { theme: "light" },
+      presence: { online: false },
+    },
+    {},
+    { allowTrusted: true },
+    {
+      policyMap: {
+        prefs: "client_wins",
+        presence: "client_wins",
+      },
+    }
+  );
+
+  applyFeatureState("prefs", { theme: "dark" }, Date.now(), {
+    source: "storage",
+    validate: (candidate) => ({ ok: true, value: candidate }),
+  });
+  applyFeatureState("presence", { online: true }, Date.now(), {
+    source: "sync",
+    validate: (candidate) => ({ ok: true, value: candidate }),
+  });
+
+  const events = getHydrationDriftEvents(2);
+  assert.strictEqual(events[0]?.source, "storage");
+  assert.strictEqual(events[1]?.source, "sync");
+});
+
+test("invalidate_and_refetch marks drift and accepts the replayed network refresh", async () => {
+  resetAllStoresForTest();
+  createStore("remote", {
+    data: "server",
+    loading: false,
+    error: null,
+    status: "success",
+  });
+
+  const controller = new AbortController();
+  await fetchStore("remote", () => Promise.resolve("fresh"), { signal: controller.signal });
+  replaceStore("remote", {
+    data: "server",
+    loading: false,
+    error: null,
+    status: "success",
+  } as any);
+
+  let invalidations = 0;
+  hydrateStores(
+    {
+      remote: {
+        data: "server",
+        loading: false,
+        error: null,
+        status: "success",
+      },
+    },
+    {},
+    { allowTrusted: true },
+    {
+      policyMap: {
+        remote: {
+          policy: "invalidate_and_refetch",
+          onInvalidate: () => {
+            invalidations += 1;
+          },
+        },
+      },
+    }
+  );
+
+  replaceStore("remote", {
+    data: "client",
+    loading: false,
+    error: null,
+    status: "success",
+  } as any);
+
+  const [event] = getHydrationDriftEvents(1);
+  assert.strictEqual(event?.resolution, "invalidated");
+  assert.strictEqual(invalidations, 1);
+
+  await wait(0);
+  await wait(0);
+
+  const remote = getStore("remote") as any;
+  assert.strictEqual(remote?.data, "fresh");
+  assert.strictEqual(getHydrationDriftMetrics().invalidations, 1);
+});

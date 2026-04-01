@@ -164,15 +164,16 @@ export async function fetchStore(
         const explicit = options.correlationId;
         const trace = options.traceContext;
         if (explicit || trace) {
-            return { correlationId: explicit, traceContext: trace };
+            return { correlationId: explicit, traceContext: trace, sourceHint: "network" };
         }
         if (getConfig().autoCorrelationIds) {
             return {
                 correlationId: `stroid-${name}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
                 traceContext: trace,
+                sourceHint: "network",
             };
         }
-        return null;
+        return { sourceHint: "network" };
     })();
 
     if (!signal && isDev()) {
@@ -188,7 +189,13 @@ export async function fetchStore(
         _applyAsyncState(
             name,
             storeHandle,
-            baseContext ? { ...next, correlationId: baseContext.correlationId, traceContext: baseContext.traceContext } : next,
+            (baseContext && (baseContext.correlationId || baseContext.traceContext))
+                ? {
+                    ...next,
+                    ...(baseContext.correlationId ? { correlationId: baseContext.correlationId } : {}),
+                    ...(baseContext.traceContext ? { traceContext: baseContext.traceContext } : {}),
+                }
+                : next,
             options,
             baseContext
         );

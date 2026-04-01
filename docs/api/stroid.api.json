@@ -2296,6 +2296,19 @@
             },
             {
               "kind": "Content",
+              "text": ", consistency?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyOptions",
+              "canonicalReference": "stroid!HydrationConsistencyOptions:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<Snapshot>"
+            },
+            {
+              "kind": "Content",
               "text": ") => "
             },
             {
@@ -2306,8 +2319,8 @@
           ],
           "fileUrlPath": "dist/index.d.ts",
           "returnTypeTokenRange": {
-            "startIndex": 13,
-            "endIndex": 14
+            "startIndex": 16,
+            "endIndex": 17
           },
           "releaseTag": "Public",
           "overloadIndex": 1,
@@ -2335,6 +2348,14 @@
                 "endIndex": 12
               },
               "isOptional": false
+            },
+            {
+              "parameterName": "consistency",
+              "parameterTypeTokenRange": {
+                "startIndex": 13,
+                "endIndex": 15
+              },
+              "isOptional": true
             }
           ],
           "typeParameters": [
@@ -2351,6 +2372,491 @@
             }
           ],
           "name": "hydrateStores"
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationConsistencyAuthority:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationConsistencyAuthority = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"server-authoritative\" | \"client-authoritative\" | \"mergeable\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/feature-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationConsistencyAuthority",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationConsistencyContract:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationConsistencyContract<Snapshot extends "
+            },
+            {
+              "kind": "Content",
+              "text": "object"
+            },
+            {
+              "kind": "Content",
+              "text": " = "
+            },
+            {
+              "kind": "Reference",
+              "text": "Record",
+              "canonicalReference": "!Record:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, unknown>"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationSnapshotMetadata",
+              "canonicalReference": "stroid!HydrationSnapshotMetadata:type"
+            },
+            {
+              "kind": "Content",
+              "text": " & {\n    authority?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyAuthority",
+              "canonicalReference": "stroid!HydrationConsistencyAuthority:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    stores?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "Partial",
+              "canonicalReference": "!Partial:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<{\n        [K in keyof Snapshot & string]: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyStoreContract",
+              "canonicalReference": "stroid!~HydrationConsistencyStoreContract:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    }>;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/feature-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationConsistencyContract",
+          "typeParameters": [
+            {
+              "typeParameterName": "Snapshot",
+              "constraintTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 3,
+                "endIndex": 5
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 6,
+            "endIndex": 14
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationConsistencyOptions:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationConsistencyOptions<Snapshot extends "
+            },
+            {
+              "kind": "Content",
+              "text": "object"
+            },
+            {
+              "kind": "Content",
+              "text": " = "
+            },
+            {
+              "kind": "Reference",
+              "text": "Record",
+              "canonicalReference": "!Record:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, unknown>"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    contract?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyContract",
+              "canonicalReference": "stroid!HydrationConsistencyContract:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<Snapshot>;\n    policyMap?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "Partial",
+              "canonicalReference": "!Partial:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<{\n        [K in keyof Snapshot & string]: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyStorePolicy",
+              "canonicalReference": "stroid!HydrationConsistencyStorePolicy:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<Snapshot[K]>;\n    }>;\n    onDrift?: (event: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationDriftEvent",
+              "canonicalReference": "stroid!HydrationDriftEvent:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<Snapshot>) => void;\n    bootWindowMs?: number;\n    deferSources?: readonly "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencySource",
+              "canonicalReference": "stroid!HydrationConsistencySource:type"
+            },
+            {
+              "kind": "Content",
+              "text": "[];\n    maxEvents?: number;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/feature-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationConsistencyOptions",
+          "typeParameters": [
+            {
+              "typeParameterName": "Snapshot",
+              "constraintTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 3,
+                "endIndex": 5
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 6,
+            "endIndex": 17
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationConsistencyPolicy:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationConsistencyPolicy = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"server_wins\" | \"client_wins\" | \"merge\" | \"invalidate_and_refetch\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/feature-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationConsistencyPolicy",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationConsistencyResolution:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationConsistencyResolution = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"stable\" | \"server_reverted\" | \"client_kept\" | \"merged\" | \"invalidated\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/feature-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationConsistencyResolution",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationConsistencySource:type",
+          "docComment": "/**\n * @module hydration-consistency/types\n *\n * LAYER: Store runtime OWNS: Public and internal types for post-hydration consistency handling.\n *\n * Consumers: hydration-consistency runtime modules and public barrels.\n */\n",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationConsistencySource = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"effect\" | \"storage\" | \"network\" | \"sync\" | \"hydrate\" | \"unknown\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/feature-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationConsistencySource",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationConsistencyStorePolicy:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationConsistencyStorePolicy<State = "
+            },
+            {
+              "kind": "Content",
+              "text": "unknown"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyPolicy",
+              "canonicalReference": "stroid!HydrationConsistencyPolicy:type"
+            },
+            {
+              "kind": "Content",
+              "text": " | {\n    policy: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyPolicy",
+              "canonicalReference": "stroid!HydrationConsistencyPolicy:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    merge?: (args: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationMergeArgs",
+              "canonicalReference": "stroid!~HydrationMergeArgs:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<State>) => State;\n    onInvalidate?: (args: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationInvalidateArgs",
+              "canonicalReference": "stroid!~HydrationInvalidateArgs:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<State>) => void;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/feature-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationConsistencyStorePolicy",
+          "typeParameters": [
+            {
+              "typeParameterName": "State",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 11
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationDriftEvent:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationDriftEvent<Snapshot extends "
+            },
+            {
+              "kind": "Content",
+              "text": "object"
+            },
+            {
+              "kind": "Content",
+              "text": " = "
+            },
+            {
+              "kind": "Reference",
+              "text": "Record",
+              "canonicalReference": "!Record:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, unknown>"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    id: string;\n    store: keyof Snapshot & string | string;\n    source: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencySource",
+              "canonicalReference": "stroid!HydrationConsistencySource:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    authority: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyAuthority",
+              "canonicalReference": "stroid!HydrationConsistencyAuthority:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    policy: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyPolicy",
+              "canonicalReference": "stroid!HydrationConsistencyPolicy:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    resolution: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyResolution",
+              "canonicalReference": "stroid!HydrationConsistencyResolution:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    detectedAt: string;\n    detectedAtMs: number;\n    firstDivergedAt: string;\n    firstDivergedAtMs: number;\n    hydratedAt: string;\n    hydratedAtMs: number;\n    baselineHash: number;\n    liveHash: number;\n    resolvedHash: number;\n    invalidated: boolean;\n    metadata: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationSnapshotMetadata",
+              "canonicalReference": "stroid!HydrationSnapshotMetadata:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    baseline: unknown;\n    live: unknown;\n    resolved: unknown;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/feature-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationDriftEvent",
+          "typeParameters": [
+            {
+              "typeParameterName": "Snapshot",
+              "constraintTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 3,
+                "endIndex": 5
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 6,
+            "endIndex": 17
+          }
         },
         {
           "kind": "TypeAlias",
@@ -2429,6 +2935,32 @@
           "typeTokenRange": {
             "startIndex": 1,
             "endIndex": 6
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationSnapshotMetadata:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationSnapshotMetadata = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    snapshotVersion?: string | number;\n    timestamp?: number;\n    checksum?: string | number;\n    schemaSignature?: string;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/feature-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationSnapshotMetadata",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
           }
         },
         {

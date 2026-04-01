@@ -7,12 +7,14 @@
  * Consumers: store-write.ts, notification/delivery.ts, async-fetch.ts.
  */
 import type { TraceContext } from "../types/utility.js";
+import type { HydrationConsistencySource } from "../core/hydration-consistency.js";
 import { warnAlways } from "../utils.js";
 import { registerTestResetHook } from "./test-reset.js";
 
 export type WriteContext = {
     correlationId?: string;
     traceContext?: TraceContext;
+    sourceHint?: HydrationConsistencySource;
 };
 
 export type WriteContextRunner = {
@@ -50,7 +52,7 @@ export const getWriteContext = (): WriteContext | null =>
     currentWriteContextRunner?.get() ?? currentContext;
 
 export const runWithWriteContext = <T>(context: WriteContext | null | undefined, fn: () => T): T => {
-    if (!context || (!context.correlationId && !context.traceContext)) {
+    if (!context || (!context.correlationId && !context.traceContext && !context.sourceHint)) {
         return fn();
     }
     if (currentWriteContextRunner) {
