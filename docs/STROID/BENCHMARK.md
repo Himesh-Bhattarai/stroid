@@ -11,12 +11,14 @@ Headline results:
 - Stroid sustained `250,000` concurrent subscribers across multi-store fanout at `1.666ms` to `1.766ms` median wave latency
 - in the cross-library subscriber comparison, Stroid was still slower on raw notify latency than Redux and Zustand in this script, but memory stayed close to Zustand and below both Redux variants at `75,000` subscribers
 - in a dedicated `stroid/core` small-range run (`100` to `10,000` subscribers), median single-write latency stayed under `0.2ms` through `10,000` subscribers (`0.116ms` noop, `0.147ms` compute)
-
-Important comparison note:
-
-- Stroid numbers in the cross-library script are measured end-to-end until its async notification flush reaches the final marker subscriber
-- Redux and Zustand numbers are measured synchronously inside `dispatch()` / `setState()`
-- treat that table as a practical comparison, not a perfectly apples-to-apples scheduler comparison
+---
+>[!IMPORTANT]
+>Important comparison note:
+>
+>- Stroid numbers in the cross-library script are measured end-to-end until its async notification flush reaches the final marker subscriber
+>- Redux and Zustand numbers are measured synchronously inside `dispatch()` / `setState()`
+>- treat that table as a practical comparison, not a perfectly apples-to-apples scheduler comparison
+>-So this is not a raw speed comparison — it’s a delivery model difference.
 
 ## Environment
 
