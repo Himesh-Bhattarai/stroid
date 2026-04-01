@@ -151,6 +151,7 @@
     "benchmark:deep-update": "node --expose-gc --import tsx scripts/deep-update-benchmark.ts",
     "benchmark:lifecycle": "node --expose-gc --import tsx scripts/lifecycle-benchmark.ts",
     "benchmark:ssr-isolation": "node --expose-gc --import tsx scripts/ssr-isolation-benchmark.ts",
+    "benchmark:ssr-fair-compare": "node --expose-gc --import tsx scripts/ssr-fair-compare.ts",
     "benchmark:atomic-failure": "node --expose-gc --import tsx scripts/atomic-failure-benchmark.ts",
     "benchmark:race": "node --expose-gc --import tsx scripts/race-condition-benchmark.ts",
     "benchmark:determinism": "node --expose-gc --import tsx scripts/determinism-replay-benchmark.ts",
