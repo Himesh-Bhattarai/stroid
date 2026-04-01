@@ -2,11 +2,12 @@
 
 ## Summary
 
-This report is based on rerunning the benchmark scripts in this repository on `2026-03-31`.
+This report combines the serialized benchmark-script rerun from `2026-03-31` with the dedicated hydration-divergence lane that was added and rerun on `2026-04-01`.
 
 Headline results:
 
 - the expanded SSR isolation certification passed with `0` correctness violations across `2 x 1,024` burst requests, `8,192` sustained requests, `256` concurrent React streaming HTTP requests, and `50,000` long-tail memory cycles
+- the dedicated hydration-divergence certification lane completed `96` scenario runs with `0` unexpected outcomes; median settle latency was `28.853ms` for stale storage, `28.892ms` for sync bursts, `28.957ms` for early effect input, and `35.185ms` for slow network revalidate
 - Stroid sustained `250,000` single-store subscribers at `2.530ms` median (`noop`) and `3.044ms` median (`compute`)
 - Stroid sustained `250,000` concurrent subscribers across multi-store fanout at `1.666ms` to `1.766ms` median wave latency
 - in the cross-library subscriber comparison, Stroid was still slower on raw notify latency than Redux and Zustand in this script, but memory stayed close to Zustand and below both Redux variants at `75,000` subscribers
@@ -34,7 +35,24 @@ Headline results:
 - benchmark commands were run serially on the same machine to avoid cross-process contention skewing the measurements
 - the guarantee suite intentionally emits warning lines during the atomic rollback benchmark because it injects controlled failures; those warnings are expected and the benchmark still passed
 - the bundle-closure probe below is kept as a separate build-oriented study; it is not produced by the `npm run benchmark:*` scripts
-- post-hydration consistency now has deterministic integration/type certification and runtime-tools coverage in the repository, but this `2026-03-31` report does not yet include a dedicated numeric benchmark lane for that new surface
+- the hydration-divergence numbers below were captured separately with `npm run benchmark:hydration-divergence` on `2026-04-01`; they were not part of the original `2026-03-31` batch rerun
+
+## Hydration Divergence Certification
+
+Dedicated results from `scripts/hydration-divergence-benchmark.ts` as exercised on `2026-04-01`.
+
+| Scenario | Iterations | Queued / Replayed / Drift | Median | P95 | Read |
+| --- | --- | --- | --- | --- | --- |
+| Early user input during hydration | `24` | `2 / 2 / 2` | `28.957ms` | `29.807ms` | queued `effect > effect`, replay stayed deterministic, final `count = 2` |
+| Stale local storage restore | `24` | `1 / 1 / 1` | `28.853ms` | `28.976ms` | queued `storage`, baseline stayed stable until replay, final `revision = 1` |
+| Websocket burst right after boot | `24` | `3 / 3 / 3` | `28.892ms` | `29.034ms` | queued `sync > sync > sync`, replay preserved insertion order, final `revision = 3` |
+| Slow network revalidate | `24` | `2 / 2 / 2` | `35.185ms` | `36.257ms` | queued `network > network`, final async state settled to `data = "fresh"` |
+
+Hydration certification read:
+
+- `certifiedRuns = 96`
+- `bootWindowMs = 10`
+- `unexpectedOutcomes = 0`
 
 ## Bundle-Closure Probe
 

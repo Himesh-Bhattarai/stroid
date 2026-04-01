@@ -154,6 +154,7 @@
     "benchmark:ssr-fair-compare": "node --expose-gc --import tsx scripts/ssr-fair-compare.ts",
     "benchmark:atomic-failure": "node --expose-gc --import tsx scripts/atomic-failure-benchmark.ts",
     "benchmark:race": "node --expose-gc --import tsx scripts/race-condition-benchmark.ts",
+    "benchmark:hydration-divergence": "node --expose-gc --import tsx scripts/hydration-divergence-benchmark.ts",
     "benchmark:determinism": "node --expose-gc --import tsx scripts/determinism-replay-benchmark.ts",
     "benchmark:memory-leak": "node --expose-gc --import tsx scripts/memory-leak-benchmark.ts",
     "benchmark:governance": "node --expose-gc --import tsx scripts/governance-lifecycle-benchmark.ts",

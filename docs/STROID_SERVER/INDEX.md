@@ -250,7 +250,7 @@ The consistency layer can:
 - emit structured drift events through `consistency.onDrift`
 - reconcile each store with `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`
 
-For the full contract and runtime-tools inspection APIs, see [Post-Hydration Consistency](./POST_HYDRATION_CONSISTENCY.md).
+For the full contract, adoption defaults, and runtime-tools inspection APIs, see [Post-Hydration Consistency](./POST_HYDRATION_CONSISTENCY.md).
 
 ---
 

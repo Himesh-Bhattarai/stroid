@@ -309,6 +309,14 @@ hydrateStores(
 ```
 Hydrates many stores from a trusted snapshot payload. The optional fourth argument adds post-hydration drift controls, write deferral during the boot window, and structured drift diagnostics.
 
+Recommended rollout defaults:
+- use a short `bootWindowMs` (`15-30ms`)
+- keep auth/session stores `server_wins`
+- keep drafts/forms `client_wins`
+- use `merge` for filters or preference bags and `invalidate_and_refetch` for replayable async caches
+
+The full adoption guide, policy defaults, and runtime-tools workflow live in [Post-Hydration Consistency](./docs/STROID_SERVER/POST_HYDRATION_CONSISTENCY.md).
+
 ---
 
 ### `configureStroid`

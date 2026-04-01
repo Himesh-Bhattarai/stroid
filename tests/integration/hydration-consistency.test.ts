@@ -104,6 +104,81 @@ test("hydration boot window defers early writes and replays mutators in order", 
   assert.strictEqual(metrics.bootWindowActive, false);
 });
 
+test("hydration boot window defers slow network revalidation until replay", async () => {
+  resetAllStoresForTest();
+  createStore("remote", {
+    data: "server",
+    loading: false,
+    error: null,
+    status: "success",
+  });
+
+  hydrateStores(
+    {
+      remote: {
+        data: "server",
+        loading: false,
+        error: null,
+        status: "success",
+      },
+    },
+    {},
+    { allowTrusted: true },
+    {
+      bootWindowMs: 20,
+      policyMap: {
+        remote: "client_wins",
+      },
+    }
+  );
+
+  const controller = new AbortController();
+  const request = fetchStore(
+    "remote",
+    async () => {
+      await wait(5);
+      return "fresh";
+    },
+    {
+      dedupe: false,
+      signal: controller.signal,
+    }
+  );
+
+  await wait(10);
+
+  assert.deepStrictEqual(getStore("remote"), {
+    data: "server",
+    loading: false,
+    error: null,
+    status: "success",
+  });
+  assert.strictEqual(getHydrationDriftMetrics().pendingWrites, 2);
+
+  await request;
+
+  assert.deepStrictEqual(getStore("remote"), {
+    data: "server",
+    loading: false,
+    error: null,
+    status: "success",
+  });
+
+  await wait(20);
+
+  const remote = getStore("remote") as any;
+  assert.strictEqual(remote?.data, "fresh");
+  assert.strictEqual(remote?.loading, false);
+
+  const events = getHydrationDriftEvents(2);
+  assert.deepStrictEqual(events.map((event) => event.source), ["network", "network"]);
+
+  const metrics = getHydrationDriftMetrics();
+  assert.strictEqual(metrics.queuedWrites, 2);
+  assert.strictEqual(metrics.replayedWrites, 2);
+  assert.strictEqual(metrics.pendingWrites, 0);
+});
+
 test("server_wins drift policy restores the hydrated baseline and records diagnostics", () => {
   resetAllStoresForTest();
   createStore("profile", { name: "server" });

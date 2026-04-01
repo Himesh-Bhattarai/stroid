@@ -13,8 +13,9 @@
 >- Added an optional fourth `hydrateStores(..., options, trust, consistency?)` argument for post-hydration consistency contracts, including snapshot metadata, per-store authorities, per-store reconciliation policies, and `onDrift` diagnostics.
 >- Added hydration boot-window write deferral with deterministic replay for early `effect`, `storage`, `network`, and `sync` writes, plus policy execution for `server_wins`, `client_wins`, `merge`, and `invalidate_and_refetch`.
 >- Added `stroid/runtime-tools` hydration observability helpers: `getHydrationConsistency()`, `getHydrationDriftEvents()`, and `getHydrationDriftMetrics()`.
->- Hardened integration and public type coverage for post-hydration drift governance, queued write replay, storage/sync source hints, and invalidation-driven async refetch recovery.
->- Added a dedicated Post-Hydration Consistency guide and updated the README, server guide, runtime-tools guide, and benchmark notes to reflect the new consistency layer.
+>- Hardened integration, regression, and public type coverage for post-hydration drift governance, including early effect input, stale storage restore ordering, websocket/sync burst replay, and invalidation-driven async refetch recovery.
+>- Added a dedicated `benchmark:hydration-divergence` lane and folded it into the guarantee benchmark suite, with numeric certification results now recorded in the benchmark report.
+>- Added a dedicated Post-Hydration Consistency guide with adoption defaults and updated the README, server guide, runtime-tools guide, benchmark report, version migration guide, and `NEXT_PHASE.md` status note to reflect the shipped consistency layer.
 >- Added a dedicated `stroid/query` entrypoint for `reactQueryKey` and `swrKey`, so cache-key helpers can be imported without pulling the heavier async query fetcher surface.
 >- Reduced `stroid/persist` import retention by routing the leaf entrypoint to the direct feature installer, and regrouped `runtime-tools` internals plus query-key helpers for narrower future tree-shaking work.
 >- Removed the dead `computed-types` JavaScript build entry and added `module` plus explicit `./query` export metadata for bundler compatibility.

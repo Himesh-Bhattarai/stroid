@@ -159,6 +159,47 @@ Use these helpers to answer:
 
 ---
 
+## Adoption Defaults
+
+Release-specific upgrade notes belong in the [Version Migration Guide](../STROID_VERSION_MIGRATION/INDEX.md). This section is only about operational rollout defaults once you choose to adopt post-hydration consistency.
+
+If you want the lowest-friction rollout, start with a short boot window, explicit drift logging, and only tighten the stores that really need server authority:
+
+```ts
+hydrateStores(window.__INITIAL_STATE__, {}, { allowTrusted: true }, {
+  contract: {
+    authority: "client-authoritative",
+    stores: {
+      session: { authority: "server-authoritative" },
+      filters: { authority: "mergeable" },
+      feed: { authority: "server-authoritative" },
+    },
+  },
+  bootWindowMs: 20,
+  onDrift: (event) => {
+    console.warn(event.store, event.source, event.resolution)
+  },
+})
+```
+
+Policy defaults that usually map well:
+
+- `server_wins` for auth, session, entitlement, and SSR-critical server truth
+- `client_wins` for drafts, forms, optimistic local buffers, and immediate user input
+- `merge` for filters, preference bags, and shallow object state with obvious merge semantics
+- `invalidate_and_refetch` for async caches that already have a replayable `fetchStore(...)` recipe
+
+Suggested rollout sequence:
+
+1. Keep the existing trusted hydration call and add only `bootWindowMs` plus `onDrift`.
+2. Set a default authority that matches your rollout goal:
+   use `client-authoritative` for the least disruptive adoption, or `server-authoritative` for the strictest SSR lock.
+3. Override only the sensitive stores first:
+   `session/auth` -> `server-authoritative`, `drafts` -> `client-authoritative`, `filters` -> `mergeable`.
+4. Inspect `getHydrationConsistency(...)`, `getHydrationDriftEvents(...)`, and `getHydrationDriftMetrics()` before tightening more stores.
+
+---
+
 ## Notes
 
 - This does not promise permanent server/client equality forever.
