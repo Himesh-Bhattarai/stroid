@@ -6,7 +6,7 @@
  *
  * Consumers: write paths and feature state application.
  */
-import { deepClone, hashState } from "../../utils.js";
+import { deepClone, hashState, warnAlways } from "../../utils.js";
 import type { StoreRegistry } from "../store-registry.js";
 import {
     cloneHydrationMetadata,
@@ -90,15 +90,24 @@ export const reconcileHydrationValue = (args: {
         resolved = deepClone(entry.baseline);
         resolution = "server_reverted";
     } else if (entry.policy === "merge") {
-        resolved = entry.merge
-            ? entry.merge({
-                store: args.store,
-                baseline: deepClone(entry.baseline),
-                live: deepClone(args.value),
-                source: args.source,
-            })
-            : mergeHydrationValues(entry.baseline, args.value);
-        resolution = "merged";
+        try {
+            resolved = entry.merge
+                ? entry.merge({
+                    store: args.store,
+                    baseline: deepClone(entry.baseline),
+                    live: deepClone(args.value),
+                    source: args.source,
+                })
+                : mergeHydrationValues(entry.baseline, args.value);
+            resolution = "merged";
+        } catch (err) {
+            warnAlways(
+                `hydrateStores(...) consistency merge for "${args.store}" threw: ` +
+                `${(err as { message?: string })?.message ?? err}. Falling back to the hydrated baseline.`
+            );
+            resolved = deepClone(entry.baseline);
+            resolution = "server_reverted";
+        }
     } else if (entry.policy === "invalidate_and_refetch") {
         invalidated = true;
         needsRefetch = true;
@@ -109,12 +118,21 @@ export const reconcileHydrationValue = (args: {
     }
 
     if (args.normalize && (resolution === "merged" || resolution === "server_reverted")) {
-        const normalized = args.normalize(resolved);
-        if (!normalized.ok) {
+        try {
+            const normalized = args.normalize(resolved);
+            if (!normalized.ok) {
+                resolved = deepClone(entry.baseline);
+                resolution = "server_reverted";
+            } else {
+                resolved = normalized.value;
+            }
+        } catch (err) {
+            warnAlways(
+                `hydrateStores(...) normalization for "${args.store}" threw during reconciliation: ` +
+                `${(err as { message?: string })?.message ?? err}. Falling back to the hydrated baseline.`
+            );
             resolved = deepClone(entry.baseline);
             resolution = "server_reverted";
-        } else {
-            resolved = normalized.value;
         }
     }
 

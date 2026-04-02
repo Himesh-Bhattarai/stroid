@@ -3,6 +3,7 @@ import { emitReport, isMainModule, maybeGc } from "./benchmark-guarantee-utils.j
 import { runDeterminismReplayBenchmark } from "./determinism-replay-benchmark.js";
 import { runGovernanceLifecycleBenchmark } from "./governance-lifecycle-benchmark.js";
 import { runHydrationDivergenceBenchmark } from "./hydration-divergence-benchmark.js";
+import { runHydrationRandomizedBenchmark } from "./hydration-randomized-benchmark.js";
 import { runMemoryLeakBenchmark } from "./memory-leak-benchmark.js";
 import { runRaceConditionBenchmark } from "./race-condition-benchmark.js";
 import { runSsrIsolationBenchmark } from "./ssr-isolation-benchmark.js";
@@ -17,6 +18,7 @@ export const runGuaranteeBenchmarkSuite = async () => {
     runAtomicFailureBenchmark,
     runRaceConditionBenchmark,
     runHydrationDivergenceBenchmark,
+    runHydrationRandomizedBenchmark,
     runDeterminismReplayBenchmark,
     runMemoryLeakBenchmark,
     runGovernanceLifecycleBenchmark,

@@ -12,6 +12,7 @@
 ><summary><strong> Unreleased </strong></summary>
 >- Added an optional fourth `hydrateStores(..., options, trust, consistency?)` argument for post-hydration consistency contracts, including snapshot metadata, per-store authorities, per-store reconciliation policies, and `onDrift` diagnostics.
 >- Hardened `createStoreForRequest().hydrate(...)` to scrub finished carrier state after snapshot sync, then added detached-continuation regression coverage and a warm-container SSR certification benchmark for sequential request reuse.
+>- Hardened hydration reconciliation so throwing custom `merge(...)` or normalization callbacks now fall back safely to the hydrated baseline, then added randomized replay certification coverage and a dedicated `benchmark:hydration-randomized` script.
 >- Added hydration boot-window write deferral with deterministic replay for early `effect`, `storage`, `network`, and `sync` writes, plus policy execution for `server_wins`, `client_wins`, `merge`, and `invalidate_and_refetch`.
 >- Added manual hydration boot-window control through `HydrationResult.bootWindow`, including `bootWindow: { mode: "manual" }`, optional `fallbackMs`, and runtime metrics that expose whether manual close is available.
 >- Added `stroid/runtime-tools` hydration observability helpers: `getHydrationConsistency()`, `getHydrationDriftEvents()`, and `getHydrationDriftMetrics()`.
