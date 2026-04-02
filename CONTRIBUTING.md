@@ -106,6 +106,11 @@ Follow [STATUS.MD](./STATUS.MD) conventions. Short, descriptive imperative sente
 
 Publishing is automated via `.github/workflows/publish.yml`. Only maintainers push release tags. The version in `package.json` is the single source of truth.
 
+Version bumps, CHANGELOG updates, and GitHub releases are automated via Release Please (`.github/workflows/release-please.yml`).
+
+- Maintainers should set the `RELEASE_PLEASE_TOKEN` secret (PAT) so Release Please PRs/tags can trigger CI workflows.
+- The release PR title pattern is `status(204): release ${version}` so squash-merging the release PR keeps the STATUS commit convention.
+
 ---
 
 ## Issues and Discussions

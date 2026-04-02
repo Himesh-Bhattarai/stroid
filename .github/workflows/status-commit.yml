@@ -2,6 +2,8 @@ name: status-commit
 
 on:
   push:
+    branches-ignore:
+      - "release-please--**"
 
 permissions:
   contents: read
