@@ -51,6 +51,10 @@ npm run test:performance
 # Run type tests (requires a build)
 npm run test:types
 
+# Package surface checks (also run as part of test:types)
+npm run check:publint
+npm run check:attw
+
 # Run everything
 npm run test:full
 ```
