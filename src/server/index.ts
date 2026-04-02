@@ -11,6 +11,7 @@ import { deepClone } from "../utils.js";
 import type { StoreOptions } from "../adapters/options.js";
 import type { StoreStateMap } from "../core/store-lifecycle/types.js";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { getConfig } from "../internals/config.js";
 import { injectWriteContextRunner, type WriteContext } from "../internals/write-context.js";
 import {
     createStoreRegistry,
@@ -76,6 +77,33 @@ const clearCarrierBuffer = (carrier: CarrierContext): void => {
     Object.keys(carrier).forEach((name) => {
         delete carrier[name];
     });
+};
+
+const scheduleCarrierCleanup = (registry: StoreRegistry, carrier: CarrierContext): void => {
+    const delayMs = getConfig().flush.chunkDelayMs;
+    const schedule = (fn: () => void): void => {
+        if (delayMs > 0 && typeof setTimeout === "function") {
+            setTimeout(fn, delayMs);
+            return;
+        }
+        if (typeof queueMicrotask === "function") {
+            queueMicrotask(fn);
+            return;
+        }
+        Promise.resolve().then(fn);
+    };
+
+    const attempt = (): void => {
+        const state = registry.notify;
+        if (!state.isFlushing && !state.notifyScheduled && state.pendingNotifications.size === 0) {
+            clearCarrierBuffer(carrier);
+            return;
+        }
+        schedule(attempt);
+    };
+
+    // Defer the first attempt so any already-queued flush microtasks can run first.
+    schedule(attempt);
 };
 
 type RequestStoreContext<StateMap extends StoreStateMap> = {
@@ -169,15 +197,15 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
                         if (isPromiseLike(rendered)) {
                             return Promise.resolve(rendered).finally(() => {
                                 syncBufferFromCarrier(carrier);
-                                clearCarrierBuffer(carrier);
+                                scheduleCarrierCleanup(registry, carrier);
                             }) as T;
                         }
                         syncBufferFromCarrier(carrier);
-                        clearCarrierBuffer(carrier);
+                        scheduleCarrierCleanup(registry, carrier);
                         return rendered;
                     } catch (err) {
                         syncBufferFromCarrier(carrier);
-                        clearCarrierBuffer(carrier);
+                        scheduleCarrierCleanup(registry, carrier);
                         throw err;
                     }
                 })
