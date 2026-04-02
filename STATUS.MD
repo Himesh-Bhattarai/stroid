@@ -11,7 +11,7 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(101)`: Draft or scaffolding.
 - `status(102)`: Partial implementation.
 - `status(103)`: Blocked / waiting on dependency.
-- `status(104)`: Research / spike.
+- `status(104)`: Research / spike / Exprerimental / prototype.
 
 ## Change / Improvement
 - `status(300)`: Refactor (no behavior change).
