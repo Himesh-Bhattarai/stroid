@@ -52,6 +52,14 @@
 ><details >
 ><summary><strong>0.1.4 --> 2026-3-30 </strong></summary>
 >
+>### Breaking
+>
+>- None.
+>
+>### Add
+>
+>- None.
+>
 >### Fix
 >
 >- Fixed async persist hydration so Promise-returning `persist.driver.getItem()` now loads stored state even when crypto hooks and checksums stay synchronous.
@@ -121,6 +129,14 @@
 ><details>
 ><summary><strong>0.1.3 --> 2026-03-22</strong></summary>
 >
+>### Breaking
+>
+>- None.
+>
+>### Add
+>
+>- None.
+>
 >### Fix
 >
 >- Fixed async rate limiting so `fetchStore(..., { cacheKey })` is throttled per `cacheSlot` instead of incorrectly sharing one counter across the whole store name.
@@ -146,8 +162,9 @@
 ><details>
 ><summary><strong>0.1.2 --> 2026-03-19</strong></summary>
 >
-> **Note:** This release contains breaking changes to the `stroid/core` export surface and hydration defaults to improve bundle size and security.
+>### Breaking
 >
+>- Breaking changes to the `stroid/core` export surface and hydration defaults to improve bundle size and security.
 >- `hydrateStores` now requires an explicit trust argument at the TypeScript level (compile-time enforcement).
 >- Default snapshot mode changed to `"shallow"` (was `"deep"`). Override per-store with `snapshot: "deep"` or globally with `configureStroid({ defaultSnapshotMode: "deep" })`.
 >
