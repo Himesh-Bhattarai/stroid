@@ -434,7 +434,9 @@ const handleRequest = async (
   } catch (error) {
     response.statusCode = 500;
     response.setHeader("content-type", "text/plain; charset=utf-8");
-    response.end(error instanceof Error ? error.message : String(error));
+    // Avoid reflecting internal error details in a network response.
+    response.end("internal-error");
+    console.error(error);
   }
 };
 
