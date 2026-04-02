@@ -5,6 +5,7 @@ import { runGovernanceLifecycleBenchmark } from "./governance-lifecycle-benchmar
 import { runHydrationDivergenceBenchmark } from "./hydration-divergence-benchmark.js";
 import { runHydrationRandomizedBenchmark } from "./hydration-randomized-benchmark.js";
 import { runMemoryLeakBenchmark } from "./memory-leak-benchmark.js";
+import { runNextServerActionsBenchmark } from "./next-server-actions-benchmark.js";
 import { runRaceConditionBenchmark } from "./race-condition-benchmark.js";
 import { runReactConcurrencyBenchmark } from "./react-concurrency-benchmark.js";
 import { runServerlessProviderCertification } from "./serverless-provider-certification.js";
@@ -18,6 +19,7 @@ export const runGuaranteeBenchmarkSuite = async () => {
     runSsrIsolationBenchmark,
     runSsrWarmContainerBenchmark,
     runServerlessProviderCertification,
+    runNextServerActionsBenchmark,
     runReactConcurrencyBenchmark,
     runAtomicFailureBenchmark,
     runRaceConditionBenchmark,

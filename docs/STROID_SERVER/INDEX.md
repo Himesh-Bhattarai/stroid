@@ -50,7 +50,7 @@ Stroid is SSR-safe on **Node.js runtimes** because `stroid/server` uses `AsyncLo
 | Vercel Node render plus action hand-off | Locally certified by runtime model | the render path uses `stroid/server`, then the separate action boundary resumes state through `stroid/server/portable` |
 | Cloudflare Workers / Edge runtimes | Supported through `stroid/server/portable` explicit scope | `stroid/server` still imports `node:async_hooks`; the worker path must use explicit bound scope APIs instead of implicit carrier reads |
 | Next.js App Router render on Node | Supported with Node boundary | Use `createStoreForRequest(...).hydrate(...)` around the render path |
-| Next.js Server Actions | Supported with explicit hand-off | Server Actions execute in a separate invocation context; capture request state and resume it with `stroid/server/portable` |
+| Next.js Server Actions | Locally certified with explicit hand-off | `benchmark:next-server-actions` covers render capture on `stroid/server`, then resume inside the action through `stroid/server/portable` |
 | Third-party singleton state libraries | Out of guarantee scope | Stroid can only isolate state written through Stroid-managed APIs and registries |
 
 Read this table as a support boundary, not a marketing claim about every host automatically behaving the same.
@@ -329,6 +329,57 @@ Stroid's request carrier is a Node SSR runtime boundary, not a universal framewo
 - Edge runtimes are outside the current `stroid/server` implementation because the package depends on `node:async_hooks`, but the explicit `stroid/server/portable` boundary can still keep Stroid-managed request state off the global registry.
 
 For the full contract, adoption defaults, and runtime-tools inspection APIs, see [Post-Hydration Consistency](./POST_HYDRATION_CONSISTENCY.md).
+
+---
+
+### Next.js App Router + Server Actions
+
+The practical pattern is:
+
+1. render on Node with `createStoreForRequest(...)`
+2. capture the request snapshot with `stores.capture()`
+3. pass that captured state across the action boundary
+4. resume it inside the action with `createRequestScope(...)`
+
+```ts
+import { createStoreForRequest } from "stroid/server"
+import { createRequestScope } from "stroid/server/portable"
+
+export async function renderPage() {
+  const stores = createStoreForRequest(({ create }) => {
+    create("session", { userId: "u1" })
+    create("draft", { body: "hello", revision: 0 })
+  })
+
+  const html = await stores.hydrate(async () => "<main>...</main>")
+
+  return {
+    html,
+    requestState: stores.capture(),
+  }
+}
+
+export async function saveDraftAction(requestState, body) {
+  const scope = createRequestScope(requestState)
+
+  return scope.run(async ({ get, set, capture }) => {
+    const session = get("session")
+    if (!session) throw new Error("missing session")
+
+    set("draft", (draft) => {
+      draft.body = body
+      draft.revision += 1
+    })
+
+    return capture()
+  })
+}
+```
+
+Runnable reference:
+
+- `examples/next-app-router-server-actions.ts`
+- `tests/integration/core/next-server-actions.test.ts`
 
 ---
 

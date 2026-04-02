@@ -94,7 +94,7 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 - `stroid/server` is Node-only today because it depends on `node:async_hooks`. Edge runtimes and Workers need a different adapter.
 - `stroid/server/portable` is the explicit request-scope boundary for serverless hand-offs, worker-style runtimes, and Server Actions. It does not rely on implicit async context; use the bound scope API it returns.
 - Local provider-model certification now covers warm AWS Lambda-style Node handlers, Vercel render-to-action hand-off, and Cloudflare Workers-style explicit scopes, but you should still validate against your deployed provider before claiming production certification.
-- Next.js Server Actions are a separate execution boundary. They do not inherit the original request carrier automatically; capture state on render and resume it with `stroid/server/portable`.
+- Next.js Server Actions are a separate execution boundary. They do not inherit the original request carrier automatically; capture state on render and resume it with `stroid/server/portable`. The render-to-action hand-off is covered by `benchmark:next-server-actions` and [examples/next-app-router-server-actions.ts](./examples/next-app-router-server-actions.ts).
 - Stroid can only guarantee request isolation for state written through Stroid APIs. Third-party singleton stores remain outside that guarantee.
 
 ---
