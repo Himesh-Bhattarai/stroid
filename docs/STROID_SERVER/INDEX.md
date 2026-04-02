@@ -1,6 +1,6 @@
 # 🖥️ Server / SSR Guide
 
-> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-04-01 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-04-02 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/server/index.ts`, `src/core/store-registry.ts`*
 
@@ -9,11 +9,13 @@
 ## 📚 Table of Contents
 
 - [Why SSR-Safe?](#-why-ssr-safe)
+- [Support Matrix](#-support-matrix)
 - [Setup](#-setup)
 - [createStoreForRequest](#-createstorefor-request)
 - [API: RequestStoreApi](#-api-requeststoreapi)
 - [Hydration](#-hydration)
 - [Post-Hydration Consistency](#-post-hydration-consistency)
+- [Framework Boundaries](#-framework-boundaries)
 - [Practical Example](#-practical-example)
 - [Request Isolation](#-request-isolation)
 - [AsyncLocalStorage](#-asynclocalstorage)
@@ -22,7 +24,7 @@
 
 ## 🎯 Why SSR-Safe?
 
-Stroid is **SSR-safe by default** because it uses `AsyncLocalStorage` on Node.js. This means:
+Stroid is SSR-safe on **Node.js runtimes** because `stroid/server` uses `AsyncLocalStorage`. This means:
 
 - Each HTTP request gets its own **isolated store registry**
 - Multiple concurrent requests don't cross-contaminate state
@@ -37,13 +39,29 @@ Stroid is **SSR-safe by default** because it uses `AsyncLocalStorage` on Node.js
 
 ---
 
+## 🧭 Support Matrix
+
+| Environment / Boundary | Status | Read |
+| --- | --- | --- |
+| Node SSR server with `stroid/server` | Supported | `createStoreForRequest(...).hydrate(...)` runs inside a Node `AsyncLocalStorage` request scope |
+| Node-style warm-container reuse | Locally certified | `benchmark:ssr-warm` covers repeated request reuse plus detached post-lifecycle probes in one long-lived process |
+| AWS Lambda / Vercel / custom Node serverless | Deployment-specific | The runtime model matches Node, but you should still run platform-specific integration tests before claiming production certification |
+| Cloudflare Workers / Edge runtimes | Not supported by `stroid/server` today | `stroid/server` imports `node:async_hooks`, so a dedicated edge adapter would be required |
+| Next.js App Router render on Node | Supported with Node boundary | Use `createStoreForRequest(...).hydrate(...)` around the render path |
+| Next.js Server Actions | Manual boundary | Server Actions execute in a separate server invocation context; Stroid does not auto-propagate request carriers across that boundary |
+| Third-party singleton state libraries | Out of guarantee scope | Stroid can only isolate state written through Stroid-managed APIs and registries |
+
+Read this table as a support boundary, not a marketing claim about every host automatically behaving the same.
+
+---
+
 ## ⚙️ Setup
 
 ```ts
 import { createStoreForRequest } from "stroid/server"
 import { hydrateStores } from "stroid"
 
-// In your request handler (Express, Next.js, etc.)
+// In your Node request handler (Express, Fastify, Next.js on Node, etc.)
 async function handleRequest(req, res) {
   const stores = createStoreForRequest()
 
@@ -258,6 +276,17 @@ The consistency layer can:
 - reconcile each store with `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`
 
 Manual close is the strongest contract. Short timers are still supported, but they are best-effort because they guess when hydration is done.
+
+---
+
+## 🚧 Framework Boundaries
+
+Stroid's request carrier is a Node SSR runtime boundary, not a universal framework bridge.
+
+- Next.js App Router server rendering on Node fits the model: create a request scope, render inside `.hydrate(...)`, and hydrate the client snapshot normally.
+- Next.js Server Actions do not automatically inherit the original request carrier. Pass the data you need explicitly, or recreate a new server-side boundary for the action.
+- If you compose Stroid with libraries that keep their own global singleton store, cache, or client instance, Stroid cannot isolate those writes for you.
+- Edge runtimes are outside the current `stroid/server` implementation because the package depends on `node:async_hooks`.
 
 For the full contract, adoption defaults, and runtime-tools inspection APIs, see [Post-Hydration Consistency](./POST_HYDRATION_CONSISTENCY.md).
 

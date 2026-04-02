@@ -2,12 +2,15 @@
 
 ## Summary
 
-This report combines the serialized benchmark-script rerun from `2026-03-31` with the upgraded hydration-divergence certification rerun from `2026-04-01`.
+This report combines the serialized benchmark-script rerun from `2026-03-31`, the upgraded hydration-divergence certification rerun from `2026-04-01`, and the new SSR/hydration standalone certifications rerun on `2026-04-02`.
 
 Headline results:
 
 - the expanded SSR isolation certification passed with `0` correctness violations across `2 x 1,024` burst requests, `8,192` sustained requests, `256` concurrent React streaming HTTP requests, and `50,000` long-tail memory cycles
+- the standalone SSR warm-container certification passed with `1,024` sequential requests, `2,048` detached probes, `0` detached leaks, and `0` global residuals in one long-lived Node process
 - the hydration-divergence certification now runs as a first-class guarantee suite under the manual-close boundary: `54` certified runs, `1,028` queued writes, `0` unexpected outcomes, and `0` invariant violations across `try`, `hit`, `stress`, and `hammer` campaigns
+- the standalone hydration randomized certification passed `36` paired runs across `client_wins`, `server_wins`, and `merge`, with `0` replay mismatches and exact drift-order parity between immediate execution and queued replay
+- the standalone large-payload hydration benchmark preserved parity at `256 KB`, `1,024 KB`, and `2,048 KB`, while making the current cost curve explicit: queued replay median rose from `79.148ms` at `256 KB` to `2,963.113ms` at `2,048 KB`
 - Stroid sustained `250,000` single-store subscribers at `2.530ms` median (`noop`) and `3.044ms` median (`compute`)
 - Stroid sustained `250,000` concurrent subscribers across multi-store fanout at `1.666ms` to `1.766ms` median wave latency
 - in the cross-library subscriber comparison, Stroid was still slower on raw notify latency than Redux and Zustand in this script, but memory stayed close to Zustand and below both Redux variants at `75,000` subscribers
@@ -25,8 +28,8 @@ Headline results:
 
 | Field | Value |
 | --- | --- |
-| Date | `2026-03-31` and `2026-04-01` |
-| Node | `v25.8.2` |
+| Date | `2026-03-31`, `2026-04-01`, and `2026-04-02` |
+| Node | `v25.8.2` and `v24.14.1` |
 | Platform | `darwin` |
 | Arch | `arm64` |
 
@@ -36,6 +39,8 @@ Headline results:
 - the guarantee suite intentionally emits warning lines during the atomic rollback benchmark because it injects controlled failures; those warnings are expected and the benchmark still passed
 - the bundle-closure probe below is kept as a separate build-oriented study; it is not produced by the `npm run benchmark:*` scripts
 - the hydration-divergence certification below now matches the first-class suite included in `npm run benchmark:guarantees`; the detailed per-campaign numbers were captured from a standalone `npm run benchmark:hydration-divergence` rerun on `2026-04-01`
+- the SSR warm-container and hydration randomized sections below were rerun as standalone certifications on `2026-04-02`; those scripts are now wired into `npm run benchmark:guarantees`
+- the large-payload hydration benchmark below stays standalone on purpose because its multi-MB stress tier is materially more expensive than the default guarantee suite
 
 ## Hydration Divergence Certification
 
@@ -59,6 +64,56 @@ Hydration certification read:
 Guarantee note:
 
 - timer mode (`bootWindowMs` or `bootWindow: { mode: "timer" }`) remains supported for lower-friction adoption, but this certification only claims guarantees for explicit manual close
+
+## SSR Warm-Container Certification
+
+Dedicated results from `scripts/ssr-warm-container-benchmark.ts` as exercised on `2026-04-02`.
+
+| Load | Request Median | Request P95 | Wave Median | Retained Growth | Read |
+| --- | --- | --- | --- | --- | --- |
+| `8` waves x `128` requests (`1,024` total) | `0.311ms` | `1.641ms` | `228.712ms` | `0.148 MB` | detached timeout/immediate probes stayed clean while the same process reused request handlers across all waves |
+
+Warm-container certification read:
+
+- `detachedLeakCount = 0`
+- `globalResidualCount = 0`
+- `globalStoreCountAfterRun = 0`
+- `peakDeltaMb = 0.199`
+
+This is a Node-process warm-container simulation, not a direct claim about every serverless provider's internal runtime lifecycle.
+
+## Hydration Randomized Certification
+
+Dedicated results from `scripts/hydration-randomized-benchmark.ts` as exercised on `2026-04-02`.
+
+| Policy | Runs | Ops / Run | Median | P95 | Read |
+| --- | --- | --- | --- | --- | --- |
+| `client_wins` | `6` | `36` | `26.154ms` | `63.581ms` | queued replay matched immediate execution exactly; all `36` writes queued and replayed |
+| `server_wins` | `6` | `36` | `24.846ms` | `26.458ms` | every drift reverted to the hydrated baseline with exact event-order parity |
+| `merge` | `6` | `36` | `24.970ms` | `26.058ms` | queued replay matched immediate custom-merge execution with `merged` drift resolution throughout |
+
+Randomized certification read:
+
+- `pairedRuns = 36`
+- `mismatches = 0`
+- `queuedWritesSeen = 36`
+- `replayedWritesSeen = 36`
+
+## Hydration Large-Payload Benchmark
+
+Dedicated results from `scripts/hydration-large-payload-benchmark.ts` as exercised on `2026-04-02`.
+
+| Target Size | Approx Bytes | Clone Median | Immediate Median | Queued Median | Retained Growth | Read |
+| --- | --- | --- | --- | --- | --- | --- |
+| `256 KB` | `262,551` | `0.336ms` | `86.011ms` | `79.148ms` | `7.375 MB` | parity held; `3` queued writes replayed correctly |
+| `1,024 KB` | `1,048,881` | `1.210ms` | `779.936ms` | `791.965ms` | `15.493 MB` | parity held; clone cost stayed small relative to whole-write cost |
+| `2,048 KB` | `2,097,591` | `2.489ms` | `2,958.211ms` | `2,963.113ms` | `19.224 MB` | parity held, but write cost becomes very visible at multi-MB state sizes |
+
+Large-payload read:
+
+- `mismatches = 0`
+- default script sizes now stop at `2,048 KB` so the benchmark stays practical for routine reruns
+- use `STROID_HYDRATION_LARGE_SIZES=256,1024,4096` (or another override) when you explicitly want a heavier stress tier
 
 ## Bundle-Closure Probe
 
@@ -206,7 +261,7 @@ Selected rows from `npm run benchmark:selector`.
 
 ## Guarantee Results
 
-Results from `npm run benchmark:guarantees`.
+Results from the serialized `npm run benchmark:guarantees` rerun captured before the new `benchmark:ssr-warm` and `benchmark:hydration-randomized` additions were folded into the suite. Use the standalone sections above for the `2026-04-02` reruns of those new certifications.
 
 | Benchmark | Numeric Result | Status |
 | --- | --- | --- |
@@ -228,6 +283,7 @@ Guarantee read:
 | Purpose | Command |
 | --- | --- |
 | Standalone SSR certification | `npm run benchmark:ssr-isolation` |
+| Standalone SSR warm-container certification | `npm run benchmark:ssr-warm` |
 | Cross-library compare | `npm run benchmark:compare` |
 | Core small-range | `npm run benchmark:core-small` |
 | Single-store fanout | `npm run benchmark:subscriber` |
@@ -236,4 +292,6 @@ Guarantee read:
 | Deep path updates | `npm run benchmark:deep-update` |
 | Lifecycle overhead | `npm run benchmark:lifecycle` |
 | Hydration divergence certification | `npm run benchmark:hydration-divergence` |
+| Hydration randomized certification | `npm run benchmark:hydration-randomized` |
+| Hydration large-payload benchmark | `npm run benchmark:hydration-large-payload` |
 | Guarantee suite | `npm run benchmark:guarantees` |
