@@ -61,3 +61,4 @@ stroid/feature            0.1 KiB
 Notes:
 - These are *import-closure* sizes, not the size of `dist/*.js` files.
 - The exact number varies with bundler settings; treat this as a consistent local baseline.
+

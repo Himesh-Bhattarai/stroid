@@ -1,0 +1,61 @@
+{
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "darwin",
+    "arch": "arm64",
+    "totalSubscribersTarget": 250000,
+    "semantics": {
+      "measuredLatency": "end-to-end time from write scheduling until the final marker subscriber observes the committed value",
+      "concurrencyModel": "same-tick queueMicrotask fanout for concurrent scenarios; setStoreBatch for atomic scenarios"
+    }
+  },
+  "results": [
+    {
+      "scenario": "realtime-dashboard-concurrent",
+      "description": "Five hot stores updated in the same tick to simulate websocket fanout across dashboard shards.",
+      "mode": "concurrent",
+      "stores": 5,
+      "writesPerWave": 5,
+      "totalSubscribers": 250000,
+      "subscribersPerStore": [
+        75000,
+        60000,
+        50000,
+        40000,
+        25000
+      ],
+      "waves": 5,
+      "waveMedianMs": 1.557,
+      "waveP95Ms": 3.062,
+      "waveMaxMs": 3.062,
+      "retainedHeapDeltaMb": 0.12,
+      "peakHeapDeltaMb": 19.527
+    },
+    {
+      "scenario": "ops-dashboard-atomic-batch",
+      "description": "Ten related stores updated together inside one atomic batch to simulate a server-pushed dashboard refresh.",
+      "mode": "batch",
+      "stores": 10,
+      "writesPerWave": 10,
+      "totalSubscribers": 250000,
+      "subscribersPerStore": [
+        25000,
+        25000,
+        25000,
+        25000,
+        25000,
+        25000,
+        25000,
+        25000,
+        25000,
+        25000
+      ],
+      "waves": 5,
+      "waveMedianMs": 1.666,
+      "waveP95Ms": 2.742,
+      "waveMaxMs": 2.742,
+      "retainedHeapDeltaMb": 0.048,
+      "peakHeapDeltaMb": 15.924
+    }
+  ]
+}

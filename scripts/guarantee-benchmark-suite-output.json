@@ -1,0 +1,1191 @@
+{
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "suite": "guarantee-benchmarks",
+  "results": [
+    {
+      "name": "SSR Isolation Certification Suite",
+      "chaosCampaigns": [
+        {
+          "name": "concurrency-chaos-1",
+          "seed": 1592594996,
+          "requests": 1024,
+          "abortedRequests": 60,
+          "timing": {
+            "count": 1024,
+            "medianMs": 184.579,
+            "p95Ms": 200.834,
+            "maxMs": 205.358,
+            "totalMs": 189254.516
+          }
+        },
+        {
+          "name": "concurrency-chaos-2",
+          "seed": 3237998098,
+          "requests": 1024,
+          "abortedRequests": 60,
+          "timing": {
+            "count": 1024,
+            "medianMs": 156.988,
+            "p95Ms": 169.573,
+            "maxMs": 172.752,
+            "totalMs": 161729.343
+          }
+        }
+      ],
+      "sustainedPressure": {
+        "name": "Sustained Pressure",
+        "waves": 8,
+        "concurrentPerWave": 1024,
+        "totalRequests": 8192,
+        "abortedRequests": 482,
+        "requestTiming": {
+          "count": 8192,
+          "medianMs": 150.351,
+          "p95Ms": 162.798,
+          "maxMs": 168.509,
+          "totalMs": 1231897.897
+        },
+        "waveTiming": {
+          "count": 8,
+          "medianMs": 167.763,
+          "p95Ms": 170.672,
+          "maxMs": 170.672,
+          "totalMs": 1334.607
+        },
+        "throughputRequestsPerSec": 5895.459,
+        "totalWallMs": 1389.544
+      },
+      "crossRequestInterleaving": {
+        "name": "Cross-Request Interleaving",
+        "pairs": 96,
+        "requests": 192,
+        "timing": {
+          "count": 96,
+          "medianMs": 7.469,
+          "p95Ms": 7.503,
+          "maxMs": 7.585,
+          "totalMs": 715.776
+        }
+      },
+      "lifecycleEscape": {
+        "name": "Lifecycle Escape",
+        "requests": 512,
+        "probes": 1536,
+        "timing": {
+          "count": 512,
+          "medianMs": 29.04,
+          "p95Ms": 37.291,
+          "maxMs": 38.14,
+          "totalMs": 15219.026
+        }
+      },
+      "reactStreamingHttp": {
+        "name": "React Streaming HTTP",
+        "requests": 256,
+        "concurrentRequests": 256,
+        "responseTiming": {
+          "count": 256,
+          "medianMs": 74.063,
+          "p95Ms": 124.977,
+          "maxMs": 131.621,
+          "totalMs": 21183.781
+        },
+        "shellTiming": {
+          "count": 256,
+          "medianMs": 0.079,
+          "p95Ms": 0.436,
+          "maxMs": 2.168,
+          "totalMs": 42.849
+        },
+        "allReadyTiming": {
+          "count": 256,
+          "medianMs": 4.931,
+          "p95Ms": 7.293,
+          "maxMs": 8.818,
+          "totalMs": 1263.61
+        },
+        "responseBytes": {
+          "median": 885,
+          "p95": 885,
+          "max": 885
+        },
+        "totalWallMs": 145.663
+      },
+      "memoryStability": {
+        "name": "Memory Stability",
+        "warmupCycles": 2000,
+        "cycles": 50000,
+        "batchSize": 100,
+        "baselineHeapMb": 38.779,
+        "finalHeapMb": 38.257,
+        "retainedGrowthMb": -0.522,
+        "peakDeltaMb": 0,
+        "memoryGrowthSlopeMbPer1k": 0.002,
+        "monotonicIncreaseCount": 4,
+        "timing": {
+          "count": 500,
+          "medianMs": 7.112,
+          "p95Ms": 8.205,
+          "maxMs": 17.293,
+          "totalMs": 3627.84
+        },
+        "checkpoints": [
+          {
+            "requests": 1000,
+            "heapMb": 38.304,
+            "deltaMb": -0.475
+          },
+          {
+            "requests": 2000,
+            "heapMb": 38.311,
+            "deltaMb": -0.468
+          },
+          {
+            "requests": 3000,
+            "heapMb": 38.117,
+            "deltaMb": -0.662
+          },
+          {
+            "requests": 4000,
+            "heapMb": 38.187,
+            "deltaMb": -0.592
+          },
+          {
+            "requests": 5000,
+            "heapMb": 38.183,
+            "deltaMb": -0.596
+          },
+          {
+            "requests": 6000,
+            "heapMb": 38.146,
+            "deltaMb": -0.633
+          },
+          {
+            "requests": 7000,
+            "heapMb": 38.144,
+            "deltaMb": -0.635
+          },
+          {
+            "requests": 8000,
+            "heapMb": 38.174,
+            "deltaMb": -0.605
+          },
+          {
+            "requests": 9000,
+            "heapMb": 38.215,
+            "deltaMb": -0.564
+          },
+          {
+            "requests": 10000,
+            "heapMb": 38.235,
+            "deltaMb": -0.544
+          },
+          {
+            "requests": 11000,
+            "heapMb": 38.251,
+            "deltaMb": -0.528
+          },
+          {
+            "requests": 12000,
+            "heapMb": 38.204,
+            "deltaMb": -0.575
+          },
+          {
+            "requests": 13000,
+            "heapMb": 38.21,
+            "deltaMb": -0.569
+          },
+          {
+            "requests": 14000,
+            "heapMb": 38.283,
+            "deltaMb": -0.496
+          },
+          {
+            "requests": 15000,
+            "heapMb": 38.207,
+            "deltaMb": -0.572
+          },
+          {
+            "requests": 16000,
+            "heapMb": 38.226,
+            "deltaMb": -0.553
+          },
+          {
+            "requests": 17000,
+            "heapMb": 38.241,
+            "deltaMb": -0.538
+          },
+          {
+            "requests": 18000,
+            "heapMb": 38.218,
+            "deltaMb": -0.561
+          },
+          {
+            "requests": 19000,
+            "heapMb": 38.277,
+            "deltaMb": -0.502
+          },
+          {
+            "requests": 20000,
+            "heapMb": 38.283,
+            "deltaMb": -0.496
+          },
+          {
+            "requests": 21000,
+            "heapMb": 38.223,
+            "deltaMb": -0.556
+          },
+          {
+            "requests": 22000,
+            "heapMb": 38.219,
+            "deltaMb": -0.56
+          },
+          {
+            "requests": 23000,
+            "heapMb": 38.236,
+            "deltaMb": -0.543
+          },
+          {
+            "requests": 24000,
+            "heapMb": 38.282,
+            "deltaMb": -0.497
+          },
+          {
+            "requests": 25000,
+            "heapMb": 38.28,
+            "deltaMb": -0.499
+          },
+          {
+            "requests": 26000,
+            "heapMb": 38.307,
+            "deltaMb": -0.472
+          },
+          {
+            "requests": 27000,
+            "heapMb": 38.232,
+            "deltaMb": -0.547
+          },
+          {
+            "requests": 28000,
+            "heapMb": 38.243,
+            "deltaMb": -0.536
+          },
+          {
+            "requests": 29000,
+            "heapMb": 38.253,
+            "deltaMb": -0.526
+          },
+          {
+            "requests": 30000,
+            "heapMb": 38.241,
+            "deltaMb": -0.538
+          },
+          {
+            "requests": 31000,
+            "heapMb": 38.291,
+            "deltaMb": -0.488
+          },
+          {
+            "requests": 32000,
+            "heapMb": 38.281,
+            "deltaMb": -0.498
+          },
+          {
+            "requests": 33000,
+            "heapMb": 38.253,
+            "deltaMb": -0.526
+          },
+          {
+            "requests": 34000,
+            "heapMb": 38.263,
+            "deltaMb": -0.516
+          },
+          {
+            "requests": 35000,
+            "heapMb": 38.26,
+            "deltaMb": -0.519
+          },
+          {
+            "requests": 36000,
+            "heapMb": 38.266,
+            "deltaMb": -0.513
+          },
+          {
+            "requests": 37000,
+            "heapMb": 38.311,
+            "deltaMb": -0.468
+          },
+          {
+            "requests": 38000,
+            "heapMb": 38.329,
+            "deltaMb": -0.45
+          },
+          {
+            "requests": 39000,
+            "heapMb": 38.273,
+            "deltaMb": -0.506
+          },
+          {
+            "requests": 40000,
+            "heapMb": 38.282,
+            "deltaMb": -0.497
+          },
+          {
+            "requests": 41000,
+            "heapMb": 38.278,
+            "deltaMb": -0.501
+          },
+          {
+            "requests": 42000,
+            "heapMb": 38.306,
+            "deltaMb": -0.473
+          },
+          {
+            "requests": 43000,
+            "heapMb": 38.317,
+            "deltaMb": -0.462
+          },
+          {
+            "requests": 44000,
+            "heapMb": 38.325,
+            "deltaMb": -0.454
+          },
+          {
+            "requests": 45000,
+            "heapMb": 38.255,
+            "deltaMb": -0.524
+          },
+          {
+            "requests": 46000,
+            "heapMb": 38.263,
+            "deltaMb": -0.516
+          },
+          {
+            "requests": 47000,
+            "heapMb": 38.31,
+            "deltaMb": -0.469
+          },
+          {
+            "requests": 48000,
+            "heapMb": 38.283,
+            "deltaMb": -0.496
+          },
+          {
+            "requests": 49000,
+            "heapMb": 38.288,
+            "deltaMb": -0.491
+          },
+          {
+            "requests": 50000,
+            "heapMb": 38.312,
+            "deltaMb": -0.467
+          }
+        ]
+      },
+      "requests": {
+        "concurrentPerCampaign": 1024,
+        "chaosCampaigns": 2,
+        "sustainedConcurrency": 1024,
+        "sustainedWaves": 8,
+        "sustainedRequests": 8192,
+        "totalChaoticRequests": 2048,
+        "interleavingRequests": 192,
+        "lifecycleRequests": 512,
+        "reactStreamingRequests": 256,
+        "memoryCycles": 50000
+      },
+      "timing": {
+        "count": 20,
+        "medianMs": 137.664,
+        "p95Ms": 200.834,
+        "maxMs": 205.358,
+        "totalMs": 2044.7
+      },
+      "totalWallMs": 9678.769,
+      "invariants": {
+        "foreignReadCount": 0,
+        "contextMismatchCount": 0,
+        "postLifecycleAccessSuccess": 0,
+        "registryResidualCount": 0,
+        "subscriberResidualCount": 0,
+        "maxConcurrentCorrectnessViolations": 0,
+        "failureCount": 0,
+        "globalStoreCountAfterRun": 0
+      },
+      "failures": []
+    },
+    {
+      "name": "SSR Warm Container Certification",
+      "waves": 8,
+      "requestsPerWave": 128,
+      "totalRequests": 1024,
+      "detachedProbes": 2048,
+      "requestTiming": {
+        "count": 1024,
+        "medianMs": 0.09,
+        "p95Ms": 1.309,
+        "maxMs": 1.439,
+        "totalMs": 478.349
+      },
+      "waveTiming": {
+        "count": 8,
+        "medianMs": 207.435,
+        "p95Ms": 210.502,
+        "maxMs": 210.502,
+        "totalMs": 1651.703
+      },
+      "retainedGrowthMb": 0.012,
+      "peakDeltaMb": 0.062,
+      "checkpoints": [
+        {
+          "wave": 1,
+          "requests": 128,
+          "heapMb": 38.079,
+          "deltaMb": -0.006
+        },
+        {
+          "wave": 2,
+          "requests": 256,
+          "heapMb": 38.083,
+          "deltaMb": -0.002
+        },
+        {
+          "wave": 3,
+          "requests": 384,
+          "heapMb": 38.083,
+          "deltaMb": -0.002
+        },
+        {
+          "wave": 4,
+          "requests": 512,
+          "heapMb": 38.084,
+          "deltaMb": -0.001
+        },
+        {
+          "wave": 5,
+          "requests": 640,
+          "heapMb": 38.122,
+          "deltaMb": 0.037
+        },
+        {
+          "wave": 6,
+          "requests": 768,
+          "heapMb": 38.126,
+          "deltaMb": 0.04
+        },
+        {
+          "wave": 7,
+          "requests": 896,
+          "heapMb": 38.147,
+          "deltaMb": 0.062
+        },
+        {
+          "wave": 8,
+          "requests": 1024,
+          "heapMb": 38.108,
+          "deltaMb": 0.022
+        }
+      ],
+      "invariants": {
+        "detachedLeakCount": 0,
+        "globalResidualCount": 0,
+        "globalStoreCountAfterRun": 0
+      }
+    },
+    {
+      "name": "Serverless Provider Model Certification",
+      "providers": [
+        {
+          "provider": "aws_lambda",
+          "runtimeModel": "warm Node handler with AsyncLocalStorage request scope",
+          "invocations": 96,
+          "detachedProbes": 192,
+          "timing": {
+            "count": 96,
+            "medianMs": 0.047,
+            "p95Ms": 0.092,
+            "maxMs": 0.787,
+            "totalMs": 5.912
+          },
+          "retainedGrowthMb": 0.096,
+          "invariants": {
+            "detachedLeakCount": 0,
+            "globalResidualCount": 0,
+            "globalStoreCountAfterRun": 0
+          }
+        },
+        {
+          "provider": "vercel",
+          "runtimeModel": "warm Node render plus explicit portable server-action hand-off",
+          "invocations": 96,
+          "detachedProbes": 192,
+          "timing": {
+            "count": 96,
+            "medianMs": 1.266,
+            "p95Ms": 1.348,
+            "maxMs": 1.64,
+            "totalMs": 120.315
+          },
+          "retainedGrowthMb": -0.003,
+          "invariants": {
+            "detachedLeakCount": 0,
+            "globalResidualCount": 0,
+            "globalStoreCountAfterRun": 0
+          }
+        },
+        {
+          "provider": "cloudflare_workers",
+          "runtimeModel": "warm worker isolate with explicit portable request scope",
+          "invocations": 96,
+          "detachedProbes": 0,
+          "timing": {
+            "count": 96,
+            "medianMs": 1.188,
+            "p95Ms": 1.254,
+            "maxMs": 1.329,
+            "totalMs": 113.614
+          },
+          "retainedGrowthMb": 0.035,
+          "invariants": {
+            "detachedLeakCount": 0,
+            "globalResidualCount": 0,
+            "globalStoreCountAfterRun": 0
+          }
+        }
+      ],
+      "totalInvocations": 288
+    },
+    {
+      "name": "Next.js Server Actions Boundary Certification",
+      "pairs": 48,
+      "renderPairTiming": {
+        "count": 48,
+        "medianMs": 0.26,
+        "p95Ms": 0.345,
+        "maxMs": 0.607,
+        "totalMs": 13.418
+      },
+      "actionPairTiming": {
+        "count": 48,
+        "medianMs": 0.095,
+        "p95Ms": 0.174,
+        "maxMs": 0.211,
+        "totalMs": 4.919
+      },
+      "pairTiming": {
+        "count": 48,
+        "medianMs": 0.359,
+        "p95Ms": 0.464,
+        "maxMs": 0.786,
+        "totalMs": 18.509
+      },
+      "invariants": {
+        "stateMismatchCount": 0,
+        "crossCaptureBleedCount": 0
+      }
+    },
+    {
+      "name": "React 18 Concurrency Certification",
+      "scenarios": [
+        {
+          "scenario": "useTransition",
+          "runs": 8,
+          "updatesPerRun": 24,
+          "timing": {
+            "count": 8,
+            "medianMs": 5.048,
+            "p95Ms": 14.796,
+            "maxMs": 14.796,
+            "totalMs": 50.016
+          },
+          "averageRenders": 73,
+          "invariantViolations": 0,
+          "sampleFinalState": {
+            "value": 24,
+            "parity": "even",
+            "label": "count:24"
+          }
+        },
+        {
+          "scenario": "useDeferredValue",
+          "runs": 8,
+          "updatesPerRun": 24,
+          "timing": {
+            "count": 8,
+            "medianMs": 4.088,
+            "p95Ms": 5.076,
+            "maxMs": 5.076,
+            "totalMs": 34.064
+          },
+          "averageRenders": 73,
+          "invariantViolations": 0,
+          "sampleFinalState": {
+            "value": 24,
+            "parity": "even",
+            "label": "count:24"
+          }
+        }
+      ]
+    },
+    {
+      "name": "WebSocket Hydration Stream Certification",
+      "runs": 24,
+      "beforeClose": 6,
+      "afterClose": 4,
+      "timing": {
+        "count": 24,
+        "medianMs": 6.359,
+        "p95Ms": 6.485,
+        "maxMs": 7.277,
+        "totalMs": 151.299
+      },
+      "invariants": {
+        "mismatchCount": 0,
+        "queuedWrites": 6,
+        "replayedWrites": 6
+      }
+    },
+    {
+      "name": "Atomic Failure Injection Test",
+      "iterations": 48,
+      "rollbackCount": 36,
+      "partialCommitCount": 0,
+      "timing": {
+        "count": 48,
+        "medianMs": 0.079,
+        "p95Ms": 0.143,
+        "maxMs": 0.302,
+        "totalMs": 4.123
+      },
+      "finalState": {
+        "inventory": {
+          "available": 84,
+          "reserved": 12
+        },
+        "ledger": {
+          "committed": 12,
+          "lastOrder": 48
+        },
+        "outbox": {
+          "messages": [
+            "order-4",
+            "order-8",
+            "order-12",
+            "order-16",
+            "order-20",
+            "order-24",
+            "order-28",
+            "order-32",
+            "order-36",
+            "order-40",
+            "order-44",
+            "order-48"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Race Condition Stress Test",
+      "waves": 24,
+      "operationsPerWave": 80,
+      "timing": {
+        "count": 24,
+        "medianMs": 0.901,
+        "p95Ms": 1.259,
+        "maxMs": 1.308,
+        "totalMs": 22.417
+      },
+      "invariantViolations": 0,
+      "stateMismatchCount": 0,
+      "finalState": {
+        "wallet": {
+          "available": 302,
+          "reserved": 59,
+          "seq": 1920,
+          "credits": 778
+        },
+        "orders": {
+          "open": 59,
+          "settled": 457,
+          "released": 279
+        }
+      }
+    },
+    {
+      "name": "Hydration Divergence Guarantee Suite",
+      "bootWindowMode": "manual",
+      "campaigns": [
+        {
+          "name": "Try: mixed-source queue stays sealed until explicit close",
+          "profile": "try",
+          "runs": 16,
+          "writesPerRun": 5,
+          "timing": {
+            "count": 16,
+            "medianMs": 17.858,
+            "p95Ms": 18.963,
+            "maxMs": 18.963,
+            "totalMs": 286.98
+          },
+          "queuedWritesSeen": [
+            5
+          ],
+          "replayedWritesSeen": [
+            5
+          ],
+          "driftEventsSeen": [
+            5
+          ],
+          "sourceOrderPreviews": [
+            "effect>storage>sync>network>network"
+          ],
+          "unexpectedOutcomes": 0,
+          "invariantViolations": 0,
+          "guaranteeBoundary": "manual-close",
+          "finalStateSample": {
+            "counter": {
+              "count": 1
+            },
+            "prefs": {
+              "theme": "dark"
+            },
+            "presence": {
+              "online": true
+            },
+            "remote": {
+              "data": "fresh",
+              "loading": false,
+              "error": null,
+              "status": "success",
+              "cached": false,
+              "revalidating": false
+            }
+          },
+          "note": "Proves no pre-close leak across effect, storage, sync, and network writes when the boot window is closed manually."
+        },
+        {
+          "name": "Hit: policy matrix stays deterministic after replay",
+          "profile": "hit",
+          "runs": 12,
+          "writesPerRun": 4,
+          "timing": {
+            "count": 12,
+            "medianMs": 18.594,
+            "p95Ms": 19.152,
+            "maxMs": 19.152,
+            "totalMs": 221.543
+          },
+          "queuedWritesSeen": [
+            4
+          ],
+          "replayedWritesSeen": [
+            4
+          ],
+          "driftEventsSeen": [
+            4
+          ],
+          "sourceOrderPreviews": [
+            "effect>effect>effect>effect"
+          ],
+          "unexpectedOutcomes": 0,
+          "invariantViolations": 0,
+          "guaranteeBoundary": "manual-close",
+          "finalStateSample": {
+            "session": {
+              "token": "server"
+            },
+            "draft": {
+              "value": "client"
+            },
+            "filters": {
+              "q": "client",
+              "nested": {
+                "server": true,
+                "client": true
+              }
+            },
+            "remote": {
+              "data": "fresh",
+              "loading": false,
+              "error": null,
+              "status": "success",
+              "cached": false,
+              "revalidating": false
+            }
+          },
+          "note": "Exercises server_wins, client_wins, merge, and invalidate_and_refetch under the same manual-close boundary."
+        },
+        {
+          "name": "Stress: repeated mixed-source replay preserves exact order",
+          "profile": "stress",
+          "runs": 18,
+          "writesPerRun": 18,
+          "timing": {
+            "count": 18,
+            "medianMs": 14.328,
+            "p95Ms": 14.467,
+            "maxMs": 14.467,
+            "totalMs": 251.143
+          },
+          "queuedWritesSeen": [
+            18
+          ],
+          "replayedWritesSeen": [
+            18
+          ],
+          "driftEventsSeen": [
+            18
+          ],
+          "sourceOrderPreviews": [
+            "effect>storage>sync>effect>storage>...>storage>sync>effect>storage>sync"
+          ],
+          "unexpectedOutcomes": 0,
+          "invariantViolations": 0,
+          "guaranteeBoundary": "manual-close",
+          "finalStateSample": {
+            "revision": 18,
+            "source": "sync"
+          },
+          "note": "Runs mixed-source writes across microtask and timer boundaries while the queue is open, then verifies exact replay order."
+        },
+        {
+          "name": "Hammer: high-volume queued writes survive without leak or reorder",
+          "profile": "hammer",
+          "runs": 8,
+          "writesPerRun": 72,
+          "timing": {
+            "count": 8,
+            "medianMs": 31.123,
+            "p95Ms": 31.474,
+            "maxMs": 31.474,
+            "totalMs": 247.656
+          },
+          "queuedWritesSeen": [
+            72
+          ],
+          "replayedWritesSeen": [
+            72
+          ],
+          "driftEventsSeen": [
+            72
+          ],
+          "sourceOrderPreviews": [
+            "effect>storage>sync>effect>storage>...>storage>sync>effect>storage>sync"
+          ],
+          "unexpectedOutcomes": 0,
+          "invariantViolations": 0,
+          "guaranteeBoundary": "manual-close",
+          "finalStateSample": {
+            "counter": {
+              "count": 24
+            },
+            "prefs": {
+              "revision": 24,
+              "source": "storage"
+            },
+            "presence": {
+              "revision": 24,
+              "peers": 24
+            }
+          },
+          "note": "Queues a larger volume of interleaved effect, storage, and sync writes before a single explicit close signal."
+        }
+      ],
+      "certification": {
+        "guaranteeBoundary": "manual-close",
+        "certifiedRuns": 54,
+        "totalQueuedWrites": 1028,
+        "unexpectedOutcomes": 0,
+        "invariantViolations": 0
+      }
+    },
+    {
+      "name": "Hydration Randomized Certification",
+      "policies": [
+        {
+          "policy": "client_wins",
+          "seeds": [
+            17,
+            23,
+            41,
+            59,
+            97,
+            131
+          ],
+          "runs": 6,
+          "operationsPerRun": 36,
+          "timing": {
+            "count": 6,
+            "medianMs": 24.523,
+            "p95Ms": 25.576,
+            "maxMs": 25.576,
+            "totalMs": 146.717
+          },
+          "driftEventsSeen": [
+            36
+          ],
+          "queuedWritesSeen": [
+            36
+          ],
+          "replayedWritesSeen": [
+            36
+          ],
+          "mismatches": 0,
+          "sampleEventSummary": [
+            "effect:client_kept",
+            "storage:client_kept",
+            "effect:client_kept",
+            "effect:client_kept",
+            "sync:client_kept",
+            "effect:client_kept",
+            "sync:client_kept",
+            "sync:client_kept",
+            "effect:client_kept",
+            "sync:client_kept",
+            "storage:client_kept",
+            "effect:client_kept"
+          ],
+          "sampleFinalState": {
+            "counter": 19,
+            "nested": {
+              "server": false,
+              "client": false,
+              "seq": 36
+            },
+            "tags": [
+              "seed-17",
+              "step-35",
+              "storage",
+              "stamp-3"
+            ],
+            "meta": {
+              "source": "storage",
+              "stamp": 2332,
+              "merged": false
+            }
+          }
+        },
+        {
+          "policy": "server_wins",
+          "seeds": [
+            17,
+            23,
+            41,
+            59,
+            97,
+            131
+          ],
+          "runs": 6,
+          "operationsPerRun": 36,
+          "timing": {
+            "count": 6,
+            "medianMs": 25.623,
+            "p95Ms": 26.063,
+            "maxMs": 26.063,
+            "totalMs": 153.119
+          },
+          "driftEventsSeen": [
+            36
+          ],
+          "queuedWritesSeen": [
+            36
+          ],
+          "replayedWritesSeen": [
+            36
+          ],
+          "mismatches": 0,
+          "sampleEventSummary": [
+            "effect:server_reverted",
+            "storage:server_reverted",
+            "effect:server_reverted",
+            "effect:server_reverted",
+            "sync:server_reverted",
+            "effect:server_reverted",
+            "sync:server_reverted",
+            "sync:server_reverted",
+            "effect:server_reverted",
+            "sync:server_reverted",
+            "storage:server_reverted",
+            "effect:server_reverted"
+          ],
+          "sampleFinalState": {
+            "counter": 3,
+            "nested": {
+              "server": true,
+              "client": false,
+              "seq": 0
+            },
+            "tags": [
+              "seed-17",
+              "server"
+            ],
+            "meta": {
+              "source": "hydrate",
+              "stamp": 17,
+              "merged": false
+            }
+          }
+        },
+        {
+          "policy": "merge",
+          "seeds": [
+            17,
+            23,
+            41,
+            59,
+            97,
+            131
+          ],
+          "runs": 6,
+          "operationsPerRun": 36,
+          "timing": {
+            "count": 6,
+            "medianMs": 26.452,
+            "p95Ms": 27.241,
+            "maxMs": 27.241,
+            "totalMs": 159.126
+          },
+          "driftEventsSeen": [
+            36
+          ],
+          "queuedWritesSeen": [
+            36
+          ],
+          "replayedWritesSeen": [
+            36
+          ],
+          "mismatches": 0,
+          "sampleEventSummary": [
+            "effect:merged",
+            "storage:merged",
+            "effect:merged",
+            "effect:merged",
+            "sync:merged",
+            "effect:merged",
+            "sync:merged",
+            "sync:merged",
+            "effect:merged",
+            "sync:merged",
+            "storage:merged",
+            "effect:merged"
+          ],
+          "sampleFinalState": {
+            "counter": 19,
+            "nested": {
+              "server": true,
+              "client": false,
+              "seq": 36
+            },
+            "tags": [
+              "seed-17",
+              "server",
+              "step-35",
+              "storage",
+              "stamp-3"
+            ],
+            "meta": {
+              "source": "storage",
+              "stamp": 2332,
+              "merged": true
+            }
+          }
+        }
+      ],
+      "totalRuns": 36,
+      "totalWallMs": 475.308
+    },
+    {
+      "name": "Determinism Replay Test",
+      "replays": 20,
+      "uniqueOutputCount": 1,
+      "timing": {
+        "count": 20,
+        "medianMs": 22.676,
+        "p95Ms": 25.219,
+        "maxMs": 29.646,
+        "totalMs": 466.342
+      }
+    },
+    {
+      "name": "Memory Leak Detection Test",
+      "warmupCycles": 40,
+      "measuredCycles": 240,
+      "subscribersPerStore": 12,
+      "baselineHeapMb": 42.646,
+      "finalHeapMb": 45.121,
+      "retainedGrowthMb": 2.475,
+      "peakDeltaMb": 2.477,
+      "checkpoints": [
+        {
+          "cycle": 40,
+          "heapMb": 43.05,
+          "storeCount": 0
+        },
+        {
+          "cycle": 80,
+          "heapMb": 43.469,
+          "storeCount": 0
+        },
+        {
+          "cycle": 120,
+          "heapMb": 43.902,
+          "storeCount": 0
+        },
+        {
+          "cycle": 160,
+          "heapMb": 44.285,
+          "storeCount": 0
+        },
+        {
+          "cycle": 200,
+          "heapMb": 44.699,
+          "storeCount": 0
+        },
+        {
+          "cycle": 240,
+          "heapMb": 45.123,
+          "storeCount": 0
+        }
+      ]
+    },
+    {
+      "name": "Governance Lifecycle Test",
+      "proposals": 5,
+      "rejectedMutationCount": 1,
+      "previewCommitMismatchCount": 0,
+      "timingContract": {
+        "simulationWindow": "pre-commit",
+        "executionModel": "sync",
+        "effectScope": "out-of-pipeline",
+        "governanceMode": "full-governor",
+        "mutationAuthority": "exclusive",
+        "causalityBoundary": "none",
+        "reasons": []
+      },
+      "previewTiming": {
+        "count": 5,
+        "medianMs": 0.013,
+        "p95Ms": 0.025,
+        "maxMs": 0.025,
+        "totalMs": 0.082
+      },
+      "commitTiming": {
+        "count": 4,
+        "medianMs": 0.074,
+        "p95Ms": 0.136,
+        "maxMs": 0.136,
+        "totalMs": 0.349
+      },
+      "committedTotals": [
+        45,
+        90,
+        70,
+        20
+      ]
+    }
+  ]
+}

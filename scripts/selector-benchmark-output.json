@@ -1,38 +1,38 @@
 [
   {
     "count": 50000,
-    "rawHeapMb": 3.952,
-    "rawMs": 0.608,
-    "simpleHeapMb": 27.109,
-    "simpleSelectorMs": 3.501,
+    "rawHeapMb": 3.951,
+    "rawMs": 0.603,
+    "simpleHeapMb": 27.336,
+    "simpleSelectorMs": 3.687,
     "complexHeapMb": 27.206,
-    "complexSelectorMs": 4.122
+    "complexSelectorMs": 3.398
   },
   {
     "count": 100000,
-    "rawHeapMb": 7.874,
-    "rawMs": 0.902,
+    "rawHeapMb": 7.871,
+    "rawMs": 0.872,
     "simpleHeapMb": 54.394,
-    "simpleSelectorMs": 12.708,
+    "simpleSelectorMs": 11.523,
     "complexHeapMb": 54.387,
-    "complexSelectorMs": 13.141
+    "complexSelectorMs": 12.121
   },
   {
     "count": 200000,
-    "rawHeapMb": 15.693,
+    "rawHeapMb": 15.688,
     "rawMs": 1.612,
     "simpleHeapMb": 108.773,
-    "simpleSelectorMs": 29.672,
-    "complexHeapMb": 108.764,
-    "complexSelectorMs": 29.0
+    "simpleSelectorMs": 27.774,
+    "complexHeapMb": 108.765,
+    "complexSelectorMs": 27.357
   },
   {
     "count": 800000,
     "rawHeapMb": 62.732,
-    "rawMs": 6.875,
-    "simpleHeapMb": 435.053,
-    "simpleSelectorMs": 118.473,
-    "complexHeapMb": 435.048,
-    "complexSelectorMs": 121.928
+    "rawMs": 6.471,
+    "simpleHeapMb": 435.052,
+    "simpleSelectorMs": 116.042,
+    "complexHeapMb": 435.049,
+    "complexSelectorMs": 114.025
   }
 ]
