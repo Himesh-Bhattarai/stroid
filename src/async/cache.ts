@@ -90,6 +90,22 @@ const ensureCleanupBucket = (name: string): StoreCleanupBucket => {
     return bucket;
 };
 
+const normalizeCleanupKind = (kind: unknown): StoreCleanupKind =>
+    kind === "revalidate" ? "revalidate" : "store";
+
+const getCleanupSetByKind = (bucket: StoreCleanupBucket, kind: StoreCleanupKind): Set<() => void> | undefined =>
+    kind === "revalidate" ? bucket.revalidate : bucket.store;
+
+const setCleanupSetByKind = (bucket: StoreCleanupBucket, kind: StoreCleanupKind, set: Set<() => void>): void => {
+    if (kind === "revalidate") bucket.revalidate = set;
+    else bucket.store = set;
+};
+
+const deleteCleanupSetByKind = (bucket: StoreCleanupBucket, kind: StoreCleanupKind): void => {
+    if (kind === "revalidate") delete bucket.revalidate;
+    else delete bucket.store;
+};
+
 const pruneCleanupBucket = (name: string, bucket: StoreCleanupBucket): void => {
     if (Object.keys(bucket).length === 0) {
         delete getStoreCleanups()[name];
@@ -98,14 +114,14 @@ const pruneCleanupBucket = (name: string, bucket: StoreCleanupBucket): void => {
 
 const runCleanupBucket = (bucket: StoreCleanupBucket, kind?: StoreCleanupKind): void => {
     if (kind) {
-        runCleanupSet(bucket[kind]);
-        delete bucket[kind];
+        runCleanupSet(getCleanupSetByKind(bucket, kind));
+        deleteCleanupSetByKind(bucket, kind);
         return;
     }
-    (Object.keys(bucket) as StoreCleanupKind[]).forEach((key) => {
-        runCleanupSet(bucket[key]);
-        delete bucket[key];
-    });
+    runCleanupSet(bucket.store);
+    runCleanupSet(bucket.revalidate);
+    delete bucket.store;
+    delete bucket.revalidate;
 };
 
 const runStoreCleanups = (name: string): void => {
@@ -119,7 +135,8 @@ const runStoreCleanups = (name: string): void => {
 export const cleanupStoreCleanupsByKind = (kind: StoreCleanupKind): void => {
     const storeCleanups = getStoreCleanups();
     Object.entries(storeCleanups).forEach(([name, bucket]) => {
-        if (!bucket[kind]) return;
+        const set = getCleanupSetByKind(bucket, kind);
+        if (!set) return;
         runCleanupBucket(bucket, kind);
         pruneCleanupBucket(name, bucket);
     });
@@ -212,10 +229,11 @@ export const countInflightSlots = (name: string): number => {
 export const registerStoreCleanup = (name: string, fn: () => void, kind: StoreCleanupKind = "store"): void => {
     ensureDeleteHook();
     const bucket = ensureCleanupBucket(name);
-    let set = bucket[kind];
+    const resolvedKind = normalizeCleanupKind(kind);
+    let set = getCleanupSetByKind(bucket, resolvedKind);
     if (!set) {
         set = new Set();
-        bucket[kind] = set;
+        setCleanupSetByKind(bucket, resolvedKind, set);
     }
     set.add(fn);
 };
@@ -225,15 +243,16 @@ export const unregisterStoreCleanup = (name: string, fn: () => void, kind?: Stor
     const bucket = storeCleanups[name];
     if (!bucket) return;
     const removeFromKind = (key: StoreCleanupKind): void => {
-        const set = bucket[key];
+        const set = getCleanupSetByKind(bucket, key);
         if (!set) return;
         set.delete(fn);
-        if (set.size === 0) delete bucket[key];
+        if (set.size === 0) deleteCleanupSetByKind(bucket, key);
     };
     if (kind) {
-        removeFromKind(kind);
+        removeFromKind(normalizeCleanupKind(kind));
     } else {
-        (Object.keys(bucket) as StoreCleanupKind[]).forEach(removeFromKind);
+        removeFromKind("store");
+        removeFromKind("revalidate");
     }
     pruneCleanupBucket(name, bucket);
 };
