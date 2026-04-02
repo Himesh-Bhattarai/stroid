@@ -17,6 +17,8 @@ SSR gets you a correct initial snapshot. The remaining problem is what happens r
 - drift becomes observable instead of silent
 - each store can choose its own reconciliation policy
 
+For long-lived websocket or sync traffic, the strongest current contract is still manual close. That path is now locally certified for queue-before-close plus continue-after-close ordering, not only for one-shot sync bursts.
+
 ---
 
 ## API Shape
@@ -110,6 +112,8 @@ Those writes are replayed in insertion order once the window closes. This is mai
 - stale persistence restores
 - immediate websocket bursts
 - eager revalidation after boot
+
+Under manual close, Stroid now certifies the longer-lived version of that websocket case as well: `sync` frames that arrive before `close()` stay queued and replay in sequence, while frames that arrive after `close()` continue immediately without reordering the already-queued stream.
 
 Manual mode is the strong contract because your app decides when the gate closes. Timer mode is still useful for low-friction adoption, but it is best-effort because it guesses.
 

@@ -11,6 +11,7 @@ import { runReactConcurrencyBenchmark } from "./react-concurrency-benchmark.js";
 import { runServerlessProviderCertification } from "./serverless-provider-certification.js";
 import { runSsrIsolationBenchmark } from "./ssr-isolation-benchmark.js";
 import { runSsrWarmContainerBenchmark } from "./ssr-warm-container-benchmark.js";
+import { runWebsocketHydrationStreamBenchmark } from "./websocket-hydration-stream-benchmark.js";
 
 export const runGuaranteeBenchmarkSuite = async () => {
   const results = [];
@@ -21,6 +22,7 @@ export const runGuaranteeBenchmarkSuite = async () => {
     runServerlessProviderCertification,
     runNextServerActionsBenchmark,
     runReactConcurrencyBenchmark,
+    runWebsocketHydrationStreamBenchmark,
     runAtomicFailureBenchmark,
     runRaceConditionBenchmark,
     runHydrationDivergenceBenchmark,

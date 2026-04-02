@@ -270,9 +270,10 @@ export const flushHydrationWriteQueue = (registry: StoreRegistry): void => {
     if (state.replaying || state.queue.length === 0) return;
     state.replaying = true;
     try {
-        while (state.queue.length > 0) {
-            const next = state.queue.shift();
-            if (!next) continue;
+        const queuedWrites = state.queue
+            .splice(0, state.queue.length)
+            .sort((left, right) => left.id - right.id);
+        for (const next of queuedWrites) {
             state.metrics.replayedWrites += 1;
             const entry = state.stores[next.store];
             if (entry) {

@@ -11,6 +11,7 @@ Headline results:
 - the standalone serverless provider-model certification passed `96` local invocations each for AWS Lambda, Vercel render-to-action hand-off, and Cloudflare Workers explicit scopes, with `0` detached leaks and `0` global residuals across all three runtime models
 - the standalone React 18 concurrency certification passed `8` runs each for `useTransition` and `useDeferredValue`, with `0` invariant violations and final-state parity on every run
 - the standalone Next.js Server Actions boundary certification passed `48` render/action pairs, with `0` state mismatches and `0` cross-capture bleed events
+- the standalone WebSocket hydration stream certification passed `24` runs with `6` queued pre-close sync frames and `4` post-close frames each, with `0` mismatches and deterministic final ordering on every run
 - the hydration-divergence certification now runs as a first-class guarantee suite under the manual-close boundary: `54` certified runs, `1,028` queued writes, `0` unexpected outcomes, and `0` invariant violations across `try`, `hit`, `stress`, and `hammer` campaigns
 - the standalone hydration randomized certification passed `36` paired runs across `client_wins`, `server_wins`, and `merge`, with `0` replay mismatches and exact drift-order parity between immediate execution and queued replay
 - the standalone large-payload hydration benchmark preserved parity at `256 KB`, `1,024 KB`, and `2,048 KB`, while making the current cost curve explicit: queued replay median rose from `79.148ms` at `256 KB` to `2,963.113ms` at `2,048 KB`
@@ -46,6 +47,7 @@ Headline results:
 - the serverless provider-model section below was rerun as a standalone certification on `2026-04-02`; it is now wired into `npm run benchmark:guarantees` for future suite reruns
 - the React 18 concurrency section below was rerun as a standalone certification on `2026-04-02`; it is now wired into `npm run benchmark:guarantees` for future suite reruns
 - the Next.js Server Actions section below was rerun as a standalone certification on `2026-04-02`; it is now wired into `npm run benchmark:guarantees` for future suite reruns
+- the WebSocket hydration stream section below was rerun as a standalone certification on `2026-04-02`; it is now wired into `npm run benchmark:guarantees` for future suite reruns
 - the large-payload hydration benchmark below stays standalone on purpose because its multi-MB stress tier is materially more expensive than the default guarantee suite
 
 ## Hydration Divergence Certification
@@ -136,6 +138,21 @@ Server-action certification read:
 - `stateMismatchCount = 0`
 - `crossCaptureBleedCount = 0`
 - the certified path is `stroid/server` for render capture plus `stroid/server/portable` for the action boundary
+
+## WebSocket Hydration Stream Certification
+
+Dedicated results from `scripts/websocket-hydration-stream-benchmark.ts` as exercised on `2026-04-02`.
+
+| Runs | Queued Before Close | Continued After Close | Median | P95 | Read |
+| --- | --- | --- | --- | --- | --- |
+| `24` | `6` sync frames | `4` sync frames | `6.535ms` | `7.206ms` | pre-close websocket-style sync writes queued and replayed in order, then post-close frames continued immediately without corrupting sequence |
+
+WebSocket stream certification read:
+
+- `mismatchCount = 0`
+- `queuedWrites = 6`
+- `replayedWrites = 6`
+- this section certifies a long-lived `sync` stream across the manual close boundary, not only a short initial burst
 
 ## Hydration Randomized Certification
 
@@ -316,7 +333,7 @@ Selected rows from `npm run benchmark:selector`.
 
 ## Guarantee Results
 
-Results from the serialized `npm run benchmark:guarantees` rerun captured before the new `benchmark:ssr-warm`, `benchmark:serverless-provider`, `benchmark:next-server-actions`, `benchmark:react-concurrency`, and `benchmark:hydration-randomized` additions were folded into the suite. Use the standalone sections above for the `2026-04-02` reruns of those newer certifications.
+Results from the serialized `npm run benchmark:guarantees` rerun captured before the new `benchmark:ssr-warm`, `benchmark:serverless-provider`, `benchmark:next-server-actions`, `benchmark:react-concurrency`, `benchmark:websocket-stream`, and `benchmark:hydration-randomized` additions were folded into the suite. Use the standalone sections above for the `2026-04-02` reruns of those newer certifications.
 
 | Benchmark | Numeric Result | Status |
 | --- | --- | --- |
@@ -342,6 +359,7 @@ Guarantee read:
 | Serverless provider-model certification | `npm run benchmark:serverless-provider` |
 | Next.js Server Actions boundary certification | `npm run benchmark:next-server-actions` |
 | React 18 concurrency certification | `npm run benchmark:react-concurrency` |
+| WebSocket hydration stream certification | `npm run benchmark:websocket-stream` |
 | Cross-library compare | `npm run benchmark:compare` |
 | Core small-range | `npm run benchmark:core-small` |
 | Single-store fanout | `npm run benchmark:subscriber` |
