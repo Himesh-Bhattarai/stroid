@@ -21,7 +21,7 @@ jobs:
 
       - name: Check if bot should respond
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const payload = context.payload;
@@ -181,7 +181,7 @@ jobs:
 
       - name: Post Answer to Discussion
         if: steps.check.outputs.should_respond == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           DISCUSSION_NUMBER: ${{ steps.check.outputs.discussion_number }}
         with:
