@@ -10,6 +10,8 @@ Method:
 - Reported as bundle-closure size (what gets pulled into an app bundle).
 - `react` and `react-dom` are externalized (peer deps).
 
+
+
 Table:
 
 | Entrypoint | Probe | Platform | Minified -> Gzip | Brotli | Notes |
@@ -61,3 +63,25 @@ stroid/feature            0.1 KiB
 Notes:
 - These are *import-closure* sizes, not the size of `dist/*.js` files.
 - The exact number varies with bundler settings; treat this as a consistent local baseline.
+
+## The Stroid Tradeoff: Correctness Over Micro-Optimization
+
+Stroid is intentionally larger than a bare-bones state container. This is a deliberate architectural choice. While other libraries focus on being as small as possible, Stroid focuses on being as **reliable** as possible.
+
+### Why the extra KBs?
+1.  **Integrated Ecosystem:** If you take a minimal library and manually add persistence, cross-tab synchronization, and async caching, your final bundle will often meet or exceed Stroid's size. Stroid provides these as a unified, as well as trusted in production(not any production case study because no community support, i will build after my assignmment finished toward system).
+2.  **Deterministic Runtime:** We ship a robust internal registry and lifecycle engine. This ensures that state transitions are predictable, even in complex SSR and concurrent React environments.
+3.  **Production Safety:** A bug in state synchronization can cost real money in production. We prioritize data integrity and "correctness-by-design" over shaving off a few kilobytes.
+
+### Our Philosophy
+If your primary constraint is the absolute smallest bundle size for a simple site, Stroid may not be the right fit. However, if you are building a **mission-critical application** where data safety, deterministic replay, and a single mental model are paramount, Stroid is built for you.
+
+We respect the developer's need for performance, and we continue to optimize our tree-shaking and internal structures. But we will never compromise on the **guarantees** that keep your production environment stable.
+
+**In short: We choose correctness and trust. Because while performance can be optimized later, a lost state or a race condition in production is a cost no company wants to pay nither i want to give those cost to you.**
+
+
+- It's very painful to write. 
+                                                         -Himesh Chanchal Bhattarai
+
+---
