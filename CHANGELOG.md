@@ -10,28 +10,39 @@
 >[!NOTE]
 ><details open>
 ><summary><strong> Unreleased </strong></summary>
->- Added an optional fourth `hydrateStores(..., options, trust, consistency?)` argument for post-hydration consistency contracts, >including snapshot metadata, per-store authorities, per-store reconciliation policies, and `onDrift` diagnostics.
->- Hardened `createStoreForRequest().hydrate(...)` to scrub finished carrier state after snapshot sync, then added >detached-continuation regression coverage and a warm-container SSR certification benchmark for sequential request reuse.
->- Hardened hydration reconciliation so throwing custom `merge(...)` or normalization callbacks now fall back safely to the hydrated >baseline, then added randomized replay certification coverage and a dedicated `benchmark:hydration-randomized` script.
->- Added large-payload hydration parity coverage plus a dedicated `benchmark:hydration-large-payload` script to measure clone cost, >queued replay cost, and retained heap across multi-hundred-KB to multi-MB state sizes.
->- Added hydration boot-window write deferral with deterministic replay for early `effect`, `storage`, `network`, and `sync` writes, >plus policy execution for `server_wins`, `client_wins`, `merge`, and `invalidate_and_refetch`.
->- Added manual hydration boot-window control through `HydrationResult.bootWindow`, including `bootWindow: { mode: "manual" }`, >optional `fallbackMs`, and runtime metrics that expose whether manual close is available.
->- Added `stroid/runtime-tools` hydration observability helpers: `getHydrationConsistency()`, `getHydrationDriftEvents()`, and >`getHydrationDriftMetrics()`.
->- Added `stroid/server/portable` for explicit request-scope hand-off across serverless and framework boundaries, including >`createRequestScope(...)`, capture/resume coverage, and a local provider-model certification for AWS Lambda, Vercel >render-to-action hand-off, and Cloudflare Workers-style isolates.
->- Added React 18 concurrency certification for `useStore(...)`, including no-tearing regression coverage under `useTransition` and >`useDeferredValue`, plus a dedicated `benchmark:react-concurrency` script that validates the existing `useSyncExternalStore` hook >path.
+>
+>### Add
+>
+>- Added an optional fourth `hydrateStores(..., options, trust, consistency?)` argument for post-hydration consistency contracts, including snapshot metadata, per-store authorities, per-store reconciliation policies, and `onDrift` diagnostics.
+>- Added large-payload hydration parity coverage plus a dedicated `benchmark:hydration-large-payload` script to measure clone cost, queued replay cost, and retained heap across multi-hundred-KB to multi-MB state sizes.
+>- Added hydration boot-window write deferral with deterministic replay for early `effect`, `storage`, `network`, and `sync` writes, plus policy execution for `server_wins`, `client_wins`, `merge`, and `invalidate_and_refetch`.
+>- Added manual hydration boot-window control through `HydrationResult.bootWindow`, including `bootWindow: { mode: "manual" }`, optional `fallbackMs`, and runtime metrics that expose whether manual close is available.
+>- Added `stroid/runtime-tools` hydration observability helpers: `getHydrationConsistency()`, `getHydrationDriftEvents()`, and `getHydrationDriftMetrics()`.
+>- Added `stroid/server/portable` for explicit request-scope hand-off across serverless and framework boundaries, including `createRequestScope(...)`, capture/resume coverage, and a local provider-model certification for AWS Lambda, Vercel render-to-action hand-off, and Cloudflare Workers-style isolates.
+>- Added React 18 concurrency certification for `useStore(...)`, including no-tearing regression coverage under `useTransition` and `useDeferredValue`, plus a dedicated `benchmark:react-concurrency` script that validates the existing `useSyncExternalStore` hook path.
 >- Added a concrete Next.js App Router render-to-server-action hand-off example, regression coverage, and `benchmark:next-server-actions`, so request-scoped state capture and resume is now documented and locally certified instead of only described as a manual boundary.
+>- Added a dedicated `stroid/query` entrypoint for `reactQueryKey` and `swrKey`, so cache-key helpers can be imported without pulling the heavier async query fetcher surface.
+>
+>### Change
+>
+>- Hardened `createStoreForRequest().hydrate(...)` to scrub finished carrier state after snapshot sync, then added detached-continuation regression coverage and a warm-container SSR certification benchmark for sequential request reuse.
+>- Hardened hydration reconciliation so throwing custom `merge(...)` or normalization callbacks now fall back safely to the hydrated baseline, then added randomized replay certification coverage and a dedicated `benchmark:hydration-randomized` script.
 >- Hardened hydration replay ordering by draining deferred writes through their monotonic enqueue sequence, then added long-lived websocket/sync stream regression coverage plus `benchmark:websocket-stream` to certify pre-close queueing and post-close continuation order.
->- Hardened integration, regression, and public type coverage for post-hydration drift governance, including early effect input, >stale storage restore ordering, websocket/sync burst replay, and invalidation-driven async refetch recovery.
->- Upgraded `benchmark:hydration-divergence` into a first-class hydration guarantee suite with `try`, `hit`, `stress`, and `hammer` >campaigns under the manual-close boundary, and folded that certification into `benchmark:guarantees`.
->- Added a dedicated Post-Hydration Consistency guide with adoption defaults and updated the README, server guide, runtime-tools >guide, benchmark report, version migration guide, and `NEXT_PHASE.md` status note to reflect the shipped consistency layer.
->- Added a dedicated `stroid/query` entrypoint for `reactQueryKey` and `swrKey`, so cache-key helpers can be imported without >pulling the heavier async query fetcher surface.
->- Reduced `stroid/persist` import retention by routing the leaf entrypoint to the direct feature installer, and regrouped >`runtime-tools` internals plus query-key helpers for narrower future tree-shaking work.
->- Removed the dead `computed-types` JavaScript build entry and added `module` plus explicit `./query` export metadata for bundler >compatibility.
->- Removed incorrect `sideEffects` metadata that pointed at unpublished source paths; the package now stays conservative until the >remaining import-time effects are isolated explicitly.
->- Added bundle-sensitive import guidance and bundle-closure benchmark notes to the README and docs, including the new 
-> @ `stroid/> '`query` path, the measurable `stroid/persist` win, and the current root-entry limitations.
->- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, >instead of collapsing that branch into `not-found`.
->- Documented runtime caveats for validated store names, direct-Promise async fetches, BroadcastChannel startup/BFCache limits, and >Safari/WebKit storage eviction in the README and guides.
+>- Hardened integration, regression, and public type coverage for post-hydration drift governance, including early effect input, stale storage restore ordering, websocket/sync burst replay, and invalidation-driven async refetch recovery.
+>- Upgraded `benchmark:hydration-divergence` into a first-class hydration guarantee suite with `try`, `hit`, `stress`, and `hammer` campaigns under the manual-close boundary, and folded that certification into `benchmark:guarantees`.
+>- Reduced `stroid/persist` import retention by routing the leaf entrypoint to the direct feature installer, and regrouped `runtime-tools` internals plus query-key helpers for narrower future tree-shaking work.
+>- Removed the dead `computed-types` JavaScript build entry and added `module` plus explicit `./query` export metadata for bundler compatibility.
+>- Removed incorrect `sideEffects` metadata that pointed at unpublished source paths; the package now stays conservative until the remaining import-time effects are isolated explicitly.
+>
+>### Fix
+>
+>- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, instead of collapsing that branch into `not-found`.
+>
+>### Docs
+>
+>- Added a dedicated Post-Hydration Consistency guide with adoption defaults and updated the README, server guide, runtime-tools guide, benchmark report, version migration guide, and `NEXT_PHASE.md` status note to reflect the shipped consistency layer.
+>- Added bundle-sensitive import guidance and bundle-closure benchmark notes to the README and docs, including the new `stroid/query` path, the measurable `stroid/persist` win, and the current root-entry limitations.
+>- Documented runtime caveats for validated store names, direct-Promise async fetches, BroadcastChannel startup/BFCache limits, and Safari/WebKit storage eviction in the README and guides.
 >- Added `STATUS.md` so the commit and issue-close workflow referenced by `CONTRIBUTING.md` is now present in the repository.
 ></details>
 
@@ -41,12 +52,14 @@
 ><details >
 ><summary><strong>0.1.4 --> 2026-3-30 </strong></summary>
 >
+>### Fix
+>
 >- Fixed async persist hydration so Promise-returning `persist.driver.getItem()` now loads stored state even when crypto hooks and checksums stay synchronous.
 >- Fixed persist hydration payload guards so falsy serialized values (`""`, `"0"`, `"false"`) now hydrate correctly instead of being treated as missing data.
 >- Fixed async persist clear detection so `onStorageCleared` now resolves Promise-based drivers instead of treating every pending read as "present".
 >- Fixed focus revalidation cleanup so queued staggered and batched refetch timers are cancelled when the returned cleanup runs.
 >- Fixed async inflight dedupe contracts so raw callers no longer inherit another caller's transformed result for the same cache slot.
->- Fixed computed identity checks so stable object outputs no longer trigger redundant `replaceStore()` writes during dependency >recompute or `hydrateStores()` recompute.
+>- Fixed computed identity checks so stable object outputs no longer trigger redundant `replaceStore()` writes during dependency recompute or `hydrateStores()` recompute.
 >- Fixed request-scoped selectors so `createSelector(...)` now reads carrier-backed state during `createStoreForRequest().hydrate(...)`.
 >- Fixed `resetStore()` in request scope so `onReset(prev)` receives the live pre-reset value instead of the registry placeholder.
 >- Fixed `deleteStore()` in request scope so `onDelete(prev)` receives the live pre-delete value.
@@ -62,37 +75,53 @@
 ><details>
 ><summary><strong>0.1.4-beta.0 --> 2026-03-23</strong></summary>
 >
->- Fixed the published ESM package layout so `stroid`, `stroid/psr`, and sibling entrypoints share one runtime registry/computed graph instead of shipping isolated bundled state.
->- Hardened public PSR package-level contract coverage to verify built `dist` entrypoints can detect, read, subscribe to, and patch stores created through the main `stroid` entrypoint.
->- Tightened public PSR patch rejection semantics with stable `unsupported-op` and `unsupported-path-shape` reason codes for unsupported patch forms.
->- Expanded the public PSR patch surface to support nested `merge`, `delete`, and `insert`, with canonical path-array behavior and `failedPatchId` reporting for both single and atomic failures.
+>### Breaking
+>
+>- Breaking: changed `stroid/persist`, `stroid/sync`, and `stroid/devtools` to side-effect-free modules that export explicit installers (`installPersist`, `installSync`, `installDevtools`) instead of auto-registering on import.
+>
+>### Add
+>
 >- Added `stroid/psr` as a dedicated native PSR contract entrypoint with committed-only no-track snapshot reads, observation helpers, and explicit timing-contract reporting.
 >- Added a canonical `RuntimePatch` model under the PSR surface and lowered `setStore`, `replaceStore`, `resetStore`, and `hydrateStores` into serializable runtime patch records internally.
 >- Added public PSR patch-write APIs via `applyStorePatch()` and `applyStorePatchesAtomic()` for canonical `set` and root-level `merge` patches.
->- Hardened transaction commit semantics so failed batched commits roll back staged store state, reset metrics, and queued notifications, while commit-phase feature hook errors no longer break atomic batches.
 >- Added computed classification descriptors plus snapshot evaluation APIs for Phase 5 PSR-native integration, defaulting unclassified computeds to `opaque` so only explicitly deterministic nodes are simulated.
+>- Added a Phase 8 faithfulness suite that locks preview-vs-commit equivalence for deterministic public PSR flows, verifies public atomic rollback visibility rules, exercises async-boundary stop conditions, and smoke-tests production usage from only public entrypoints.
+>- Added a 250K unique-subscriber benchmark, a 250K concurrent subscriber benchmark with real-world multi-store fanout scenarios, and lean performance-suite coverage for concurrent subscriber and sync broadcast timing; refreshed benchmark harnesses to use explicit feature installers and truly unique subscriber callbacks.
+>
+>### Change
+>
+>- Expanded the public PSR patch surface to support nested `merge`, `delete`, and `insert`, with canonical path-array behavior and `failedPatchId` reporting for both single and atomic failures.
+>- Hardened public PSR package-level contract coverage to verify built `dist` entrypoints can detect, read, subscribe to, and patch stores created through the main `stroid` entrypoint.
+>- Tightened public PSR patch rejection semantics with stable `unsupported-op` and `unsupported-path-shape` reason codes for unsupported patch forms.
 >- Hardened Phase 6 graph identity with stable runtime node IDs, store-granularity runtime graphs, typed dependency edges, and PSR graph reads that accept both stable node IDs and legacy computed store names.
 >- Hardened Phase 7 timing semantics with explicit governance modes, mutation authority, causality-boundary reporting, and concrete contract reasons for async persistence, sync authority sharing, and async-boundary computed propagation.
->- Added a Phase 8 faithfulness suite that locks preview-vs-commit equivalence for deterministic public PSR flows, verifies public atomic rollback visibility rules, exercises async-boundary stop conditions, and smoke-tests production usage from only public entrypoints.
 >- Expanded built-package PSR contract tests to cover committed-final subscription timing, idempotent unsubscribe behavior, computed-settle notification ordering, and timing/governance downgrade claims.
->- Added a dedicated public PSR guide and support matrix covering patch support, reason codes, runtime node ID treatment, subscription timing, and downgrade rules.
 >- Hardened production SSR computed registration so computed stores inherit explicit global SSR opt-in from already-global dependencies and fail cleanly without leaving stray computed registrations when global creation is unsupported.
->- Added a 250K unique-subscriber benchmark, a 250K concurrent subscriber benchmark with real-world multi-store fanout scenarios, and lean performance-suite coverage for concurrent subscriber and sync broadcast timing; refreshed benchmark harnesses to use explicit feature installers and truly unique subscriber callbacks.
+>- Updated package exports, docs, and feature-install guidance to make optional feature registration explicit and more tree-shakeable.
+>- Stopped publishing `.map` source maps in the npm tarball to reduce package weight while keeping local build/debug output unchanged.
+>- Removed dead `./vue` and `./svelte` package exports that did not have built output behind them.
+>
+>### Fix
+>
+>- Fixed the published ESM package layout so `stroid`, `stroid/psr`, and sibling entrypoints share one runtime registry/computed graph instead of shipping isolated bundled state.
+>- Hardened transaction commit semantics so failed batched commits roll back staged store state, reset metrics, and queued notifications, while commit-phase feature hook errors no longer break atomic batches.
 >- Fixed `createStoreForRequest` so the documented callback API now exposes `api.snapshot()`.
 >- Fixed `createStoreForRequest().set(name, object)` so later external mutation of the caller payload no longer mutates request state.
 >- Fixed `createStoreForRequest()` so request-scope writes made during `hydrate()` now persist into later `snapshot()` output and repeated `hydrate()` calls.
 >- Fixed `fetchStore()` timeouts without a caller-provided signal so the internally created request is now aborted when the timeout fires.
 >- Fixed `fetchStore()` request versioning so a timed-out request can no longer reuse a cleared version and overwrite a newer in-flight response.
->- Breaking: changed `stroid/persist`, `stroid/sync`, and `stroid/devtools` to side-effect-free modules that export explicit installers (`installPersist`, `installSync`, `installDevtools`) instead of auto-registering on import.
->- Updated package exports, docs, and feature-install guidance to make optional feature registration explicit and more tree-shakeable.
->- Stopped publishing `.map` source maps in the npm tarball to reduce package weight while keeping local build/debug output unchanged.
->- Removed dead `./vue` and `./svelte` package exports that did not have built output behind them.
+>
+>### Docs
+>
+>- Added a dedicated public PSR guide and support matrix covering patch support, reason codes, runtime node ID treatment, subscription timing, and downgrade rules.
 ></details>
 >
 ---
 >[!WARNING]
 ><details>
 ><summary><strong>0.1.3 --> 2026-03-22</strong></summary>
+>
+>### Fix
 >
 >- Fixed async rate limiting so `fetchStore(..., { cacheKey })` is throttled per `cacheSlot` instead of incorrectly sharing one counter across the whole store name.
 >- Fixed `createSelector` dependency tracking for object-valued reads so cached selector results no longer go stale when object references change without primitive leaf access.
