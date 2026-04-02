@@ -18,12 +18,22 @@
 </a> -->
 <br /><br />
 
+**Stroid is the only state management library with a theoretical correctness argument, a matching implementation, and a certified benchmark suite proving it holds under production-grade concurrent SSR conditions.**
+<br /><br />
+
 # 🟣 Stroid - State Engine for TypeScript and React
 **Named-store state engine for TypeScript and React.**
 
 Every store has a name. Write to it from anywhere: hooks, utilities, server, tests. Optional layers add persistence, sync, async fetch, SSR isolation, post-hydration consistency controls, and devtools without coupling to core logic.
 <br />
 [**Get Started**](#30-second-quickstart) | [**Why Stroid**](#why-stroid) | [**API Reference**](#full-api-reference) | [**PSR**](#psr---write-governance) | [**DevTools**](#devtools) | [**Examples**](#real-world-examples)
+<br /><br />
+
+**Certified benchmark suite (latest rerun: `2026-04-02`)**
+<br />
+`0` SSR correctness violations across `2 x 1,024` burst requests, `8,192` sustained requests, and `256` concurrent React streaming SSR requests, plus `0` detached leaks in warm-container/provider-model runs and `0` React concurrency invariant violations under `useTransition` and `useDeferredValue`.
+<br />
+[**Benchmark Report**](./docs/STROID/BENCHMARK.md) | Run: `npm run benchmark:guarantees`
 
 </div>
 
