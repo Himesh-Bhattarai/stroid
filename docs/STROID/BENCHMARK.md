@@ -41,7 +41,6 @@ Headline results:
 
 - benchmark commands were run serially on the same machine to avoid cross-process contention skewing the measurements
 - the guarantee suite intentionally emits warning lines during the atomic rollback benchmark because it injects controlled failures; those warnings are expected and the benchmark still passed
-- the bundle-closure probe below is kept as a separate build-oriented study; it is not produced by the `npm run benchmark:*` scripts
 - the hydration-divergence certification below now matches the first-class suite included in `npm run benchmark:guarantees`; the detailed per-campaign numbers were captured from a standalone `npm run benchmark:hydration-divergence` rerun on `2026-04-01`
 - the SSR warm-container and hydration randomized sections below were rerun as standalone certifications on `2026-04-02`; those scripts are now wired into `npm run benchmark:guarantees`
 - the serverless provider-model section below was rerun as a standalone certification on `2026-04-02`; it is now wired into `npm run benchmark:guarantees` for future suite reruns
@@ -186,27 +185,6 @@ Large-payload read:
 - `mismatches = 0`
 - default script sizes now stop at `2,048 KB` so the benchmark stays practical for routine reruns
 - use `STROID_HYDRATION_LARGE_SIZES=256,1024,4096` (or another override) when you explicitly want a heavier stress tier
-
-## Bundle-Closure Probe
-
-This section remains the local esbuild bundle-closure probe captured on `2026-03-31` for the latest tree-shaking cleanup work.
-It is preserved here because it is useful import-closure context, but it was not part of the serialized benchmark-script rerun above.
-
-| Import probe | Before | After | Read |
-| --- | --- | --- | --- |
-| `createStore` from `stroid` root | `69.9 KB` | `69.9 KB` | root compatibility surface is still materially heavier than the lean subpaths |
-| `createStore` from `stroid/core` | `42.2 KB` | `42.2 KB` | minimal CRUD entry remains the leaner default |
-| `listStores` from `stroid/runtime-tools` | `27.9 KB` | `27.9 KB` | internal regrouping alone does not help while the published build still shares runtime chunks |
-| `installPersist` from `stroid/persist` | `42.5 KB` | `21.6 KB` | direct feature entry now avoids sibling installer retention |
-| `installSync` from `stroid/sync` | `42.4 KB` | `42.4 KB` | no material change yet |
-| `reactQueryKey` from `stroid/query` | `n/a` | `0.1 KB` | new dedicated key-only entrypoint |
-| `queryIntegrations.reactQueryKey` from `stroid` root | `69.9 KB` | `70.0 KB` | compatibility namespace is still expensive |
-
-Read note:
-
-- prefer `stroid/core`, `stroid/query`, and direct feature entrypoints when you care about import closure size
-- the root `stroid` namespace still needs harder wins around import-time retention and side-effect boundaries
-- the published multi-entry build still needs shared chunks to preserve one runtime across `stroid`, `stroid/psr`, and sibling entrypoints; disabling splitting broke the built-package contract
 
 ## SSR Isolation Certification
 

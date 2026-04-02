@@ -100,7 +100,6 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 - `stroid/persist` relies on browser storage. `checksum: "hash"` is non-cryptographic, and Safari/WebKit can evict script-writable storage after roughly 7 days of inactivity, so persisted auth, carts, and drafts should have a server-backed recovery path.
 - `hydrateStores(snapshot, options, trust, consistency?)` can add a bounded post-hydration consistency window. Stroid can defer early client writes, emit structured drift events, and reconcile per store with `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`.
 - React hooks are built on `useSyncExternalStore`; local concurrency certification now covers no-tearing invariants under `useTransition` and `useDeferredValue`.
-- If bundle size matters, prefer targeted subpaths such as `stroid/core`, `stroid/query`, `stroid/persist`, `stroid/sync`, `stroid/devtools`, and `stroid/runtime-tools` instead of reaching through the root namespace for everything.
 - `stroid/server` is Node-only today because it depends on `node:async_hooks`. Edge runtimes and Workers need a different adapter.
 - `stroid/server/portable` is the explicit request-scope boundary for serverless hand-offs, worker-style runtimes, and Server Actions. It does not rely on implicit async context; use the bound scope API it returns.
 - Local provider-model certification now covers warm AWS Lambda-style Node handlers, Vercel render-to-action hand-off, and Cloudflare Workers-style explicit scopes, but you should still validate against your deployed provider before claiming production certification.
@@ -142,10 +141,8 @@ stroid                    <- core public runtime
 |- stroid/install         <- installAllFeatures()
 ```
 
-Bundle-sensitive note:
-- `stroid/query` is the lean path for `reactQueryKey()` and `swrKey()`.
-- `stroid/install` is a convenience aggregator; import `stroid/persist`, `stroid/sync`, and `stroid/devtools` directly when you only need one feature.
-- If you care about bundle size today, prefer subpaths and avoid the full `stroid` root import unless you need its broader compatibility surface.
+Import note:
+- Prefer subpath imports and avoid defaulting to the full `stroid` root import unless you need its broader compatibility surface.
 
 ---
 
@@ -168,10 +165,6 @@ Bundle-sensitive note:
 | Determinism replay | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Ring-buffer event timeline | ✅ | ❌ | ❌ | ❌ | ❌ |
 | TypeScript-first | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-Bundle note:
-- Prefer `stroid/core` for minimal CRUD imports, `stroid/query` for query keys, and direct feature subpaths for installers.
-- If bundle size matters, do not default to the full `stroid` root import.
 
 > ⚠️ = possible with extra setup · ❌ = not supported natively
 
@@ -1079,7 +1072,7 @@ import {
   getTimingContract,
 } from "stroid/psr";
 
-// Minimal core (bundle-size-sensitive)
+// Minimal core (subpath import)
 import { createStore, setStore, getStore, hasStore, resetStore, deleteStore } from "stroid/core";
 
 // React
