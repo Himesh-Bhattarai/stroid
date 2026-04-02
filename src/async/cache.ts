@@ -9,6 +9,7 @@
 import { getActiveAsyncRegistry } from "../core/store-core.js";
 export { getActiveAsyncRegistry } from "../core/store-core.js";
 import { registerHook } from "../core/lifecycle-hooks.js";
+import { FORBIDDEN_OBJECT_KEYS } from "../utils/validation.js";
 import type { FetchOptions, WarnCategory, StoreCleanupKind, StoreCleanupBucket } from "./registry.js";
 import { resetAsyncRegistry } from "./registry.js";
 export type { FetchOptions, AsyncStateSnapshot, AsyncStateAdapter, StoreCleanupKind } from "./registry.js";
@@ -18,6 +19,19 @@ export type FetchInput = string | Promise<unknown> | (() => string | Promise<unk
 export const MAX_CACHE_SLOTS_PER_STORE = 100;
 export const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
 export const MAX_WARNED_ENTRIES = 1000;
+
+const isForbiddenObjectKey = (key: string): boolean => FORBIDDEN_OBJECT_KEYS.has(key);
+
+const safeDeleteKey = (obj: Record<string, unknown>, key: string): void => {
+    if (isForbiddenObjectKey(key)) return;
+    delete obj[key];
+};
+
+const safeGetKey = <T>(obj: Record<string, T>, key: string): T | undefined => {
+    if (isForbiddenObjectKey(key)) return undefined;
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) return undefined;
+    return obj[key];
+};
 
 export const getFetchRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["fetchRegistry"] =>
     getActiveAsyncRegistry().fetchRegistry;
@@ -102,12 +116,12 @@ const setCleanupSetByKind = (bucket: StoreCleanupBucket, kind: StoreCleanupKind,
 };
 
 const deleteCleanupSetByKind = (bucket: StoreCleanupBucket, kind: StoreCleanupKind): void => {
-    if (kind === "revalidate") delete bucket.revalidate;
-    else delete bucket.store;
+    if (kind === "revalidate") bucket.revalidate = undefined;
+    else bucket.store = undefined;
 };
 
 const pruneCleanupBucket = (name: string, bucket: StoreCleanupBucket): void => {
-    if (Object.keys(bucket).length === 0) {
+    if (!bucket.store && !bucket.revalidate) {
         getStoreCleanups().delete(name);
     }
 };
@@ -120,8 +134,8 @@ const runCleanupBucket = (bucket: StoreCleanupBucket, kind?: StoreCleanupKind): 
     }
     runCleanupSet(bucket.store);
     runCleanupSet(bucket.revalidate);
-    delete bucket.store;
-    delete bucket.revalidate;
+    bucket.store = undefined;
+    bucket.revalidate = undefined;
 };
 
 const runStoreCleanups = (name: string): void => {
@@ -157,10 +171,10 @@ export const resetAsyncState = (): void => {
 export const shouldUseCache = (cacheSlot: string, ttl?: number): boolean => {
     if (!ttl) return false;
     const cacheMeta = getCacheMeta();
-    const meta = cacheMeta[cacheSlot];
+    const meta = safeGetKey(cacheMeta, cacheSlot);
     if (!meta) return false;
     if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
-        delete cacheMeta[cacheSlot];
+        safeDeleteKey(cacheMeta as unknown as Record<string, unknown>, cacheSlot);
         return false;
     }
     return Date.now() - meta.timestamp < ttl;
@@ -175,7 +189,7 @@ export const clearAsyncMeta = (name: string): void => {
     const rateWindowStart = getRateWindowStartRegistry();
     const rateCount = getRateCountRegistry();
     const warnedOnce = getWarnedOnce();
-    delete fetchRegistry[name];
+    safeDeleteKey(fetchRegistry as unknown as Record<string, unknown>, name);
     warnedOnce.get("noSignal")?.delete(name);
     warnedOnce.get("shape")?.delete(name);
     warnedOnce.get("autoCreate")?.delete(name);
@@ -183,12 +197,12 @@ export const clearAsyncMeta = (name: string): void => {
 
     const startsWithName = (key: string) => key === name || key.startsWith(`${name}:`);
 
-    Object.keys(inflight).forEach((k) => { if (startsWithName(k)) delete inflight[k]; });
-    Object.keys(requestVersion).forEach((k) => { if (startsWithName(k)) delete requestVersion[k]; });
-    Object.keys(requestSequence).forEach((k) => { if (startsWithName(k)) delete requestSequence[k]; });
-    Object.keys(cacheMeta).forEach((k) => { if (startsWithName(k)) delete cacheMeta[k]; });
-    Object.keys(rateWindowStart).forEach((k) => { if (startsWithName(k)) delete rateWindowStart[k]; });
-    Object.keys(rateCount).forEach((k) => { if (startsWithName(k)) delete rateCount[k]; });
+    Object.keys(inflight).forEach((k) => { if (startsWithName(k)) safeDeleteKey(inflight as unknown as Record<string, unknown>, k); });
+    Object.keys(requestVersion).forEach((k) => { if (startsWithName(k)) safeDeleteKey(requestVersion as unknown as Record<string, unknown>, k); });
+    Object.keys(requestSequence).forEach((k) => { if (startsWithName(k)) safeDeleteKey(requestSequence as unknown as Record<string, unknown>, k); });
+    Object.keys(cacheMeta).forEach((k) => { if (startsWithName(k)) safeDeleteKey(cacheMeta as unknown as Record<string, unknown>, k); });
+    Object.keys(rateWindowStart).forEach((k) => { if (startsWithName(k)) safeDeleteKey(rateWindowStart as unknown as Record<string, unknown>, k); });
+    Object.keys(rateCount).forEach((k) => { if (startsWithName(k)) safeDeleteKey(rateCount as unknown as Record<string, unknown>, k); });
 };
 
 export const pruneAsyncCache = (name: string): void => {
@@ -200,7 +214,7 @@ export const pruneAsyncCache = (name: string): void => {
         .filter(([key, meta]) => {
             if (key !== name && !key.startsWith(prefix)) return false;
             if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
-                delete cacheMeta[key];
+                safeDeleteKey(cacheMeta as unknown as Record<string, unknown>, key);
                 return false;
             }
             return true;
@@ -210,9 +224,9 @@ export const pruneAsyncCache = (name: string): void => {
     if (slots.length <= MAX_CACHE_SLOTS_PER_STORE) return;
     const overflow = slots.length - MAX_CACHE_SLOTS_PER_STORE;
     slots.slice(0, overflow).forEach(([key]) => {
-        delete cacheMeta[key];
-        delete requestVersion[key];
-        delete requestSequence[key];
+        safeDeleteKey(cacheMeta as unknown as Record<string, unknown>, key);
+        safeDeleteKey(requestVersion as unknown as Record<string, unknown>, key);
+        safeDeleteKey(requestSequence as unknown as Record<string, unknown>, key);
     });
 };
 

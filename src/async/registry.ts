@@ -27,7 +27,10 @@ export type AsyncStateAdapter = (ctx: {
 
 export type WarnCategory = "noSignal" | "shape" | "autoCreate" | "mutableResult";
 export type StoreCleanupKind = "store" | "revalidate";
-export type StoreCleanupBucket = Partial<Record<StoreCleanupKind, Set<() => void>>>;
+export type StoreCleanupBucket = {
+    store?: Set<() => void>;
+    revalidate?: Set<() => void>;
+};
 
 export interface FetchOptions {
     transform?: (result: unknown) => unknown;
