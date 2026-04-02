@@ -17,11 +17,11 @@ test("registerStoreCleanup normalizes kind to avoid prototype keys", () => {
 
   registerStoreCleanup("cleanupProto", cleanup, "__proto__" as any);
 
-  const bucket = getStoreCleanups()["cleanupProto"];
+  const bucket = getStoreCleanups().get("cleanupProto");
   assert.ok(bucket);
   assert.ok(bucket.store instanceof Set);
   assert.strictEqual((bucket as any).__proto__, undefined);
 
   unregisterStoreCleanup("cleanupProto", cleanup, "__proto__" as any);
-  assert.strictEqual(getStoreCleanups()["cleanupProto"], undefined);
+  assert.strictEqual(getStoreCleanups().get("cleanupProto"), undefined);
 });

@@ -82,10 +82,10 @@ const runCleanupSet = (set?: Set<() => void>): void => {
 
 const ensureCleanupBucket = (name: string): StoreCleanupBucket => {
     const storeCleanups = getStoreCleanups();
-    let bucket = storeCleanups[name];
+    let bucket = storeCleanups.get(name);
     if (!bucket) {
         bucket = Object.create(null) as StoreCleanupBucket;
-        storeCleanups[name] = bucket;
+        storeCleanups.set(name, bucket);
     }
     return bucket;
 };
@@ -108,7 +108,7 @@ const deleteCleanupSetByKind = (bucket: StoreCleanupBucket, kind: StoreCleanupKi
 
 const pruneCleanupBucket = (name: string, bucket: StoreCleanupBucket): void => {
     if (Object.keys(bucket).length === 0) {
-        delete getStoreCleanups()[name];
+        getStoreCleanups().delete(name);
     }
 };
 
@@ -126,20 +126,20 @@ const runCleanupBucket = (bucket: StoreCleanupBucket, kind?: StoreCleanupKind): 
 
 const runStoreCleanups = (name: string): void => {
     const storeCleanups = getStoreCleanups();
-    const bucket = storeCleanups[name];
+    const bucket = storeCleanups.get(name);
     if (!bucket) return;
     runCleanupBucket(bucket);
-    delete storeCleanups[name];
+    storeCleanups.delete(name);
 };
 
 export const cleanupStoreCleanupsByKind = (kind: StoreCleanupKind): void => {
     const storeCleanups = getStoreCleanups();
-    Object.entries(storeCleanups).forEach(([name, bucket]) => {
+    for (const [name, bucket] of storeCleanups) {
         const set = getCleanupSetByKind(bucket, kind);
-        if (!set) return;
+        if (!set) continue;
         runCleanupBucket(bucket, kind);
         pruneCleanupBucket(name, bucket);
-    });
+    }
 };
 
 const ensureDeleteHook = (): void => {
@@ -240,7 +240,7 @@ export const registerStoreCleanup = (name: string, fn: () => void, kind: StoreCl
 
 export const unregisterStoreCleanup = (name: string, fn: () => void, kind?: StoreCleanupKind): void => {
     const storeCleanups = getStoreCleanups();
-    const bucket = storeCleanups[name];
+    const bucket = storeCleanups.get(name);
     if (!bucket) return;
     const removeFromKind = (key: StoreCleanupKind): void => {
         const set = getCleanupSetByKind(bucket, key);

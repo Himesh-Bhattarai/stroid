@@ -86,7 +86,7 @@ export type AsyncRegistry = {
     ratePruneState: { lastAt: number };
     ratePruneTimer: ReturnType<typeof setTimeout> | null;
     warnedOnce: Map<WarnCategory, Set<string>>;
-    storeCleanups: Record<string, StoreCleanupBucket>;
+    storeCleanups: Map<string, StoreCleanupBucket>;
     revalidateKeys: Set<string>;
     revalidateHandlers: Record<string, () => void>;
     asyncMetrics: {
@@ -118,7 +118,7 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     ratePruneState: { lastAt: 0 },
     ratePruneTimer: null,
     warnedOnce: createWarnedOnce(),
-    storeCleanups: Object.create(null),
+    storeCleanups: new Map<string, StoreCleanupBucket>(),
     revalidateKeys: new Set<string>(),
     revalidateHandlers: Object.create(null),
     asyncMetrics: {
@@ -133,7 +133,7 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
 });
 
 export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
-    Object.values(registry.storeCleanups).forEach((bucket) => {
+    registry.storeCleanups.forEach((bucket) => {
         Object.values(bucket).forEach((set) => {
             set?.forEach((fn) => {
                 try { fn(); } catch (_) { /* ignore cleanup errors */ }
@@ -148,7 +148,7 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     Object.keys(registry.cacheMeta).forEach((key) => delete registry.cacheMeta[key]);
     Object.keys(registry.rateWindowStart).forEach((key) => delete registry.rateWindowStart[key]);
     Object.keys(registry.rateCount).forEach((key) => delete registry.rateCount[key]);
-    Object.keys(registry.storeCleanups).forEach((key) => delete registry.storeCleanups[key]);
+    registry.storeCleanups.clear();
     Object.keys(registry.revalidateHandlers).forEach((key) => delete registry.revalidateHandlers[key]);
 
     registry.revalidateKeys.clear();
@@ -171,4 +171,3 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     registry.asyncMetrics.avgMs = 0;
     registry.asyncMetrics.lastMs = 0;
 };
-

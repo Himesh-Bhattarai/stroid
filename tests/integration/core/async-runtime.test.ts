@@ -38,10 +38,10 @@ test("resetAsyncRegistry cleans handlers and timers", () => {
   const registry = createAsyncRegistry();
   let calls = 0;
   registry.revalidateHandlers["one"] = () => { calls += 1; };
-  registry.storeCleanups["one"] = {
+  registry.storeCleanups.set("one", {
     store: new Set([() => { calls += 1; }]),
     revalidate: new Set([() => { calls += 1; }]),
-  };
+  });
   registry.ratePruneTimer = setTimeout(() => {}, 1000);
   resetAsyncRegistry(registry);
   assert.ok(calls >= 2);
