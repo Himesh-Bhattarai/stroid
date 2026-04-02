@@ -134,7 +134,7 @@
 >- `Array.from` elimination: replaced per-flush subscriber array allocations with a registry-level reusable buffer.
 >- `buildFlushPlan` collapse: reduced passes, preserved `pendingBuffer` semantics, and removed the terminal `orderedNames.slice()` allocation.
 >
->### Added
+>### Add
 >
 >- `allowTrusted` hydration flag (aliasing `allowHydration`; `allowUntrusted` deprecated).
 >- `allowTrustedHydration` config alias.
@@ -162,7 +162,7 @@
 >- Reserved `stroid/vue` and `stroid/svelte` entry points (adapter placeholders, not implemented).
 >- `onStoreLifecycle` registry hook for single-listener lifecycle events (devtools-oriented).
 >
->### Changed
+>### Change
 >
 >- `createStoreForRequest` now hydrates with `{ allowTrusted: true }`.
 >- `getStore` now respects `snapshot` mode (`deep`/`shallow`/`ref`) for both whole-store and path reads.
@@ -186,7 +186,7 @@
 >- `deepClone` throws on non-cloneable values.
 >- `endTransaction` now executes all pending commit callbacks, capturing the first error while allowing remaining commits to run.
 >
->### Fixed
+>### Fix
 >
 >- Helper store typings align with stricter `createStore` overloads.
 >- `replaceStore` now participates in `setStoreBatch` transactions.
@@ -223,20 +223,20 @@
 >
 >- If you used `stroid/core` for batching, reset, or hydration — import those from `stroid` instead.
 >
->### Added
+>### Add
 >
 >- Public feature installer entrypoints and a `features` option bag for custom feature registration.
 >- Optional structural sharing via `configureStroid({ mutatorProduce })` (supports a global Immer shim).
 >- `strictAsyncUsageErrors` to throw on async usage errors when enabled.
 >
->### Changed
+>### Change
 >
 >- SSR request APIs are now fully typed; `snapshotStrategy` drives the default snapshot mode.
 >- Config is registry-scoped to avoid cross-request bleed in SSR.
 >- Transaction snapshot caching scoped to the active batch.
 >- Internal layering tightened; added guard against restricted lifecycle imports.
 >
->### Fixed
+>### Fix
 >
 >- Chunked flush delivery no longer mixes snapshots within a single notification.
 >- Persist sequencing avoids stale writes when debounce timers overlap.
@@ -251,7 +251,7 @@
 ><details>
 ><summary><strong>0.1.0 --> 2026-03-14</strong></summary>
 >
->### Added
+>### Add
 >
 >- `configureStroid({ strictMissingFeatures: true })` to hard-fail when a feature is used without its side-effect import.
 >- `configureStroid({ allowUntrustedHydration: true })` to opt in to `hydrateStores` on untrusted snapshots.
@@ -263,14 +263,14 @@
 >- `configureStroid({ strictMutatorReturns: true })` to forbid mutator return values.
 >- `StrictStoreMap` opt-in type mode.
 >
->### Breaking Changes
+>### Breaking
 >
 >- Removed `mergeStore` and `chain` from the public API.
 >- `setStoreBatch` is now transactional (staged writes, atomic commit, rollback on error).
 >- `createStore`, `deleteStore`, `hydrateStores` are disallowed inside a batch.
 >- `hydrateStores` requires explicit trust via third argument or config.
 >
->### Fixed
+>### Fix
 >
 >- `deleteStore` no longer emits an intermediate null notification.
 >- Async fetch 60s timeout now clears on completion.
@@ -284,17 +284,17 @@
 ><details>
 ><summary><strong>0.0.4 --> 2026-03-06</strong></summary>
 >
->### Added
+>### Add
 >
 >- Persistence recovery hooks: `persist.onMigrationFail` and `persist.onStorageCleared`.
 >- Sync hardening: `sync.maxPayloadBytes` and snapshot requests for reconnecting tabs.
 >
->### Changed
+>### Change
 >
 >- Docs: converted repo docs into chapter-based handbook; aligned README and API chapters with real package surface.
 >- Packaging: rebuilt `dist` from current `src`; fixed `stroid/react` build entry.
 >
->### Fixed
+>### Fix
 >
 >- `hydrateStores` rejects invalid schema payloads without leaving broken store shells.
 >- Middleware throws no longer poison later notifications.
@@ -306,7 +306,7 @@
 ><details>
 ><summary><strong>0.0.3 --> 2026-03-04</strong></summary>
 >
->### Fixed
+>### Fix
 >
 >- Persistence catches `localStorage.setItem` errors (e.g., `QuotaExceededError`) and routes to `onError`.
 >- Async fetch metadata cleans up when a store is deleted.
@@ -322,14 +322,14 @@
 ><details>
 ><summary><strong>0.0.2 --> 2026-03-03</strong></summary>
 >
->### Added
+>### Add
 >
 >- SSR helpers: `createStoreForRequest` and `hydrateStores`.
 >- Store helpers: `createEntityStore`, `createListStore`, `createCounterStore`.
 >- Observability: `getHistory`, `clearHistory`, `getMetrics`.
 >- Sync tuning: optional `channel` and `conflictResolver`.
 >
->### Fixed
+>### Fix
 >
 >- Hydration safety around theme toggles.
 ></details>
