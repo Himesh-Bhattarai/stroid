@@ -17,6 +17,10 @@ import { clearAllStores, createStore, getStore, setStore } from "../../src/store
 import { createStoreRegistry, runWithRegistry } from "../../src/core/store-registry.js";
 import { resetAllStoresForTest } from "../../src/helpers/testing.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
+import {
+  runDeferredScenario,
+  runTransitionScenario,
+} from "../../scripts/react-concurrency-shared.js";
 
 test("useStore inline primitive selector stays stable through unrelated updates", async () => {
   clearAllStores();
@@ -695,4 +699,27 @@ test("useFormStore uses checked for checkbox inputs", async () => {
   });
 });
 
+test("useStore stays coherent across useTransition updates without tearing", async () => {
+  const result = await runTransitionScenario({ updates: 18 });
+
+  assert.deepStrictEqual(result.invariantViolations, []);
+  assert.deepStrictEqual(result.finalState, {
+    value: 18,
+    parity: "even",
+    label: "count:18",
+  });
+  assert.ok(result.renders >= result.updates);
+});
+
+test("useStore stays coherent with useDeferredValue snapshots", async () => {
+  const result = await runDeferredScenario({ updates: 18 });
+
+  assert.deepStrictEqual(result.invariantViolations, []);
+  assert.deepStrictEqual(result.finalState, {
+    value: 18,
+    parity: "even",
+    label: "count:18",
+  });
+  assert.ok(result.renders >= result.updates);
+});
 

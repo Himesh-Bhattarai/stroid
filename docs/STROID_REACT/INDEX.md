@@ -1,6 +1,6 @@
 # ⚛️ React Layer Guide
 
-> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-04-02 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/react/hooks-core.ts`, `hooks-async.ts`, `hooks-form.ts`, `hooks-async-suspense.ts`, `registry.ts`*
 
@@ -76,6 +76,9 @@ Choose the right hook for the job before diving into individual APIs:
 ## 🪝 `useStore`
 
 The **primary hook** for reactive store reads. Subscribes to a store and re-renders the component only when the relevant slice of state changes.
+
+> [!NOTE]
+> `useStore(...)` and `useSelector(...)` are built on React's `useSyncExternalStore`. The current hook layer is locally certified against no-tearing invariants under `useTransition` and `useDeferredValue` via the React concurrency regression and benchmark harness.
 
 ### Three calling styles:
 

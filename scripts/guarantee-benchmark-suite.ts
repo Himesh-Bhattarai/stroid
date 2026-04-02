@@ -6,6 +6,7 @@ import { runHydrationDivergenceBenchmark } from "./hydration-divergence-benchmar
 import { runHydrationRandomizedBenchmark } from "./hydration-randomized-benchmark.js";
 import { runMemoryLeakBenchmark } from "./memory-leak-benchmark.js";
 import { runRaceConditionBenchmark } from "./race-condition-benchmark.js";
+import { runReactConcurrencyBenchmark } from "./react-concurrency-benchmark.js";
 import { runServerlessProviderCertification } from "./serverless-provider-certification.js";
 import { runSsrIsolationBenchmark } from "./ssr-isolation-benchmark.js";
 import { runSsrWarmContainerBenchmark } from "./ssr-warm-container-benchmark.js";
@@ -17,6 +18,7 @@ export const runGuaranteeBenchmarkSuite = async () => {
     runSsrIsolationBenchmark,
     runSsrWarmContainerBenchmark,
     runServerlessProviderCertification,
+    runReactConcurrencyBenchmark,
     runAtomicFailureBenchmark,
     runRaceConditionBenchmark,
     runHydrationDivergenceBenchmark,

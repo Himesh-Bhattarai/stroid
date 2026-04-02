@@ -13,6 +13,7 @@ Use `Cmd+F` / `Ctrl+F` on this page with the keywords below to jump to the right
 | `sync`, `BroadcastChannel`, `cross-tab`, `worker` | [Cross-tab Sync](./STROID_SYNC/INDEX.md) |
 | `computed`, `derived`, `runtime graph`, `deps` | [Computed Stores](./STROID_COMPUTED/INDEX.md) |
 | `runtime-tools`, `health`, `metrics`, `cold stores` | [Runtime Tools & Devtools](./STROID_RUNTIME_TOOLS/INDEX.md) |
+| `useTransition`, `useDeferredValue`, `useSyncExternalStore`, `React 18`, `tearing` | [React Layer](./STROID_REACT/INDEX.md) |
 | `selectors`, `typing`, `StoreStateMap`, `advanced patterns` | [TypeScript & Advanced Patterns](./STROID_TYPESCRIPT/INDEX.md) |
 | `upgrade`, `breaking`, `deprecations`, `version migration` | [Version Migration Guide](./STROID_VERSION_MIGRATION/INDEX.md) |
 | `redux`, `zustand`, `jotai`, `migration from other libraries` | [Migration Notes](./STROID_MIGRATION/INDEX.md) |

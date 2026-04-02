@@ -228,6 +228,7 @@ export function useStore<T = unknown, R = unknown>(
         });
     }, [registry, storeName, hasSelector, path, readSelectedSnapshot, name]);
 
+    // useSyncExternalStore keeps whole-store, path, and selector reads coherent under concurrent React rendering.
     const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     useEffect(() => {
@@ -312,6 +313,7 @@ export function useSelector<T = unknown, R = unknown>(
         );
     }, [registry, resolvedName]);
 
+    // Selector snapshots use the same concurrent-safe subscription primitive as useStore.
     const selection = useSyncExternalStore(subscribe, getSnap, getSnap);
 
     useEffect(() => {
@@ -360,5 +362,4 @@ export function useStoreStatic(
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
 }
-
 

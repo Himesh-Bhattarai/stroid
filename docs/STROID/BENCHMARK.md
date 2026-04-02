@@ -9,6 +9,7 @@ Headline results:
 - the expanded SSR isolation certification passed with `0` correctness violations across `2 x 1,024` burst requests, `8,192` sustained requests, `256` concurrent React streaming HTTP requests, and `50,000` long-tail memory cycles
 - the standalone SSR warm-container certification passed with `1,024` sequential requests, `2,048` detached probes, `0` detached leaks, and `0` global residuals in one long-lived Node process
 - the standalone serverless provider-model certification passed `96` local invocations each for AWS Lambda, Vercel render-to-action hand-off, and Cloudflare Workers explicit scopes, with `0` detached leaks and `0` global residuals across all three runtime models
+- the standalone React 18 concurrency certification passed `8` runs each for `useTransition` and `useDeferredValue`, with `0` invariant violations and final-state parity on every run
 - the hydration-divergence certification now runs as a first-class guarantee suite under the manual-close boundary: `54` certified runs, `1,028` queued writes, `0` unexpected outcomes, and `0` invariant violations across `try`, `hit`, `stress`, and `hammer` campaigns
 - the standalone hydration randomized certification passed `36` paired runs across `client_wins`, `server_wins`, and `merge`, with `0` replay mismatches and exact drift-order parity between immediate execution and queued replay
 - the standalone large-payload hydration benchmark preserved parity at `256 KB`, `1,024 KB`, and `2,048 KB`, while making the current cost curve explicit: queued replay median rose from `79.148ms` at `256 KB` to `2,963.113ms` at `2,048 KB`
@@ -42,6 +43,7 @@ Headline results:
 - the hydration-divergence certification below now matches the first-class suite included in `npm run benchmark:guarantees`; the detailed per-campaign numbers were captured from a standalone `npm run benchmark:hydration-divergence` rerun on `2026-04-01`
 - the SSR warm-container and hydration randomized sections below were rerun as standalone certifications on `2026-04-02`; those scripts are now wired into `npm run benchmark:guarantees`
 - the serverless provider-model section below was rerun as a standalone certification on `2026-04-02`; it is now wired into `npm run benchmark:guarantees` for future suite reruns
+- the React 18 concurrency section below was rerun as a standalone certification on `2026-04-02`; it is now wired into `npm run benchmark:guarantees` for future suite reruns
 - the large-payload hydration benchmark below stays standalone on purpose because its multi-MB stress tier is materially more expensive than the default guarantee suite
 
 ## Hydration Divergence Certification
@@ -102,6 +104,22 @@ Provider-model certification read:
 - `totalInvocations = 288`
 
 This is a local runtime-model certification, not a remote managed-platform deployment claim.
+
+## React 18 Concurrency Certification
+
+Dedicated results from `scripts/react-concurrency-benchmark.ts` as exercised on `2026-04-02`.
+
+| Scenario | Runs | Updates / Run | Median | P95 | Average Renders | Read |
+| --- | --- | --- | --- | --- | --- | --- |
+| `useTransition` | `8` | `24` | `4.143ms` | `33.792ms` | `73` | multiple `useStore(...)` reads stayed coherent through transition-driven store updates, with final state settling at `count:24` |
+| `useDeferredValue` | `8` | `24` | `3.717ms` | `10.054ms` | `73` | live and deferred store snapshots both preserved internal parity/label invariants across every update |
+
+Concurrency certification read:
+
+- `useTransition.invariantViolations = 0`
+- `useDeferredValue.invariantViolations = 0`
+- both scenarios ended at `{ value: 24, parity: "even", label: "count:24" }`
+- the hook layer stayed on the existing `useSyncExternalStore` implementation; this section certifies that path rather than introducing a separate concurrent-specific hook implementation
 
 ## Hydration Randomized Certification
 
@@ -282,7 +300,7 @@ Selected rows from `npm run benchmark:selector`.
 
 ## Guarantee Results
 
-Results from the serialized `npm run benchmark:guarantees` rerun captured before the new `benchmark:ssr-warm`, `benchmark:serverless-provider`, and `benchmark:hydration-randomized` additions were folded into the suite. Use the standalone sections above for the `2026-04-02` reruns of those newer certifications.
+Results from the serialized `npm run benchmark:guarantees` rerun captured before the new `benchmark:ssr-warm`, `benchmark:serverless-provider`, `benchmark:react-concurrency`, and `benchmark:hydration-randomized` additions were folded into the suite. Use the standalone sections above for the `2026-04-02` reruns of those newer certifications.
 
 | Benchmark | Numeric Result | Status |
 | --- | --- | --- |
@@ -306,6 +324,7 @@ Guarantee read:
 | Standalone SSR certification | `npm run benchmark:ssr-isolation` |
 | Standalone SSR warm-container certification | `npm run benchmark:ssr-warm` |
 | Serverless provider-model certification | `npm run benchmark:serverless-provider` |
+| React 18 concurrency certification | `npm run benchmark:react-concurrency` |
 | Cross-library compare | `npm run benchmark:compare` |
 | Core small-range | `npm run benchmark:core-small` |
 | Single-store fanout | `npm run benchmark:subscriber` |
