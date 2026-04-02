@@ -287,14 +287,19 @@ export const setupSync = ({
         const channel = new BroadcastChannel(channelName);
         syncChannels[name] = channel;
         channel.onmessage = (event: MessageEvent) => {
-            const msg = event.data as any;
-            if (!msg || msg.source === instanceId) return;
-            if (msg.name !== name) return;
+            const raw: unknown = event.data;
+            if (!raw || typeof raw !== "object") return;
+
+            const maybe = raw as Record<string, unknown>;
+            if (maybe.source === instanceId) return;
+            if (maybe.name !== name) return;
             if (syncChannels[name] !== channel || !hasStoreEntry(name) || !getMeta(name)) return;
-            if (!isValidSyncMessage(msg)) {
+
+            if (!isValidSyncMessage(raw)) {
                 reportStoreError(name, `Sync message for "${name}" is malformed; ignoring.`);
                 return;
             }
+            const msg = raw;
             if (expectedToken && msg.token !== expectedToken) {
                 if (!tokenWarned) {
                     reportStoreError(name, `Sync message for "${name}" failed auth token verification; ignoring.`);

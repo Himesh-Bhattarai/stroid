@@ -100,27 +100,29 @@ export interface StoreFeatureRuntime<Ext extends object = {}> {
 
 export type StoreFeatureFactory<Ext extends object = {}> = () => StoreFeatureRuntime<Ext>;
 
-const _featureFactories = new Map<FeatureName, StoreFeatureFactory<any>>();
-let _onFeatureRegistered: ((name: FeatureName, factory: StoreFeatureFactory<any>) => void) | null = null;
+type StoreFeatureFactoryErased = StoreFeatureFactory<object>;
+
+const _featureFactories = new Map<FeatureName, StoreFeatureFactoryErased>();
+let _onFeatureRegistered: ((name: FeatureName, factory: StoreFeatureFactoryErased) => void) | null = null;
 
 export const registerStoreFeature = <Ext extends object = {}>(
     name: FeatureName,
     factory: StoreFeatureFactory<Ext>
 ): void => {
-    _featureFactories.set(name, factory as StoreFeatureFactory<any>);
-    _onFeatureRegistered?.(name, factory as StoreFeatureFactory<any>);
+    _featureFactories.set(name, factory as unknown as StoreFeatureFactoryErased);
+    _onFeatureRegistered?.(name, factory as unknown as StoreFeatureFactoryErased);
 };
 
 export const hasRegisteredStoreFeature = (name: FeatureName): boolean =>
     _featureFactories.has(name);
 
-export const getStoreFeatureFactory = (name: FeatureName): StoreFeatureFactory<any> | undefined =>
+export const getStoreFeatureFactory = (name: FeatureName): StoreFeatureFactoryErased | undefined =>
     _featureFactories.get(name);
 
 export const getRegisteredFeatureNames = (): FeatureName[] =>
     Array.from(_featureFactories.keys());
 
-export const setFeatureRegistrationHook = (hook: ((name: FeatureName, factory: StoreFeatureFactory<any>) => void) | null): void => {
+export const setFeatureRegistrationHook = (hook: ((name: FeatureName, factory: StoreFeatureFactoryErased) => void) | null): void => {
     _onFeatureRegistered = hook;
 };
 

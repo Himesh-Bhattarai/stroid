@@ -270,8 +270,8 @@ export const runMiddlewareForStore = (
 export const runStoreHookSafe = (
     name: string,
     label: "onCreate" | "onSet" | "onReset" | "onDelete",
-    fn: ((...args: any[]) => void) | undefined,
-    args: any[]
+    fn: ((...args: unknown[]) => void) | undefined,
+    args: unknown[]
 ): void =>
     runStoreHook({
         name,

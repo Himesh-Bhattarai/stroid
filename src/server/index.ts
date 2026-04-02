@@ -28,6 +28,7 @@ import {
     createBufferedRequestStoreApi,
     type RequestHydrateOptions,
     type RequestScopeCapture,
+    type RequestScopeOptions,
     type RequestScopeOptionsInternal,
     type RequestSnapshot,
     type RequestStoreApi,
@@ -65,7 +66,7 @@ type RequestStoreName<StateMap> =
 type RequestStoreValue<StateMap, Name extends RequestStoreName<StateMap>> =
     Name extends keyof StateMap ? StateMap[Name] : unknown;
 type RequestHydrateOptionsInternal = RequestScopeOptionsInternal & {
-    default?: StoreOptions<any>;
+    default?: StoreOptions<unknown>;
 };
 
 const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
@@ -102,7 +103,7 @@ const scheduleCarrierCleanup = (registry: StoreRegistry, carrier: CarrierContext
         schedule(attempt);
     };
 
-    // Defer the first attempt so any already-queued flush microtasks can run first.
+    // Defer the first attempt so already-queued flush microtasks can run first.
     schedule(attempt);
 };
 
@@ -151,7 +152,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
         registry,
         snapshot: () => cloneRequestScopeCapture({
             snapshot: buffer,
-            options: bufferedOptions as any,
+            options: bufferedOptions as unknown as RequestScopeOptions<StateMap>,
         }).snapshot,
         capture: () => {
             const carrier = serverAsyncContext.getStore();
@@ -160,7 +161,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
             }
             return cloneRequestScopeCapture({
                 snapshot: buffer,
-                options: bufferedOptions as any,
+                options: bufferedOptions as unknown as RequestScopeOptions<StateMap>,
             });
         },
         hydrate: <T>(
@@ -174,9 +175,9 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
 
             Object.keys(buffer).forEach((name) => {
                 const key = name as RequestStoreName<StateMap>;
-                const mergedOptions: StoreOptions<any> = {
-                    ...(options.default as StoreOptions<any> | undefined || {}),
-                    ...(options[key] as StoreOptions<any> | undefined || {}),
+                const mergedOptions: StoreOptions<unknown> = {
+                    ...(options.default as StoreOptions<unknown> | undefined || {}),
+                    ...(options[key] as StoreOptions<unknown> | undefined || {}),
                     ...(bufferedOptions[name] || {}),
                 };
                 merged[key] = mergedOptions;

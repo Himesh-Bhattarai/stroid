@@ -10,12 +10,16 @@ import { getConfig } from "./config.js";
 const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NODE_ENV === "string"
     ? process.env.NODE_ENV
     : undefined;
-const _envFromImportMeta = typeof import.meta !== "undefined" && (import.meta as any)?.env?.MODE
-    ? (import.meta as any).env.MODE
-    : undefined;
-const _devFlag = typeof globalThis !== "undefined" && typeof (globalThis as any).__STROID_DEV__ === "boolean"
-    ? (globalThis as any).__STROID_DEV__
-    : undefined;
+const _envFromImportMeta = (() => {
+    if (typeof import.meta === "undefined") return undefined;
+    const env = (import.meta as unknown as { env?: { MODE?: unknown } }).env;
+    return typeof env?.MODE === "string" ? env.MODE : undefined;
+})();
+const _devFlag = (() => {
+    if (typeof globalThis === "undefined") return undefined;
+    const flag = (globalThis as unknown as { __STROID_DEV__?: unknown }).__STROID_DEV__;
+    return typeof flag === "boolean" ? flag : undefined;
+})();
 const _fallbackEnv = "production";
 const _resolvedEnv = _envFromProcess ?? _envFromImportMeta ?? _fallbackEnv;
 
@@ -179,5 +183,4 @@ export const suggestStoreName = (name: string, existingNames: string[]): void =>
         `Call createStore("${name}", data) first.`
     );
 };
-
 

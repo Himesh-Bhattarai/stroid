@@ -8,12 +8,12 @@
  */
 const isFreezableObject = (value: unknown): value is object => {
     if (typeof value !== "object" || value === null) return false;
-    const anyValue = value as any;
+    const anyValue = value as { $$typeof?: unknown; constructor?: { name?: unknown } };
     // Skip React elements, DOM nodes, and complex instances (Maps, Sets, third-party classes, etc.)
     if (anyValue.$$typeof) return false;
     if (typeof window !== "undefined" && value instanceof Element) return false;
     const ctorName = anyValue.constructor?.name;
-    if (ctorName && ctorName !== "Object" && ctorName !== "Array") return false;
+    if (typeof ctorName === "string" && ctorName !== "Object" && ctorName !== "Array") return false;
     return true;
 };
 
@@ -48,5 +48,4 @@ export const devDeepFreeze = <T>(value: T): T => {
     }
     return value;
 };
-
 

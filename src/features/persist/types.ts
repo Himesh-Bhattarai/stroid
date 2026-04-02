@@ -21,7 +21,7 @@ export type PersistMeta = {
     updatedAtMs?: number;
     options: {
         persist: PersistConfig | null;
-        migrations: Record<number, (state: any) => any>;
+        migrations: Record<number, (state: StoreValue) => StoreValue>;
         onError?: (err: string) => void;
     };
 };

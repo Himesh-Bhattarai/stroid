@@ -90,8 +90,8 @@ export const runStoreHook = ({
 }: {
     name: string;
     label: "onCreate" | "onSet" | "onReset" | "onDelete";
-    fn: ((...args: any[]) => void) | undefined;
-    args: any[];
+    fn: ((...args: unknown[]) => void) | undefined;
+    args: unknown[];
     reportIssue: LifecycleIssueReporter;
 }): void => {
     if (typeof fn !== "function") return;
@@ -102,5 +102,4 @@ export const runStoreHook = ({
         reportIssue(message, "always");
     }
 };
-
 

@@ -106,18 +106,18 @@ export const createSelector = <TState, TResult>(storeName: string, selectorFn: (
     };
 };
 
-export const subscribeWithSelector = <R>(
+export const subscribeWithSelector = <TState = unknown, R = unknown>(
     name: string,
-    selector: (state: any) => R,
+    selector: (state: TState) => R,
     equality: (a: R, b: R) => boolean = Object.is,
-    listener: (next: R, prev: R) => void
+    listener: (next: R, prev: R | undefined) => void
 ): (() => void) => {
     if (typeof selector !== "function" || typeof listener !== "function") {
         warn(`subscribeWithSelector("${name}") requires selector and listener functions.`);
         return () => {};
     }
     let hasPrev = false;
-    let prevSel = undefined as R;
+    let prevSel: R | undefined = undefined;
 
     const resolveSnapshotMode = (): SnapshotMode => {
         const mode = meta[name]?.options?.snapshot;
@@ -134,7 +134,7 @@ export const subscribeWithSelector = <R>(
     };
 
     if (hasSelectorStoreEntry(name)) {
-        prevSel = selector(getSafeSelectorState());
+        prevSel = selector(getSafeSelectorState() as TState);
         hasPrev = true;
     }
 
@@ -144,7 +144,7 @@ export const subscribeWithSelector = <R>(
             prevSel = undefined as R;
             return;
         }
-        const nextSel = selector(getSafeSelectorState(_state));
+        const nextSel = selector(getSafeSelectorState(_state) as TState);
         if (!hasPrev) {
             const last = prevSel;
             hasPrev = true;
@@ -152,7 +152,7 @@ export const subscribeWithSelector = <R>(
             listener(nextSel, last);
             return;
         }
-        const matches = equality(nextSel, prevSel);
+        const matches = equality(nextSel, prevSel as R);
         if (!matches) {
             const last = prevSel;
             prevSel = nextSel;
@@ -161,5 +161,4 @@ export const subscribeWithSelector = <R>(
     };
     return subscribeSelectorStore(name, wrapped);
 };
-
 

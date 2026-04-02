@@ -59,7 +59,9 @@ const getTransactionState = (registry?: StoreRegistry): TransactionState => {
 const coerceError = (err?: unknown): Error => {
     if (err instanceof Error) return err;
     if (typeof err === "string") return new Error(err);
-    if (err && typeof (err as any)?.message === "string") return new Error((err as any).message);
+    if (err && typeof (err as { message?: unknown })?.message === "string") {
+        return new Error((err as { message: string }).message);
+    }
     return new Error("setStoreBatch aborted");
 };
 
@@ -270,5 +272,4 @@ export const endTransaction = (err?: unknown, registry?: StoreRegistry): Error |
 
     return finalError;
 };
-
 

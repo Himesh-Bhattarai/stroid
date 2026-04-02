@@ -282,7 +282,7 @@ export interface NormalizedOptions {
     onCreate?: (initial: StoreValue) => void;
     onError?: (err: string) => void;
     validate?: ValidateOption;
-    migrations: Record<number, (state: any) => any>;
+    migrations: Record<number, (state: StoreValue) => StoreValue>;
     version: number;
     redactor?: (state: StoreValue) => StoreValue;
     historyLimit: number;
@@ -367,7 +367,7 @@ const DEFAULT_PERSIST_CRYPTO_MARK = typeof Symbol === "function"
 
 const markDefaultPersistCrypto = (fn: (v: string) => string): ((v: string) => string) => {
     try {
-        (fn as any)[DEFAULT_PERSIST_CRYPTO_MARK] = true;
+        (fn as unknown as Record<PropertyKey, unknown>)[DEFAULT_PERSIST_CRYPTO_MARK] = true;
     } catch (_) {
         // ignore marker failures
     }
@@ -480,7 +480,7 @@ export const normalizePersistOptions = <State>(
 /**
  * Collect deprecation warnings for a store options object.
  *
- * This function walks through the store options object and checks if any
+ * This function walks through the store options object and checks whether
  * deprecated options are present. If a deprecated option is found, a
  * warning message is added to the warnings array.
  *

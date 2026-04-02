@@ -46,10 +46,20 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
     createStore(name, { entities: {}, ids: [] as string[] }, options);
     return {
         upsert: (entity: T) => setStore(handle, (draft: { entities: Record<string, T>; ids: string[] }) => {
+            const uuid = (() => {
+                const cryptoObj = (globalThis as unknown as { crypto?: { randomUUID?: unknown } }).crypto;
+                if (!cryptoObj || typeof cryptoObj.randomUUID !== "function") return null;
+                try {
+                    // Call with the correct receiver; some runtimes require `crypto.randomUUID()`, not a detached function.
+                    return cryptoObj.randomUUID();
+                } catch {
+                    return null;
+                }
+            })();
             const id = entity.id
                 ?? entity._id
-                ?? ((typeof crypto !== "undefined" && (crypto as any).randomUUID)
-                    ? (crypto as any).randomUUID()
+                ?? (uuid
+                    ? uuid
                     : `e_${++entityIdCounter}_${Date.now()}`);
             if (!draft.ids.includes(id)) draft.ids.push(id);
             draft.entities[id] = entity;
@@ -71,5 +81,3 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
         clear: () => resetStore(handle),
     };
 };
-
-

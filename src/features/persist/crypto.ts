@@ -11,7 +11,7 @@ const DEFAULT_PERSIST_CRYPTO_MARK = typeof Symbol === "function"
     : "__stroid_persist_defaultCrypto__";
 
 export const usesDefaultPersistCrypto = (fn: (v: string) => string): boolean =>
-    !!(fn as any)?.[DEFAULT_PERSIST_CRYPTO_MARK];
+    !!(fn as unknown as Record<PropertyKey, unknown>)[DEFAULT_PERSIST_CRYPTO_MARK];
 
 export const isIdentityCrypto = (fn: (v: string) => string): boolean => {
     try {
@@ -53,5 +53,4 @@ export const validateCryptoPair = (
     }
     return { ok: true };
 };
-
 

@@ -9,15 +9,27 @@
 import { critical, error, isDev, warn } from "../utils.js";
 import { getConfig } from "../internals/config.js";
 
-export const runAsyncHook = (
+export function runAsyncHook(
+    name: string,
+    label: "onSuccess",
+    fn: ((value: unknown) => void) | undefined,
+    value: unknown
+): void;
+export function runAsyncHook(
+    name: string,
+    label: "onError",
+    fn: ((message: string) => void) | undefined,
+    value: string
+): void;
+export function runAsyncHook(
     name: string,
     label: "onSuccess" | "onError",
-    fn: ((value: any) => void) | undefined,
+    fn: ((value: unknown) => void) | ((message: string) => void) | undefined,
     value: unknown
-): void => {
+): void {
     if (typeof fn !== "function") return;
     try {
-        fn(value);
+        (fn as (value: unknown) => void)(value);
     } catch (err) {
         warn(`fetchStore("${name}") ${label} callback failed: ${(err as { message?: string })?.message ?? err}`);
     }
@@ -53,5 +65,3 @@ export const throwAsyncUsageError = (
     }
     throw new Error(message);
 };
-
-

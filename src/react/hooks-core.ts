@@ -31,7 +31,7 @@ import {
     markLooseUseStoreWarning,
 } from "../internals/hooks-warnings.js";
 
-const pickPath = (data: any, path?: string) => {
+const pickPath = (data: unknown, path?: string): unknown => {
     if (!path) return data;
     const current = getByPath(data, path);
     return current ?? null;
@@ -175,6 +175,19 @@ export function useStore<Name extends StoreName, R>(
     selector: (state: StoreSnapshot<StateFor<Name>>) => R,
     equalityFn?: (a: R, b: R) => boolean
 ): R | null;
+export function useStore<Name extends string>(
+    name: Exclude<Name, StoreName>,
+    path: string
+): unknown;
+export function useStore<Name extends string>(
+    name: Exclude<Name, StoreName>,
+    path?: undefined
+): unknown;
+export function useStore<Name extends string, R>(
+    name: Exclude<Name, StoreName>,
+    selector: (state: unknown) => R,
+    equalityFn?: (a: R, b: R) => boolean
+): R | null;
 export function useStore<T = unknown, R = unknown>(
     name: string | StoreDefinition<string, T> | StoreKey<string, T>,
     pathOrSelector?: string | ((state: T) => R),
@@ -258,8 +271,16 @@ export function useStoreField<Name extends StoreName, P extends Path<StateFor<Na
     storeName: Name,
     field: P
 ): StoreSnapshot<PathValue<StateFor<Name>, P>> | null;
-export function useStoreField(storeName: any, field: any): unknown {
-    return useStore(storeName, field);
+export function useStoreField<Name extends string>(
+    storeName: Exclude<Name, StoreName>,
+    field: string
+): unknown;
+export function useStoreField(
+    storeName: string | StoreDefinition<string, unknown> | StoreKey<string, unknown>,
+    field: string
+): unknown {
+    const resolvedName = typeof storeName === "string" ? storeName : storeName.name;
+    return useStore(resolvedName, field);
 }
 
 export function useSelector<Name extends string, State, R>(
@@ -270,6 +291,11 @@ export function useSelector<Name extends string, State, R>(
 export function useSelector<Name extends StoreName, R>(
     storeName: Name,
     selectorFn: (state: StoreSnapshot<StateFor<Name>>) => R,
+    equalityFn?: (a: R, b: R) => boolean
+): R | null;
+export function useSelector<Name extends string, R>(
+    storeName: Exclude<Name, StoreName>,
+    selectorFn: (state: unknown) => R,
     equalityFn?: (a: R, b: R) => boolean
 ): R | null;
 export function useSelector<T = unknown, R = unknown>(
@@ -348,6 +374,10 @@ export function useStoreStatic<Name extends StoreName>(
     name: Name,
     path?: undefined
 ): StoreSnapshot<StateFor<Name>> | null;
+export function useStoreStatic<Name extends string>(
+    name: Exclude<Name, StoreName>,
+    path?: string
+): unknown;
 export function useStoreStatic(
     name: string | StoreDefinition<string, unknown> | StoreKey<string, unknown>,
     path?: string
@@ -362,4 +392,3 @@ export function useStoreStatic(
     if (data === null || data === undefined) return null;
     return pickPath(data, path);
 }
-

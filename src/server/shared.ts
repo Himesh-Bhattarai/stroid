@@ -34,7 +34,7 @@ export type RequestScopeCapture<StateMap extends StoreStateMap = StoreStateMap> 
     options: RequestScopeOptions<StateMap>;
 };
 
-export type RequestScopeOptionsInternal = Record<string, StoreOptions<any> | undefined>;
+export type RequestScopeOptionsInternal = Record<string, StoreOptions<unknown> | undefined>;
 
 export type RequestStoreApi<StateMap extends StoreStateMap = StoreStateMap> = {
     create: <Name extends RequestStoreName<StateMap>>(
@@ -114,9 +114,9 @@ export const cloneRequestStoreOptions = <State>(
 
 const toPortableRequestStoreOptions = (
     options?: unknown
-): StoreOptions<any> | undefined => {
+): StoreOptions<unknown> | undefined => {
     if (!options) return undefined;
-    const normalized = options as StoreOptions<any> & {
+    const normalized = options as StoreOptions<unknown> & {
         explicitPersist?: boolean;
         explicitSync?: boolean;
         explicitDevtools?: boolean;
@@ -133,7 +133,7 @@ const toPortableRequestStoreOptions = (
         snapshotSafety?: "warn" | "throw" | "auto-clone";
     };
 
-    const next: StoreOptions<any> = {};
+    const next: StoreOptions<unknown> = {};
 
     if (normalized.scope && normalized.scope !== "request") {
         next.scope = normalized.scope;
@@ -254,7 +254,7 @@ export const createBufferedRequestStoreApi = <StateMap extends StoreStateMap = S
     return {
         create: (name, data, options = {}) => {
             args.buffer[name] = deepClone(data) as RequestStoreValue<StateMap, typeof name>;
-            args.bufferedOptions[name] = cloneRequestStoreOptions(options) ?? {};
+            args.bufferedOptions[name] = (cloneRequestStoreOptions(options) ?? {}) as StoreOptions<unknown>;
             return args.buffer[name] as RequestStoreValue<StateMap, typeof name>;
         },
         set: (name, updater) => {

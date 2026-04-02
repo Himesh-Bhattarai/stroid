@@ -6,8 +6,8 @@
  *
  * Consumers: Internal modules (async-cache, adapters).
  */
-export interface IStoreCore<T = any> {
+export interface IStoreCore<T = unknown> {
     get(path?: string): T | null;
-    set(path: string, value: any): void;
+    set(path: string, value: unknown): void;
     subscribe(cb: (val: T | null) => void): () => void;
 }

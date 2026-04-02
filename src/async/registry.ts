@@ -22,7 +22,7 @@ export type AsyncStateAdapter = (ctx: {
     name: string;
     prev: unknown;
     next: AsyncStateSnapshot;
-    set: (value: unknown | ((draft: any) => void)) => void;
+    set: (value: unknown | ((draft: unknown) => void)) => void;
 }) => void;
 
 export type WarnCategory = "noSignal" | "shape" | "autoCreate" | "mutableResult";

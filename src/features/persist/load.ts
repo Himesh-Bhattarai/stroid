@@ -311,7 +311,7 @@ const applyMigratedState = ({
     v: number;
     targetVersion: number;
     cfg: PersistConfig;
-    migrations: Record<number, (state: any) => any>;
+    migrations: Record<number, (state: StoreValue) => StoreValue>;
     getInitialState: () => StoreValue;
     reportStoreError: (name: string, message: string) => void;
     sanitize: (value: unknown) => unknown;

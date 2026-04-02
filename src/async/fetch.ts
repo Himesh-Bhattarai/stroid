@@ -56,6 +56,11 @@ const looksLikeAsyncState = (value: unknown): boolean => {
     return ("data" in record) && ("loading" in record) && ("error" in record) && ("status" in record);
 };
 
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
+    value !== null
+    && (typeof value === "object" || typeof value === "function")
+    && typeof (value as { then?: unknown }).then === "function";
+
 const _applyAsyncState = (
     name: string,
     storeHandle: StoreDefinition<string, AsyncState>,
@@ -68,8 +73,8 @@ const _applyAsyncState = (
     if (stateAdapter) {
         try {
             const prev = getStore({ name } as StoreDefinition<string, unknown>);
-            const set = (value: unknown | ((draft: any) => void)) => {
-                setStoreWithContext(storeHandle as StoreDefinition<string, any>, value as any, undefined, context);
+            const set = (value: unknown | ((draft: unknown) => void)) => {
+                setStoreWithContext(storeHandle, value, undefined, context);
             };
             runWithWriteContext(context, () => {
                 stateAdapter({
@@ -202,7 +207,7 @@ export async function fetchStore(
     const isDirectPromiseInput =
         typeof urlOrRequest !== "string"
         && typeof urlOrRequest !== "function"
-        && typeof (urlOrRequest as any)?.then === "function";
+        && isPromiseLike(urlOrRequest);
     const retryPolicy = normalizeRetryOptions(name, retry, retryDelay, retryBackoff);
     let promiseRetryNoticeIssued = false;
     const shouldWarnPromiseRetry = isDirectPromiseInput && retry > 0;
@@ -396,7 +401,7 @@ export async function fetchStore(
 
             const currentRequest = typeof urlOrRequest === "function" ? urlOrRequest() : urlOrRequest;
             const isPromiseRequest = isDirectPromiseInput
-                || (typeof currentRequest !== "string" && typeof (currentRequest as any)?.then === "function");
+                || (typeof currentRequest !== "string" && isPromiseLike(currentRequest));
             const effectiveRetryPolicy = isPromiseRequest ? { ...retryPolicy, retry: 0 } : retryPolicy;
             if (isPromiseRequest && (retry > 0 || shouldWarnPromiseRetry) && !promiseRetryNoticeIssued) {
                 warn(`fetchStore("${name}") ignores retry settings for direct Promise inputs; pass a URL string or factory to use retries.`);
@@ -419,7 +424,7 @@ export async function fetchStore(
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
                     result = await parseResponseBody(response, responseType);
-                } else if (typeof (currentRequest as any).then === "function") {
+                } else if (isPromiseLike(currentRequest)) {
                     result = await currentRequest;
                 } else {
                     error(
@@ -436,7 +441,7 @@ export async function fetchStore(
                 }
 
                 const transformed = transform ? transform(result) : result;
-                if (transformed && typeof (transformed as any).then === "function") {
+                if (isPromiseLike(transformed)) {
                     const errorMessage =
                         `fetchStore("${name}") transform must be synchronous. Return the transformed value directly instead of a Promise.`;
                     if (isCurrentRequest(cacheSlot, currentVersion)) {
@@ -495,7 +500,7 @@ export async function fetchStore(
                 return { raw: result, transformed: cloned };
             } catch (err) {
                 attempts += 1;
-                const isAbort = (err as any)?.name === "AbortError";
+                const isAbort = (err as { name?: unknown })?.name === "AbortError";
                 if (isAbort) {
                     return _settleAbort(name, cacheSlot, currentVersion, applyState);
                 }
@@ -510,7 +515,10 @@ export async function fetchStore(
 
                 if (!isCurrentRequest(cacheSlot, currentVersion)) return null;
 
-                const errorMessage = (err as any)?.message || "Something went wrong";
+                const errorMessage =
+                    (err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string")
+                        ? (err as { message: string }).message
+                        : "Something went wrong";
                 applyState({
                     data: backgroundRevalidate ? readCachedData() : null,
                     loading: false,
@@ -549,7 +557,10 @@ export async function fetchStore(
         }),
         timeoutPromise,
     ]).catch((err) => {
-        const errorMessage = (err as any)?.message || "Request timed out";
+        const errorMessage =
+            (err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string")
+                ? (err as { message: string }).message
+                : "Request timed out";
         applyState({
             data: backgroundRevalidate ? readCachedData() : null,
             loading: false,

@@ -10,7 +10,8 @@ import { warn } from "../internals/diagnostics.js";
 import { FORBIDDEN_OBJECT_KEYS } from "./validation.js";
 
 // --- cloning / equality helpers ------------------------------------------------
-const hasStructuredClone = typeof globalThis !== "undefined" && typeof (globalThis as any).structuredClone === "function";
+const hasStructuredClone = typeof globalThis !== "undefined"
+    && typeof (globalThis as unknown as { structuredClone?: unknown }).structuredClone === "function";
 
 export const shallowClone = <T>(value: T): T => {
     if (value === null || typeof value !== "object") return value;
@@ -35,26 +36,28 @@ const getNonCloneableReason = (value: unknown): string | null => {
     if (typeof value === "symbol") return "symbol";
     if (value === null || typeof value !== "object") return null;
 
+    const globalCtors = globalThis as unknown as Record<string, unknown>;
     const checks: Array<[string, unknown]> = [
-        ["WeakMap", (globalThis as any).WeakMap],
-        ["WeakSet", (globalThis as any).WeakSet],
-        ["WeakRef", (globalThis as any).WeakRef],
-        ["Promise", (globalThis as any).Promise],
-        ["ReadableStream", (globalThis as any).ReadableStream],
-        ["WritableStream", (globalThis as any).WritableStream],
-        ["TransformStream", (globalThis as any).TransformStream],
-        ["EventTarget", (globalThis as any).EventTarget],
+        ["WeakMap", globalCtors.WeakMap],
+        ["WeakSet", globalCtors.WeakSet],
+        ["WeakRef", globalCtors.WeakRef],
+        ["Promise", globalCtors.Promise],
+        ["ReadableStream", globalCtors.ReadableStream],
+        ["WritableStream", globalCtors.WritableStream],
+        ["TransformStream", globalCtors.TransformStream],
+        ["EventTarget", globalCtors.EventTarget],
     ];
 
     for (const [label, ctor] of checks) {
-        if (typeof ctor === "function" && value instanceof (ctor as any)) {
+        if (typeof ctor === "function" && value instanceof (ctor as unknown as (new (...args: unknown[]) => object))) {
             return label;
         }
     }
 
-    const NodeCtor = (globalThis as any).Node;
-    if (typeof NodeCtor === "function" && value instanceof NodeCtor) {
-        return "DOM Node";
+    const NodeCtor = globalCtors.Node;
+    if (typeof NodeCtor === "function") {
+        const NodeAny = NodeCtor as unknown as (new (...args: unknown[]) => object);
+        if (value instanceof NodeAny) return "DOM Node";
     }
 
     return null;
@@ -168,5 +171,3 @@ export const produceClone = <T>(base: T, recipe: (draft: T) => void): T => {
         );
     }
 };
-
-

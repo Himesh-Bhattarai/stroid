@@ -24,6 +24,7 @@ import { getTopoOrderedComputeds } from "../computed/computed-graph.js";
 import { replaceStore, replaceStoreState } from "./store-replace-impl.js";
 import { createRootSetRuntimePatch, setLastRuntimePatches } from "./runtime-patch.js";
 import type { RuntimePatch } from "./runtime-patch.js";
+import { store } from "./store-name.js";
 import {
     initializeHydrationConsistency,
     type HydrationConsistencyOptions,
@@ -178,7 +179,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
                 );
             }
         } else {
-            const optionMap = options as Record<string, StoreOptions<any>> & { default?: StoreOptions<any> };
+            const optionMap = options as Record<string, StoreOptions<unknown>> & { default?: StoreOptions<unknown> };
             const created = createStore(storeName, data, optionMap[storeName] || optionMap.default || {});
             if (created) {
                 result.created.push(storeName);
@@ -203,10 +204,10 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
         orderedComputeds.forEach((computedName) => {
             const entry = registry.computedEntries[computedName];
             if (!entry) return;
-            const args = entry.deps.map((dep) => getStore(dep as any));
+            const args = entry.deps.map((dep) => getStore(store(dep)));
             try {
                 const next = entry.compute(...args);
-                if (next && typeof (next as any).then === "function") {
+                if (next && typeof (next as PromiseLike<unknown>).then === "function") {
                     warn(`hydrateStores recompute for "${computedName}" returned a Promise; skipping.`);
                     return;
                 }
@@ -215,7 +216,7 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
                 if (unchangedByRawComputeIdentity || Object.is(next, current)) return;
                 entry.lastOutput = next;
                 entry.hasLastOutput = true;
-                replaceStore(computedName as any, next as StoreValue);
+                replaceStore(store(computedName), next as StoreValue);
             } catch (err) {
                 warn(`hydrateStores recompute for "${computedName}" failed: ${(err as { message?: string })?.message ?? err}`);
             }

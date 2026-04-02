@@ -243,8 +243,16 @@ export const namespace: (ns: string) => {
     store: <Name extends string, State = unknown>(name: Name) => StoreKey<Name, State>;
     create: <Name extends string, State>(name: Name, data: NonFunction<State>, options?: StoreOptions<State>) => StoreDefinition<string, State> | undefined;
     createStrict: <Name extends string, State>(name: Name, data: NonFunction<State>, options?: StoreOptions<State>) => StoreDefinition<string, State>;
-    set: (name: any, ...rest: any[]) => any;
-    get: (name: any, ...rest: any[]) => any;
+    set: (name: string | StoreKey<string, StoreValue>, ...rest: unknown[]) => {
+        ok: true;
+    } | {
+        ok: false;
+        reason: "not-found" | "no-initial-state" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" | "lazy-uninitialized" | "unsupported-op" | "unsupported-path-shape";
+    } | {
+        readonly ok: false;
+        readonly reason: "invalid-args";
+    };
+    get: (name: string | StoreKey<string, StoreValue>, path?: string | readonly string[]) => unknown;
     delete: (name: string) => void;
     reset: (name: string) => WriteResult;
 };

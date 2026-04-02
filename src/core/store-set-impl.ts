@@ -64,7 +64,7 @@ import {
     shouldQueueHydrationWrite,
 } from "./hydration-consistency.js";
 
-type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: any) => void);
+type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: StoreValue) => void);
 // If store names are loose (not registered via StoreStateMap), fall back to untyped paths/values.
 type IsStoreNameLoose = string extends StoreName ? true : false;
 type StoreUpdate<State> = State | Partial<State> | PartialDeep<State> | ((draft: State) => void);
@@ -73,22 +73,22 @@ type StoreTarget<Name extends string = string, State = StoreValue> =
     | StoreKey<Name, State>
     | StoreName;
 type StoreStateForTarget<T> =
-    T extends StoreDefinition<any, infer S> ? S
-        : T extends StoreKey<any, infer S> ? S
+    T extends StoreDefinition<infer _Name extends string, infer S> ? S
+        : T extends StoreKey<infer _Name extends string, infer S> ? S
             : (T extends StoreName ? StateFor<T> : StoreValue);
 type StorePathForTarget<T> =
-    T extends StoreDefinition<any, infer S> ? Path<S>
-        : T extends StoreKey<any, infer S> ? Path<S>
+    T extends StoreDefinition<infer _Name extends string, infer S> ? Path<S>
+        : T extends StoreKey<infer _Name extends string, infer S> ? Path<S>
             : (IsStoreNameLoose extends true ? string | string[] : (T extends StoreName ? Path<StateFor<T>> : string | string[]));
 type StorePathValueForTarget<T, P> =
-    T extends StoreDefinition<any, infer S>
+    T extends StoreDefinition<infer _Name extends string, infer S>
         ? (P extends Path<S> ? PathValue<S, P> : never)
-        : T extends StoreKey<any, infer S>
+        : T extends StoreKey<infer _Name extends string, infer S>
             ? (P extends Path<S> ? PathValue<S, P> : never)
             : (IsStoreNameLoose extends true ? unknown : (T extends StoreName ? (P extends Path<StateFor<T>> ? PathValue<StateFor<T>, P> : never) : unknown));
 type StoreUpdateForTarget<T> =
-    T extends StoreDefinition<any, infer S> ? StoreUpdate<S>
-        : T extends StoreKey<any, infer S> ? StoreUpdate<S>
+    T extends StoreDefinition<infer _Name extends string, infer S> ? StoreUpdate<S>
+        : T extends StoreKey<infer _Name extends string, infer S> ? StoreUpdate<S>
             : (IsStoreNameLoose extends true ? StoreUpdate<StoreValue> : (T extends StoreName ? StoreUpdate<StateFor<T>> : StoreUpdate<StoreValue>));
 
 export function setStore<T extends StoreTarget, P extends StorePathForTarget<T>>(
@@ -294,7 +294,7 @@ const setStoreInternal = (
             return { ok: true };
         }
     } catch (err) {
-        // If shallowEqual throws for any reason, fall back to normal flow.
+        // If shallowEqual throws, fall back to normal flow.
     }
 
     stageOrCommitUpdate(registry, {

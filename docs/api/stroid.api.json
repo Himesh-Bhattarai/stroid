@@ -3246,7 +3246,43 @@
             },
             {
               "kind": "Content",
-              "text": "<string, State>;\n    set: (name: any, ...rest: any[]) => any;\n    get: (name: any, ...rest: any[]) => any;\n    delete: (name: string) => void;\n    reset: (name: string) => "
+              "text": "<string, State>;\n    set: (name: string | "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreKey",
+              "canonicalReference": "stroid!StoreKey:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!StoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": ">, ...rest: unknown[]) => {\n        ok: true;\n    } | {\n        ok: false;\n        reason: \"not-found\" | \"no-initial-state\" | \"validate\" | \"path\" | \"middleware\" | \"ssr\" | \"invalid-args\" | \"lazy-uninitialized\" | \"unsupported-op\" | \"unsupported-path-shape\";\n    } | {\n        readonly ok: false;\n        readonly reason: \"invalid-args\";\n    };\n    get: (name: string | "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreKey",
+              "canonicalReference": "stroid!StoreKey:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!StoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": ">, path?: string | readonly string[]) => unknown;\n    delete: (name: string) => void;\n    reset: (name: string) => "
             },
             {
               "kind": "Reference",
@@ -3261,7 +3297,7 @@
           "fileUrlPath": "dist/index.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 3,
-            "endIndex": 20
+            "endIndex": 28
           },
           "releaseTag": "Public",
           "overloadIndex": 1,

@@ -84,17 +84,18 @@ export function setPathCacheInvalidator(fn: (name: string) => void): void {
 }
 
 const createRegistryObjectProxy = <T extends object>(getter: () => T): T =>
+    // Proxy so imports can reference a stable object while SSR swaps the active registry per request.
     new Proxy(Object.create(null), {
-        get: (_target, prop) => (getter() as any)[prop],
+        get: (_target, prop) => (getter() as unknown as Record<PropertyKey, unknown>)[prop],
         set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
+            (getter() as unknown as Record<PropertyKey, unknown>)[prop] = value;
             return true;
         },
         deleteProperty: (_target, prop) => {
-            delete (getter() as any)[prop];
+            delete (getter() as unknown as Record<PropertyKey, unknown>)[prop];
             return true;
         },
-        has: (_target, prop) => prop in (getter() as any),
+        has: (_target, prop) => prop in (getter() as unknown as Record<PropertyKey, unknown>),
         ownKeys: () => Reflect.ownKeys(getter()),
         getOwnPropertyDescriptor: (_target, prop) => {
             const desc = Object.getOwnPropertyDescriptor(getter(), prop);
@@ -103,17 +104,19 @@ const createRegistryObjectProxy = <T extends object>(getter: () => T): T =>
         },
     }) as T;
 
-const createRegistryMapProxy = <T extends Map<any, any>>(getter: () => T): T =>
+const createRegistryMapProxy = <T extends Map<unknown, unknown>>(getter: () => T): T =>
     new Proxy(new Map(), {
         get: (_target, prop) => {
-            const target = getter() as any;
+            const target = getter();
             if (prop === "size") return target.size;
             if (prop === Symbol.iterator) return target[Symbol.iterator].bind(target);
-            const value = target[prop];
-            return typeof value === "function" ? value.bind(target) : value;
+            const value = (target as unknown as Record<PropertyKey, unknown>)[prop];
+            return typeof value === "function"
+                ? (value as (...args: unknown[]) => unknown).bind(target)
+                : value;
         },
         set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
+            (getter() as unknown as Record<PropertyKey, unknown>)[prop] = value;
             return true;
         },
     }) as T;
@@ -121,12 +124,14 @@ const createRegistryMapProxy = <T extends Map<any, any>>(getter: () => T): T =>
 const createRegistryValueProxy = <T extends object>(getter: () => T): T =>
     new Proxy({} as T, {
         get: (_target, prop) => {
-            const target = getter() as any;
-            const value = target[prop];
-            return typeof value === "function" ? value.bind(target) : value;
+            const target = getter();
+            const value = (target as unknown as Record<PropertyKey, unknown>)[prop];
+            return typeof value === "function"
+                ? (value as (...args: unknown[]) => unknown).bind(target)
+                : value;
         },
         set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
+            (getter() as unknown as Record<PropertyKey, unknown>)[prop] = value;
             return true;
         },
     });

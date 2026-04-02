@@ -18,10 +18,12 @@ const toHex = (buffer: ArrayBuffer): string => {
 };
 
 const computeSha256 = async (value: string): Promise<string> => {
-    if (typeof globalThis !== "undefined" && (globalThis as any).crypto?.subtle) {
+    const subtle = (globalThis as unknown as { crypto?: { subtle?: { digest?: unknown } } }).crypto?.subtle;
+    if (typeof subtle?.digest === "function") {
         const encoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
         const data = encoder ? encoder.encode(value) : new Uint8Array(Buffer.from(value));
-        const digest = await (globalThis as any).crypto.subtle.digest("SHA-256", data);
+        const digest = await (subtle as { digest: (alg: string, data: ArrayBufferView | ArrayBuffer) => Promise<ArrayBuffer> })
+            .digest("SHA-256", data);
         return toHex(digest);
     }
     try {
@@ -41,5 +43,3 @@ export const computePersistChecksum = async (
     if (mode === "sha256") return computeSha256(payload);
     return hashFn(payload);
 };
-
-
