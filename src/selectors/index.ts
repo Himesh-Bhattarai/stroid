@@ -13,12 +13,117 @@ import {
     type SelectorStoreValue as StoreValue,
 } from "../internals/selector-store.js";
 import { deepClone, shallowClone, getByPath, warn } from "../utils.js";
+import { devDeepFreeze, devShallowFreeze } from "../utils/devfreeze.js";
 import { getStoreSnapshot } from "../core/store-notify.js";
 import { meta } from "../core/store-lifecycle/registry.js";
 import { getConfig } from "../internals/config.js";
 import type { SnapshotMode } from "../adapters/options.js";
 
 type SelectorDependency = string[];
+
+// Shared across selector subscriptions: a frozen, non-mutating base snapshot per registry snapshot reference.
+// This keeps selector costs near O(subscribers) instead of O(subscribers * deepClone(state)).
+//
+// If a selector attempts to mutate the base, we auto-clone for that selector only.
+type SelectorSnapshotCacheEntry = {
+    /** frozen snapshot clone for pure selectors (null => not shareable; fall back to per-selector clone) */
+    frozen: object | null;
+};
+const deepSelectorSnapshotCache = new WeakMap<object, SelectorSnapshotCacheEntry>();
+const shallowSelectorSnapshotCache = new WeakMap<object, SelectorSnapshotCacheEntry>();
+
+// For deep snapshots, we only share a frozen base when the graph is plain-object/array.
+// (Map/Set/Date etc. remain mutable even when frozen; sharing would regress isolation.)
+const isShareablePlainGraph = (root: object): boolean => {
+    const stack: object[] = [root];
+    const seen = new WeakSet<object>();
+    while (stack.length > 0) {
+        const current = stack.pop()!;
+        if (seen.has(current)) continue;
+        seen.add(current);
+
+        // Skip React elements / host objects
+        const anyCurrent = current as { $$typeof?: unknown };
+        if (anyCurrent.$$typeof) return false;
+        if (typeof Element !== "undefined" && current instanceof Element) return false;
+
+        const proto = Object.getPrototypeOf(current);
+        const isArray = Array.isArray(current);
+        const isPlainObject = proto === Object.prototype || proto === null;
+        if (!isArray && !isPlainObject) return false;
+
+        if (isArray) {
+            for (const item of current as unknown as unknown[]) {
+                if (item && typeof item === "object") stack.push(item as object);
+            }
+            continue;
+        }
+
+        for (const value of Object.values(current as Record<string, unknown>)) {
+            if (value && typeof value === "object") stack.push(value as object);
+        }
+    }
+    return true;
+};
+
+const isMutationError = (err: unknown): boolean => {
+    if (!(err instanceof TypeError)) return false;
+    const message = (err as { message?: string })?.message ?? String(err);
+    return /read only|readonly|cannot assign|cannot add property|cannot delete property/i.test(message);
+};
+
+const resolveSelectorSnapshotMode = (name: string): SnapshotMode => {
+    const mode = meta[name]?.options?.snapshot;
+    return mode === "shallow" || mode === "ref" ? mode : "deep";
+};
+
+const getMutableSelectorSnapshot = (name: string, snapshot?: StoreValue | null): unknown => {
+    const ref = snapshot !== undefined ? snapshot : getStoreSnapshot(name);
+    if (ref === null || typeof ref !== "object") return ref;
+    const mode = resolveSelectorSnapshotMode(name);
+    if (mode === "ref") return ref;
+    if (mode === "shallow") return shallowClone(ref);
+    return deepClone(ref);
+};
+
+const getFrozenSelectorSnapshot = (name: string, snapshot?: StoreValue | null): unknown => {
+    const ref = snapshot !== undefined ? snapshot : getStoreSnapshot(name);
+    if (ref === null || typeof ref !== "object") return ref;
+    const mode = resolveSelectorSnapshotMode(name);
+    if (mode === "ref") return ref;
+    const key = ref as object;
+
+    if (mode === "shallow") {
+        const proto = Object.getPrototypeOf(key);
+        const rootShareable = Array.isArray(key) || proto === Object.prototype || proto === null;
+        if (!rootShareable) return shallowClone(ref);
+
+        const cached = shallowSelectorSnapshotCache.get(key);
+        if (cached) {
+            return cached.frozen ?? shallowClone(ref);
+        }
+
+        const cloned = shallowClone(ref);
+        const frozen = devShallowFreeze(cloned);
+        shallowSelectorSnapshotCache.set(key, { frozen: frozen as unknown as object });
+        return frozen;
+    }
+
+    const cached = deepSelectorSnapshotCache.get(key);
+    if (cached) {
+        return cached.frozen ?? deepClone(ref);
+    }
+
+    if (!isShareablePlainGraph(key)) {
+        deepSelectorSnapshotCache.set(key, { frozen: null });
+        return deepClone(ref);
+    }
+
+    const cloned = deepClone(ref);
+    const frozen = devDeepFreeze(cloned);
+    deepSelectorSnapshotCache.set(key, { frozen: frozen as unknown as object });
+    return frozen;
+};
 
 const trackSelectorDependencies = <TState, TResult>(
     state: TState,
@@ -118,23 +223,16 @@ export const subscribeWithSelector = <TState = unknown, R = unknown>(
     }
     let hasPrev = false;
     let prevSel: R | undefined = undefined;
-
-    const resolveSnapshotMode = (): SnapshotMode => {
-        const mode = meta[name]?.options?.snapshot;
-        return mode === "shallow" || mode === "ref" ? mode : "deep";
-    };
-
-    const getSafeSelectorState = (snapshot?: StoreValue | null): unknown => {
-        const ref = snapshot !== undefined ? snapshot : getStoreSnapshot(name);
-        if (ref === null || typeof ref !== "object") return ref;
-        const mode = resolveSnapshotMode();
-        if (mode === "ref") return ref;
-        if (mode === "shallow") return shallowClone(ref);
-        return deepClone(ref);
-    };
+    let needsMutableSnapshot = false;
 
     if (hasSelectorStoreEntry(name)) {
-        prevSel = selector(getSafeSelectorState() as TState);
+        try {
+            prevSel = selector(getFrozenSelectorSnapshot(name) as TState);
+        } catch (err) {
+            if (!isMutationError(err)) throw err;
+            needsMutableSnapshot = true;
+            prevSel = selector(getMutableSelectorSnapshot(name) as TState);
+        }
         hasPrev = true;
     }
 
@@ -144,7 +242,18 @@ export const subscribeWithSelector = <TState = unknown, R = unknown>(
             prevSel = undefined as R;
             return;
         }
-        const nextSel = selector(getSafeSelectorState(_state) as TState);
+        let nextSel: R;
+        if (needsMutableSnapshot) {
+            nextSel = selector(getMutableSelectorSnapshot(name, _state) as TState);
+        } else {
+            try {
+                nextSel = selector(getFrozenSelectorSnapshot(name, _state) as TState);
+            } catch (err) {
+                if (!isMutationError(err)) throw err;
+                needsMutableSnapshot = true;
+                nextSel = selector(getMutableSelectorSnapshot(name, _state) as TState);
+            }
+        }
         if (!hasPrev) {
             const last = prevSel;
             hasPrev = true;
@@ -161,4 +270,3 @@ export const subscribeWithSelector = <TState = unknown, R = unknown>(
     };
     return subscribeSelectorStore(name, wrapped);
 };
-
