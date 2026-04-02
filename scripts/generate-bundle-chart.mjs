@@ -31,25 +31,25 @@ const EXTERNAL = [
  * @type {Array<{ entrypoint: string; symbol: string; platform: "browser" | "node"; note?: string }>}
  */
 const PROBES = [
-  { entrypoint: "stroid", symbol: "createStore", platform: "browser" },
-  { entrypoint: "stroid/core", symbol: "createStore", platform: "browser" },
-  { entrypoint: "stroid/psr", symbol: "getTimingContract", platform: "browser" },
-  { entrypoint: "stroid/query", symbol: "reactQueryKey", platform: "browser" },
-  { entrypoint: "stroid/runtime-tools", symbol: "listStores", platform: "browser" },
-  { entrypoint: "stroid/runtime-admin", symbol: "clearAllStores", platform: "browser" },
-  { entrypoint: "stroid/selectors", symbol: "createSelector", platform: "browser" },
-  { entrypoint: "stroid/computed", symbol: "createComputed", platform: "browser" },
-  { entrypoint: "stroid/helpers", symbol: "createCounterStore", platform: "browser" },
-  { entrypoint: "stroid/async", symbol: "fetchStore", platform: "browser" },
-  { entrypoint: "stroid/persist", symbol: "installPersist", platform: "browser" },
-  { entrypoint: "stroid/sync", symbol: "installSync", platform: "browser" },
-  { entrypoint: "stroid/devtools", symbol: "installDevtools", platform: "browser" },
-  { entrypoint: "stroid/feature", symbol: "registerStoreFeature", platform: "browser" },
-  { entrypoint: "stroid/install", symbol: "installAllFeatures", platform: "browser" },
-  { entrypoint: "stroid/react", symbol: "useStore", platform: "browser", note: "react external" },
-  { entrypoint: "stroid/testing", symbol: "resetAllStoresForTest", platform: "browser" },
-  { entrypoint: "stroid/server/portable", symbol: "createRequestScope", platform: "browser" },
-  { entrypoint: "stroid/server", symbol: "createStoreForRequest", platform: "node", note: "node-only" },
+  { entrypoint: "stroid", symbol: "createStore", platform: "browser", note: "Root public API barrel (broad surface)" },
+  { entrypoint: "stroid/core", symbol: "createStore", platform: "browser", note: "Core store primitives + lifecycle machinery" },
+  { entrypoint: "stroid/psr", symbol: "getTimingContract", platform: "browser", note: "PSR contract: snapshots, patch APIs, timing/graph" },
+  { entrypoint: "stroid/query", symbol: "reactQueryKey", platform: "browser", note: "Query-key helpers only" },
+  { entrypoint: "stroid/runtime-tools", symbol: "listStores", platform: "browser", note: "Observability helpers (meta/graph/health)" },
+  { entrypoint: "stroid/runtime-admin", symbol: "clearAllStores", platform: "browser", note: "Admin helpers (clear stores + async state)" },
+  { entrypoint: "stroid/selectors", symbol: "createSelector", platform: "browser", note: "Selector helpers" },
+  { entrypoint: "stroid/computed", symbol: "createComputed", platform: "browser", note: "Computed stores runtime" },
+  { entrypoint: "stroid/helpers", symbol: "createCounterStore", platform: "browser", note: "Convenience store helpers" },
+  { entrypoint: "stroid/async", symbol: "fetchStore", platform: "browser", note: "Fetch/cache/revalidate" },
+  { entrypoint: "stroid/persist", symbol: "installPersist", platform: "browser", note: "Persistence installer" },
+  { entrypoint: "stroid/sync", symbol: "installSync", platform: "browser", note: "BroadcastChannel sync installer" },
+  { entrypoint: "stroid/devtools", symbol: "installDevtools", platform: "browser", note: "History + devtools runtime" },
+  { entrypoint: "stroid/feature", symbol: "registerStoreFeature", platform: "browser", note: "Feature plugin API" },
+  { entrypoint: "stroid/install", symbol: "installAllFeatures", platform: "browser", note: "Convenience installer aggregator" },
+  { entrypoint: "stroid/react", symbol: "useStore", platform: "browser", note: "React hooks (react external)" },
+  { entrypoint: "stroid/testing", symbol: "resetAllStoresForTest", platform: "browser", note: "Testing helpers" },
+  { entrypoint: "stroid/server/portable", symbol: "createRequestScope", platform: "browser", note: "Explicit request-scope bridge (portable)" },
+  { entrypoint: "stroid/server", symbol: "createStoreForRequest", platform: "node", note: "AsyncLocalStorage SSR request scope (Node-only)" },
 ];
 
 const bundleProbe = async ({ entrypoint, symbol, platform }) => {
@@ -139,17 +139,18 @@ const main = async () => {
     "",
     "Table:",
     "",
-    "| Entrypoint | Probe | Platform | Minified | Gzip | Brotli | Notes |",
-    "| --- | --- | --- | ---: | ---: | ---: | --- |",
+    "| Entrypoint | Probe | Platform | Minified -> Gzip | Brotli | Notes |",
+    "| --- | --- | --- | ---: | ---: | --- |",
   ].join("\n");
 
   const tableLines = rows.map((row) => {
     if (row.error) {
       const msg = row.error.replace(/\s+/g, " ").slice(0, 120);
-      return `| \`${row.entrypoint}\` | \`${row.symbol}\` | \`${row.platform}\` | - | - | - | ERROR: ${msg} |`;
+      return `| \`${row.entrypoint}\` | \`${row.symbol}\` | \`${row.platform}\` | - | - | ERROR: ${msg} |`;
     }
     const note = row.note ?? "";
-    return `| \`${row.entrypoint}\` | \`${row.symbol}\` | \`${row.platform}\` | ${formatKiB(row.minifiedBytes)} | ${formatKiB(row.gzipBytes)} | ${formatKiB(row.brotliBytes)} | ${note} |`;
+    const cost = `${formatKiB(row.minifiedBytes)} -> ${formatKiB(row.gzipBytes)}`;
+    return `| \`${row.entrypoint}\` | \`${row.symbol}\` | \`${row.platform}\` | ${cost} | ${formatKiB(row.brotliBytes)} | ${note} |`;
   });
 
   const visualHeader = [
@@ -188,4 +189,3 @@ main().catch((err) => {
   console.error(err);
   process.exitCode = 1;
 });
-
