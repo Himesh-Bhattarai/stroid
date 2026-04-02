@@ -68,6 +68,12 @@ const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
     && (typeof value === "object" || typeof value === "function")
     && typeof (value as { then?: unknown }).then === "function";
 
+const clearCarrierBuffer = (carrier: CarrierContext): void => {
+    Object.keys(carrier).forEach((name) => {
+        delete carrier[name];
+    });
+};
+
 export type RequestStoreApi<StateMap extends StoreStateMap = StoreStateMap> = {
     create: <Name extends RequestStoreName<StateMap>>(
         name: Name,
@@ -172,12 +178,15 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
                         if (isPromiseLike(rendered)) {
                             return Promise.resolve(rendered).finally(() => {
                                 syncBufferFromCarrier(carrier);
+                                clearCarrierBuffer(carrier);
                             }) as T;
                         }
                         syncBufferFromCarrier(carrier);
+                        clearCarrierBuffer(carrier);
                         return rendered;
                     } catch (err) {
                         syncBufferFromCarrier(carrier);
+                        clearCarrierBuffer(carrier);
                         throw err;
                     }
                 })

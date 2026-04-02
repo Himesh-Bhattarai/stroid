@@ -6,12 +6,14 @@ import { runHydrationDivergenceBenchmark } from "./hydration-divergence-benchmar
 import { runMemoryLeakBenchmark } from "./memory-leak-benchmark.js";
 import { runRaceConditionBenchmark } from "./race-condition-benchmark.js";
 import { runSsrIsolationBenchmark } from "./ssr-isolation-benchmark.js";
+import { runSsrWarmContainerBenchmark } from "./ssr-warm-container-benchmark.js";
 
 export const runGuaranteeBenchmarkSuite = async () => {
   const results = [];
 
   for (const run of [
     runSsrIsolationBenchmark,
+    runSsrWarmContainerBenchmark,
     runAtomicFailureBenchmark,
     runRaceConditionBenchmark,
     runHydrationDivergenceBenchmark,
