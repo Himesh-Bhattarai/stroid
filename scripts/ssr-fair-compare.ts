@@ -436,7 +436,9 @@ const handleRequest = async (
     response.setHeader("content-type", "text/plain; charset=utf-8");
     // Avoid reflecting internal error details in a network response.
     response.end("internal-error");
-    console.error(error);
+    // Avoid logging stack traces by default (keeps benchmark output less noisy and reduces info exposure risk).
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[ssr-fair-compare] request failed: ${message}`);
   }
 };
 
