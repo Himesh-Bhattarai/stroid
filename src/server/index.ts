@@ -7,7 +7,7 @@
  * Consumers: Internal imports and public API.
  */
 import { hydrateStores } from "../core/store-write.js";
-import { deepClone, produceClone } from "../utils.js";
+import { deepClone } from "../utils.js";
 import type { StoreOptions } from "../adapters/options.js";
 import type { StoreStateMap } from "../core/store-lifecycle/types.js";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -21,6 +21,16 @@ import {
     type TransactionState,
 } from "../core/store-registry.js";
 import { injectTransactionRunner } from "../core/store-transaction.js";
+import {
+    captureRequestScopeFromRegistry,
+    cloneRequestScopeCapture,
+    createBufferedRequestStoreApi,
+    type RequestHydrateOptions,
+    type RequestScopeCapture,
+    type RequestScopeOptionsInternal,
+    type RequestSnapshot,
+    type RequestStoreApi,
+} from "./shared.js";
 
 const serverAsyncContext = new AsyncLocalStorage<CarrierContext>();
 const serverRegistryContext = new AsyncLocalStorage<ReturnType<typeof createStoreRegistry>>();
@@ -53,13 +63,7 @@ type RequestStoreName<StateMap> =
     keyof StateMap extends never ? string : keyof StateMap & string;
 type RequestStoreValue<StateMap, Name extends RequestStoreName<StateMap>> =
     Name extends keyof StateMap ? StateMap[Name] : unknown;
-type RequestSnapshot<StateMap> = Partial<{
-    [K in RequestStoreName<StateMap>]: RequestStoreValue<StateMap, K>;
-}>;
-type RequestHydrateOptions<StateMap> = Partial<{
-    [K in RequestStoreName<StateMap>]: StoreOptions<RequestStoreValue<StateMap, K>>;
-}> & { default?: StoreOptions };
-type RequestHydrateOptionsInternal = Record<string, StoreOptions<any> | undefined> & {
+type RequestHydrateOptionsInternal = RequestScopeOptionsInternal & {
     default?: StoreOptions<any>;
 };
 
@@ -74,25 +78,10 @@ const clearCarrierBuffer = (carrier: CarrierContext): void => {
     });
 };
 
-export type RequestStoreApi<StateMap extends StoreStateMap = StoreStateMap> = {
-    create: <Name extends RequestStoreName<StateMap>>(
-        name: Name,
-        data: RequestStoreValue<StateMap, Name>,
-        options?: StoreOptions<RequestStoreValue<StateMap, Name>>
-    ) => RequestStoreValue<StateMap, Name>;
-    set: <Name extends RequestStoreName<StateMap>>(
-        name: Name,
-        updater: RequestStoreValue<StateMap, Name> | ((draft: RequestStoreValue<StateMap, Name>) => void)
-    ) => RequestStoreValue<StateMap, Name>;
-    get: <Name extends RequestStoreName<StateMap>>(
-        name: Name
-    ) => RequestStoreValue<StateMap, Name> | undefined;
-    snapshot: () => RequestSnapshot<StateMap>;
-};
-
 type RequestStoreContext<StateMap extends StoreStateMap> = {
     registry: StoreRegistry;
     snapshot: () => RequestSnapshot<StateMap>;
+    capture: () => RequestScopeCapture<StateMap>;
     hydrate: <T>(renderFn: () => T, options?: RequestHydrateOptions<StateMap>) => T;
 };
 
@@ -101,49 +90,51 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
 ): RequestStoreContext<StateMap> => {
     const registry = createStoreRegistry("request");
     const buffer: RequestSnapshot<StateMap> = {};
-    const bufferedOptions: Record<string, StoreOptions<any>> = {};
-    const hasBuffered = (name: RequestStoreName<StateMap>): boolean =>
-        Object.prototype.hasOwnProperty.call(buffer, name);
-    const syncBufferFromCarrier = (carrier: CarrierContext): void => {
+    const bufferedOptions: RequestScopeOptionsInternal = Object.create(null);
+    const syncCapture = (capture: RequestScopeCapture<StateMap>): void => {
         Object.keys(buffer).forEach((name) => {
             delete buffer[name as RequestStoreName<StateMap>];
         });
+        Object.keys(bufferedOptions).forEach((name) => {
+            delete bufferedOptions[name];
+        });
 
-        Object.keys(registry.metaEntries).forEach((name) => {
-            const value = Object.prototype.hasOwnProperty.call(carrier, name)
-                ? carrier[name]
-                : registry.stores[name];
-            buffer[name as RequestStoreName<StateMap>] =
-                deepClone(value) as RequestStoreValue<StateMap, RequestStoreName<StateMap>>;
+        Object.entries(capture.snapshot).forEach(([name, value]) => {
+            buffer[name as RequestStoreName<StateMap>] = deepClone(value) as RequestStoreValue<
+                StateMap,
+                RequestStoreName<StateMap>
+            >;
+        });
+        Object.entries(capture.options as RequestScopeOptionsInternal).forEach(([name, options]) => {
+            if (options !== undefined) {
+                bufferedOptions[name] = options;
+            }
         });
     };
-    const api: RequestStoreApi<StateMap> = {
-        create: (name, data, options = {}) => {
-            buffer[name] = deepClone(data) as RequestStoreValue<StateMap, typeof name>;
-            bufferedOptions[name] = { ...options } as StoreOptions<any>;
-            return buffer[name] as RequestStoreValue<StateMap, typeof name>;
-        },
-        set: (name, updater) => {
-            if (!hasBuffered(name)) {
-                throw new Error(`createStoreForRequest.set("${name}") requires create("${name}", initialState) first.`);
-            }
-            buffer[name] = typeof updater === "function"
-                ? produceClone(
-                    buffer[name] as RequestStoreValue<StateMap, typeof name>,
-                    updater as (draft: RequestStoreValue<StateMap, typeof name>) => void
-                )
-                : deepClone(updater) as RequestStoreValue<StateMap, typeof name>;
-            return buffer[name] as RequestStoreValue<StateMap, typeof name>;
-        },
-        get: (name) => (hasBuffered(name)
-            ? deepClone(buffer[name]) as RequestStoreValue<StateMap, typeof name>
-            : undefined),
-        snapshot: () => deepClone(buffer) as RequestSnapshot<StateMap>,
+    const syncBufferFromCarrier = (carrier: CarrierContext): void => {
+        syncCapture(captureRequestScopeFromRegistry<StateMap>(registry, carrier));
     };
+    const api: RequestStoreApi<StateMap> = createBufferedRequestStoreApi<StateMap>({
+        buffer,
+        bufferedOptions,
+    });
     if (typeof initializer === "function") initializer(api);
     return {
         registry,
-        snapshot: () => deepClone(buffer) as RequestSnapshot<StateMap>,
+        snapshot: () => cloneRequestScopeCapture({
+            snapshot: buffer,
+            options: bufferedOptions as any,
+        }).snapshot,
+        capture: () => {
+            const carrier = serverAsyncContext.getStore();
+            if (carrier) {
+                return captureRequestScopeFromRegistry<StateMap>(registry, carrier);
+            }
+            return cloneRequestScopeCapture({
+                snapshot: buffer,
+                options: bufferedOptions as any,
+            });
+        },
         hydrate: <T>(
             renderFn: () => T,
             options: RequestHydrateOptions<StateMap> = {}
@@ -196,3 +187,12 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
 };
 
 export type { StoreRegistry } from "../core/store-registry.js";
+export type {
+    RequestHydrateOptions,
+    RequestScopeCapture,
+    RequestScopeOptions,
+    RequestSnapshot,
+    RequestStoreApi,
+    RequestStoreName,
+    RequestStoreValue,
+} from "./shared.js";

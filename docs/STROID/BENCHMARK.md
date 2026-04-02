@@ -8,6 +8,7 @@ Headline results:
 
 - the expanded SSR isolation certification passed with `0` correctness violations across `2 x 1,024` burst requests, `8,192` sustained requests, `256` concurrent React streaming HTTP requests, and `50,000` long-tail memory cycles
 - the standalone SSR warm-container certification passed with `1,024` sequential requests, `2,048` detached probes, `0` detached leaks, and `0` global residuals in one long-lived Node process
+- the standalone serverless provider-model certification passed `96` local invocations each for AWS Lambda, Vercel render-to-action hand-off, and Cloudflare Workers explicit scopes, with `0` detached leaks and `0` global residuals across all three runtime models
 - the hydration-divergence certification now runs as a first-class guarantee suite under the manual-close boundary: `54` certified runs, `1,028` queued writes, `0` unexpected outcomes, and `0` invariant violations across `try`, `hit`, `stress`, and `hammer` campaigns
 - the standalone hydration randomized certification passed `36` paired runs across `client_wins`, `server_wins`, and `merge`, with `0` replay mismatches and exact drift-order parity between immediate execution and queued replay
 - the standalone large-payload hydration benchmark preserved parity at `256 KB`, `1,024 KB`, and `2,048 KB`, while making the current cost curve explicit: queued replay median rose from `79.148ms` at `256 KB` to `2,963.113ms` at `2,048 KB`
@@ -40,6 +41,7 @@ Headline results:
 - the bundle-closure probe below is kept as a separate build-oriented study; it is not produced by the `npm run benchmark:*` scripts
 - the hydration-divergence certification below now matches the first-class suite included in `npm run benchmark:guarantees`; the detailed per-campaign numbers were captured from a standalone `npm run benchmark:hydration-divergence` rerun on `2026-04-01`
 - the SSR warm-container and hydration randomized sections below were rerun as standalone certifications on `2026-04-02`; those scripts are now wired into `npm run benchmark:guarantees`
+- the serverless provider-model section below was rerun as a standalone certification on `2026-04-02`; it is now wired into `npm run benchmark:guarantees` for future suite reruns
 - the large-payload hydration benchmark below stays standalone on purpose because its multi-MB stress tier is materially more expensive than the default guarantee suite
 
 ## Hydration Divergence Certification
@@ -81,6 +83,25 @@ Warm-container certification read:
 - `peakDeltaMb = 0.199`
 
 This is a Node-process warm-container simulation, not a direct claim about every serverless provider's internal runtime lifecycle.
+
+## Serverless Provider Model Certification
+
+Dedicated results from `scripts/serverless-provider-certification.ts` as exercised on `2026-04-02`.
+
+| Provider | Invocations | Detached Probes | Median | P95 | Retained Growth | Read |
+| --- | --- | --- | --- | --- | --- | --- |
+| `aws_lambda` | `96` | `192` | `0.103ms` | `0.203ms` | `2.411 MB` | warm Node handler model preserved request isolation with detached probe cleanup after every invocation |
+| `vercel` | `96` | `192` | `1.308ms` | `1.480ms` | `0.275 MB` | render path stayed on `stroid/server`, then resumed safely through `stroid/server/portable` for the separate action boundary |
+| `cloudflare_workers` | `96` | `0` | `1.192ms` | `1.296ms` | `0.122 MB` | explicit portable request scopes kept state off the global registry inside a warm worker-style isolate model |
+
+Provider-model certification read:
+
+- `aws_lambda.detachedLeakCount = 0`, `aws_lambda.globalResidualCount = 0`
+- `vercel.detachedLeakCount = 0`, `vercel.globalResidualCount = 0`
+- `cloudflare_workers.detachedLeakCount = 0`, `cloudflare_workers.globalResidualCount = 0`
+- `totalInvocations = 288`
+
+This is a local runtime-model certification, not a remote managed-platform deployment claim.
 
 ## Hydration Randomized Certification
 
@@ -261,7 +282,7 @@ Selected rows from `npm run benchmark:selector`.
 
 ## Guarantee Results
 
-Results from the serialized `npm run benchmark:guarantees` rerun captured before the new `benchmark:ssr-warm` and `benchmark:hydration-randomized` additions were folded into the suite. Use the standalone sections above for the `2026-04-02` reruns of those new certifications.
+Results from the serialized `npm run benchmark:guarantees` rerun captured before the new `benchmark:ssr-warm`, `benchmark:serverless-provider`, and `benchmark:hydration-randomized` additions were folded into the suite. Use the standalone sections above for the `2026-04-02` reruns of those newer certifications.
 
 | Benchmark | Numeric Result | Status |
 | --- | --- | --- |
@@ -284,6 +305,7 @@ Guarantee read:
 | --- | --- |
 | Standalone SSR certification | `npm run benchmark:ssr-isolation` |
 | Standalone SSR warm-container certification | `npm run benchmark:ssr-warm` |
+| Serverless provider-model certification | `npm run benchmark:serverless-provider` |
 | Cross-library compare | `npm run benchmark:compare` |
 | Core small-range | `npm run benchmark:core-small` |
 | Single-store fanout | `npm run benchmark:subscriber` |

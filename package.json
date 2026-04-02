@@ -62,6 +62,10 @@
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js"
     },
+    "./server/portable": {
+      "types": "./dist/server/portable.d.ts",
+      "import": "./dist/server/portable.js"
+    },
     "./async": {
       "types": "./dist/async.d.ts",
       "import": "./dist/async.js"
@@ -152,6 +156,7 @@
     "benchmark:lifecycle": "node --expose-gc --import tsx scripts/lifecycle-benchmark.ts",
     "benchmark:ssr-isolation": "node --expose-gc --import tsx scripts/ssr-isolation-benchmark.ts",
     "benchmark:ssr-warm": "node --expose-gc --import tsx scripts/ssr-warm-container-benchmark.ts",
+    "benchmark:serverless-provider": "node --expose-gc --import tsx scripts/serverless-provider-certification.ts",
     "benchmark:ssr-fair-compare": "node --expose-gc --import tsx scripts/ssr-fair-compare.ts",
     "benchmark:atomic-failure": "node --expose-gc --import tsx scripts/atomic-failure-benchmark.ts",
     "benchmark:race": "node --expose-gc --import tsx scripts/race-condition-benchmark.ts",

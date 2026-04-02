@@ -91,8 +91,9 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 - `hydrateStores(snapshot, options, trust, consistency?)` can add a bounded post-hydration consistency window. Stroid can defer early client writes, emit structured drift events, and reconcile per store with `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`.
 - If bundle size matters, prefer targeted subpaths such as `stroid/core`, `stroid/query`, `stroid/persist`, `stroid/sync`, `stroid/devtools`, and `stroid/runtime-tools` instead of reaching through the root namespace for everything.
 - `stroid/server` is Node-only today because it depends on `node:async_hooks`. Edge runtimes and Workers need a different adapter.
-- Node-style warm-container reuse is covered by a local SSR warm-container certification benchmark, but if you deploy to Lambda, Vercel, or a custom serverless platform, still run target-specific integration tests.
-- Next.js Server Actions are a separate execution boundary. Stroid does not yet provide automatic carrier propagation across that boundary.
+- `stroid/server/portable` is the explicit request-scope boundary for serverless hand-offs, worker-style runtimes, and Server Actions. It does not rely on implicit async context; use the bound scope API it returns.
+- Local provider-model certification now covers warm AWS Lambda-style Node handlers, Vercel render-to-action hand-off, and Cloudflare Workers-style explicit scopes, but you should still validate against your deployed provider before claiming production certification.
+- Next.js Server Actions are a separate execution boundary. They do not inherit the original request carrier automatically; capture state on render and resume it with `stroid/server/portable`.
 - Stroid can only guarantee request isolation for state written through Stroid APIs. Third-party singleton stores remain outside that guarantee.
 
 ---
@@ -121,6 +122,7 @@ stroid                    <- core public runtime
 |- stroid/sync            <- installSync()
 |- stroid/devtools        <- installDevtools(), history API
 |- stroid/server          <- SSR request-scoped registry
+|- stroid/server/portable <- explicit request-scope bridge for serverless / workers / server actions
 |- stroid/helpers         <- entity/list/counter helpers
 |- stroid/testing         <- test helpers
 |- stroid/runtime-tools   <- observability APIs

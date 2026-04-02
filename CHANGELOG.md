@@ -10,26 +10,28 @@
 >[!NOTE]
 ><details open>
 ><summary><strong> Unreleased </strong></summary>
->- Added an optional fourth `hydrateStores(..., options, trust, consistency?)` argument for post-hydration consistency contracts, including snapshot metadata, per-store authorities, per-store reconciliation policies, and `onDrift` diagnostics.
->- Hardened `createStoreForRequest().hydrate(...)` to scrub finished carrier state after snapshot sync, then added detached-continuation regression coverage and a warm-container SSR certification benchmark for sequential request reuse.
->- Hardened hydration reconciliation so throwing custom `merge(...)` or normalization callbacks now fall back safely to the hydrated baseline, then added randomized replay certification coverage and a dedicated `benchmark:hydration-randomized` script.
->- Added large-payload hydration parity coverage plus a dedicated `benchmark:hydration-large-payload` script to measure clone cost, queued replay cost, and retained heap across multi-hundred-KB to multi-MB state sizes.
->- Added hydration boot-window write deferral with deterministic replay for early `effect`, `storage`, `network`, and `sync` writes, plus policy execution for `server_wins`, `client_wins`, `merge`, and `invalidate_and_refetch`.
->- Added manual hydration boot-window control through `HydrationResult.bootWindow`, including `bootWindow: { mode: "manual" }`, optional `fallbackMs`, and runtime metrics that expose whether manual close is available.
->- Added `stroid/runtime-tools` hydration observability helpers: `getHydrationConsistency()`, `getHydrationDriftEvents()`, and `getHydrationDriftMetrics()`.
->- Hardened integration, regression, and public type coverage for post-hydration drift governance, including early effect input, stale storage restore ordering, websocket/sync burst replay, and invalidation-driven async refetch recovery.
->- Upgraded `benchmark:hydration-divergence` into a first-class hydration guarantee suite with `try`, `hit`, `stress`, and `hammer` campaigns under the manual-close boundary, and folded that certification into `benchmark:guarantees`.
->- Added a dedicated Post-Hydration Consistency guide with adoption defaults and updated the README, server guide, runtime-tools guide, benchmark report, version migration guide, and `NEXT_PHASE.md` status note to reflect the shipped consistency layer.
->- Added a dedicated `stroid/query` entrypoint for `reactQueryKey` and `swrKey`, so cache-key helpers can be imported without pulling the heavier async query fetcher surface.
->- Reduced `stroid/persist` import retention by routing the leaf entrypoint to the direct feature installer, and regrouped `runtime-tools` internals plus query-key helpers for narrower future tree-shaking work.
->- Removed the dead `computed-types` JavaScript build entry and added `module` plus explicit `./query` export metadata for bundler compatibility.
->- Removed incorrect `sideEffects` metadata that pointed at unpublished source paths; the package now stays conservative until the remaining import-time effects are isolated explicitly.
->- Added bundle-sensitive import guidance and bundle-closure benchmark notes to the README and docs, including the new `stroid/query` path, the measurable `stroid/persist` win, and the current root-entry limitations.
->- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, instead of collapsing that branch into `not-found`.
->- Documented runtime caveats for validated store names, direct-Promise async fetches, BroadcastChannel startup/BFCache limits, and Safari/WebKit storage eviction in the README and guides.
+>- Added an optional fourth `hydrateStores(..., options, trust, consistency?)` argument for post-hydration consistency contracts, >including snapshot metadata, per-store authorities, per-store reconciliation policies, and `onDrift` diagnostics.
+>- Hardened `createStoreForRequest().hydrate(...)` to scrub finished carrier state after snapshot sync, then added >detached-continuation regression coverage and a warm-container SSR certification benchmark for sequential request reuse.
+>- Hardened hydration reconciliation so throwing custom `merge(...)` or normalization callbacks now fall back safely to the hydrated >baseline, then added randomized replay certification coverage and a dedicated `benchmark:hydration-randomized` script.
+>- Added large-payload hydration parity coverage plus a dedicated `benchmark:hydration-large-payload` script to measure clone cost, >queued replay cost, and retained heap across multi-hundred-KB to multi-MB state sizes.
+>- Added hydration boot-window write deferral with deterministic replay for early `effect`, `storage`, `network`, and `sync` writes, >plus policy execution for `server_wins`, `client_wins`, `merge`, and `invalidate_and_refetch`.
+>- Added manual hydration boot-window control through `HydrationResult.bootWindow`, including `bootWindow: { mode: "manual" }`, >optional `fallbackMs`, and runtime metrics that expose whether manual close is available.
+>- Added `stroid/runtime-tools` hydration observability helpers: `getHydrationConsistency()`, `getHydrationDriftEvents()`, and >`getHydrationDriftMetrics()`.
+>- Added `stroid/server/portable` for explicit request-scope hand-off across serverless and framework boundaries, including `createRequestScope(...)`, capture/resume coverage, and a local provider-model certification for AWS Lambda, Vercel render-to-action hand-off, and Cloudflare Workers-style isolates.
+>- Hardened integration, regression, and public type coverage for post-hydration drift governance, including early effect input, >stale storage restore ordering, websocket/sync burst replay, and invalidation-driven async refetch recovery.
+>- Upgraded `benchmark:hydration-divergence` into a first-class hydration guarantee suite with `try`, `hit`, `stress`, and `hammer` >campaigns under the manual-close boundary, and folded that certification into `benchmark:guarantees`.
+>- Added a dedicated Post-Hydration Consistency guide with adoption defaults and updated the README, server guide, runtime-tools >guide, benchmark report, version migration guide, and `NEXT_PHASE.md` status note to reflect the shipped consistency layer.
+>- Added a dedicated `stroid/query` entrypoint for `reactQueryKey` and `swrKey`, so cache-key helpers can be imported without >pulling the heavier async query fetcher surface.
+>- Reduced `stroid/persist` import retention by routing the leaf entrypoint to the direct feature installer, and regrouped >`runtime-tools` internals plus query-key helpers for narrower future tree-shaking work.
+>- Removed the dead `computed-types` JavaScript build entry and added `module` plus explicit `./query` export metadata for bundler >compatibility.
+>- Removed incorrect `sideEffects` metadata that pointed at unpublished source paths; the package now stays conservative until the >remaining import-time effects are isolated explicitly.
+>- Added bundle-sensitive import guidance and bundle-closure benchmark notes to the README and docs, including the new 
+> @ `stroid/> '`query` path, the measurable `stroid/persist` win, and the current root-entry limitations.
+>- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, >instead of collapsing that branch into `not-found`.
+>- Documented runtime caveats for validated store names, direct-Promise async fetches, BroadcastChannel startup/BFCache limits, and >Safari/WebKit storage eviction in the README and guides.
 >- Added `STATUS.md` so the commit and issue-close workflow referenced by `CONTRIBUTING.md` is now present in the repository.
 ></details>
->
+
 
 ---
 >[!WARNING]

@@ -12,6 +12,7 @@
 - [Support Matrix](#-support-matrix)
 - [Setup](#-setup)
 - [createStoreForRequest](#-createstorefor-request)
+- [Portable Request Scope](#-portable-request-scope)
 - [API: RequestStoreApi](#-api-requeststoreapi)
 - [Hydration](#-hydration)
 - [Post-Hydration Consistency](#-post-hydration-consistency)
@@ -45,10 +46,11 @@ Stroid is SSR-safe on **Node.js runtimes** because `stroid/server` uses `AsyncLo
 | --- | --- | --- |
 | Node SSR server with `stroid/server` | Supported | `createStoreForRequest(...).hydrate(...)` runs inside a Node `AsyncLocalStorage` request scope |
 | Node-style warm-container reuse | Locally certified | `benchmark:ssr-warm` covers repeated request reuse plus detached post-lifecycle probes in one long-lived process |
-| AWS Lambda / Vercel / custom Node serverless | Deployment-specific | The runtime model matches Node, but you should still run platform-specific integration tests before claiming production certification |
-| Cloudflare Workers / Edge runtimes | Not supported by `stroid/server` today | `stroid/server` imports `node:async_hooks`, so a dedicated edge adapter would be required |
+| AWS Lambda / custom Node serverless | Locally certified by runtime model | `benchmark:serverless-provider` covers warm Node handler reuse with detached probes; still validate against your deployed platform before claiming production certification |
+| Vercel Node render plus action hand-off | Locally certified by runtime model | the render path uses `stroid/server`, then the separate action boundary resumes state through `stroid/server/portable` |
+| Cloudflare Workers / Edge runtimes | Supported through `stroid/server/portable` explicit scope | `stroid/server` still imports `node:async_hooks`; the worker path must use explicit bound scope APIs instead of implicit carrier reads |
 | Next.js App Router render on Node | Supported with Node boundary | Use `createStoreForRequest(...).hydrate(...)` around the render path |
-| Next.js Server Actions | Manual boundary | Server Actions execute in a separate server invocation context; Stroid does not auto-propagate request carriers across that boundary |
+| Next.js Server Actions | Supported with explicit hand-off | Server Actions execute in a separate invocation context; capture request state and resume it with `stroid/server/portable` |
 | Third-party singleton state libraries | Out of guarantee scope | Stroid can only isolate state written through Stroid-managed APIs and registries |
 
 Read this table as a support boundary, not a marketing claim about every host automatically behaving the same.
@@ -117,6 +119,44 @@ const html = stores.hydrate(() => renderToString(<App />))
 // Send snapshot to client for hydration
 const initialState = stores.snapshot()
 ```
+
+---
+
+## 🔁 Portable Request Scope
+
+Use `stroid/server/portable` when the runtime boundary cannot rely on implicit Node `AsyncLocalStorage`, or when you need to hand request state from one server invocation to another.
+
+```ts
+import { createRequestScope } from "stroid/server/portable"
+
+const scope = createRequestScope({
+  snapshot: {
+    session: { userId: "u1", count: 1 },
+  },
+  options: {},
+})
+
+const nextState = await scope.run(async ({ get, set, snapshot }) => {
+  await Promise.resolve()
+
+  set("session", (draft) => {
+    draft.count += 1
+  })
+
+  return snapshot()
+})
+```
+
+Use this entry when:
+
+- a serverless provider or worker runtime does not give you the original request carrier back automatically
+- a framework boundary, such as a Server Action, runs in a new server invocation
+- you need explicit request-state capture and resume rather than implicit registry lookup
+
+Important boundary note:
+
+- `createRequestScope(...)` does not provide hidden async-local propagation. Async safety comes from the bound scope API (`create`, `get`, `set`, `snapshot`, `capture`) it returns.
+- `stroid/server` remains the preferred path for Node SSR rendering because React hooks and implicit store reads inside `.hydrate(...)` rely on the request `AsyncLocalStorage` carrier.
 
 ---
 
@@ -284,9 +324,9 @@ Manual close is the strongest contract. Short timers are still supported, but th
 Stroid's request carrier is a Node SSR runtime boundary, not a universal framework bridge.
 
 - Next.js App Router server rendering on Node fits the model: create a request scope, render inside `.hydrate(...)`, and hydrate the client snapshot normally.
-- Next.js Server Actions do not automatically inherit the original request carrier. Pass the data you need explicitly, or recreate a new server-side boundary for the action.
+- Next.js Server Actions do not automatically inherit the original request carrier. Capture the state you need during render, then resume it with `createRequestScope(...)` inside the action.
 - If you compose Stroid with libraries that keep their own global singleton store, cache, or client instance, Stroid cannot isolate those writes for you.
-- Edge runtimes are outside the current `stroid/server` implementation because the package depends on `node:async_hooks`.
+- Edge runtimes are outside the current `stroid/server` implementation because the package depends on `node:async_hooks`, but the explicit `stroid/server/portable` boundary can still keep Stroid-managed request state off the global registry.
 
 For the full contract, adoption defaults, and runtime-tools inspection APIs, see [Post-Hydration Consistency](./POST_HYDRATION_CONSISTENCY.md).
 

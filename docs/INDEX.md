@@ -6,7 +6,7 @@ Use `Cmd+F` / `Ctrl+F` on this page with the keywords below to jump to the right
 
 | Search for | Start here |
 | --- | --- |
-| `ssr`, `request`, `AsyncLocalStorage`, `hydrate` | [Server & SSR](./STROID_SERVER/INDEX.md) |
+| `ssr`, `request`, `AsyncLocalStorage`, `hydrate`, `server/portable`, `createRequestScope` | [Server & SSR](./STROID_SERVER/INDEX.md) |
 | `serverless`, `Lambda`, `Vercel`, `Workers`, `Edge`, `Server Actions`, `Next.js` | [Server & SSR](./STROID_SERVER/INDEX.md) |
 | `post-hydration`, `drift`, `bootWindow`, `bootWindowMs`, `manual`, `fallbackMs`, `close()`, `server_wins`, `client_wins`, `merge`, `invalidate_and_refetch` | [Post-Hydration Consistency](./STROID_SERVER/POST_HYDRATION_CONSISTENCY.md) |
 | `persist`, `storage`, `checksum`, `migrations`, `localStorage` | [Persistence](./STROID_PERSIST/INDEX.md) |

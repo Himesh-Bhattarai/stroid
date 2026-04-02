@@ -30,6 +30,7 @@ import {
 } from "stroid/psr";
 import { reactQueryKey, swrKey } from "stroid/query";
 import { useStore } from "stroid/react";
+import { createRequestScope } from "stroid/server/portable";
 
 const handle = createStoreStrict("dtsSmoke", { value: 1 });
 setStore(handle, { value: 2 });
@@ -88,6 +89,14 @@ const psrPatchResult = applyStorePatch(runtimePatch);
 const psrBatchResult = applyStorePatchesAtomic([runtimePatch]);
 const explicitPatchResult: PatchApplyResult = psrBatchResult;
 const evaluatedComputed = evaluateComputed("dtsSmokeComputed", { dtsSmoke: { value: 2 } });
+const requestScope = createRequestScope({
+  snapshot: {
+    dtsSmokeRequest: {
+      value: 1,
+    },
+  },
+  options: {},
+});
 configureStroid({ defaultSnapshotMode: "deep" });
 
 void value;
@@ -111,3 +120,4 @@ void psrPatchResult;
 void psrBatchResult;
 void explicitPatchResult;
 void evaluatedComputed;
+void requestScope;

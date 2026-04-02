@@ -30,6 +30,7 @@ import { createCounterStore, createListStore, createEntityStore } from "../../sr
 import { createSelector } from "../../src/selectors/index.js";
 import { createStoreForRequest } from "../../src/server/index.js";
 import type { StoreRegistry } from "../../src/server/index.js";
+import { createRequestScope } from "../../src/server/portable.js";
 import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/react/index.js";
 import type { AsyncStoreState } from "../../src/react/hooks-async.js";
 import { fetchStore, getAsyncMetrics } from "../../src/async.js";
@@ -193,12 +194,23 @@ const requestStores = createStoreForRequest<RequestMap>((api) => {
 const requestSnapshot = requestStores.snapshot();
 type RequestSnapshotReturn = Expect<Equal<typeof requestSnapshot, Partial<RequestMap>>>;
 type RequestRegistryReturn = Expect<Equal<typeof requestStores.registry, StoreRegistry>>;
+const requestCapture = requestStores.capture();
+type RequestCaptureReturn = Expect<Equal<typeof requestCapture.snapshot, Partial<RequestMap>>>;
 
 type RequestHydrateSnapshot = HydrateSnapshotFor<RequestMap>;
 const requestHydrateInput: RequestHydrateSnapshot = {
   requestUser: { id: "1", name: "Ava" },
   flags: { beta: false },
 };
+
+const portableRequestScope = createRequestScope<RequestMap>({
+  snapshot: requestHydrateInput,
+  options: {},
+});
+const portableRequestSnapshot = portableRequestScope.snapshot();
+type PortableRequestSnapshotReturn = Expect<Equal<typeof portableRequestSnapshot, Partial<RequestMap>>>;
+const portableRequestUser = portableRequestScope.run((api) => api.get("requestUser"));
+type PortableRequestUserReturn = Expect<Equal<typeof portableRequestUser, { id: string; name: string } | null>>;
 // @ts-expect-error hydrateStores requires explicit trust
 hydrateStores<RequestHydrateSnapshot>(requestHydrateInput);
 hydrateStores<RequestHydrateSnapshot>(requestHydrateInput, {}, { allowTrusted: true });
