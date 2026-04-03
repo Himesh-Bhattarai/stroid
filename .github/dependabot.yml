@@ -22,7 +22,6 @@ updates:
       # Matches STATUS.md commit conventions.
       prefix: "status(302)"
       prefix-development: "status(300)"
-      include: "scope"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -38,5 +37,4 @@ updates:
       - "github-actions"
     commit-message:
       prefix: "status(302)"
-      include: "scope"
 

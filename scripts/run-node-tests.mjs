@@ -65,11 +65,7 @@ if (relativeTestFiles.length === 0) {
 
 const nodeArgs = [
   "--import",
-  "./tests/preload.mjs",
-  "--import",
-  "tsx",
-  "--import",
-  "./tests/setup.ts",
+  "./tests/node-test-bootstrap.mjs",
   ...suite.extraArgs,
   "--test",
   ...relativeTestFiles,

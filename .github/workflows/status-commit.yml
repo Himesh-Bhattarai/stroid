@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          regex='^[[:space:]]*(STATUS|Status|status)\(((infinity)|([0-9]{3}))\)(\([[:alnum:]_.-]+\))?[[:space:]]*:[[:space:]]+.+' 
+          regex='^[[:space:]]*(STATUS|Status|status)\(((infinity)|([0-9]{3}))\)[[:space:]]*:[[:space:]]+.+' 
           skip='^(Merge|Revert|fixup!|squash!)'
           before="${{ github.event.before }}"
           sha="${{ github.sha }}"
