@@ -32,7 +32,7 @@ type ReduxDevtoolsExtension = {
 
 const getReduxDevtoolsExtension = (): ReduxDevtoolsExtension | null => {
     if (typeof window === "undefined") return null;
-    const ext = (window as unknown as { __REDUX_DEVTOOLS_EXTENSION__?: unknown }).__REDUX_DEVTOOLS_EXTENSION__;
+    const ext = Reflect.get(window as object, "__REDUX_DEVTOOLS_EXTENSION__") as unknown;
     if (!ext || typeof ext !== "object") return null;
     if (typeof (ext as { connect?: unknown }).connect !== "function") return null;
     return ext as ReduxDevtoolsExtension;

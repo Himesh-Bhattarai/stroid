@@ -47,11 +47,13 @@ export const createEntityStore = <T extends { id?: string; _id?: string }>(name:
     return {
         upsert: (entity: T) => setStore(handle, (draft: { entities: Record<string, T>; ids: string[] }) => {
             const uuid = (() => {
-                const cryptoObj = (globalThis as unknown as { crypto?: { randomUUID?: unknown } }).crypto;
-                if (!cryptoObj || typeof cryptoObj.randomUUID !== "function") return null;
+                const cryptoObj = Reflect.get(globalThis as object, "crypto") as unknown;
+                if (!cryptoObj || typeof cryptoObj !== "object") return null;
+                const randomUUID = Reflect.get(cryptoObj as object, "randomUUID") as unknown;
+                if (typeof randomUUID !== "function") return null;
                 try {
                     // Call with the correct receiver; some runtimes require `crypto.randomUUID()`, not a detached function.
-                    return cryptoObj.randomUUID();
+                    return (randomUUID as () => string).call(cryptoObj);
                 } catch {
                     return null;
                 }

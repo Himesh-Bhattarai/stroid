@@ -48,16 +48,16 @@ const isShareablePlainGraph = (root: object): boolean => {
         if (typeof Element !== "undefined" && current instanceof Element) return false;
 
         const proto = Object.getPrototypeOf(current);
-        const isArray = Array.isArray(current);
         const isPlainObject = proto === Object.prototype || proto === null;
-        if (!isArray && !isPlainObject) return false;
 
-        if (isArray) {
-            for (const item of current as unknown as unknown[]) {
+        if (Array.isArray(current)) {
+            for (const item of current as unknown[]) {
                 if (item && typeof item === "object") stack.push(item as object);
             }
             continue;
         }
+
+        if (!isPlainObject) return false;
 
         for (const value of Object.values(current as Record<string, unknown>)) {
             if (value && typeof value === "object") stack.push(value as object);
@@ -105,7 +105,7 @@ const getFrozenSelectorSnapshot = (name: string, snapshot?: StoreValue | null): 
 
         const cloned = shallowClone(ref);
         const frozen = devShallowFreeze(cloned);
-        shallowSelectorSnapshotCache.set(key, { frozen: frozen as unknown as object });
+        shallowSelectorSnapshotCache.set(key, { frozen });
         return frozen;
     }
 
@@ -121,7 +121,7 @@ const getFrozenSelectorSnapshot = (name: string, snapshot?: StoreValue | null): 
 
     const cloned = deepClone(ref);
     const frozen = devDeepFreeze(cloned);
-    deepSelectorSnapshotCache.set(key, { frozen: frozen as unknown as object });
+    deepSelectorSnapshotCache.set(key, { frozen });
     return frozen;
 };
 

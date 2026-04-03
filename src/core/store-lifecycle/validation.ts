@@ -117,14 +117,13 @@ export const pathValidationCache = new Proxy(new Map(), {
         const target = getPathValidationCache(getRegistry());
         if (prop === "size") return target.size;
         if (prop === Symbol.iterator) return target[Symbol.iterator].bind(target);
-        const value = (target as unknown as Record<PropertyKey, unknown>)[prop];
+        const value = Reflect.get(target, prop) as unknown;
         return typeof value === "function"
             ? (value as (...args: unknown[]) => unknown).bind(target)
             : value;
     },
     set: (_target, prop, value) => {
-        (getPathValidationCache(getRegistry()) as unknown as Record<PropertyKey, unknown>)[prop] = value;
-        return true;
+        return Reflect.set(getPathValidationCache(getRegistry()), prop, value);
     },
 }) as Map<string, PathValidationCacheNode>;
 
@@ -391,4 +390,3 @@ export const materializeInitial = (name: string, registry = getRegistry()): bool
         return false;
     }
 };
-

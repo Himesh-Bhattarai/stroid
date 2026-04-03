@@ -174,7 +174,7 @@ export const shouldUseCache = (cacheSlot: string, ttl?: number): boolean => {
     const meta = safeGetKey(cacheMeta, cacheSlot);
     if (!meta) return false;
     if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
-        safeDeleteKey(cacheMeta as unknown as Record<string, unknown>, cacheSlot);
+        safeDeleteKey(cacheMeta, cacheSlot);
         return false;
     }
     return Date.now() - meta.timestamp < ttl;
@@ -189,7 +189,7 @@ export const clearAsyncMeta = (name: string): void => {
     const rateWindowStart = getRateWindowStartRegistry();
     const rateCount = getRateCountRegistry();
     const warnedOnce = getWarnedOnce();
-    safeDeleteKey(fetchRegistry as unknown as Record<string, unknown>, name);
+    safeDeleteKey(fetchRegistry, name);
     warnedOnce.get("noSignal")?.delete(name);
     warnedOnce.get("shape")?.delete(name);
     warnedOnce.get("autoCreate")?.delete(name);
@@ -197,12 +197,12 @@ export const clearAsyncMeta = (name: string): void => {
 
     const startsWithName = (key: string) => key === name || key.startsWith(`${name}:`);
 
-    Object.keys(inflight).forEach((k) => { if (startsWithName(k)) safeDeleteKey(inflight as unknown as Record<string, unknown>, k); });
-    Object.keys(requestVersion).forEach((k) => { if (startsWithName(k)) safeDeleteKey(requestVersion as unknown as Record<string, unknown>, k); });
-    Object.keys(requestSequence).forEach((k) => { if (startsWithName(k)) safeDeleteKey(requestSequence as unknown as Record<string, unknown>, k); });
-    Object.keys(cacheMeta).forEach((k) => { if (startsWithName(k)) safeDeleteKey(cacheMeta as unknown as Record<string, unknown>, k); });
-    Object.keys(rateWindowStart).forEach((k) => { if (startsWithName(k)) safeDeleteKey(rateWindowStart as unknown as Record<string, unknown>, k); });
-    Object.keys(rateCount).forEach((k) => { if (startsWithName(k)) safeDeleteKey(rateCount as unknown as Record<string, unknown>, k); });
+    Object.keys(inflight).forEach((k) => { if (startsWithName(k)) safeDeleteKey(inflight, k); });
+    Object.keys(requestVersion).forEach((k) => { if (startsWithName(k)) safeDeleteKey(requestVersion, k); });
+    Object.keys(requestSequence).forEach((k) => { if (startsWithName(k)) safeDeleteKey(requestSequence, k); });
+    Object.keys(cacheMeta).forEach((k) => { if (startsWithName(k)) safeDeleteKey(cacheMeta, k); });
+    Object.keys(rateWindowStart).forEach((k) => { if (startsWithName(k)) safeDeleteKey(rateWindowStart, k); });
+    Object.keys(rateCount).forEach((k) => { if (startsWithName(k)) safeDeleteKey(rateCount, k); });
 };
 
 export const pruneAsyncCache = (name: string): void => {
@@ -214,7 +214,7 @@ export const pruneAsyncCache = (name: string): void => {
         .filter(([key, meta]) => {
             if (key !== name && !key.startsWith(prefix)) return false;
             if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
-                safeDeleteKey(cacheMeta as unknown as Record<string, unknown>, key);
+                safeDeleteKey(cacheMeta, key);
                 return false;
             }
             return true;
@@ -224,9 +224,9 @@ export const pruneAsyncCache = (name: string): void => {
     if (slots.length <= MAX_CACHE_SLOTS_PER_STORE) return;
     const overflow = slots.length - MAX_CACHE_SLOTS_PER_STORE;
     slots.slice(0, overflow).forEach(([key]) => {
-        safeDeleteKey(cacheMeta as unknown as Record<string, unknown>, key);
-        safeDeleteKey(requestVersion as unknown as Record<string, unknown>, key);
-        safeDeleteKey(requestSequence as unknown as Record<string, unknown>, key);
+        safeDeleteKey(cacheMeta, key);
+        safeDeleteKey(requestVersion, key);
+        safeDeleteKey(requestSequence, key);
     });
 };
 

@@ -83,19 +83,13 @@ export function setPathCacheInvalidator(fn: (name: string) => void): void {
     _invalidatePathCache = fn;
 }
 
-const createRegistryObjectProxy = <T extends object>(getter: () => T): T =>
+const createRegistryObjectProxy = <T extends Record<PropertyKey, unknown>>(getter: () => T): T =>
     // Proxy so imports can reference a stable object while SSR swaps the active registry per request.
     new Proxy(Object.create(null), {
-        get: (_target, prop) => (getter() as unknown as Record<PropertyKey, unknown>)[prop],
-        set: (_target, prop, value) => {
-            (getter() as unknown as Record<PropertyKey, unknown>)[prop] = value;
-            return true;
-        },
-        deleteProperty: (_target, prop) => {
-            delete (getter() as unknown as Record<PropertyKey, unknown>)[prop];
-            return true;
-        },
-        has: (_target, prop) => prop in (getter() as unknown as Record<PropertyKey, unknown>),
+        get: (_target, prop) => Reflect.get(getter(), prop) as unknown,
+        set: (_target, prop, value) => Reflect.set(getter(), prop, value),
+        deleteProperty: (_target, prop) => Reflect.deleteProperty(getter(), prop),
+        has: (_target, prop) => Reflect.has(getter(), prop),
         ownKeys: () => Reflect.ownKeys(getter()),
         getOwnPropertyDescriptor: (_target, prop) => {
             const desc = Object.getOwnPropertyDescriptor(getter(), prop);
@@ -110,13 +104,13 @@ const createRegistryMapProxy = <T extends Map<unknown, unknown>>(getter: () => T
             const target = getter();
             if (prop === "size") return target.size;
             if (prop === Symbol.iterator) return target[Symbol.iterator].bind(target);
-            const value = (target as unknown as Record<PropertyKey, unknown>)[prop];
+            const value = Reflect.get(target, prop) as unknown;
             return typeof value === "function"
                 ? (value as (...args: unknown[]) => unknown).bind(target)
                 : value;
         },
         set: (_target, prop, value) => {
-            (getter() as unknown as Record<PropertyKey, unknown>)[prop] = value;
+            Reflect.set(getter(), prop, value);
             return true;
         },
     }) as T;
@@ -125,13 +119,13 @@ const createRegistryValueProxy = <T extends object>(getter: () => T): T =>
     new Proxy({} as T, {
         get: (_target, prop) => {
             const target = getter();
-            const value = (target as unknown as Record<PropertyKey, unknown>)[prop];
+            const value = Reflect.get(target, prop) as unknown;
             return typeof value === "function"
                 ? (value as (...args: unknown[]) => unknown).bind(target)
                 : value;
         },
         set: (_target, prop, value) => {
-            (getter() as unknown as Record<PropertyKey, unknown>)[prop] = value;
+            Reflect.set(getter(), prop, value);
             return true;
         },
     });

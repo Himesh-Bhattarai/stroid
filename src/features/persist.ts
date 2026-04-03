@@ -32,8 +32,10 @@ const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NO
     : undefined;
 const _envFromImportMeta = (() => {
     if (typeof import.meta === "undefined") return undefined;
-    const env = (import.meta as unknown as { env?: { MODE?: unknown } }).env;
-    return typeof env?.MODE === "string" ? env.MODE : undefined;
+    const env = Reflect.get(import.meta as object, "env") as unknown;
+    if (!env || typeof env !== "object") return undefined;
+    const mode = Reflect.get(env as object, "MODE") as unknown;
+    return typeof mode === "string" ? mode : undefined;
 })();
 const _resolvedEnv = _envFromProcess ?? _envFromImportMeta;
 const isProdEnv = (): boolean => _resolvedEnv === "production";

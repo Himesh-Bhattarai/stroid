@@ -367,7 +367,7 @@ const DEFAULT_PERSIST_CRYPTO_MARK = typeof Symbol === "function"
 
 const markDefaultPersistCrypto = (fn: (v: string) => string): ((v: string) => string) => {
     try {
-        (fn as unknown as Record<PropertyKey, unknown>)[DEFAULT_PERSIST_CRYPTO_MARK] = true;
+        Reflect.set(fn as object, DEFAULT_PERSIST_CRYPTO_MARK, true);
     } catch (_) {
         // ignore marker failures
     }

@@ -108,9 +108,9 @@ export const getType = (value: unknown): SupportedType => {
 
 const getNonSerializableType = (value: unknown): string | null => {
     if (!value || typeof value !== "object") return null;
-    const WeakRefCtor = (globalThis as unknown as { WeakRef?: unknown })?.WeakRef;
+    const WeakRefCtor = Reflect.get(globalThis as object, "WeakRef") as unknown;
     if (typeof WeakRefCtor === "function") {
-        const WeakRefAny = WeakRefCtor as unknown as (new (...args: unknown[]) => object);
+        const WeakRefAny = WeakRefCtor as new (...args: unknown[]) => object;
         if (value instanceof WeakRefAny) return "WeakRef";
     }
     if (typeof WeakMap !== "undefined" && value instanceof WeakMap) return "WeakMap";
@@ -290,4 +290,3 @@ export const isValidStoreName = (name: string): boolean => {
     }
     return true;
 };
-

@@ -12,12 +12,14 @@ const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NO
     : undefined;
 const _envFromImportMeta = (() => {
     if (typeof import.meta === "undefined") return undefined;
-    const env = (import.meta as unknown as { env?: { MODE?: unknown } }).env;
-    return typeof env?.MODE === "string" ? env.MODE : undefined;
+    const env = Reflect.get(import.meta as object, "env") as unknown;
+    if (!env || typeof env !== "object") return undefined;
+    const mode = Reflect.get(env as object, "MODE") as unknown;
+    return typeof mode === "string" ? mode : undefined;
 })();
 const _devFlag = (() => {
     if (typeof globalThis === "undefined") return undefined;
-    const flag = (globalThis as unknown as { __STROID_DEV__?: unknown }).__STROID_DEV__;
+    const flag = Reflect.get(globalThis as object, "__STROID_DEV__") as unknown;
     return typeof flag === "boolean" ? flag : undefined;
 })();
 const _fallbackEnv = "production";
@@ -183,4 +185,3 @@ export const suggestStoreName = (name: string, existingNames: string[]): void =>
         `Call createStore("${name}", data) first.`
     );
 };
-

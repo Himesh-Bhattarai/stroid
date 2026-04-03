@@ -44,21 +44,21 @@ export const listStores = (pattern?: string): string[] => {
 export const getStoreMeta = (name: string): StoreFeatureMeta | null => {
     if (!exists(name)) return null;
     const meta = getRegistry().metaEntries[name];
-    const cloned = shallowClone(meta) as StoreFeatureMeta;
-    cloned.metrics = shallowClone(meta.metrics) as StoreFeatureMeta["metrics"];
-    const optionsClone = shallowClone(meta.options) as StoreFeatureMeta["options"];
-    const options = optionsClone as unknown as Record<string, unknown>;
-    if (options.persist && typeof options.persist === "object") {
-        options.persist = shallowClone(options.persist);
+    const cloned = shallowClone(meta);
+    cloned.metrics = shallowClone(meta.metrics);
+    const optionsClone = shallowClone(meta.options);
+
+    if (optionsClone.persist && typeof optionsClone.persist === "object") {
+        optionsClone.persist = shallowClone(optionsClone.persist);
     }
-    if (options.sync && typeof options.sync === "object") {
-        options.sync = shallowClone(options.sync);
+    if (optionsClone.sync && typeof optionsClone.sync === "object") {
+        optionsClone.sync = shallowClone(optionsClone.sync);
     }
-    if (options.devtools && typeof options.devtools === "object") {
-        options.devtools = shallowClone(options.devtools);
+    if (optionsClone.features && typeof optionsClone.features === "object") {
+        optionsClone.features = shallowClone(optionsClone.features);
     }
-    if (options.lifecycle && typeof options.lifecycle === "object") {
-        options.lifecycle = shallowClone(options.lifecycle);
+    if (Array.isArray(optionsClone.middleware)) {
+        optionsClone.middleware = [...optionsClone.middleware];
     }
     cloned.options = optionsClone;
     return cloned;
