@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import type { PersistConfig, StoreValue } from "../../adapters/options.js";
+import type { PersistConfig, StoreValue, SyncOptions } from "../../adapters/options.js";
 import type { HydrationConsistencySource } from "../../core/hydration-consistency.js";
 
 export type PersistWatchEntry = { lastPresent: boolean; dispose: () => void };
@@ -21,6 +21,7 @@ export type PersistMeta = {
     updatedAtMs?: number;
     options: {
         persist: PersistConfig | null;
+        sync?: boolean | SyncOptions;
         migrations: Record<number, (state: StoreValue) => StoreValue>;
         onError?: (err: string) => void;
     };

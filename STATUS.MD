@@ -41,6 +41,7 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - Reference the GitHub issue when it adds clarity, for example: `status(601): Return no-initial-state from resetStore (#66)`.
 - If runtime behavior changes, add regression coverage and update `CHANGELOG.md` under `Unreleased`.
 - If the issue is a browser or platform limitation rather than a runtime bug, update `README.md` and the relevant guide before closing it.
+- Dependabot updates are enforced in CI to use this same format for both PR title and commit subject.
 
 # Issue Workflow
 1. Verify the issue against the current `dev` branch.

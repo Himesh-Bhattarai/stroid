@@ -12,6 +12,7 @@ import { safeInvoke } from "../../internals/reporting.js";
 import { usesDefaultPersistCrypto } from "./crypto.js";
 import { computePersistChecksum } from "./checksum.js";
 import { setPersistPresence } from "./watch.js";
+import { resolveUpdatedAtMs } from "../state-helpers.js";
 import type {
     PersistMeta,
     PersistTimers,
@@ -20,6 +21,25 @@ import type {
     PersistSaveArgs,
     PersistSequence,
 } from "./types.js";
+
+const readPersistedUpdatedAtMs = async (cfg: NonNullable<PersistMeta["options"]["persist"]>): Promise<number | null> => {
+    try {
+        const raw = await Promise.resolve(cfg.driver.getItem?.(cfg.key) ?? null);
+        if (typeof raw !== "string" || raw.length === 0) return null;
+        const decrypted = cfg.decryptAsync
+            ? await cfg.decryptAsync(raw)
+            : cfg.decrypt(raw);
+        const envelope = JSON.parse(decrypted) as { updatedAtMs?: unknown; updatedAt?: unknown } | null;
+        if (!envelope || typeof envelope !== "object") return null;
+        const updatedAtMs = resolveUpdatedAtMs({
+            value: typeof envelope.updatedAtMs === "number" ? envelope.updatedAtMs : envelope.updatedAt,
+            fallbackMs: 0,
+        });
+        return Number.isFinite(updatedAtMs) ? updatedAtMs : null;
+    } catch (_) {
+        return null;
+    }
+};
 
 const persistSaveInner = ({
     name,
@@ -69,12 +89,24 @@ const persistSaveInner = ({
         }
 
         try {
+            const candidateUpdatedAtMs = typeof meta.updatedAtMs === "number"
+                ? meta.updatedAtMs
+                : Date.now();
+            // Cross-tab stale-write guard:
+            // when sync is enabled, skip writing if storage already has a newer envelope.
+            if (meta.options.sync) {
+                const persistedUpdatedAtMs = await readPersistedUpdatedAtMs(cfg);
+                if (persistedUpdatedAtMs != null && persistedUpdatedAtMs > candidateUpdatedAtMs) {
+                    setPersistPresence(persistWatchState, name, true);
+                    return;
+                }
+            }
             const serialized = cfg.serialize(getStoreValue());
             const checksum = await computePersistChecksum(cfg.checksum, serialized, hashState);
             const envelope = JSON.stringify({
                 v: meta.version ?? 1,
                 updatedAt: meta.updatedAt,
-                updatedAtMs: meta.updatedAtMs ?? Date.now(),
+                updatedAtMs: candidateUpdatedAtMs,
                 checksum,
                 data: serialized,
             });

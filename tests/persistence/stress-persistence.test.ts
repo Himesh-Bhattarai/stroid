@@ -173,4 +173,31 @@ describe("stress persistence", () => {
         expect(writeMs).toBeLessThan(3000);
         expect(reloadMs).toBeLessThan(3000);
     });
+
+    it("skips stale sync-era persist writes when storage already has a newer envelope", async () => {
+        const driver = createMemoryStorageDriver();
+        const key = "persist.sync.stale";
+        const config = makePersistConfig(driver, key);
+        const futureUpdatedAtMs = 4_102_444_800_000; // 2100-01-01T00:00:00.000Z
+        const newerEnvelope = JSON.stringify({
+            v: 1,
+            updatedAt: new Date(futureUpdatedAtMs).toISOString(),
+            updatedAtMs: futureUpdatedAtMs,
+            checksum: 0,
+            data: JSON.stringify({ token: "from-other-tab", step: 2 }),
+        });
+
+        createStore("persist.sync.stale", { token: "init", step: 0 }, {
+            persist: config,
+            sync: { policy: "insecure" },
+        });
+        await flushPersist();
+
+        // Simulate another tab persisting a newer snapshot just before this tab flushes.
+        driver.setItem(key, newerEnvelope);
+        setStore("persist.sync.stale", { token: "local-stale", step: 1 });
+        await flushPersist();
+
+        expect(driver.getItem(key)).toBe(newerEnvelope);
+    });
 });

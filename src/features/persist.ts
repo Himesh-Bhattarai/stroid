@@ -200,11 +200,25 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 persistWindowFlushCleanup[ctx.name]?.();
                 const hostWindow = window;
                 let cleaned = false;
+                let pagehideRegistered = false;
+                let beforeunloadRegistered = false;
                 const cleanup = () => {
                     if (cleaned) return;
                     cleaned = true;
-                    hostWindow.removeEventListener("pagehide", flush);
-                    hostWindow.removeEventListener("beforeunload", flush);
+                    if (pagehideRegistered) {
+                        try {
+                            hostWindow.removeEventListener("pagehide", flush);
+                        } catch (_) {
+                            // ignore host window removeEventListener errors
+                        }
+                    }
+                    if (beforeunloadRegistered) {
+                        try {
+                            hostWindow.removeEventListener("beforeunload", flush);
+                        } catch (_) {
+                            // ignore host window removeEventListener errors
+                        }
+                    }
                     delete persistWindowFlushCleanup[ctx.name];
                 };
                 const flush = () => {
@@ -223,9 +237,22 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                         hashState: ctx.hashState,
                     });
                 };
-                hostWindow.addEventListener("pagehide", flush, { once: true });
-                hostWindow.addEventListener("beforeunload", flush, { once: true });
-                persistWindowFlushCleanup[ctx.name] = cleanup;
+                try {
+                    hostWindow.addEventListener("pagehide", flush, { once: true });
+                    pagehideRegistered = true;
+                } catch (_) {
+                    // Some tests and non-browser hosts expose partial event APIs.
+                    // Ignore unsupported events; persistence still works without unload hooks.
+                }
+                try {
+                    hostWindow.addEventListener("beforeunload", flush, { once: true });
+                    beforeunloadRegistered = true;
+                } catch (_) {
+                    // Ignore unsupported events.
+                }
+                if (pagehideRegistered || beforeunloadRegistered) {
+                    persistWindowFlushCleanup[ctx.name] = cleanup;
+                }
             }
 
             setupPersistWatch({

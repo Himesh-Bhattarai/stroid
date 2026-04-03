@@ -7,9 +7,24 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    labels:
+      - "dependencies"
+      - "javascript"
+    commit-message:
+      # Produces titles like: status(302): bump esbuild from 0.21.5 to 0.27.3
+      # Matches STATUS.md commit conventions.
+      prefix: "status(302)"
+      prefix-development: "status(300)"
+      include: "scope"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "status(302)"
+      include: "scope"
 
