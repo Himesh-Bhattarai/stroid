@@ -5,8 +5,15 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    open-pull-requests-limit: 5
     schedule:
       interval: "weekly"
+    allow:
+      - dependency-type: "direct"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     labels:
       - "dependencies"
       - "javascript"
@@ -19,8 +26,13 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    open-pull-requests-limit: 3
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     labels:
       - "dependencies"
       - "github-actions"
