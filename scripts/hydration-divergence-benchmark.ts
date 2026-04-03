@@ -15,9 +15,12 @@ import {
   wait,
 } from "./benchmark-guarantee-utils.js";
 
-type CampaignProfile = "try" | "hit" | "stress" | "hammer";
+type CampaignProfile = "try" | "hit" | "stress" | "hammer" | "timer" | "no_mercy";
 
 type DriftSource = "server" | "effect" | "storage" | "sync";
+
+type SuiteBootWindowMode = "manual" | "timer" | "mixed";
+type SuiteGuaranteeBoundary = "manual-close" | "timer-close" | "mixed";
 
 type AsyncState = {
   data: string | null;
@@ -46,7 +49,7 @@ type CampaignResult = {
   sourceOrderPreviews: string[];
   unexpectedOutcomes: number;
   invariantViolations: number;
-  guaranteeBoundary: "manual-close";
+  guaranteeBoundary: "manual-close" | "timer-close";
   finalStateSample: unknown;
   note: string;
 };
@@ -58,6 +61,13 @@ const STRESS_WRITES = Number(process.env.STROID_HYDRATION_STRESS_WRITES ?? 18);
 const HAMMER_RUNS = Number(process.env.STROID_HYDRATION_HAMMER_RUNS ?? 8);
 const HAMMER_CYCLES = Number(process.env.STROID_HYDRATION_HAMMER_CYCLES ?? 24);
 const NETWORK_DELAY_MS = Number(process.env.STROID_HYDRATION_NETWORK_DELAY_MS ?? 4);
+const TIMER_RUNS = Number(process.env.STROID_HYDRATION_TIMER_RUNS ?? 8);
+const TIMER_BOOT_WINDOW_MS = Number(process.env.STROID_HYDRATION_TIMER_BOOT_WINDOW_MS ?? 8);
+const NO_MERCY_RUNS = Number(process.env.STROID_HYDRATION_NO_MERCY_RUNS ?? 6);
+const NO_MERCY_EFFECT_WRITES = Number(process.env.STROID_HYDRATION_NO_MERCY_EFFECT_WRITES ?? 6);
+const NO_MERCY_STORAGE_WRITES = Number(process.env.STROID_HYDRATION_NO_MERCY_STORAGE_WRITES ?? 6);
+const NO_MERCY_SYNC_WRITES = Number(process.env.STROID_HYDRATION_NO_MERCY_SYNC_WRITES ?? 6);
+const NO_MERCY_MAX_EVENTS = Number(process.env.STROID_HYDRATION_NO_MERCY_MAX_EVENTS ?? 8);
 
 const identityValidate = <T>(candidate: T): { ok: true; value: T } => ({
   ok: true,
@@ -118,10 +128,24 @@ const assertManualBootWindow = (
   return hydration.bootWindow!;
 };
 
+const assertTimerBootWindow = (
+  hydration: ReturnType<typeof hydrateStores>
+): NonNullable<ReturnType<typeof hydrateStores>["bootWindow"]> => {
+  assert.ok(hydration.bootWindow, "timer hydration boot window control should be returned");
+  assert.strictEqual(hydration.bootWindow?.mode, "timer");
+  assert.strictEqual(hydration.bootWindow?.isActive(), true);
+  const metrics = getHydrationDriftMetrics();
+  assert.strictEqual(metrics.bootWindowMode, "timer");
+  assert.strictEqual(metrics.manualCloseAvailable, false);
+  assert.strictEqual(metrics.bootWindowActive, true);
+  return hydration.bootWindow!;
+};
+
 const summarizeCampaign = (
   name: string,
   profile: CampaignProfile,
   writesPerRun: number,
+  guaranteeBoundary: CampaignResult["guaranteeBoundary"],
   samples: CampaignSample[],
   finalStateSample: unknown,
   note: string
@@ -137,7 +161,7 @@ const summarizeCampaign = (
   sourceOrderPreviews: distinctStrings(samples.map((sample) => sample.sourceOrderPreview)),
   unexpectedOutcomes: 0,
   invariantViolations: 0,
-  guaranteeBoundary: "manual-close",
+  guaranteeBoundary,
   finalStateSample,
   note,
 });
@@ -295,10 +319,10 @@ const runHitCase = async (): Promise<{ sample: CampaignSample; finalState: unkno
 
   setStore("hitSession", "token", "client");
   setStore("hitDraft", "value", "client");
-  setStore("hitFilters", {
-    q: "client",
-    nested: { client: true },
-  } as unknown as Partial<{ q: string; nested: { server: boolean; client: boolean } }>);
+  setStore("hitFilters", (draft: { q: string; nested: { server: boolean; client: boolean } }) => {
+    draft.q = "client";
+    draft.nested.client = true;
+  });
   replaceStore("hitRemote", createAsyncState("client"));
 
   assert.deepStrictEqual(getStore("hitSession"), { token: "server" });
@@ -565,12 +589,254 @@ const runHammerCase = async (): Promise<{ sample: CampaignSample; finalState: un
   };
 };
 
+const runTimerCase = async (): Promise<{ sample: CampaignSample; finalState: unknown }> => {
+  resetAllStoresForTest();
+  type TimelineState = { revision: number; source: DriftSource };
+  createStore("timerTimeline", { revision: 0, source: "server" } satisfies TimelineState);
+
+  const hydration = hydrateStores(
+    {
+      timerTimeline: { revision: 0, source: "server" },
+    },
+    {},
+    { allowTrusted: true },
+    {
+      bootWindow: { mode: "timer", ms: TIMER_BOOT_WINDOW_MS },
+      maxEvents: 16,
+      policyMap: {
+        timerTimeline: "client_wins",
+      },
+    }
+  );
+
+  const boot = assertTimerBootWindow(hydration);
+  const startedAt = performance.now();
+
+  setStore("timerTimeline", (draft: TimelineState) => {
+    draft.revision = 1;
+    draft.source = "effect";
+  });
+  applyFeatureState("timerTimeline", { revision: 2, source: "storage" } satisfies TimelineState, Date.now(), {
+    source: "storage",
+    validate: identityValidate,
+  });
+  applyFeatureState("timerTimeline", { revision: 3, source: "sync" } satisfies TimelineState, Date.now(), {
+    source: "sync",
+    validate: identityValidate,
+  });
+
+  assert.deepStrictEqual(getStore("timerTimeline"), { revision: 0, source: "server" });
+  const before = getHydrationDriftMetrics();
+  assert.strictEqual(before.pendingWrites, 3);
+  assert.strictEqual(before.bootWindowMode, "timer");
+  assert.strictEqual(before.bootWindowActive, true);
+  assert.ok(boot.endsAtMs !== null);
+
+  await wait(TIMER_BOOT_WINDOW_MS + 12);
+  await settleAfterClose();
+
+  const after = getHydrationDriftMetrics();
+  assert.strictEqual(after.pendingWrites, 0);
+  assert.strictEqual(after.bootWindowActive, false);
+  assert.strictEqual(boot.isActive(), false);
+  assert.strictEqual(boot.endsAtMs, null);
+
+  assert.deepStrictEqual(getStore("timerTimeline"), { revision: 3, source: "sync" });
+
+  const events = getHydrationDriftEvents(3);
+  const sources = events.map((event) => event.source);
+  assert.deepStrictEqual(sources, ["effect", "storage", "sync"]);
+
+  assert.strictEqual(after.queuedWrites, 3);
+  assert.strictEqual(after.replayedWrites, 3);
+  assert.strictEqual(after.driftEvents, 3);
+
+  return {
+    sample: {
+      durationMs: round(performance.now() - startedAt),
+      queuedWrites: after.queuedWrites,
+      replayedWrites: after.replayedWrites,
+      driftEvents: after.driftEvents,
+      sourceOrderPreview: previewSourceOrder(sources),
+    },
+    finalState: getStore("timerTimeline"),
+  };
+};
+
+const runNoMercyCase = async (): Promise<{ sample: CampaignSample; finalState: unknown }> => {
+  resetAllStoresForTest();
+  type TimelineState = { revision: number; source: DriftSource; trail: string[] };
+  createStore("noMercyTimeline", {
+    revision: 0,
+    source: "server",
+    trail: ["seed"],
+  } satisfies TimelineState);
+  createStore("noMercyRemote", createAsyncState("server"));
+
+  const hydration = hydrateStores(
+    {
+      noMercyTimeline: {
+        revision: 0,
+        source: "server",
+        trail: ["seed"],
+      },
+      noMercyRemote: createAsyncState("server"),
+    },
+    {},
+    { allowTrusted: true },
+    {
+      bootWindow: { mode: "manual" },
+      maxEvents: NO_MERCY_MAX_EVENTS,
+      deferSources: ["storage", "sync", "network"],
+      policyMap: {
+        noMercyTimeline: "client_wins",
+        noMercyRemote: "client_wins",
+      },
+    }
+  );
+
+  const boot = assertManualBootWindow(hydration);
+  const startedAt = performance.now();
+
+  for (let index = 0; index < NO_MERCY_EFFECT_WRITES; index += 1) {
+    await crossAsyncBoundary(index);
+    setStore("noMercyTimeline", (draft: TimelineState) => {
+      draft.revision += 1;
+      draft.source = "effect";
+      draft.trail.push(`effect-${draft.revision}`);
+    });
+  }
+
+  const effectState = getStore("noMercyTimeline") as TimelineState | null;
+  assert.strictEqual(effectState?.revision, NO_MERCY_EFFECT_WRITES);
+  assert.strictEqual(getHydrationDriftMetrics().pendingWrites, 0);
+
+  const deferredSources: Array<"storage" | "sync" | "network"> = [];
+  const storageCount = Math.max(0, NO_MERCY_STORAGE_WRITES);
+  const syncCount = Math.max(0, NO_MERCY_SYNC_WRITES);
+  const maxPairs = Math.max(storageCount, syncCount);
+
+  for (let index = 0; index < maxPairs; index += 1) {
+    await crossAsyncBoundary(index);
+    if (index < storageCount) {
+      deferredSources.push("storage");
+      applyFeatureState(
+        "noMercyTimeline",
+        {
+          revision: 1000 + index + 1,
+          source: "storage",
+          trail: ["seed", `storage-${index + 1}`],
+        } satisfies TimelineState,
+        Date.now(),
+        { source: "storage", validate: identityValidate }
+      );
+    }
+    if (index < syncCount) {
+      deferredSources.push("sync");
+      applyFeatureState(
+        "noMercyTimeline",
+        {
+          revision: 2000 + index + 1,
+          source: "sync",
+          trail: ["seed", `sync-${index + 1}`],
+        } satisfies TimelineState,
+        Date.now(),
+        { source: "sync", validate: identityValidate }
+      );
+    }
+  }
+
+  assert.strictEqual(getHydrationDriftMetrics().pendingWrites, deferredSources.length);
+  assert.strictEqual(
+    (getStore("noMercyTimeline") as TimelineState | null)?.revision,
+    NO_MERCY_EFFECT_WRITES,
+  );
+
+  const controller = new AbortController();
+  const request = fetchStore(
+    "noMercyRemote",
+    () =>
+      new Promise<string>((resolve, reject) => {
+        const timer = setTimeout(() => resolve("fresh"), NETWORK_DELAY_MS * 25);
+        controller.signal.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timer);
+            const error = new Error("AbortError");
+            (error as { name?: string }).name = "AbortError";
+            reject(error);
+          },
+          { once: true },
+        );
+      }),
+    { dedupe: false, signal: controller.signal },
+  );
+
+  await wait(0);
+  controller.abort();
+  await request;
+
+  const queuedNetworkWrites = getHydrationDriftMetrics().pendingWrites - deferredSources.length;
+  assert.strictEqual(queuedNetworkWrites, 2);
+  deferredSources.push(...Array.from({ length: Math.max(0, queuedNetworkWrites) }, () => "network" as const));
+
+  assert.deepStrictEqual(getStore("noMercyRemote"), createAsyncState("server"));
+  assert.strictEqual(getHydrationDriftMetrics().pendingWrites, deferredSources.length);
+
+  boot.close();
+  boot.close();
+  await settleAfterClose();
+
+  const remote = getStore("noMercyRemote") as AsyncState | null;
+  assert.strictEqual(remote?.status, "aborted");
+
+  const timeline = getStore("noMercyTimeline") as TimelineState | null;
+  const lastDeferred = deferredSources.filter((source) => source !== "network").slice(-1)[0];
+  if (lastDeferred === "sync" && syncCount > 0) {
+    assert.strictEqual(timeline?.revision, 2000 + syncCount);
+  } else if (lastDeferred === "storage" && storageCount > 0) {
+    assert.strictEqual(timeline?.revision, 1000 + storageCount);
+  }
+
+  const metrics = getHydrationDriftMetrics();
+  assert.strictEqual(metrics.pendingWrites, 0);
+  assert.strictEqual(metrics.queuedWrites, deferredSources.length);
+  assert.strictEqual(metrics.replayedWrites, deferredSources.length);
+  assert.strictEqual(metrics.driftEvents, deferredSources.length + NO_MERCY_EFFECT_WRITES);
+
+  assert.ok(metrics.driftEvents > NO_MERCY_MAX_EVENTS);
+  const events = getHydrationDriftEvents();
+  assert.strictEqual(events.length, NO_MERCY_MAX_EVENTS);
+
+  const expectedSources = [
+    ...Array.from({ length: NO_MERCY_EFFECT_WRITES }, () => "effect" as const),
+    ...deferredSources,
+  ];
+  const expectedTail = expectedSources.slice(-NO_MERCY_MAX_EVENTS);
+  assert.deepStrictEqual(events.map((event) => event.source), expectedTail);
+
+  return {
+    sample: {
+      durationMs: round(performance.now() - startedAt),
+      queuedWrites: metrics.queuedWrites,
+      replayedWrites: metrics.replayedWrites,
+      driftEvents: metrics.driftEvents,
+      sourceOrderPreview: previewSourceOrder(events.map((event) => event.source)),
+    },
+    finalState: {
+      timeline: getStore("noMercyTimeline"),
+      remote: getStore("noMercyRemote"),
+    },
+  };
+};
+
 const runCampaign = async (
   name: string,
   profile: CampaignProfile,
   runs: number,
   writesPerRun: number,
   runner: () => Promise<{ sample: CampaignSample; finalState: unknown }>,
+  guaranteeBoundary: CampaignResult["guaranteeBoundary"],
   note: string
 ): Promise<CampaignResult> => {
   const samples: CampaignSample[] = [];
@@ -587,6 +853,7 @@ const runCampaign = async (
     name,
     profile,
     writesPerRun,
+    guaranteeBoundary,
     samples,
     finalStateSample,
     note
@@ -601,7 +868,17 @@ export const runHydrationDivergenceBenchmark = async () => {
       TRY_RUNS,
       5,
       runTryCase,
+      "manual-close",
       "Proves no pre-close leak across effect, storage, sync, and network writes when the boot window is closed manually."
+    ),
+    await runCampaign(
+      "Timer: auto-close flushes queued writes deterministically",
+      "timer",
+      TIMER_RUNS,
+      3,
+      runTimerCase,
+      "timer-close",
+      "Exercises timer-mode boot windows (no manual close) while still proving sealed queues + deterministic replay ordering."
     ),
     await runCampaign(
       "Hit: policy matrix stays deterministic after replay",
@@ -609,6 +886,7 @@ export const runHydrationDivergenceBenchmark = async () => {
       HIT_RUNS,
       4,
       runHitCase,
+      "manual-close",
       "Exercises server_wins, client_wins, merge, and invalidate_and_refetch under the same manual-close boundary."
     ),
     await runCampaign(
@@ -617,7 +895,17 @@ export const runHydrationDivergenceBenchmark = async () => {
       STRESS_RUNS,
       STRESS_WRITES,
       runStressCase,
+      "manual-close",
       "Runs mixed-source writes across microtask and timer boundaries while the queue is open, then verifies exact replay order."
+    ),
+    await runCampaign(
+      "No Mercy: capped drift events, custom deferSources, and network abort remain deterministic",
+      "no_mercy",
+      NO_MERCY_RUNS,
+      NO_MERCY_STORAGE_WRITES + NO_MERCY_SYNC_WRITES + 2,
+      runNoMercyCase,
+      "manual-close",
+      "Forces maxEvents truncation, excludes effect from deferSources, and aborts a network write while still enforcing sealed queues + deterministic tail ordering."
     ),
     await runCampaign(
       "Hammer: high-volume queued writes survive without leak or reorder",
@@ -625,6 +913,7 @@ export const runHydrationDivergenceBenchmark = async () => {
       HAMMER_RUNS,
       HAMMER_CYCLES * 3,
       runHammerCase,
+      "manual-close",
       "Queues a larger volume of interleaved effect, storage, and sync writes before a single explicit close signal."
     ),
   ];
@@ -640,12 +929,29 @@ export const runHydrationDivergenceBenchmark = async () => {
   assert.strictEqual(unexpectedOutcomes, 0, "Hydration divergence guarantee suite observed unexpected outcomes");
   assert.strictEqual(invariantViolations, 0, "Hydration divergence guarantee suite observed invariant violations");
 
+  const guaranteeBoundariesSeen = distinctStrings(
+    campaigns.map((campaign) => campaign.guaranteeBoundary),
+  ) as CampaignResult["guaranteeBoundary"][];
+  const bootWindowModesSeen = distinctStrings(
+    guaranteeBoundariesSeen.map((boundary) => boundary === "timer-close" ? "timer" : "manual"),
+  ) as Array<"manual" | "timer">;
+  const bootWindowMode: SuiteBootWindowMode =
+    bootWindowModesSeen.length === 1
+      ? bootWindowModesSeen[0]!
+      : "mixed";
+  const guaranteeBoundary: SuiteGuaranteeBoundary =
+    guaranteeBoundariesSeen.length === 1
+      ? guaranteeBoundariesSeen[0]!
+      : "mixed";
+
   return {
     name: "Hydration Divergence Guarantee Suite",
-    bootWindowMode: "manual",
+    bootWindowMode,
+    bootWindowModesSeen,
+    guaranteeBoundariesSeen,
     campaigns,
     certification: {
-      guaranteeBoundary: "manual-close",
+      guaranteeBoundary,
       certifiedRuns,
       totalQueuedWrites,
       unexpectedOutcomes,

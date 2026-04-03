@@ -1,8 +1,12 @@
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
+import { randomBytes } from "node:crypto";
+import { EventEmitter } from "node:events";
 import type { AddressInfo } from "node:net";
 import { performance } from "node:perf_hooks";
+import { MessageChannel } from "node:worker_threads";
 import React from "react";
 import { renderToPipeableStream } from "react-dom/server";
+import { renderToReadableStream } from "react-dom/server.browser";
 import {
   createStoreForRequest,
   type StoreRegistry,
@@ -122,6 +126,7 @@ type ReactStreamingResult = {
   name: string;
   requests: number;
   concurrentRequests: number;
+  abortedRequests: number;
   responseTiming: ReturnType<typeof summarizeSamples>;
   shellTiming: ReturnType<typeof summarizeSamples>;
   allReadyTiming: ReturnType<typeof summarizeSamples>;
@@ -131,6 +136,40 @@ type ReactStreamingResult = {
     max: number;
   };
   totalWallMs: number;
+};
+
+type ReactStreamingAbortResult = {
+  name: string;
+  requests: number;
+  abortedRequests: number;
+  responseTiming: ReturnType<typeof summarizeSamples>;
+  bytesRead: {
+    median: number;
+    p95: number;
+    max: number;
+  };
+  totalWallMs: number;
+};
+
+type ReactReadableStreamResult = {
+  name: string;
+  requests: number;
+  concurrentRequests: number;
+  responseTiming: ReturnType<typeof summarizeSamples>;
+  allReadyTiming: ReturnType<typeof summarizeSamples>;
+  responseBytes: {
+    median: number;
+    p95: number;
+    max: number;
+  };
+  totalWallMs: number;
+};
+
+type BoundaryMatrixResult = {
+  name: string;
+  requests: number;
+  boundaries: string[];
+  timing: ReturnType<typeof summarizeSamples>;
 };
 
 type MemoryCheckpoint = {
@@ -159,8 +198,11 @@ type CertificationResult = {
   chaosCampaigns: CampaignResult[];
   sustainedPressure: SustainedPressureResult;
   crossRequestInterleaving: InterleavingResult;
+  boundaryMatrix: BoundaryMatrixResult;
   lifecycleEscape: LifecycleEscapeResult;
   reactStreamingHttp: ReactStreamingResult;
+  reactStreamingHttpAbort: ReactStreamingAbortResult;
+  reactStreamingReadable: ReactReadableStreamResult;
   memoryStability: MemoryResult;
   requests: {
     concurrentPerCampaign: number;
@@ -170,8 +212,11 @@ type CertificationResult = {
     sustainedRequests: number;
     totalChaoticRequests: number;
     interleavingRequests: number;
+    boundaryMatrixRequests: number;
     lifecycleRequests: number;
     reactStreamingRequests: number;
+    reactStreamingAbortRequests: number;
+    reactReadableRequests: number;
     memoryCycles: number;
   };
   timing: ReturnType<typeof summarizeSamples>;
@@ -201,8 +246,11 @@ const ABORT_EVERY = Number(process.env.STROID_SSR_ABORT_EVERY ?? 17);
 const SUSTAINED_CONCURRENCY = Number(process.env.STROID_SSR_SUSTAINED_CONCURRENCY ?? 1024);
 const SUSTAINED_WAVES = Number(process.env.STROID_SSR_SUSTAINED_WAVES ?? 8);
 const INTERLEAVING_PAIRS = Number(process.env.STROID_SSR_INTERLEAVING_PAIRS ?? 96);
+const BOUNDARY_MATRIX_REQUESTS = Number(process.env.STROID_SSR_BOUNDARY_MATRIX_REQUESTS ?? 256);
 const LIFECYCLE_REQUESTS = Number(process.env.STROID_SSR_LIFECYCLE_REQUESTS ?? 512);
 const REACT_STREAMING_REQUESTS = Number(process.env.STROID_SSR_REACT_STREAMING_REQUESTS ?? 256);
+const REACT_READABLE_REQUESTS = Number(process.env.STROID_SSR_REACT_READABLE_REQUESTS ?? 192);
+const REACT_STREAM_ABORT_REQUESTS = Number(process.env.STROID_SSR_REACT_STREAM_ABORT_REQUESTS ?? 64);
 const MEMORY_WARMUP_CYCLES = Number(process.env.STROID_SSR_MEMORY_WARMUP_CYCLES ?? 2000);
 const MEMORY_CYCLES = Number(process.env.STROID_SSR_MEMORY_CYCLES ?? 50000);
 const MEMORY_BATCH_SIZE = Number(process.env.STROID_SSR_MEMORY_BATCH_SIZE ?? 100);
@@ -668,6 +716,154 @@ const jitter = async (
     .then(() => Promise.resolve())
     .then(() => Promise.resolve());
   pushTrace(trace, label, "promise-chain:end");
+};
+
+const nextTickBoundary = async (trace: TraceEntry[], label: string): Promise<void> => {
+  pushTrace(trace, label, "nextTick:start");
+  await new Promise<void>((resolve) => {
+    process.nextTick(resolve);
+  });
+  pushTrace(trace, label, "nextTick:end");
+};
+
+const messageChannelBoundary = async (trace: TraceEntry[], label: string): Promise<void> => {
+  pushTrace(trace, label, "messageChannel:start");
+  await new Promise<void>((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.once("message", () => {
+      channel.port1.close();
+      channel.port2.close();
+      resolve();
+    });
+    channel.port2.postMessage("tick");
+  });
+  pushTrace(trace, label, "messageChannel:end");
+};
+
+const eventEmitterBoundary = async (trace: TraceEntry[], label: string): Promise<void> => {
+  pushTrace(trace, label, "eventEmitter:start");
+  await new Promise<void>((resolve) => {
+    const emitter = new EventEmitter();
+    emitter.once("tick", () => resolve());
+    setImmediate(() => emitter.emit("tick"));
+  });
+  pushTrace(trace, label, "eventEmitter:end");
+};
+
+const cryptoBoundary = async (trace: TraceEntry[], label: string): Promise<void> => {
+  pushTrace(trace, label, "crypto:start");
+  await new Promise<void>((resolve, reject) => {
+    randomBytes(8, (err) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve();
+    });
+  });
+  pushTrace(trace, label, "crypto:end");
+};
+
+const runBoundaryMatrixRequest = async (
+  suite: SuiteState,
+  requestId: number,
+): Promise<number> => {
+  const phase = "boundary-matrix";
+  const context = createStoreForRequest<{ session: SessionState }>((api) => {
+    api.create("session", createSession(requestId, phase));
+  });
+  const trace: TraceEntry[] = [];
+  const startedAt = performance.now();
+
+  await context.hydrate(async () => {
+    inspectSession(suite, phase, requestId, "matrix:start", trace);
+    applySessionWrite(requestId, "db");
+    inspectSession(suite, phase, requestId, "matrix:after-db", trace);
+
+    pushTrace(trace, "matrix", "promise-chain:start");
+    await Promise.resolve()
+      .then(() => Promise.resolve())
+      .then(() => Promise.resolve());
+    pushTrace(trace, "matrix", "promise-chain:end");
+    inspectSession(suite, phase, requestId, "matrix:after-promise", trace);
+
+    pushTrace(trace, "matrix", "queueMicrotask:start");
+    await nextMicrotask();
+    pushTrace(trace, "matrix", "queueMicrotask:end");
+    inspectSession(suite, phase, requestId, "matrix:after-microtask", trace);
+
+    await nextTickBoundary(trace, "matrix:nextTick");
+    inspectSession(suite, phase, requestId, "matrix:after-nextTick", trace);
+
+    pushTrace(trace, "matrix", "setImmediate:start");
+    await nextImmediate();
+    pushTrace(trace, "matrix", "setImmediate:end");
+    inspectSession(suite, phase, requestId, "matrix:after-immediate", trace);
+
+    pushTrace(trace, "matrix", "setTimeout:start");
+    await wait(0);
+    pushTrace(trace, "matrix", "setTimeout:end");
+    inspectSession(suite, phase, requestId, "matrix:after-timeout", trace);
+
+    await messageChannelBoundary(trace, "matrix:messageChannel");
+    inspectSession(suite, phase, requestId, "matrix:after-messageChannel", trace);
+
+    await eventEmitterBoundary(trace, "matrix:eventEmitter");
+    inspectSession(suite, phase, requestId, "matrix:after-eventEmitter", trace);
+
+    await cryptoBoundary(trace, "matrix:crypto");
+    inspectSession(suite, phase, requestId, "matrix:after-crypto", trace);
+
+    applySessionWrite(requestId, "render");
+    inspectSession(suite, phase, requestId, "matrix:end", trace);
+  });
+
+  validateSessionSnapshot(
+    suite,
+    phase,
+    requestId,
+    "matrix:snapshot",
+    trace,
+    context.snapshot().session as SessionState | undefined,
+    false,
+  );
+
+  await flushRuntime(4);
+  noteRequestResiduals(suite, phase, requestId, trace, context.registry);
+
+  return round(performance.now() - startedAt);
+};
+
+const runBoundaryMatrix = async (
+  suite: SuiteState,
+): Promise<BoundaryMatrixResult> => {
+  const violationsBefore = suite.failureCount;
+  const durations = await Promise.all(
+    Array.from({ length: BOUNDARY_MATRIX_REQUESTS }, (_value, index) =>
+      runBoundaryMatrixRequest(suite, 450000 + index + 1)),
+  );
+
+  await ensureGlobalRegistryIntegrity(suite, "boundary-matrix");
+  suite.maxConcurrentCorrectnessViolations = Math.max(
+    suite.maxConcurrentCorrectnessViolations,
+    suite.failureCount - violationsBefore,
+  );
+
+  return {
+    name: "Async Boundary Matrix",
+    requests: BOUNDARY_MATRIX_REQUESTS,
+    boundaries: [
+      "promise",
+      "queueMicrotask",
+      "process.nextTick",
+      "setImmediate",
+      "setTimeout",
+      "MessageChannel",
+      "EventEmitter",
+      "crypto.randomBytes",
+    ],
+    timing: summarizeSamples(durations),
+  };
 };
 
 const runManualPromiseBoundary = async (
@@ -1168,111 +1364,8 @@ const runReactStreamingHttp = async (
   suite: SuiteState,
 ): Promise<ReactStreamingResult> => {
   const phase = "react-streaming-http";
-  const requestMetrics = new Map<number, { shellMs: number; allReadyMs: number }>();
   const violationsBefore = suite.failureCount;
-  const server = createServer(async (req, res) => {
-    const trace: TraceEntry[] = [];
-    try {
-      const url = new URL(req.url ?? "/", "http://127.0.0.1");
-      const requestId = Number(url.searchParams.get("id") ?? 0);
-      const context = createStoreForRequest<{ session: SessionState }>((api) => {
-        api.create("session", createSession(requestId, phase));
-      });
-      const outer = createTextResource(
-        "resolved-outer",
-        requestId,
-        1 + (requestId % 3),
-      );
-      const inner = createTextResource(
-        "resolved-inner",
-        requestId,
-        3 + (requestId % 5),
-      );
-      const renderStartedAt = performance.now();
-      let shellMs = 0;
-      let allReadyMs = 0;
-
-      await context.hydrate(async () => {
-        inspectSession(suite, phase, requestId, "http:before-stream", trace);
-        applySessionWrite(requestId, "db");
-        inspectSession(suite, phase, requestId, "http:after-db", trace);
-        await new Promise<void>((resolve, reject) => {
-          let settled = false;
-          let didPipe = false;
-          const stream = renderToPipeableStream(
-            React.createElement(StreamingApp, { requestId, outer, inner }),
-            {
-              onShellReady() {
-                shellMs = round(performance.now() - renderStartedAt);
-                res.statusCode = 200;
-                res.setHeader("content-type", "text/html; charset=utf-8");
-                didPipe = true;
-                stream.pipe(res);
-              },
-              onAllReady() {
-                allReadyMs = round(performance.now() - renderStartedAt);
-              },
-              onShellError(error) {
-                if (settled) return;
-                settled = true;
-                reject(error);
-              },
-              onError(error) {
-                if (!didPipe && !settled) {
-                  settled = true;
-                  reject(error);
-                }
-              },
-            },
-          );
-
-          res.on("finish", () => {
-            if (settled) return;
-            settled = true;
-            resolve();
-          });
-          res.on("close", () => {
-            if (settled) return;
-            settled = true;
-            resolve();
-          });
-        });
-        applySessionWrite(requestId, "render");
-        inspectSession(suite, phase, requestId, "http:after-stream", trace);
-      });
-
-      requestMetrics.set(requestId, { shellMs, allReadyMs });
-      validateSessionSnapshot(
-        suite,
-        phase,
-        requestId,
-        "http:snapshot",
-        trace,
-        context.snapshot().session as SessionState | undefined,
-        false,
-      );
-      noteRequestResiduals(suite, phase, requestId, trace, context.registry);
-    } catch (error) {
-      recordFailure(suite, {
-        phase,
-        kind: "unexpected-error",
-        boundary: "http-handler",
-        message: error instanceof Error ? error.message : String(error),
-        trace: cloneTrace(trace),
-      });
-      if (!res.headersSent) {
-        res.statusCode = 500;
-        res.setHeader("content-type", "text/plain; charset=utf-8");
-      }
-      res.end("ssr-stream-error");
-    }
-  });
-
-  await new Promise<void>((resolve) => {
-    server.listen(0, "127.0.0.1", () => resolve());
-  });
-
-  const { port } = server.address() as AddressInfo;
+  const server = await startReactStreamingHttpServer(suite, phase);
   const startedAt = performance.now();
 
   try {
@@ -1280,7 +1373,7 @@ const runReactStreamingHttp = async (
       Array.from({ length: REACT_STREAMING_REQUESTS }, async (_value, index) => {
         const requestId = 600000 + index + 1;
         const requestStartedAt = performance.now();
-        const response = await fetch(`http://127.0.0.1:${port}/?id=${requestId}`);
+        const response = await fetch(`http://127.0.0.1:${server.port}/?id=${requestId}`);
         const body = await response.text();
         const durationMs = round(performance.now() - requestStartedAt);
         const bodyBytes = Buffer.byteLength(body);
@@ -1331,9 +1424,9 @@ const runReactStreamingHttp = async (
 
     const responseDurations = responses.map((entry) => entry.durationMs);
     const shellDurations = responses.map((entry) =>
-      requestMetrics.get(entry.requestId)?.shellMs ?? 0);
+      server.requestMetrics.get(entry.requestId)?.shellMs ?? 0);
     const allReadyDurations = responses.map((entry) =>
-      requestMetrics.get(entry.requestId)?.allReadyMs ?? 0);
+      server.requestMetrics.get(entry.requestId)?.allReadyMs ?? 0);
     const responseBytes = responses.map((entry) => entry.bodyBytes);
     const sortedBytes = [...responseBytes].sort((left, right) => left - right);
 
@@ -1341,6 +1434,7 @@ const runReactStreamingHttp = async (
       name: "React Streaming HTTP",
       requests: REACT_STREAMING_REQUESTS,
       concurrentRequests: REACT_STREAMING_REQUESTS,
+      abortedRequests: 0,
       responseTiming: summarizeSamples(responseDurations),
       shellTiming: summarizeSamples(shellDurations),
       allReadyTiming: summarizeSamples(allReadyDurations),
@@ -1359,16 +1453,390 @@ const runReactStreamingHttp = async (
       totalWallMs: round(performance.now() - startedAt),
     };
   } finally {
-    await new Promise<void>((resolve, reject) => {
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
+    await server.close();
   }
+};
+
+type ReactStreamingHttpServer = {
+  port: number;
+  requestMetrics: Map<number, { shellMs: number; allReadyMs: number }>;
+  close: () => Promise<void>;
+};
+
+const startReactStreamingHttpServer = async (
+  suite: SuiteState,
+  phase: string,
+): Promise<ReactStreamingHttpServer> => {
+  const requestMetrics = new Map<number, { shellMs: number; allReadyMs: number }>();
+
+  const server = createServer(async (req, res) => {
+    const trace: TraceEntry[] = [];
+    try {
+      const url = new URL(req.url ?? "/", "http://127.0.0.1");
+      const requestId = Number(url.searchParams.get("id") ?? 0);
+      if (!Number.isFinite(requestId) || requestId <= 0) {
+        res.statusCode = 400;
+        res.setHeader("content-type", "text/plain; charset=utf-8");
+        res.end("invalid request id");
+        return;
+      }
+
+      const context = createStoreForRequest<{ session: SessionState }>((api) => {
+        api.create("session", createSession(requestId, phase));
+      });
+      const outer = createTextResource(
+        "resolved-outer",
+        requestId,
+        1 + (requestId % 3),
+      );
+      const inner = createTextResource(
+        "resolved-inner",
+        requestId,
+        3 + (requestId % 5),
+      );
+      const renderStartedAt = performance.now();
+      let shellMs = 0;
+      let allReadyMs = 0;
+
+      await context.hydrate(async () => {
+        inspectSession(suite, phase, requestId, "http:before-stream", trace);
+        applySessionWrite(requestId, "db");
+        inspectSession(suite, phase, requestId, "http:after-db", trace);
+
+        await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          let didPipe = false;
+
+          const stream = renderToPipeableStream(
+            React.createElement(StreamingApp, { requestId, outer, inner }),
+            {
+              onShellReady() {
+                if (settled) return;
+                shellMs = round(performance.now() - renderStartedAt);
+                res.statusCode = 200;
+                res.setHeader("content-type", "text/html; charset=utf-8");
+                didPipe = true;
+                stream.pipe(res);
+              },
+              onAllReady() {
+                if (settled) return;
+                allReadyMs = round(performance.now() - renderStartedAt);
+              },
+              onShellError(error) {
+                if (settled) return;
+                settled = true;
+                reject(error);
+              },
+              onError(error) {
+                if (settled) return;
+                if (!didPipe) {
+                  settled = true;
+                  reject(error);
+                }
+              },
+            },
+          );
+
+          const finish = (): void => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+
+          res.on("finish", finish);
+          res.on("close", () => {
+            try {
+              stream.abort();
+            } catch (_) {
+              // ignore stream abort failures
+            }
+            finish();
+          });
+        });
+
+        applySessionWrite(requestId, "render");
+        inspectSession(suite, phase, requestId, "http:after-stream", trace);
+      });
+
+      requestMetrics.set(requestId, { shellMs, allReadyMs });
+      validateSessionSnapshot(
+        suite,
+        phase,
+        requestId,
+        "http:snapshot",
+        trace,
+        context.snapshot().session as SessionState | undefined,
+        false,
+      );
+      noteRequestResiduals(suite, phase, requestId, trace, context.registry);
+    } catch (error) {
+      recordFailure(suite, {
+        phase,
+        kind: "unexpected-error",
+        boundary: "http-handler",
+        message: error instanceof Error ? error.message : String(error),
+        trace: cloneTrace(trace),
+      });
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader("content-type", "text/plain; charset=utf-8");
+      }
+      res.end("ssr-stream-error");
+    }
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+
+  const { port } = server.address() as AddressInfo;
+  return {
+    port,
+    requestMetrics,
+    close: async () => {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    },
+  };
+};
+
+const runReactStreamingHttpAbort = async (
+  suite: SuiteState,
+): Promise<ReactStreamingAbortResult> => {
+  const phase = "react-streaming-http-abort";
+  const violationsBefore = suite.failureCount;
+  const server = await startReactStreamingHttpServer(suite, phase);
+  const startedAt = performance.now();
+
+  const abortClient = async (
+    requestId: number,
+  ): Promise<{ requestId: number; durationMs: number; bytesRead: number; aborted: boolean }> => {
+    const clientStartedAt = performance.now();
+
+    return await new Promise((resolve) => {
+      const req = httpRequest(
+        {
+          host: "127.0.0.1",
+          port: server.port,
+          method: "GET",
+          path: `/?id=${requestId}`,
+        },
+        (res) => {
+          let bytesRead = 0;
+          let settled = false;
+          let aborted = false;
+
+          const finish = (): void => {
+            if (settled) return;
+            settled = true;
+            resolve({
+              requestId,
+              durationMs: round(performance.now() - clientStartedAt),
+              bytesRead,
+              aborted,
+            });
+          };
+
+          res.on("data", (chunk) => {
+            bytesRead += chunk.length;
+            if (!aborted) {
+              aborted = true;
+              res.destroy();
+            }
+          });
+          res.on("close", finish);
+          res.on("end", finish);
+          res.on("error", finish);
+        },
+      );
+
+      req.on("error", () => {
+        resolve({
+          requestId,
+          durationMs: round(performance.now() - clientStartedAt),
+          bytesRead: 0,
+          aborted: true,
+        });
+      });
+
+      req.end();
+    });
+  };
+
+  try {
+    const results = await Promise.all(
+      Array.from({ length: REACT_STREAM_ABORT_REQUESTS }, async (_value, index) => {
+        const requestId = 650000 + index + 1;
+        return abortClient(requestId);
+      }),
+    );
+
+    await ensureGlobalRegistryIntegrity(suite, phase);
+    suite.maxConcurrentCorrectnessViolations = Math.max(
+      suite.maxConcurrentCorrectnessViolations,
+      suite.failureCount - violationsBefore,
+    );
+
+    const durations = results.map((entry) => entry.durationMs);
+    const bytesRead = results.map((entry) => entry.bytesRead);
+    const abortedRequests = results.filter((entry) => entry.aborted).length;
+    const sortedBytes = [...bytesRead].sort((left, right) => left - right);
+
+    return {
+      name: "React Streaming HTTP (Client Abort)",
+      requests: REACT_STREAM_ABORT_REQUESTS,
+      abortedRequests,
+      responseTiming: summarizeSamples(durations),
+      bytesRead: {
+        median: sortedBytes.length === 0
+          ? 0
+          : sortedBytes[Math.floor(sortedBytes.length / 2)]!,
+        p95: sortedBytes.length === 0
+          ? 0
+          : sortedBytes[Math.min(
+            sortedBytes.length - 1,
+            Math.ceil(sortedBytes.length * 0.95) - 1,
+          )]!,
+        max: sortedBytes.length === 0 ? 0 : sortedBytes[sortedBytes.length - 1]!,
+      },
+      totalWallMs: round(performance.now() - startedAt),
+    };
+  } finally {
+    await server.close();
+  }
+};
+
+type ReadableStreamWithAllReady = ReadableStream<Uint8Array> & {
+  allReady?: Promise<unknown>;
+};
+
+const runReactStreamingReadable = async (
+  suite: SuiteState,
+): Promise<ReactReadableStreamResult> => {
+  const phase = "react-streaming-readable";
+  const violationsBefore = suite.failureCount;
+  const startedAt = performance.now();
+
+  const results = await Promise.all(
+    Array.from({ length: REACT_READABLE_REQUESTS }, async (_value, index) => {
+      const requestId = 700000 + index + 1;
+      const context = createStoreForRequest<{ session: SessionState }>((api) => {
+        api.create("session", createSession(requestId, phase));
+      });
+      const trace: TraceEntry[] = [];
+      const requestStartedAt = performance.now();
+      let allReadyMs = 0;
+      let body = "";
+
+      const outer = createTextResource(
+        "resolved-outer",
+        requestId,
+        1 + (requestId % 3),
+      );
+      const inner = createTextResource(
+        "resolved-inner",
+        requestId,
+        3 + (requestId % 5),
+      );
+
+      await context.hydrate(async () => {
+        inspectSession(suite, phase, requestId, "readable:before-stream", trace);
+        applySessionWrite(requestId, "db");
+        inspectSession(suite, phase, requestId, "readable:after-db", trace);
+
+        const renderStartedAt = performance.now();
+        const stream = await renderToReadableStream(
+          React.createElement(StreamingApp, { requestId, outer, inner }),
+        ) as ReadableStreamWithAllReady;
+
+        if (stream.allReady) {
+          await stream.allReady;
+          allReadyMs = round(performance.now() - renderStartedAt);
+        }
+
+        body = await new Response(stream).text();
+
+        const expectations = [
+          `token-${requestId}`,
+          `request-${requestId}`,
+          `outer-${requestId}:resolved-outer-${requestId}`,
+          `inner-${requestId}:resolved-inner-${requestId}`,
+        ];
+
+        const missing = expectations.filter((needle) => !body.includes(needle));
+        if (missing.length > 0) {
+          recordInvariantFailure(suite, "contextMismatchCount", {
+            phase,
+            kind: "context-mismatch",
+            requestId,
+            boundary: "readable-response",
+            message: `missing=${JSON.stringify(missing)} body=${body.slice(0, 240)}`,
+            trace: cloneTrace(trace),
+          });
+        }
+
+        applySessionWrite(requestId, "render");
+        inspectSession(suite, phase, requestId, "readable:after-stream", trace);
+      });
+
+      validateSessionSnapshot(
+        suite,
+        phase,
+        requestId,
+        "readable:snapshot",
+        trace,
+        context.snapshot().session as SessionState | undefined,
+        false,
+      );
+      noteRequestResiduals(suite, phase, requestId, trace, context.registry);
+
+      return {
+        requestId,
+        durationMs: round(performance.now() - requestStartedAt),
+        allReadyMs,
+        bodyBytes: Buffer.byteLength(body),
+      };
+    }),
+  );
+
+  await ensureGlobalRegistryIntegrity(suite, phase);
+  suite.maxConcurrentCorrectnessViolations = Math.max(
+    suite.maxConcurrentCorrectnessViolations,
+    suite.failureCount - violationsBefore,
+  );
+
+  const durations = results.map((entry) => entry.durationMs);
+  const allReadyDurations = results.map((entry) => entry.allReadyMs);
+  const bytes = results.map((entry) => entry.bodyBytes);
+  const sortedBytes = [...bytes].sort((left, right) => left - right);
+
+  return {
+    name: "React Streaming ReadableStream (Edge)",
+    requests: REACT_READABLE_REQUESTS,
+    concurrentRequests: REACT_READABLE_REQUESTS,
+    responseTiming: summarizeSamples(durations),
+    allReadyTiming: summarizeSamples(allReadyDurations),
+    responseBytes: {
+      median: sortedBytes.length === 0
+        ? 0
+        : sortedBytes[Math.floor(sortedBytes.length / 2)]!,
+      p95: sortedBytes.length === 0
+        ? 0
+        : sortedBytes[Math.min(
+          sortedBytes.length - 1,
+          Math.ceil(sortedBytes.length * 0.95) - 1,
+        )]!,
+      max: sortedBytes.length === 0 ? 0 : sortedBytes[sortedBytes.length - 1]!,
+    },
+    totalWallMs: round(performance.now() - startedAt),
+  };
 };
 
 const runMemoryCycle = async (
@@ -1591,8 +2059,11 @@ export const runSsrIsolationBenchmark = async (): Promise<CertificationResult> =
   const sustainedPressure = await runSustainedPressure(suite, requestOffset);
   requestOffset += sustainedPressure.totalRequests;
   const crossRequestInterleaving = await runCrossRequestInterleaving(suite);
+  const boundaryMatrix = await runBoundaryMatrix(suite);
   const lifecycleEscape = await runLifecycleEscape(suite);
   const reactStreamingHttp = await runReactStreamingHttp(suite);
+  const reactStreamingHttpAbort = await runReactStreamingHttpAbort(suite);
+  const reactStreamingReadable = await runReactStreamingReadable(suite);
   const memoryStability = await runMemoryStability(suite);
 
   await ensureGlobalRegistryIntegrity(suite, "suite-final");
@@ -1611,12 +2082,20 @@ export const runSsrIsolationBenchmark = async (): Promise<CertificationResult> =
     sustainedPressure.waveTiming.p95Ms,
     crossRequestInterleaving.timing.medianMs,
     crossRequestInterleaving.timing.p95Ms,
+    boundaryMatrix.timing.medianMs,
+    boundaryMatrix.timing.p95Ms,
     lifecycleEscape.timing.medianMs,
     lifecycleEscape.timing.p95Ms,
     reactStreamingHttp.responseTiming.medianMs,
     reactStreamingHttp.responseTiming.p95Ms,
     reactStreamingHttp.shellTiming.medianMs,
     reactStreamingHttp.allReadyTiming.p95Ms,
+    reactStreamingHttpAbort.responseTiming.medianMs,
+    reactStreamingHttpAbort.responseTiming.p95Ms,
+    reactStreamingReadable.responseTiming.medianMs,
+    reactStreamingReadable.responseTiming.p95Ms,
+    reactStreamingReadable.allReadyTiming.medianMs,
+    reactStreamingReadable.allReadyTiming.p95Ms,
     ...(memoryStability.timing.count > 0
       ? [
         memoryStability.timing.medianMs,
@@ -1630,8 +2109,11 @@ export const runSsrIsolationBenchmark = async (): Promise<CertificationResult> =
     chaosCampaigns,
     sustainedPressure,
     crossRequestInterleaving,
+    boundaryMatrix,
     lifecycleEscape,
     reactStreamingHttp,
+    reactStreamingHttpAbort,
+    reactStreamingReadable,
     memoryStability,
     requests: {
       concurrentPerCampaign: CHAOS_REQUESTS,
@@ -1641,9 +2123,12 @@ export const runSsrIsolationBenchmark = async (): Promise<CertificationResult> =
       sustainedRequests: sustainedPressure.totalRequests,
       totalChaoticRequests: CHAOS_REQUESTS * CHAOS_SEEDS.length,
       interleavingRequests: INTERLEAVING_PAIRS * 2,
+      boundaryMatrixRequests: BOUNDARY_MATRIX_REQUESTS,
       lifecycleRequests: LIFECYCLE_REQUESTS,
       reactStreamingRequests: REACT_STREAMING_REQUESTS,
+      reactStreamingAbortRequests: REACT_STREAM_ABORT_REQUESTS,
       memoryCycles: MEMORY_CYCLES,
+      reactReadableRequests: REACT_READABLE_REQUESTS,
     },
     timing: summarizeSamples(combinedDurations),
     totalWallMs: round(performance.now() - startedAt),

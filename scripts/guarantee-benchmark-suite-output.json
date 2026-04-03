@@ -16,10 +16,10 @@
           "abortedRequests": 60,
           "timing": {
             "count": 1024,
-            "medianMs": 184.579,
-            "p95Ms": 200.834,
-            "maxMs": 205.358,
-            "totalMs": 189254.516
+            "medianMs": 200.13,
+            "p95Ms": 217.707,
+            "maxMs": 221.937,
+            "totalMs": 205073.066
           }
         },
         {
@@ -29,10 +29,10 @@
           "abortedRequests": 60,
           "timing": {
             "count": 1024,
-            "medianMs": 156.988,
-            "p95Ms": 169.573,
-            "maxMs": 172.752,
-            "totalMs": 161729.343
+            "medianMs": 160.813,
+            "p95Ms": 173.676,
+            "maxMs": 177.06,
+            "totalMs": 165509.103
           }
         }
       ],
@@ -44,20 +44,20 @@
         "abortedRequests": 482,
         "requestTiming": {
           "count": 8192,
-          "medianMs": 150.351,
-          "p95Ms": 162.798,
-          "maxMs": 168.509,
-          "totalMs": 1231897.897
+          "medianMs": 158.216,
+          "p95Ms": 188.372,
+          "maxMs": 199.067,
+          "totalMs": 1306989.558
         },
         "waveTiming": {
           "count": 8,
-          "medianMs": 167.763,
-          "p95Ms": 170.672,
-          "maxMs": 170.672,
-          "totalMs": 1334.607
+          "medianMs": 175.309,
+          "p95Ms": 201.392,
+          "maxMs": 201.392,
+          "totalMs": 1418.675
         },
-        "throughputRequestsPerSec": 5895.459,
-        "totalWallMs": 1389.544
+        "throughputRequestsPerSec": 5555.721,
+        "totalWallMs": 1474.516
       },
       "crossRequestInterleaving": {
         "name": "Cross-Request Interleaving",
@@ -65,10 +65,31 @@
         "requests": 192,
         "timing": {
           "count": 96,
-          "medianMs": 7.469,
-          "p95Ms": 7.503,
-          "maxMs": 7.585,
-          "totalMs": 715.776
+          "medianMs": 7.901,
+          "p95Ms": 7.918,
+          "maxMs": 7.918,
+          "totalMs": 755.421
+        }
+      },
+      "boundaryMatrix": {
+        "name": "Async Boundary Matrix",
+        "requests": 256,
+        "boundaries": [
+          "promise",
+          "queueMicrotask",
+          "process.nextTick",
+          "setImmediate",
+          "setTimeout",
+          "MessageChannel",
+          "EventEmitter",
+          "crypto.randomBytes"
+        ],
+        "timing": {
+          "count": 256,
+          "medianMs": 34.038,
+          "p95Ms": 38.079,
+          "maxMs": 38.631,
+          "totalMs": 8815.012
         }
       },
       "lifecycleEscape": {
@@ -77,312 +98,356 @@
         "probes": 1536,
         "timing": {
           "count": 512,
-          "medianMs": 29.04,
-          "p95Ms": 37.291,
-          "maxMs": 38.14,
-          "totalMs": 15219.026
+          "medianMs": 32.113,
+          "p95Ms": 38.788,
+          "maxMs": 39.67,
+          "totalMs": 16066.849
         }
       },
       "reactStreamingHttp": {
         "name": "React Streaming HTTP",
         "requests": 256,
         "concurrentRequests": 256,
+        "abortedRequests": 0,
         "responseTiming": {
           "count": 256,
-          "medianMs": 74.063,
-          "p95Ms": 124.977,
-          "maxMs": 131.621,
-          "totalMs": 21183.781
+          "medianMs": 77.794,
+          "p95Ms": 115.248,
+          "maxMs": 123.125,
+          "totalMs": 20180.687
         },
         "shellTiming": {
           "count": 256,
-          "medianMs": 0.079,
-          "p95Ms": 0.436,
-          "maxMs": 2.168,
-          "totalMs": 42.849
+          "medianMs": 0.081,
+          "p95Ms": 0.519,
+          "maxMs": 1.828,
+          "totalMs": 46.83
         },
         "allReadyTiming": {
           "count": 256,
-          "medianMs": 4.931,
-          "p95Ms": 7.293,
-          "maxMs": 8.818,
-          "totalMs": 1263.61
+          "medianMs": 5.225,
+          "p95Ms": 7.335,
+          "maxMs": 10.365,
+          "totalMs": 1294.386
         },
         "responseBytes": {
           "median": 885,
           "p95": 885,
           "max": 885
         },
-        "totalWallMs": 145.663
+        "totalWallMs": 137.245
+      },
+      "reactStreamingHttpAbort": {
+        "name": "React Streaming HTTP (Client Abort)",
+        "requests": 64,
+        "abortedRequests": 64,
+        "responseTiming": {
+          "count": 64,
+          "medianMs": 24.899,
+          "p95Ms": 31.024,
+          "maxMs": 31.554,
+          "totalMs": 1588.585
+        },
+        "bytesRead": {
+          "median": 159,
+          "p95": 159,
+          "max": 159
+        },
+        "totalWallMs": 39.457
+      },
+      "reactStreamingReadable": {
+        "name": "React Streaming ReadableStream (Edge)",
+        "requests": 192,
+        "concurrentRequests": 192,
+        "responseTiming": {
+          "count": 192,
+          "medianMs": 12.709,
+          "p95Ms": 17.704,
+          "maxMs": 19.343,
+          "totalMs": 2461.047
+        },
+        "allReadyTiming": {
+          "count": 192,
+          "medianMs": 12.643,
+          "p95Ms": 17.616,
+          "maxMs": 19.269,
+          "totalMs": 2447.253
+        },
+        "responseBytes": {
+          "median": 231,
+          "p95": 231,
+          "max": 231
+        },
+        "totalWallMs": 31.211
       },
       "memoryStability": {
         "name": "Memory Stability",
         "warmupCycles": 2000,
         "cycles": 50000,
         "batchSize": 100,
-        "baselineHeapMb": 38.779,
-        "finalHeapMb": 38.257,
-        "retainedGrowthMb": -0.522,
+        "baselineHeapMb": 41.339,
+        "finalHeapMb": 41.011,
+        "retainedGrowthMb": -0.328,
         "peakDeltaMb": 0,
         "memoryGrowthSlopeMbPer1k": 0.002,
-        "monotonicIncreaseCount": 4,
+        "monotonicIncreaseCount": 3,
         "timing": {
           "count": 500,
-          "medianMs": 7.112,
-          "p95Ms": 8.205,
-          "maxMs": 17.293,
-          "totalMs": 3627.84
+          "medianMs": 7.267,
+          "p95Ms": 9.231,
+          "maxMs": 35.957,
+          "totalMs": 3860.497
         },
         "checkpoints": [
           {
             "requests": 1000,
-            "heapMb": 38.304,
-            "deltaMb": -0.475
+            "heapMb": 41.072,
+            "deltaMb": -0.267
           },
           {
             "requests": 2000,
-            "heapMb": 38.311,
-            "deltaMb": -0.468
+            "heapMb": 41.102,
+            "deltaMb": -0.237
           },
           {
             "requests": 3000,
-            "heapMb": 38.117,
-            "deltaMb": -0.662
+            "heapMb": 40.924,
+            "deltaMb": -0.415
           },
           {
             "requests": 4000,
-            "heapMb": 38.187,
-            "deltaMb": -0.592
+            "heapMb": 40.961,
+            "deltaMb": -0.378
           },
           {
             "requests": 5000,
-            "heapMb": 38.183,
-            "deltaMb": -0.596
+            "heapMb": 40.921,
+            "deltaMb": -0.418
           },
           {
             "requests": 6000,
-            "heapMb": 38.146,
-            "deltaMb": -0.633
+            "heapMb": 40.894,
+            "deltaMb": -0.445
           },
           {
             "requests": 7000,
-            "heapMb": 38.144,
-            "deltaMb": -0.635
+            "heapMb": 40.892,
+            "deltaMb": -0.447
           },
           {
             "requests": 8000,
-            "heapMb": 38.174,
-            "deltaMb": -0.605
+            "heapMb": 40.915,
+            "deltaMb": -0.424
           },
           {
             "requests": 9000,
-            "heapMb": 38.215,
-            "deltaMb": -0.564
+            "heapMb": 40.967,
+            "deltaMb": -0.372
           },
           {
             "requests": 10000,
-            "heapMb": 38.235,
-            "deltaMb": -0.544
+            "heapMb": 40.987,
+            "deltaMb": -0.352
           },
           {
             "requests": 11000,
-            "heapMb": 38.251,
-            "deltaMb": -0.528
+            "heapMb": 40.994,
+            "deltaMb": -0.345
           },
           {
             "requests": 12000,
-            "heapMb": 38.204,
-            "deltaMb": -0.575
+            "heapMb": 40.948,
+            "deltaMb": -0.391
           },
           {
             "requests": 13000,
-            "heapMb": 38.21,
-            "deltaMb": -0.569
+            "heapMb": 40.957,
+            "deltaMb": -0.382
           },
           {
             "requests": 14000,
-            "heapMb": 38.283,
-            "deltaMb": -0.496
+            "heapMb": 41.01,
+            "deltaMb": -0.329
           },
           {
             "requests": 15000,
-            "heapMb": 38.207,
-            "deltaMb": -0.572
+            "heapMb": 40.957,
+            "deltaMb": -0.382
           },
           {
             "requests": 16000,
-            "heapMb": 38.226,
-            "deltaMb": -0.553
+            "heapMb": 40.985,
+            "deltaMb": -0.354
           },
           {
             "requests": 17000,
-            "heapMb": 38.241,
-            "deltaMb": -0.538
+            "heapMb": 40.966,
+            "deltaMb": -0.373
           },
           {
             "requests": 18000,
-            "heapMb": 38.218,
-            "deltaMb": -0.561
+            "heapMb": 40.956,
+            "deltaMb": -0.383
           },
           {
             "requests": 19000,
-            "heapMb": 38.277,
-            "deltaMb": -0.502
+            "heapMb": 41.017,
+            "deltaMb": -0.322
           },
           {
             "requests": 20000,
-            "heapMb": 38.283,
-            "deltaMb": -0.496
+            "heapMb": 41.019,
+            "deltaMb": -0.32
           },
           {
             "requests": 21000,
-            "heapMb": 38.223,
-            "deltaMb": -0.556
+            "heapMb": 40.964,
+            "deltaMb": -0.375
           },
           {
             "requests": 22000,
-            "heapMb": 38.219,
-            "deltaMb": -0.56
+            "heapMb": 40.972,
+            "deltaMb": -0.367
           },
           {
             "requests": 23000,
-            "heapMb": 38.236,
-            "deltaMb": -0.543
+            "heapMb": 40.972,
+            "deltaMb": -0.367
           },
           {
             "requests": 24000,
-            "heapMb": 38.282,
-            "deltaMb": -0.497
+            "heapMb": 41.02,
+            "deltaMb": -0.319
           },
           {
             "requests": 25000,
-            "heapMb": 38.28,
-            "deltaMb": -0.499
+            "heapMb": 41.02,
+            "deltaMb": -0.319
           },
           {
             "requests": 26000,
-            "heapMb": 38.307,
-            "deltaMb": -0.472
+            "heapMb": 41.035,
+            "deltaMb": -0.304
           },
           {
             "requests": 27000,
-            "heapMb": 38.232,
-            "deltaMb": -0.547
+            "heapMb": 40.98,
+            "deltaMb": -0.359
           },
           {
             "requests": 28000,
-            "heapMb": 38.243,
-            "deltaMb": -0.536
+            "heapMb": 40.999,
+            "deltaMb": -0.34
           },
           {
             "requests": 29000,
-            "heapMb": 38.253,
-            "deltaMb": -0.526
+            "heapMb": 40.978,
+            "deltaMb": -0.361
           },
           {
             "requests": 30000,
-            "heapMb": 38.241,
-            "deltaMb": -0.538
+            "heapMb": 40.986,
+            "deltaMb": -0.353
           },
           {
             "requests": 31000,
-            "heapMb": 38.291,
-            "deltaMb": -0.488
+            "heapMb": 41.033,
+            "deltaMb": -0.306
           },
           {
             "requests": 32000,
-            "heapMb": 38.281,
-            "deltaMb": -0.498
+            "heapMb": 41.024,
+            "deltaMb": -0.315
           },
           {
             "requests": 33000,
-            "heapMb": 38.253,
-            "deltaMb": -0.526
+            "heapMb": 40.993,
+            "deltaMb": -0.346
           },
           {
             "requests": 34000,
-            "heapMb": 38.263,
-            "deltaMb": -0.516
+            "heapMb": 41,
+            "deltaMb": -0.339
           },
           {
             "requests": 35000,
-            "heapMb": 38.26,
-            "deltaMb": -0.519
+            "heapMb": 41.002,
+            "deltaMb": -0.337
           },
           {
             "requests": 36000,
-            "heapMb": 38.266,
-            "deltaMb": -0.513
+            "heapMb": 41.006,
+            "deltaMb": -0.333
           },
           {
             "requests": 37000,
-            "heapMb": 38.311,
-            "deltaMb": -0.468
+            "heapMb": 41.05,
+            "deltaMb": -0.289
           },
           {
             "requests": 38000,
-            "heapMb": 38.329,
-            "deltaMb": -0.45
+            "heapMb": 41.057,
+            "deltaMb": -0.282
           },
           {
             "requests": 39000,
-            "heapMb": 38.273,
-            "deltaMb": -0.506
+            "heapMb": 41.02,
+            "deltaMb": -0.319
           },
           {
             "requests": 40000,
-            "heapMb": 38.282,
-            "deltaMb": -0.497
+            "heapMb": 41.038,
+            "deltaMb": -0.301
           },
           {
             "requests": 41000,
-            "heapMb": 38.278,
-            "deltaMb": -0.501
+            "heapMb": 41.006,
+            "deltaMb": -0.333
           },
           {
             "requests": 42000,
-            "heapMb": 38.306,
-            "deltaMb": -0.473
+            "heapMb": 41.052,
+            "deltaMb": -0.287
           },
           {
             "requests": 43000,
-            "heapMb": 38.317,
-            "deltaMb": -0.462
+            "heapMb": 41.058,
+            "deltaMb": -0.281
           },
           {
             "requests": 44000,
-            "heapMb": 38.325,
-            "deltaMb": -0.454
+            "heapMb": 41.062,
+            "deltaMb": -0.277
           },
           {
             "requests": 45000,
-            "heapMb": 38.255,
-            "deltaMb": -0.524
+            "heapMb": 40.997,
+            "deltaMb": -0.342
           },
           {
             "requests": 46000,
-            "heapMb": 38.263,
-            "deltaMb": -0.516
+            "heapMb": 41.009,
+            "deltaMb": -0.33
           },
           {
             "requests": 47000,
-            "heapMb": 38.31,
-            "deltaMb": -0.469
+            "heapMb": 41.055,
+            "deltaMb": -0.284
           },
           {
             "requests": 48000,
-            "heapMb": 38.283,
-            "deltaMb": -0.496
+            "heapMb": 41.027,
+            "deltaMb": -0.312
           },
           {
             "requests": 49000,
-            "heapMb": 38.288,
-            "deltaMb": -0.491
+            "heapMb": 41.032,
+            "deltaMb": -0.307
           },
           {
             "requests": 50000,
-            "heapMb": 38.312,
-            "deltaMb": -0.467
+            "heapMb": 41.044,
+            "deltaMb": -0.295
           }
         ]
       },
@@ -394,18 +459,21 @@
         "sustainedRequests": 8192,
         "totalChaoticRequests": 2048,
         "interleavingRequests": 192,
+        "boundaryMatrixRequests": 256,
         "lifecycleRequests": 512,
         "reactStreamingRequests": 256,
-        "memoryCycles": 50000
+        "reactStreamingAbortRequests": 64,
+        "memoryCycles": 50000,
+        "reactReadableRequests": 192
       },
       "timing": {
-        "count": 20,
-        "medianMs": 137.664,
-        "p95Ms": 200.834,
-        "maxMs": 205.358,
-        "totalMs": 2044.7
+        "count": 28,
+        "medianMs": 36.058,
+        "p95Ms": 217.707,
+        "maxMs": 221.937,
+        "totalMs": 2367
       },
-      "totalWallMs": 9678.769,
+      "totalWallMs": 10170.827,
       "invariants": {
         "foreignReadCount": 0,
         "contextMismatchCount": 0,
@@ -426,68 +494,68 @@
       "detachedProbes": 2048,
       "requestTiming": {
         "count": 1024,
-        "medianMs": 0.09,
-        "p95Ms": 1.309,
-        "maxMs": 1.439,
-        "totalMs": 478.349
+        "medianMs": 0.126,
+        "p95Ms": 1.357,
+        "maxMs": 10.054,
+        "totalMs": 525.934
       },
       "waveTiming": {
         "count": 8,
-        "medianMs": 207.435,
-        "p95Ms": 210.502,
-        "maxMs": 210.502,
-        "totalMs": 1651.703
+        "medianMs": 210.886,
+        "p95Ms": 242.78,
+        "maxMs": 242.78,
+        "totalMs": 1715.455
       },
-      "retainedGrowthMb": 0.012,
-      "peakDeltaMb": 0.062,
+      "retainedGrowthMb": -0.016,
+      "peakDeltaMb": 0.046,
       "checkpoints": [
         {
           "wave": 1,
           "requests": 128,
-          "heapMb": 38.079,
-          "deltaMb": -0.006
+          "heapMb": 40.844,
+          "deltaMb": 0.003
         },
         {
           "wave": 2,
           "requests": 256,
-          "heapMb": 38.083,
-          "deltaMb": -0.002
+          "heapMb": 40.849,
+          "deltaMb": 0.008
         },
         {
           "wave": 3,
           "requests": 384,
-          "heapMb": 38.083,
-          "deltaMb": -0.002
+          "heapMb": 40.848,
+          "deltaMb": 0.007
         },
         {
           "wave": 4,
           "requests": 512,
-          "heapMb": 38.084,
-          "deltaMb": -0.001
+          "heapMb": 40.849,
+          "deltaMb": 0.008
         },
         {
           "wave": 5,
           "requests": 640,
-          "heapMb": 38.122,
-          "deltaMb": 0.037
+          "heapMb": 40.886,
+          "deltaMb": 0.046
         },
         {
           "wave": 6,
           "requests": 768,
-          "heapMb": 38.126,
-          "deltaMb": 0.04
+          "heapMb": 40.854,
+          "deltaMb": 0.013
         },
         {
           "wave": 7,
           "requests": 896,
-          "heapMb": 38.147,
-          "deltaMb": 0.062
+          "heapMb": 40.871,
+          "deltaMb": 0.03
         },
         {
           "wave": 8,
           "requests": 1024,
-          "heapMb": 38.108,
-          "deltaMb": 0.022
+          "heapMb": 40.871,
+          "deltaMb": 0.031
         }
       ],
       "invariants": {
@@ -506,12 +574,12 @@
           "detachedProbes": 192,
           "timing": {
             "count": 96,
-            "medianMs": 0.047,
-            "p95Ms": 0.092,
-            "maxMs": 0.787,
-            "totalMs": 5.912
+            "medianMs": 0.082,
+            "p95Ms": 0.181,
+            "maxMs": 0.84,
+            "totalMs": 10.546
           },
-          "retainedGrowthMb": 0.096,
+          "retainedGrowthMb": 0.103,
           "invariants": {
             "detachedLeakCount": 0,
             "globalResidualCount": 0,
@@ -525,12 +593,12 @@
           "detachedProbes": 192,
           "timing": {
             "count": 96,
-            "medianMs": 1.266,
-            "p95Ms": 1.348,
-            "maxMs": 1.64,
-            "totalMs": 120.315
+            "medianMs": 1.306,
+            "p95Ms": 1.428,
+            "maxMs": 2.012,
+            "totalMs": 123.314
           },
-          "retainedGrowthMb": -0.003,
+          "retainedGrowthMb": -0.002,
           "invariants": {
             "detachedLeakCount": 0,
             "globalResidualCount": 0,
@@ -544,12 +612,12 @@
           "detachedProbes": 0,
           "timing": {
             "count": 96,
-            "medianMs": 1.188,
-            "p95Ms": 1.254,
-            "maxMs": 1.329,
-            "totalMs": 113.614
+            "medianMs": 1.214,
+            "p95Ms": 1.334,
+            "maxMs": 1.615,
+            "totalMs": 117.51
           },
-          "retainedGrowthMb": 0.035,
+          "retainedGrowthMb": 0.034,
           "invariants": {
             "detachedLeakCount": 0,
             "globalResidualCount": 0,
@@ -564,24 +632,24 @@
       "pairs": 48,
       "renderPairTiming": {
         "count": 48,
-        "medianMs": 0.26,
-        "p95Ms": 0.345,
-        "maxMs": 0.607,
-        "totalMs": 13.418
+        "medianMs": 0.318,
+        "p95Ms": 0.532,
+        "maxMs": 1.802,
+        "totalMs": 18.151
       },
       "actionPairTiming": {
         "count": 48,
-        "medianMs": 0.095,
-        "p95Ms": 0.174,
-        "maxMs": 0.211,
-        "totalMs": 4.919
+        "medianMs": 0.106,
+        "p95Ms": 0.251,
+        "maxMs": 0.53,
+        "totalMs": 6.44
       },
       "pairTiming": {
         "count": 48,
-        "medianMs": 0.359,
-        "p95Ms": 0.464,
-        "maxMs": 0.786,
-        "totalMs": 18.509
+        "medianMs": 0.439,
+        "p95Ms": 0.892,
+        "maxMs": 2.352,
+        "totalMs": 24.832
       },
       "invariants": {
         "stateMismatchCount": 0,
@@ -597,10 +665,10 @@
           "updatesPerRun": 24,
           "timing": {
             "count": 8,
-            "medianMs": 5.048,
-            "p95Ms": 14.796,
-            "maxMs": 14.796,
-            "totalMs": 50.016
+            "medianMs": 5.784,
+            "p95Ms": 16.037,
+            "maxMs": 16.037,
+            "totalMs": 56.073
           },
           "averageRenders": 73,
           "invariantViolations": 0,
@@ -616,10 +684,10 @@
           "updatesPerRun": 24,
           "timing": {
             "count": 8,
-            "medianMs": 4.088,
-            "p95Ms": 5.076,
-            "maxMs": 5.076,
-            "totalMs": 34.064
+            "medianMs": 4.771,
+            "p95Ms": 5.171,
+            "maxMs": 5.171,
+            "totalMs": 38.096
           },
           "averageRenders": 73,
           "invariantViolations": 0,
@@ -638,10 +706,10 @@
       "afterClose": 4,
       "timing": {
         "count": 24,
-        "medianMs": 6.359,
-        "p95Ms": 6.485,
-        "maxMs": 7.277,
-        "totalMs": 151.299
+        "medianMs": 6.64,
+        "p95Ms": 7.692,
+        "maxMs": 10.807,
+        "totalMs": 161.923
       },
       "invariants": {
         "mismatchCount": 0,
@@ -656,10 +724,10 @@
       "partialCommitCount": 0,
       "timing": {
         "count": 48,
-        "medianMs": 0.079,
-        "p95Ms": 0.143,
-        "maxMs": 0.302,
-        "totalMs": 4.123
+        "medianMs": 0.12,
+        "p95Ms": 0.261,
+        "maxMs": 0.644,
+        "totalMs": 6.761
       },
       "finalState": {
         "inventory": {
@@ -694,10 +762,10 @@
       "operationsPerWave": 80,
       "timing": {
         "count": 24,
-        "medianMs": 0.901,
-        "p95Ms": 1.259,
-        "maxMs": 1.308,
-        "totalMs": 22.417
+        "medianMs": 1.039,
+        "p95Ms": 1.326,
+        "maxMs": 1.326,
+        "totalMs": 24.744
       },
       "invariantViolations": 0,
       "stateMismatchCount": 0,
@@ -717,7 +785,15 @@
     },
     {
       "name": "Hydration Divergence Guarantee Suite",
-      "bootWindowMode": "manual",
+      "bootWindowMode": "mixed",
+      "bootWindowModesSeen": [
+        "manual",
+        "timer"
+      ],
+      "guaranteeBoundariesSeen": [
+        "manual-close",
+        "timer-close"
+      ],
       "campaigns": [
         {
           "name": "Try: mixed-source queue stays sealed until explicit close",
@@ -726,10 +802,10 @@
           "writesPerRun": 5,
           "timing": {
             "count": 16,
-            "medianMs": 17.858,
-            "p95Ms": 18.963,
-            "maxMs": 18.963,
-            "totalMs": 286.98
+            "medianMs": 17.827,
+            "p95Ms": 19.072,
+            "maxMs": 19.072,
+            "totalMs": 290.925
           },
           "queuedWritesSeen": [
             5
@@ -768,16 +844,49 @@
           "note": "Proves no pre-close leak across effect, storage, sync, and network writes when the boot window is closed manually."
         },
         {
+          "name": "Timer: auto-close flushes queued writes deterministically",
+          "profile": "timer",
+          "runs": 8,
+          "writesPerRun": 3,
+          "timing": {
+            "count": 8,
+            "medianMs": 30.427,
+            "p95Ms": 30.786,
+            "maxMs": 30.786,
+            "totalMs": 241.974
+          },
+          "queuedWritesSeen": [
+            3
+          ],
+          "replayedWritesSeen": [
+            3
+          ],
+          "driftEventsSeen": [
+            3
+          ],
+          "sourceOrderPreviews": [
+            "effect>storage>sync"
+          ],
+          "unexpectedOutcomes": 0,
+          "invariantViolations": 0,
+          "guaranteeBoundary": "timer-close",
+          "finalStateSample": {
+            "revision": 3,
+            "source": "sync"
+          },
+          "note": "Exercises timer-mode boot windows (no manual close) while still proving sealed queues + deterministic replay ordering."
+        },
+        {
           "name": "Hit: policy matrix stays deterministic after replay",
           "profile": "hit",
           "runs": 12,
           "writesPerRun": 4,
           "timing": {
             "count": 12,
-            "medianMs": 18.594,
-            "p95Ms": 19.152,
-            "maxMs": 19.152,
-            "totalMs": 221.543
+            "medianMs": 18.834,
+            "p95Ms": 19.763,
+            "maxMs": 19.763,
+            "totalMs": 223.26
           },
           "queuedWritesSeen": [
             4
@@ -826,10 +935,10 @@
           "writesPerRun": 18,
           "timing": {
             "count": 18,
-            "medianMs": 14.328,
-            "p95Ms": 14.467,
-            "maxMs": 14.467,
-            "totalMs": 251.143
+            "medianMs": 14.468,
+            "p95Ms": 14.961,
+            "maxMs": 14.961,
+            "totalMs": 258.032
           },
           "queuedWritesSeen": [
             18
@@ -853,16 +962,63 @@
           "note": "Runs mixed-source writes across microtask and timer boundaries while the queue is open, then verifies exact replay order."
         },
         {
+          "name": "No Mercy: capped drift events, custom deferSources, and network abort remain deterministic",
+          "profile": "no_mercy",
+          "runs": 6,
+          "writesPerRun": 14,
+          "timing": {
+            "count": 6,
+            "medianMs": 13.455,
+            "p95Ms": 13.69,
+            "maxMs": 13.69,
+            "totalMs": 80.898
+          },
+          "queuedWritesSeen": [
+            14
+          ],
+          "replayedWritesSeen": [
+            14
+          ],
+          "driftEventsSeen": [
+            20
+          ],
+          "sourceOrderPreviews": [
+            "storage>sync>storage>sync>storage>sync>network>network"
+          ],
+          "unexpectedOutcomes": 0,
+          "invariantViolations": 0,
+          "guaranteeBoundary": "manual-close",
+          "finalStateSample": {
+            "timeline": {
+              "revision": 2006,
+              "source": "sync",
+              "trail": [
+                "seed",
+                "sync-6"
+              ]
+            },
+            "remote": {
+              "data": "server",
+              "loading": false,
+              "error": "aborted",
+              "status": "aborted",
+              "cached": false,
+              "revalidating": false
+            }
+          },
+          "note": "Forces maxEvents truncation, excludes effect from deferSources, and aborts a network write while still enforcing sealed queues + deterministic tail ordering."
+        },
+        {
           "name": "Hammer: high-volume queued writes survive without leak or reorder",
           "profile": "hammer",
           "runs": 8,
           "writesPerRun": 72,
           "timing": {
             "count": 8,
-            "medianMs": 31.123,
-            "p95Ms": 31.474,
-            "maxMs": 31.474,
-            "totalMs": 247.656
+            "medianMs": 30.962,
+            "p95Ms": 33.304,
+            "maxMs": 33.304,
+            "totalMs": 248.62
           },
           "queuedWritesSeen": [
             72
@@ -896,9 +1052,9 @@
         }
       ],
       "certification": {
-        "guaranteeBoundary": "manual-close",
-        "certifiedRuns": 54,
-        "totalQueuedWrites": 1028,
+        "guaranteeBoundary": "mixed",
+        "certifiedRuns": 68,
+        "totalQueuedWrites": 1136,
         "unexpectedOutcomes": 0,
         "invariantViolations": 0
       }
@@ -920,10 +1076,10 @@
           "operationsPerRun": 36,
           "timing": {
             "count": 6,
-            "medianMs": 24.523,
-            "p95Ms": 25.576,
-            "maxMs": 25.576,
-            "totalMs": 146.717
+            "medianMs": 25.686,
+            "p95Ms": 30.493,
+            "maxMs": 30.493,
+            "totalMs": 159.219
           },
           "driftEventsSeen": [
             36
@@ -983,10 +1139,10 @@
           "operationsPerRun": 36,
           "timing": {
             "count": 6,
-            "medianMs": 25.623,
-            "p95Ms": 26.063,
-            "maxMs": 26.063,
-            "totalMs": 153.119
+            "medianMs": 26.073,
+            "p95Ms": 26.345,
+            "maxMs": 26.345,
+            "totalMs": 154.827
           },
           "driftEventsSeen": [
             36
@@ -1044,10 +1200,10 @@
           "operationsPerRun": 36,
           "timing": {
             "count": 6,
-            "medianMs": 26.452,
-            "p95Ms": 27.241,
-            "maxMs": 27.241,
-            "totalMs": 159.126
+            "medianMs": 26.529,
+            "p95Ms": 31.025,
+            "maxMs": 31.025,
+            "totalMs": 163.328
           },
           "driftEventsSeen": [
             36
@@ -1096,7 +1252,7 @@
         }
       ],
       "totalRuns": 36,
-      "totalWallMs": 475.308
+      "totalWallMs": 493.979
     },
     {
       "name": "Determinism Replay Test",
@@ -1104,10 +1260,10 @@
       "uniqueOutputCount": 1,
       "timing": {
         "count": 20,
-        "medianMs": 22.676,
-        "p95Ms": 25.219,
-        "maxMs": 29.646,
-        "totalMs": 466.342
+        "medianMs": 24.185,
+        "p95Ms": 24.716,
+        "maxMs": 25.122,
+        "totalMs": 479.881
       }
     },
     {
@@ -1115,39 +1271,39 @@
       "warmupCycles": 40,
       "measuredCycles": 240,
       "subscribersPerStore": 12,
-      "baselineHeapMb": 42.646,
-      "finalHeapMb": 45.121,
-      "retainedGrowthMb": 2.475,
-      "peakDeltaMb": 2.477,
+      "baselineHeapMb": 45.438,
+      "finalHeapMb": 47.91,
+      "retainedGrowthMb": 2.471,
+      "peakDeltaMb": 2.473,
       "checkpoints": [
         {
           "cycle": 40,
-          "heapMb": 43.05,
+          "heapMb": 45.838,
           "storeCount": 0
         },
         {
           "cycle": 80,
-          "heapMb": 43.469,
+          "heapMb": 46.254,
           "storeCount": 0
         },
         {
           "cycle": 120,
-          "heapMb": 43.902,
+          "heapMb": 46.695,
           "storeCount": 0
         },
         {
           "cycle": 160,
-          "heapMb": 44.285,
+          "heapMb": 47.074,
           "storeCount": 0
         },
         {
           "cycle": 200,
-          "heapMb": 44.699,
+          "heapMb": 47.488,
           "storeCount": 0
         },
         {
           "cycle": 240,
-          "heapMb": 45.123,
+          "heapMb": 47.911,
           "storeCount": 0
         }
       ]
@@ -1168,17 +1324,17 @@
       },
       "previewTiming": {
         "count": 5,
-        "medianMs": 0.013,
-        "p95Ms": 0.025,
-        "maxMs": 0.025,
-        "totalMs": 0.082
+        "medianMs": 0.014,
+        "p95Ms": 0.021,
+        "maxMs": 0.021,
+        "totalMs": 0.077
       },
       "commitTiming": {
         "count": 4,
-        "medianMs": 0.074,
-        "p95Ms": 0.136,
-        "maxMs": 0.136,
-        "totalMs": 0.349
+        "medianMs": 0.065,
+        "p95Ms": 0.13,
+        "maxMs": 0.13,
+        "totalMs": 0.306
       },
       "committedTotals": [
         45,

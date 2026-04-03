@@ -1,6 +1,6 @@
 # Benchmark Report
 
-Latest rerun: `2026-04-02`
+Latest rerun: `2026-04-03`
 
 This report is derived from the committed JSON outputs in `scripts/*-output.json`. The goal is twofold:
 - certify correctness invariants under concurrent SSR + hydration edge cases
@@ -8,7 +8,7 @@ This report is derived from the committed JSON outputs in `scripts/*-output.json
 
 ## Quick View
 
-- SSR isolation: `0` correctness violations across `2 x 1,024` burst requests, `8,192` sustained requests, `256` concurrent React streaming SSR requests, and `50,000` long-tail memory cycles.
+- SSR isolation: `0` correctness violations across burst (`2 x 1,024`), sustained (`8,192`), interleaving (`192`), async-boundary matrix (`256`), React pipeable-stream SSR (`256`), client-abort streaming (`64`), edge readable-stream SSR (`192`), and long-tail memory (`50,000`).
 - Warm-container + provider-model: `0` detached leaks and `0` global residuals across the warm Node model and the AWS/Vercel/Workers provider models.
 - React 18 concurrency: `0` invariant violations under both `useTransition` and `useDeferredValue` runs.
 - WebSocket hydration stream: `0` mismatches with `6` queued writes replayed deterministically before close.
@@ -26,7 +26,7 @@ Raw outputs:
 
 | Field | Value |
 | --- | --- |
-| Date | `2026-04-02` |
+| Date | `2026-04-03` |
 | Node | `v24.14.1` |
 | Platform | `darwin` |
 | Arch | `arm64` |
@@ -57,7 +57,7 @@ Results below are from [`scripts/guarantee-benchmark-suite-output.json`](../../s
 
 | Certification | Key Result | Status |
 | --- | --- | --- |
-| SSR isolation | `0` violations across burst, sustained, React streaming SSR, and long-tail memory | Pass |
+| SSR isolation | `0` violations across burst, sustained, interleaving, async boundary matrix, React streaming (pipeable + readable), client abort, and long-tail memory | Pass |
 | SSR warm container | `0` detached leaks, `0` global residuals across `1,024` sequential requests | Pass |
 | Serverless provider model | `288` total invocations across AWS/Vercel/Workers models with `0` leaks/residuals | Pass |
 | Next.js Server Actions boundary | `48` render/action pairs, `stateMismatchCount = 0`, `crossCaptureBleedCount = 0` | Pass |
@@ -65,7 +65,7 @@ Results below are from [`scripts/guarantee-benchmark-suite-output.json`](../../s
 | WebSocket hydration stream | `24` runs, queued `6` writes pre-close replayed in order, `mismatchCount = 0` | Pass |
 | Atomic failure injection | `48` iterations, `36` rollbacks, `partialCommitCount = 0` | Pass |
 | Race resistance | `24` waves x `80` ops, `invariantViolations = 0`, `stateMismatchCount = 0` | Pass |
-| Hydration divergence | `54` certified runs, `1,028` queued writes, `unexpectedOutcomes = 0`, `invariantViolations = 0` | Pass |
+| Hydration divergence | `68` certified runs, `1,136` queued writes, boundary = `mixed`, `unexpectedOutcomes = 0`, `invariantViolations = 0` | Pass |
 | Hydration randomized | `36` runs, `mismatches = 0` across `client_wins`, `server_wins`, `merge` | Pass |
 | Determinism replay | `20` replays, `uniqueOutputCount = 1` | Pass |
 | Memory leak detection | `240` measured cycles, store count returns to `0` at every checkpoint | Pass |
@@ -74,16 +74,20 @@ Results below are from [`scripts/guarantee-benchmark-suite-output.json`](../../s
 ### SSR Isolation (Expanded)
 
 - Burst chaos: `2 x 1,024` concurrent requests (seeded interleavings, controlled aborts)
-- Sustained pressure: `8 x 1,024` concurrent (`8,192` total), throughput `5895.459 req/s`
+- Sustained pressure: `8 x 1,024` concurrent (`8,192` total), throughput `5555.721 req/s`
+- Cross-request interleaving: `96` pairs (`192` requests) with forced pause/resume
+- Async boundary matrix: `256` concurrent requests across Promise/microtask/nextTick/immediate/timeout/MessageChannel/EventEmitter/crypto
 - React streaming SSR: `256` concurrent HTTP requests using `renderToPipeableStream` + nested `Suspense`
-- Long-tail memory: `50,000` cycles, memory slope `0.002 MB / 1k`, `retainedGrowthMb = -0.522`
-- Invariants: `foreignReadCount = 0`, `contextMismatchCount = 0`, `registryResidualCount = 0`, `subscriberResidualCount = 0`
+- React streaming abort: `64` client disconnects; server aborts the render stream on `res.close`
+- Edge readable-stream SSR: `192` concurrent renders using `renderToReadableStream` (`react-dom/server.browser`)
+- Long-tail memory: `50,000` cycles, memory slope `0.002 MB / 1k`, `retainedGrowthMb = -0.328`
+- Invariants: `foreignReadCount = 0`, `contextMismatchCount = 0`, `postLifecycleAccessSuccess = 0`, `registryResidualCount = 0`, `subscriberResidualCount = 0`
 
 <details>
 <summary>Raw (jq snippet)</summary>
 
 ```bash
-jq '.results[] | select(.name==\"SSR Isolation Certification Suite\") | {requests, sustainedPressure, reactStreamingHttp, memoryStability, invariants}' scripts/guarantee-benchmark-suite-output.json
+jq '.results[] | select(.name==\"SSR Isolation Certification Suite\") | {requests, boundaryMatrix, sustainedPressure, reactStreamingHttp, reactStreamingHttpAbort, reactStreamingReadable, memoryStability, invariants}' scripts/guarantee-benchmark-suite-output.json
 ```
 
 </details>
@@ -256,4 +260,3 @@ Raw output: [`scripts/hydration-large-payload-benchmark-output.json`](../../scri
 | `256 KB` | `262,551` | `0.376ms` | `90.228ms` | `81.826ms` | `7.375 MB` | `0` |
 | `1024 KB` | `1,048,881` | `1.371ms` | `822.616ms` | `836.635ms` | `15.492 MB` | `0` |
 | `2048 KB` | `2,097,591` | `2.566ms` | `3108.530ms` | `3069.392ms` | `19.229 MB` | `0` |
-
