@@ -152,7 +152,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
         registry,
         snapshot: () => cloneRequestScopeCapture({
             snapshot: buffer,
-            options: bufferedOptions as unknown as RequestScopeOptions<StateMap>,
+            options: bufferedOptions as RequestScopeOptions<StateMap>,
         }).snapshot,
         capture: () => {
             const carrier = serverAsyncContext.getStore();
@@ -161,7 +161,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
             }
             return cloneRequestScopeCapture({
                 snapshot: buffer,
-                options: bufferedOptions as unknown as RequestScopeOptions<StateMap>,
+                options: bufferedOptions as RequestScopeOptions<StateMap>,
             });
         },
         hydrate: <T>(
