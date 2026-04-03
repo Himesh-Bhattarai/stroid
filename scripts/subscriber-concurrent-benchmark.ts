@@ -66,7 +66,9 @@ const p95 = (values: number[]): number => {
   return sorted[index];
 };
 
-const createUniqueNoop = (seed: number) => (state: any) => {
+type StoreSnapshot = { value?: number } | null;
+
+const createUniqueNoop = (seed: number) => (state: StoreSnapshot) => {
   sink += ((state?.value ?? 0) & 1) ^ (seed & 0);
 };
 
@@ -93,7 +95,7 @@ const prepareScenario = (scenario: ScenarioConfig) => {
   let endTime = 0;
 
   const markerOffs = storeNames.map((name) =>
-    _subscribe(name, (state: any) => {
+    _subscribe(name, (state: StoreSnapshot) => {
       if (resolver === null || !pendingStoreNames.has(name)) return;
       if (state?.value !== expectedByStore.get(name)) return;
       pendingStoreNames.delete(name);

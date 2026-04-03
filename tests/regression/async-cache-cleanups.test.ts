@@ -15,14 +15,22 @@ test("registerStoreCleanup normalizes kind to avoid prototype keys", () => {
   resetAllStoresForTest();
   const cleanup = () => {};
 
-  registerStoreCleanup("cleanupProto", cleanup, "__proto__" as any);
+  registerStoreCleanup(
+    "cleanupProto",
+    cleanup,
+    "__proto__" as unknown as Parameters<typeof registerStoreCleanup>[2],
+  );
 
   const bucket = getStoreCleanups().get("cleanupProto");
   assert.ok(bucket);
   assert.ok(bucket.store instanceof Set);
-  assert.strictEqual((bucket as any).__proto__, undefined);
+  assert.strictEqual((bucket as unknown as { __proto__?: unknown }).__proto__, undefined);
 
-  unregisterStoreCleanup("cleanupProto", cleanup, "__proto__" as any);
+  unregisterStoreCleanup(
+    "cleanupProto",
+    cleanup,
+    "__proto__" as unknown as Parameters<typeof unregisterStoreCleanup>[2],
+  );
   assert.strictEqual(getStoreCleanups().get("cleanupProto"), undefined);
 });
 
@@ -38,7 +46,7 @@ test("registerStoreCleanup does not prototype-pollute via store name", () => {
 
   // If cleanup tracking were implemented on a normal object with "__proto__" keys,
   // this would show up as a polluted prototype property.
-  assert.strictEqual(({} as any).store, undefined);
+  assert.strictEqual(({} as { store?: unknown }).store, undefined);
 
   unregisterStoreCleanup("__proto__", cleanup, "store");
   assert.strictEqual(getStoreCleanups().get("__proto__"), undefined);

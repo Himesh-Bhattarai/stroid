@@ -20,7 +20,7 @@ const createMarker = (name: string) => {
   let resolver: (() => void) | null = null;
   let endTime = 0;
 
-  const off = _subscribe(name, (state: any) => {
+  const off = _subscribe(name, (state: { value?: number } | null) => {
     if (state?.value !== expected || resolver === null) return;
     endTime = performance.now();
     const current = resolver;

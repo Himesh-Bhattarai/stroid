@@ -27,6 +27,8 @@ import { applyFeatureState } from "../../src/core/store-lifecycle/registry.js";
 const wait = async (ms: number): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, ms));
 
+type RemoteState = { data: string | null; loading: boolean; error: string | null; status: string };
+
 test("hydrateStores exposes hydration consistency metadata through runtime-tools", () => {
   resetAllStoresForTest();
   createStore("profile", { name: "server" });
@@ -254,7 +256,7 @@ test("hydration boot window defers slow network revalidation until replay", asyn
 
   await wait(20);
 
-  const remote = getStore("remote") as any;
+  const remote = getStore("remote") as RemoteState | null;
   assert.strictEqual(remote?.data, "fresh");
   assert.strictEqual(remote?.loading, false);
 
@@ -338,7 +340,7 @@ test("merge policy combines hydrated baseline fields with client drift", () => {
   setStore("settings", {
     lang: "np",
     nested: { client: true },
-  } as any);
+  } as unknown as Partial<{ theme: string; lang: string; nested: { server: boolean; client: boolean } }>);
 
   assert.deepStrictEqual(getStore("settings"), {
     theme: "light",
@@ -400,7 +402,7 @@ test("invalidate_and_refetch marks drift and accepts the replayed network refres
     loading: false,
     error: null,
     status: "success",
-  } as any);
+  } as RemoteState);
 
   let invalidations = 0;
   hydrateStores(
@@ -431,7 +433,7 @@ test("invalidate_and_refetch marks drift and accepts the replayed network refres
     loading: false,
     error: null,
     status: "success",
-  } as any);
+  } as RemoteState);
 
   const [event] = getHydrationDriftEvents(1);
   assert.strictEqual(event?.resolution, "invalidated");
@@ -440,7 +442,7 @@ test("invalidate_and_refetch marks drift and accepts the replayed network refres
   await wait(0);
   await wait(0);
 
-  const remote = getStore("remote") as any;
+  const remote = getStore("remote") as RemoteState | null;
   assert.strictEqual(remote?.data, "fresh");
   assert.strictEqual(getHydrationDriftMetrics().invalidations, 1);
 });

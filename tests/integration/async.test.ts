@@ -32,6 +32,59 @@ const deferred = <T,>() => {
   return { promise, resolve, reject };
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isNumberArray = (value: unknown): value is number[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "number");
+
+type AsyncStoreState = {
+  data: unknown;
+  loading: boolean;
+  error: string | null;
+  status: "idle" | "loading" | "success" | "error" | "aborted";
+  cached?: boolean;
+  revalidating?: boolean;
+};
+
+const isAsyncStoreState = (value: unknown): value is AsyncStoreState =>
+  isRecord(value)
+  && typeof value.loading === "boolean"
+  && (typeof value.error === "string" || value.error === null)
+  && (
+    value.status === "idle"
+    || value.status === "loading"
+    || value.status === "success"
+    || value.status === "error"
+    || value.status === "aborted"
+  );
+
+const getAsyncStoreState = (name: string): AsyncStoreState => {
+  const state = getStore(name);
+  assert.ok(isAsyncStoreState(state), `expected async state for "${name}"`);
+  return state;
+};
+
+const makeJsonResponse = (data: unknown): Response => ({
+  ok: true,
+  status: 200,
+  statusText: "OK",
+  headers: { get: () => "application/json" },
+  json: async () => data,
+  text: async () => JSON.stringify(data),
+} as unknown as Response);
+
+type MinimalWindow = {
+  addEventListener: (event: string, handler: () => void) => void;
+  removeEventListener: (event: string, handler: () => void) => void;
+};
+
+type GlobalTestEnv = typeof globalThis & {
+  window?: Window | MinimalWindow;
+};
+
+const g = globalThis as GlobalTestEnv;
+
 const ensureAsyncStore = (name: string) => {
   createStore(name, {
     data: null,
@@ -44,14 +97,17 @@ const ensureAsyncStore = (name: string) => {
 test("fetchStore stateAdapter writes into a custom store shape", async () => {
   clearAllStores();
   createStore("customAsync", { items: [] as number[], loading: false, error: null });
+  type CustomAsyncState = { items: number[]; loading: boolean; error: string | null };
 
   const result = await fetchStore("customAsync", Promise.resolve([1, 2]), {
     stateAdapter: ({ next, set }) => {
-      set((draft: any) => {
-        draft.loading = next.loading;
-        draft.error = next.error;
-        if (next.status === "success" && next.data) {
-          draft.items = next.data as number[];
+      set((draft) => {
+        if (!isRecord(draft)) return;
+        const custom = draft as unknown as CustomAsyncState;
+        custom.loading = next.loading;
+        custom.error = next.error;
+        if (next.status === "success" && isNumberArray(next.data)) {
+          custom.items = next.data;
         }
       });
     },
@@ -60,7 +116,8 @@ test("fetchStore stateAdapter writes into a custom store shape", async () => {
   assert.deepStrictEqual(result, [1, 2]);
   const state = getStore("customAsync");
   assert.deepStrictEqual(state, { items: [1, 2], loading: false, error: null });
-  assert.strictEqual((state as any)?.status, undefined);
+  assert.ok(isRecord(state));
+  assert.strictEqual(state.status, undefined);
 });
 
 test("fetchStore warns when overwriting a non-async store without stateAdapter", async () => {
@@ -81,7 +138,7 @@ test("fetchStore warns when overwriting a non-async store without stateAdapter",
   }
 
   assert.ok(warnings.some((msg) => msg.includes("non-async store")));
-  const state = getStore("profile") as any;
+  const state = getStore("profile");
   assert.deepStrictEqual(state, { name: "Alex" });
 });
 
@@ -178,14 +235,7 @@ test("fetchStore dedupes inflight requests", async () => {
   globalThis.fetch = (async () => {
     callCount += 1;
     await wait(10);
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: { get: () => "application/json" },
-      json: async () => ({ value: "deduped" }),
-      text: async () => JSON.stringify({ value: "deduped" }),
-    } as any;
+    return makeJsonResponse({ value: "deduped" });
   }) as typeof fetch;
 
   try {
@@ -250,11 +300,12 @@ test("timed-out requests do not overwrite a newer in-flight request when they re
   const second = deferred<{ label: string }>();
   const controller = new AbortController();
 
-  globalThis.setTimeout = ((handler: (...args: any[]) => void, ms?: number, ...args: any[]) => {
+  globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>): ReturnType<typeof setTimeout> => {
+    const ms = args[1];
     if (ms === 60000) {
-      return realSetTimeout(handler, 0, ...args) as unknown as ReturnType<typeof setTimeout>;
+      return realSetTimeout(args[0], 0, ...(args.slice(2) as unknown[])) as unknown as ReturnType<typeof setTimeout>;
     }
-    return realSetTimeout(handler, ms, ...args);
+    return realSetTimeout(...args);
   }) as typeof setTimeout;
 
   try {
@@ -307,14 +358,7 @@ test("fetchStore aborts lifecycle-owned requests when the store is deleted", asy
       });
 
       setTimeout(() => {
-        resolve({
-          ok: true,
-          status: 200,
-          statusText: "OK",
-          headers: { get: () => "application/json" },
-          json: async () => ({ value: "late" }),
-          text: async () => JSON.stringify({ value: "late" }),
-        } as any);
+        resolve(makeJsonResponse({ value: "late" }));
       }, 50);
     });
   }) as typeof fetch;
@@ -340,9 +384,9 @@ test("fetchStore times out when no AbortSignal is provided", async () => {
   const realSetTimeout = globalThis.setTimeout;
   let scheduledMs: number | null = null;
 
-  globalThis.setTimeout = ((handler: (...args: any[]) => void, ms?: number, ...args: any[]) => {
-    scheduledMs = typeof ms === "number" ? ms : 0;
-    return realSetTimeout(handler, 0, ...args) as unknown as ReturnType<typeof setTimeout>;
+  globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>): ReturnType<typeof setTimeout> => {
+    scheduledMs = typeof args[1] === "number" ? args[1] : 0;
+    return realSetTimeout(args[0], 0, ...(args.slice(2) as unknown[])) as unknown as ReturnType<typeof setTimeout>;
   }) as typeof setTimeout;
 
   const pending = new Promise<unknown>(() => {});
@@ -528,14 +572,7 @@ test("fetchStore evicts old cache slots under high-cardinality cacheKey usage", 
 
   globalThis.fetch = (async () => {
     calls += 1;
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: { get: () => "application/json" },
-      json: async () => ({ call: calls }),
-      text: async () => JSON.stringify({ call: calls }),
-    } as any;
+    return makeJsonResponse({ call: calls });
   }) as typeof fetch;
 
   try {
@@ -643,21 +680,20 @@ test("fetchStore rejects deduped callers that use different transforms for one c
   const realFetch = globalThis.fetch;
   const errors: string[] = [];
 
-  globalThis.fetch = (async () => ({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    headers: { get: () => "application/json" },
-    json: async () => ({ value: 1 }),
-    text: async () => JSON.stringify({ value: 1 }),
-  })) as typeof fetch;
+  globalThis.fetch = (async () => makeJsonResponse({ value: 1 })) as typeof fetch;
+
+  const readNumberValue = (value: unknown): number => {
+    if (!isRecord(value)) return Number.NaN;
+    const v = value.value;
+    return typeof v === "number" ? v : Number.NaN;
+  };
 
   try {
     const first = fetchStore("dedupeTransformStore", "https://api.example.com/value", {
-      transform: (value: any) => ({ value: value.value + 1 }),
+      transform: (value) => ({ value: readNumberValue(value) + 1 }),
     });
     const second = await fetchStore("dedupeTransformStore", "https://api.example.com/value", {
-      transform: (value: any) => ({ value: value.value + 2 }),
+      transform: (value) => ({ value: readNumberValue(value) + 2 }),
       onError: (msg) => { errors.push(msg); },
     });
 
@@ -681,14 +717,7 @@ test("fetchStore rejects deduped callers that use different request URLs for one
   globalThis.fetch = (async (url: string) => {
     callCount += 1;
     await wait(10);
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: { get: () => "application/json" },
-      json: async () => ({ value: url }),
-      text: async () => JSON.stringify({ value: url }),
-    } as any;
+    return makeJsonResponse({ value: url });
   }) as typeof fetch;
 
   try {
@@ -718,24 +747,10 @@ test("fetchStore exposes background revalidation while serving cached data", asy
   globalThis.fetch = (async () => {
     calls += 1;
     if (calls === 1) {
-      return {
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: { get: () => "application/json" },
-        json: async () => ({ value: "cached" }),
-        text: async () => JSON.stringify({ value: "cached" }),
-      } as any;
+      return makeJsonResponse({ value: "cached" });
     }
     const result = await refresh.promise;
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: { get: () => "application/json" },
-      json: async () => result,
-      text: async () => JSON.stringify(result),
-    } as any;
+    return makeJsonResponse(result);
   }) as typeof fetch;
 
   try {
@@ -746,7 +761,7 @@ test("fetchStore exposes background revalidation while serving cached data", asy
       staleWhileRevalidate: true,
     });
 
-    const during = getStore("swrStore") as any;
+    const during = getAsyncStoreState("swrStore");
     assert.deepStrictEqual(during.data, { value: "cached" });
     assert.strictEqual(during.status, "success");
     assert.strictEqual(during.loading, true);
@@ -756,7 +771,7 @@ test("fetchStore exposes background revalidation while serving cached data", asy
     refresh.resolve({ value: "fresh" });
     await request;
 
-    const after = getStore("swrStore") as any;
+    const after = getAsyncStoreState("swrStore");
     assert.deepStrictEqual(after.data, { value: "fresh" });
     assert.strictEqual(after.loading, false);
     assert.strictEqual(after.cached, false);
@@ -775,14 +790,7 @@ test("fetchStore preserves stale data when background revalidation fails", async
   globalThis.fetch = (async () => {
     calls += 1;
     if (calls === 1) {
-      return {
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: { get: () => "application/json" },
-        json: async () => ({ value: "cached" }),
-        text: async () => JSON.stringify({ value: "cached" }),
-      } as any;
+      return makeJsonResponse({ value: "cached" });
     }
     throw new Error("refresh failed");
   }) as typeof fetch;
@@ -796,7 +804,7 @@ test("fetchStore preserves stale data when background revalidation fails", async
     });
 
     assert.strictEqual(result, null);
-    const state = getStore("swrFailStore") as any;
+    const state = getAsyncStoreState("swrFailStore");
     assert.deepStrictEqual(state.data, { value: "cached" });
     assert.strictEqual(state.error, "refresh failed");
     assert.strictEqual(state.status, "error");
@@ -821,14 +829,7 @@ test("fetchStore caps per-store inflight request slots under unique cache keys",
     calls += 1;
     const next = deferred<{ slot: number }>();
     pending.push(next);
-    return next.promise.then((value) => ({
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: { get: () => "application/json" },
-      json: async () => value,
-      text: async () => JSON.stringify(value),
-    })) as any;
+    return next.promise.then((value) => makeJsonResponse(value));
   }) as typeof fetch;
 
   try {
@@ -1064,14 +1065,7 @@ test("getAsyncMetrics tracks request, cache, dedupe, and failure counters", asyn
       throw new Error("metrics boom");
     }
     await wait(5);
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: { get: () => "application/json" },
-      json: async () => ({ call: calls }),
-      text: async () => JSON.stringify({ call: calls }),
-    } as any;
+    return makeJsonResponse({ call: calls });
   }) as typeof fetch;
 
   const before = getAsyncMetrics();
@@ -1111,12 +1105,12 @@ test("getAsyncMetrics tracks request, cache, dedupe, and failure counters", asyn
 test("enableRevalidateOnFocus wildcard cleanup removes focus and online listeners", async () => {
   clearAllStores();
   ensureAsyncStore("focusStore");
-  const realWindow = (globalThis as any).window;
+  const realWindow = g.window;
   const realFetch = globalThis.fetch;
   const listeners = new Map<string, Set<() => void>>();
   let calls = 0;
 
-  (globalThis as any).window = {
+  g.window = {
     addEventListener: (event: string, handler: () => void) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)!.add(handler);
@@ -1128,14 +1122,7 @@ test("enableRevalidateOnFocus wildcard cleanup removes focus and online listener
 
   globalThis.fetch = (async () => {
     calls += 1;
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: { get: () => "application/json" },
-      json: async () => ({ value: calls }),
-      text: async () => JSON.stringify({ value: calls }),
-    } as any;
+    return makeJsonResponse({ value: calls });
   }) as typeof fetch;
 
   try {
@@ -1160,9 +1147,9 @@ test("enableRevalidateOnFocus wildcard cleanup removes focus and online listener
   } finally {
     globalThis.fetch = realFetch;
     if (realWindow === undefined) {
-      delete (globalThis as any).window;
+      delete (globalThis as unknown as Record<string, unknown>).window;
     } else {
-      (globalThis as any).window = realWindow;
+      g.window = realWindow;
     }
   }
 });

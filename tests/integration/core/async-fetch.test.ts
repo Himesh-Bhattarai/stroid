@@ -26,7 +26,7 @@ test("fetchStore reports invalid request inputs", async () => {
   clearAllStores();
   createStore("badFetch", { data: null, loading: false, error: null, status: "idle" });
   const controller = new AbortController();
-  const result = await fetchStore("badFetch", 123 as unknown as any, { signal: controller.signal });
+  const result = await fetchStore("badFetch", 123 as unknown as string, { signal: controller.signal });
   assert.strictEqual(result, null);
 });
 
@@ -36,8 +36,8 @@ test("fetchStore rejects async transform results", async () => {
   const controller = new AbortController();
   const result = await fetchStore("asyncTransform", Promise.resolve({ ok: true }), {
     signal: controller.signal,
-    transform: async (value) => value,
-  } as any);
+    transform: (async (value) => value) as unknown as (value: unknown) => unknown,
+  });
   assert.strictEqual(result, null);
 });
 
@@ -98,21 +98,22 @@ test("fetchStore aborts immediately when signal is already aborted", async () =>
 test("fetchStore reports HTTP error responses", async () => {
   clearAllStores();
   createStore("httpError", { data: null, loading: false, error: null, status: "idle" });
-  const originalFetch = (globalThis as any).fetch;
-  (globalThis as any).fetch = async () => ({
-    ok: false,
-    status: 500,
-    statusText: "Server Error",
-    json: async () => ({}),
-    text: async () => "",
-    arrayBuffer: async () => new ArrayBuffer(0),
-  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    ({
+      ok: false,
+      status: 500,
+      statusText: "Server Error",
+      json: async () => ({}),
+      text: async () => "",
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }) as unknown as Response) as typeof fetch;
   try {
     const controller = new AbortController();
     const result = await fetchStore("httpError", "https://example.com", { signal: controller.signal });
     assert.strictEqual(result, null);
   } finally {
-    (globalThis as any).fetch = originalFetch;
+    globalThis.fetch = originalFetch;
   }
 });
 
@@ -140,7 +141,7 @@ test("fetchStore aborts the internal request when the timeout fires", async () =
     });
   }) as typeof fetch;
 
-  globalThis.setTimeout = ((handler: (...args: any[]) => void, ms?: number, ...args: any[]) => {
+  globalThis.setTimeout = ((handler: (...args: unknown[]) => void, ms?: number, ...args: unknown[]) => {
     if (ms === 60000) {
       return realSetTimeout(handler, 0, ...args) as unknown as ReturnType<typeof setTimeout>;
     }

@@ -9,44 +9,79 @@
 import test from "node:test";
 import assert from "node:assert";
 import { createSyncFeatureRuntime, setupSync, broadcastSync } from "../../../src/features/sync.js";
+import { normalizeStoreOptions, type SyncOptions } from "../../../src/adapters/options.js";
 import { deepClone, hashState } from "../../../src/utils.js";
 
 test("sync runtime reports sanitize errors and setup failures", () => {
-  const originalBroadcast = (globalThis as any).BroadcastChannel;
+  const globalWithBroadcastChannel = globalThis as typeof globalThis & { BroadcastChannel?: typeof BroadcastChannel };
+  const originalBroadcast = globalWithBroadcastChannel.BroadcastChannel;
   class MockChannel {
     static instances: MockChannel[] = [];
-    onmessage: ((event: MessageEvent) => void) | null = null;
-    constructor() {
+    onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
+    constructor(_name: string) {
       MockChannel.instances.push(this);
     }
-    postMessage() {}
+    postMessage(_payload: unknown) {}
     close() {}
   }
-  (globalThis as any).BroadcastChannel = MockChannel as unknown as typeof BroadcastChannel;
 
   const runtime = createSyncFeatureRuntime();
+  if (!runtime.onStoreCreate) throw new Error("Expected sync runtime onStoreCreate");
+  type CreateCtx = Parameters<NonNullable<typeof runtime.onStoreCreate>>[0];
   const errors: string[] = [];
-  const ctx = {
+  const options = normalizeStoreOptions({ sync: { authToken: "token" } }, "syncSanitize");
+  const now = Date.now();
+  const meta: NonNullable<ReturnType<CreateCtx["getMeta"]>> = {
+    createdAt: new Date(now).toISOString(),
+    updatedAt: new Date(now).toISOString(),
+    updatedAtMs: now,
+    updateCount: 1,
+    version: 1,
+    metrics: {
+      notifyCount: 0,
+      totalNotifyMs: 0,
+      lastNotifyMs: 0,
+      resetCount: 0,
+      totalResetMs: 0,
+      lastResetMs: 0,
+    },
+    options,
+    readCount: 0,
+    lastReadAt: null,
+    lastReadAtMs: null,
+    lastCorrelationId: null,
+    lastCorrelationAt: null,
+    lastCorrelationAtMs: null,
+    lastTraceContext: null,
+  };
+
+  const ctx: CreateCtx = {
     name: "syncSanitize",
-    options: { sync: { authToken: "token" } },
-    getMeta: () => ({ updatedAt: new Date().toISOString(), updatedAtMs: Date.now(), updateCount: 1, options: { sync: { authToken: "token" } } }),
+    options,
+    getMeta: () => meta,
     getStoreValue: () => ({ ok: true }),
+    getAllStores: () => ({ syncSanitize: { ok: true } }),
+    getInitialState: () => ({ ok: true }),
     hasStore: () => true,
     notify: () => undefined,
-    validate: (_next: any) => ({ ok: true, value: _next }),
+    validate: (next) => ({ ok: true, value: next }),
     reportStoreError: (message: string) => errors.push(message),
     warn: () => undefined,
+    warnAlways: () => undefined,
+    log: () => undefined,
     setStoreValue: () => undefined,
     isDev: () => true,
     sanitize: (value: unknown) => {
       if (typeof value === "bigint") throw new Error("sanitize boom");
       return value;
     },
-    hashState: () => 1,
+    hashState,
     deepClone,
-    applyFeatureState: () => undefined,
+    applyFeatureState: (value) => value,
   };
-  runtime.onStoreCreate(ctx as any);
+
+  globalWithBroadcastChannel.BroadcastChannel = MockChannel as unknown as typeof BroadcastChannel;
+  runtime.onStoreCreate(ctx);
   const channel = MockChannel.instances[0];
   channel.onmessage?.({
     data: {
@@ -58,18 +93,18 @@ test("sync runtime reports sanitize errors and setup failures", () => {
       source: "remote",
       token: "token",
       data: BigInt(1),
-      checksum: 1,
+      checksum: hashState(BigInt(1)),
       updatedAt: Date.now(),
     },
-  } as MessageEvent);
+  } as MessageEvent<unknown>);
   assert.ok(errors.some((message) => message.includes("Sanitize failed for incoming sync")));
 
   const setupErrors: string[] = [];
-  (globalThis as any).BroadcastChannel = class {
-    constructor() {
+  globalWithBroadcastChannel.BroadcastChannel = class {
+    constructor(_name: string) {
       throw new Error("boom");
     }
-  };
+  } as unknown as typeof BroadcastChannel;
   setupSync({
     name: "syncFail",
     syncOption: true,
@@ -94,32 +129,40 @@ test("sync runtime reports sanitize errors and setup failures", () => {
   });
   assert.ok(setupErrors.some((message) => message.includes("Failed to setup sync")));
 
-  (globalThis as any).BroadcastChannel = originalBroadcast;
+  globalWithBroadcastChannel.BroadcastChannel = originalBroadcast;
 });
 
 test("broadcastSync reports signer failures", () => {
   const errors: string[] = [];
+  const syncOption = {
+    sign: () => { throw new Error("sign"); },
+  } satisfies SyncOptions;
+  const syncChannels: Record<string, BroadcastChannel> = {
+    syncSignFail: { postMessage: () => undefined } as unknown as BroadcastChannel,
+  };
+  const syncClocks: Record<string, number> = Object.create(null);
   broadcastSync({
     name: "syncSignFail",
-    syncOption: { sign: () => { throw new Error("sign"); } },
-    syncChannels: { syncSignFail: { postMessage: () => undefined } as any },
-    syncClocks: Object.create(null),
+    syncOption,
+    syncChannels,
+    syncClocks,
     instanceId: "instance",
     updatedAt: Date.now(),
     data: { ok: true },
-    hashState: () => 1,
+    hashState,
     reportStoreError: (_name, message) => errors.push(message),
   });
   assert.ok(errors.some((message) => message.includes("Failed to sign sync payload")));
 });
 
 test("sync runtime handles verify errors, sync requests, and conflict resolution", () => {
-  const originalBroadcast = (globalThis as any).BroadcastChannel;
+  const globalWithBroadcastChannel = globalThis as typeof globalThis & { BroadcastChannel?: typeof BroadcastChannel };
+  const originalBroadcast = globalWithBroadcastChannel.BroadcastChannel;
   const posts: Array<unknown> = [];
   class MockChannel {
     static instances: MockChannel[] = [];
-    onmessage: ((event: MessageEvent) => void) | null = null;
-    constructor() {
+    onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
+    constructor(_name: string) {
       MockChannel.instances.push(this);
     }
     postMessage(payload: unknown) {
@@ -127,35 +170,72 @@ test("sync runtime handles verify errors, sync requests, and conflict resolution
     }
     close() {}
   }
-  (globalThis as any).BroadcastChannel = MockChannel as unknown as typeof BroadcastChannel;
+  globalWithBroadcastChannel.BroadcastChannel = MockChannel as unknown as typeof BroadcastChannel;
 
   const runtime = createSyncFeatureRuntime();
   const errors: string[] = [];
-  const syncOption: any = {
+  if (!runtime.onStoreCreate) throw new Error("Expected sync runtime onStoreCreate");
+  type CreateCtx = Parameters<NonNullable<typeof runtime.onStoreCreate>>[0];
+
+  const syncOption = {
     authToken: "token",
     verify: () => { throw new Error("verify boom"); },
-    conflictResolver: ({ incoming }: { incoming: any }) => ({ value: incoming?.value ?? 0 }),
-    resolveUpdatedAt: ({ incomingUpdated }: { incomingUpdated: number }) => incomingUpdated,
+    conflictResolver: ({ incoming }) => {
+      const value = (incoming as { value?: unknown } | null)?.value;
+      return { value: typeof value === "number" ? value : 0 };
+    },
+    resolveUpdatedAt: ({ incomingUpdated, now }) => incomingUpdated ?? now,
+  } satisfies SyncOptions;
+
+  const options = normalizeStoreOptions({ sync: syncOption }, "syncVerify");
+  const now = Date.now();
+  const meta: NonNullable<ReturnType<CreateCtx["getMeta"]>> = {
+    createdAt: new Date(now).toISOString(),
+    updatedAt: new Date(now).toISOString(),
+    updatedAtMs: now,
+    updateCount: 1,
+    version: 1,
+    metrics: {
+      notifyCount: 0,
+      totalNotifyMs: 0,
+      lastNotifyMs: 0,
+      resetCount: 0,
+      totalResetMs: 0,
+      lastResetMs: 0,
+    },
+    options,
+    readCount: 0,
+    lastReadAt: null,
+    lastReadAtMs: null,
+    lastCorrelationId: null,
+    lastCorrelationAt: null,
+    lastCorrelationAtMs: null,
+    lastTraceContext: null,
   };
-  const ctx = {
+
+  const ctx: CreateCtx = {
     name: "syncVerify",
-    options: { sync: syncOption },
-    getMeta: () => ({ updatedAt: new Date().toISOString(), updatedAtMs: Date.now(), updateCount: 1, options: { sync: syncOption } }),
+    options,
+    getMeta: () => meta,
     getStoreValue: () => ({ value: 1 }),
+    getAllStores: () => ({ syncVerify: { value: 1 } }),
+    getInitialState: () => ({ value: 1 }),
     hasStore: () => true,
     notify: () => undefined,
-    validate: (_next: any) => ({ ok: true, value: _next }),
+    validate: (next) => ({ ok: true, value: next }),
     reportStoreError: (message: string) => errors.push(message),
     warn: () => undefined,
+    warnAlways: () => undefined,
+    log: () => undefined,
     setStoreValue: () => undefined,
     isDev: () => true,
     sanitize: (value: unknown) => value,
-    hashState: () => 1,
+    hashState,
     deepClone,
-    applyFeatureState: () => undefined,
+    applyFeatureState: (value) => value,
   };
 
-  runtime.onStoreCreate(ctx as any);
+  runtime.onStoreCreate(ctx);
   const channel = MockChannel.instances[0];
 
   window.dispatchEvent(new Event("focus"));
@@ -174,7 +254,7 @@ test("sync runtime handles verify errors, sync requests, and conflict resolution
       checksum: hashState({ value: 2 }),
       updatedAt: Date.now(),
     },
-  } as MessageEvent);
+  } as MessageEvent<unknown>);
   assert.ok(errors.some((message) => message.includes("verification failed")));
 
   syncOption.verify = () => true;
@@ -188,7 +268,7 @@ test("sync runtime handles verify errors, sync requests, and conflict resolution
       source: "remote",
       token: "token",
     },
-  } as MessageEvent);
+  } as MessageEvent<unknown>);
 
   channel.onmessage?.({
     data: {
@@ -203,7 +283,7 @@ test("sync runtime handles verify errors, sync requests, and conflict resolution
       checksum: hashState({ value: 3 }),
       updatedAt: Date.now(),
     },
-  } as MessageEvent);
+  } as MessageEvent<unknown>);
 
-  (globalThis as any).BroadcastChannel = originalBroadcast;
+  globalWithBroadcastChannel.BroadcastChannel = originalBroadcast;
 });

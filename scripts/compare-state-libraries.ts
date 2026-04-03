@@ -32,6 +32,12 @@ const makeUniqueNoop = () => () => {
   sink += 0;
 };
 
+const hasNumberValue = (state: unknown): state is { value: number } =>
+  typeof state === "object"
+  && state !== null
+  && "value" in state
+  && typeof (state as Record<string, unknown>).value === "number";
+
 const benchStroid = async (subscribers: number): Promise<ResultRow> => {
   clearAllStores();
   createStore("compareStore", { value: 0 }, { scope: "global", devtools: { historyLimit: 0 } });
@@ -47,8 +53,8 @@ const benchStroid = async (subscribers: number): Promise<ResultRow> => {
   let expected = 0;
   let resolver: (() => void) | null = null;
   let endTime = 0;
-  const done = _subscribe("compareStore", (state: any) => {
-    if (state?.value !== expected || resolver === null) return;
+  const done = _subscribe("compareStore", (state: unknown) => {
+    if (!hasNumberValue(state) || state.value !== expected || resolver === null) return;
     endTime = performance.now();
     const current = resolver;
     resolver = null;

@@ -17,9 +17,14 @@ test("concurrent setStoreBatch calls commit independently", async () => {
   createStore("batchStore", { value: 0 });
 
   const seen: number[] = [];
+  const hasNumberValue = (candidate: unknown): candidate is { value: number } =>
+    typeof candidate === "object"
+    && candidate !== null
+    && typeof (candidate as { value?: unknown }).value === "number";
+
   const unsub = subscribe("batchStore", (snap) => {
-    if (snap && typeof (snap as any).value === "number") {
-      seen.push((snap as any).value);
+    if (hasNumberValue(snap)) {
+      seen.push(snap.value);
     }
   });
 

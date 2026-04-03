@@ -252,7 +252,7 @@ test("tryDedupeRequest rejects callers that change the inflight request contract
 test("tryDedupeRequest rejects callers that change the inflight result contract", () => {
   const cacheSlot = "dedupe-result-mismatch";
   const errors: string[] = [];
-  const transform = (raw: any) => raw.value + 1;
+  const transform = (raw: { value: number }) => raw.value + 1;
   setInflightEntry(cacheSlot, {
     promise: Promise.resolve(2),
     raw: Promise.resolve({ value: 1 }),
@@ -287,13 +287,14 @@ test("tryDedupeRequest rejects callers that change the inflight result contract"
 });
 
 test("throwAsyncUsageError uses critical path when dev is disabled", () => {
-  const originalDev = (globalThis as any).__STROID_DEV__;
-  (globalThis as any).__STROID_DEV__ = false;
+  const globalWithDevFlag = globalThis as typeof globalThis & { __STROID_DEV__?: boolean };
+  const originalDev = globalWithDevFlag.__STROID_DEV__;
+  globalWithDevFlag.__STROID_DEV__ = false;
   try {
     assert.throws(() => {
       throwAsyncUsageError("usageError", "usage boom");
     }, /usage boom/);
   } finally {
-    (globalThis as any).__STROID_DEV__ = originalDev;
+    globalWithDevFlag.__STROID_DEV__ = originalDev;
   }
 });

@@ -16,37 +16,142 @@ import { normalizePersistOptions } from "../../../src/adapters/options.js";
 import { validateCryptoPair } from "../../../src/features/persist/crypto.js";
 import { createPersistFeatureRuntime } from "../../../src/features/persist.js";
 import { computePersistChecksum } from "../../../src/features/persist/checksum.js";
+import type { NormalizedOptions, PersistConfig, StoreValue } from "../../../src/adapters/options.js";
+import type { PersistSaveArgs, PersistWatchState } from "../../../src/features/persist/types.js";
+import type { FeatureHookContext, StoreFeatureMeta } from "../../../src/features/feature-registry.js";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const makePersistConfig = (
+  overrides: Pick<PersistConfig, "key" | "driver"> & Partial<PersistConfig> & {
+    migrate?: (state: StoreValue) => StoreValue;
+  },
+): PersistConfig & { migrate?: (state: StoreValue) => StoreValue } => ({
+  key: overrides.key,
+  driver: overrides.driver,
+  serialize: JSON.stringify,
+  deserialize: JSON.parse,
+  encrypt: (v: string) => v,
+  decrypt: (v: string) => v,
+  allowPlaintext: true,
+  checksum: "none",
+  ...overrides,
+});
+
+const makeNormalizedOptions = (persist: PersistConfig | null): NormalizedOptions => ({
+  scope: "request",
+  lazy: false,
+  pathCreate: false,
+  persist,
+  devtools: false,
+  middleware: [],
+  migrations: {},
+  version: 1,
+  historyLimit: 50,
+  snapshot: "deep",
+  explicitPersist: true,
+  explicitSync: false,
+  explicitDevtools: false,
+});
+
+const makeMeta = (options: NormalizedOptions, overrides?: Partial<StoreFeatureMeta>): StoreFeatureMeta => ({
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  updatedAtMs: Date.now(),
+  updateCount: 0,
+  version: options.version,
+  metrics: {
+    notifyCount: 0,
+    totalNotifyMs: 0,
+    lastNotifyMs: 0,
+    resetCount: 0,
+    totalResetMs: 0,
+    lastResetMs: 0,
+  },
+  options,
+  readCount: 0,
+  lastReadAt: null,
+  lastReadAtMs: null,
+  lastCorrelationId: null,
+  lastCorrelationAt: null,
+  lastCorrelationAtMs: null,
+  lastTraceContext: null,
+  ...overrides,
+});
+
+const makeHookContext = ({
+  name,
+  options,
+  getMeta,
+  initialState,
+  storeValue,
+  hasStore = () => true,
+  reportStoreError = () => undefined,
+  warn = () => undefined,
+  warnAlways = () => undefined,
+  log = () => undefined,
+  isDev = () => true,
+}: {
+  name: string;
+  options: NormalizedOptions;
+  getMeta: () => StoreFeatureMeta | undefined;
+  initialState: StoreValue;
+  storeValue: StoreValue;
+  hasStore?: () => boolean;
+  reportStoreError?: (message: string) => void;
+  warn?: (message: string) => void;
+  warnAlways?: (message: string) => void;
+  log?: (message: string) => void;
+  isDev?: () => boolean;
+}): FeatureHookContext => {
+  let current = storeValue;
+  return {
+    name,
+    options,
+    getMeta,
+    getStoreValue: () => current,
+    getAllStores: () => ({ [name]: current }),
+    getInitialState: () => initialState,
+    hasStore,
+    setStoreValue: (value) => { current = value; },
+    applyFeatureState: (value) => {
+      current = value;
+      return value;
+    },
+    notify: () => undefined,
+    reportStoreError,
+    warn,
+    warnAlways,
+    log,
+    hashState: () => 1,
+    deepClone,
+    sanitize,
+    validate: (next) => ({ ok: true, value: next }),
+    isDev,
+  };
+};
 
 test("flushPersistImmediately clears pending timers", async () => {
   const persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
   const persistInFlight: Record<string, Promise<void> | null> = {};
-  const persistSequence: Record<string, number> = Object.create(null);
-  const persistWatchState: Record<string, { present?: boolean }> = Object.create(null);
+  const persistSequence: Record<string, number> = {};
+  const persistWatchState: PersistWatchState = {};
   const plaintextWarningsIssued = new Set<string>();
   let calls = 0;
 
-  const meta = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: {
-      persist: {
-        key: "persist-key",
-        driver: {
-          setItem: async () => { calls += 1; },
-        },
-        serialize: JSON.stringify,
-        deserialize: JSON.parse,
-        encrypt: (v: string) => v,
-        decrypt: (v: string) => v,
-        checksum: "none",
-        allowPlaintext: true,
-      },
-      onError: undefined,
+  const persistConfig = makePersistConfig({
+    key: "persist-key",
+    driver: {
+      setItem: async () => { calls += 1; },
     },
-  };
+    checksum: "none",
+    allowPlaintext: true,
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options);
 
-  const args = {
+  const args: PersistSaveArgs = {
     name: "persist-store",
     persistTimers,
     persistInFlight,
@@ -54,15 +159,15 @@ test("flushPersistImmediately clears pending timers", async () => {
     persistWatchState,
     plaintextWarningsIssued,
     exists: () => true,
-    getMeta: () => meta as any,
+    getMeta: () => meta,
     getStoreValue: () => ({ value: 1 }),
     reportStoreError: () => undefined,
     hashState: () => 1,
   };
 
-  persistSave(args as any);
+  persistSave(args);
   assert.ok(persistTimers["persist-store"]);
-  flushPersistImmediately("persist-store", args as any);
+  flushPersistImmediately("persist-store", args);
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.ok(!persistTimers["persist-store"]);
   assert.ok(calls >= 1);
@@ -71,8 +176,8 @@ test("flushPersistImmediately clears pending timers", async () => {
 test("flushPersistImmediately ignores a stale queued timer callback", async () => {
   const persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
   const persistInFlight: Record<string, Promise<void> | null> = {};
-  const persistSequence: Record<string, number> = Object.create(null);
-  const persistWatchState: Record<string, { present?: boolean }> = Object.create(null);
+  const persistSequence: Record<string, number> = {};
+  const persistWatchState: PersistWatchState = {};
   const plaintextWarningsIssued = new Set<string>();
   const writes: number[] = [];
   const scheduled: Array<{ handle: ReturnType<typeof setTimeout>; fn: () => void }> = [];
@@ -80,28 +185,18 @@ test("flushPersistImmediately ignores a stale queued timer callback", async () =
   const originalSetTimeout = globalThis.setTimeout;
   const originalClearTimeout = globalThis.clearTimeout;
 
-  const meta = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: {
-      persist: {
-        key: "persist-stale-timer",
-        driver: {
-          setItem: async () => { writes.push(Date.now()); },
-        },
-        serialize: JSON.stringify,
-        deserialize: JSON.parse,
-        encrypt: (v: string) => v,
-        decrypt: (v: string) => v,
-        checksum: "none",
-        allowPlaintext: true,
-      },
-      onError: undefined,
+  const persistConfig = makePersistConfig({
+    key: "persist-stale-timer",
+    driver: {
+      setItem: async () => { writes.push(Date.now()); },
     },
-  };
+    checksum: "none",
+    allowPlaintext: true,
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options);
 
-  const args = {
+  const args: PersistSaveArgs = {
     name: "persist-stale-timer",
     persistTimers,
     persistInFlight,
@@ -109,24 +204,30 @@ test("flushPersistImmediately ignores a stale queued timer callback", async () =
     persistWatchState,
     plaintextWarningsIssued,
     exists: () => true,
-    getMeta: () => meta as any,
+    getMeta: () => meta,
     getStoreValue: () => ({ value: 1 }),
     reportStoreError: () => undefined,
     hashState: () => 1,
   };
 
   try {
-    globalThis.setTimeout = (((fn: (...args: any[]) => void) => {
-      const handle = { id: scheduled.length } as ReturnType<typeof setTimeout>;
-      scheduled.push({ handle, fn: () => fn() });
+    globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>): ReturnType<typeof setTimeout> => {
+      const [handler] = args;
+      if (typeof handler !== "function") {
+        throw new TypeError("mock setTimeout only supports function handlers");
+      }
+      const cb = handler as (...handlerArgs: unknown[]) => void;
+      const handle = { id: scheduled.length } as unknown as ReturnType<typeof setTimeout>;
+      scheduled.push({ handle, fn: () => cb() });
       return handle;
-    }) as typeof setTimeout);
-    globalThis.clearTimeout = (((_handle: ReturnType<typeof setTimeout>) => undefined) as typeof clearTimeout);
+    }) satisfies typeof setTimeout;
 
-    persistSave(args as any);
+    globalThis.clearTimeout = ((..._args: Parameters<typeof clearTimeout>): void => undefined) satisfies typeof clearTimeout;
+
+    persistSave(args);
     assert.strictEqual(scheduled.length, 1);
 
-    flushPersistImmediately("persist-stale-timer", args as any);
+    flushPersistImmediately("persist-stale-timer", args);
     await Promise.resolve();
     await Promise.resolve();
     assert.strictEqual(writes.length, 1);
@@ -146,41 +247,31 @@ test("flushPersistImmediately ignores a stale queued timer callback", async () =
 test("flushPersistImmediately can be superseded while waiting behind an in-flight write", async () => {
   const persistTimers: Record<string, ReturnType<typeof setTimeout>> = {};
   const persistInFlight: Record<string, Promise<void> | null> = {};
-  const persistSequence: Record<string, number> = Object.create(null);
-  const persistWatchState: Record<string, { present?: boolean }> = Object.create(null);
+  const persistSequence: Record<string, number> = {};
+  const persistWatchState: PersistWatchState = {};
   const plaintextWarningsIssued = new Set<string>();
   const writes: string[] = [];
   let currentValue = { value: 1 };
   let releaseFirstWrite: (() => void) | null = null;
 
-  const meta = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: {
-      persist: {
-        key: "persist-ordering",
-        driver: {
-          setItem: async (_key: string, payload: string) => {
-            writes.push(payload);
-            if (releaseFirstWrite) return;
-            await new Promise<void>((resolve) => {
-              releaseFirstWrite = resolve;
-            });
-          },
-        },
-        serialize: JSON.stringify,
-        deserialize: JSON.parse,
-        encrypt: (v: string) => v,
-        decrypt: (v: string) => v,
-        checksum: "none",
-        allowPlaintext: true,
+  const persistConfig = makePersistConfig({
+    key: "persist-ordering",
+    driver: {
+      setItem: async (_key: string, payload: string) => {
+        writes.push(payload);
+        if (releaseFirstWrite) return;
+        await new Promise<void>((resolve) => {
+          releaseFirstWrite = resolve;
+        });
       },
-      onError: undefined,
     },
-  };
+    checksum: "none",
+    allowPlaintext: true,
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options);
 
-  const args = {
+  const args: PersistSaveArgs = {
     name: "persist-ordering",
     persistTimers,
     persistInFlight,
@@ -188,13 +279,13 @@ test("flushPersistImmediately can be superseded while waiting behind an in-fligh
     persistWatchState,
     plaintextWarningsIssued,
     exists: () => true,
-    getMeta: () => meta as any,
+    getMeta: () => meta,
     getStoreValue: () => currentValue,
     reportStoreError: () => undefined,
     hashState: () => 1,
   };
 
-  persistSave(args as any);
+  persistSave(args);
 
   const startedAt = Date.now();
   while (!releaseFirstWrite) {
@@ -205,10 +296,10 @@ test("flushPersistImmediately can be superseded while waiting behind an in-fligh
   }
 
   currentValue = { value: 2 };
-  flushPersistImmediately("persist-ordering", args as any);
+  flushPersistImmediately("persist-ordering", args);
 
   currentValue = { value: 3 };
-  flushPersistImmediately("persist-ordering", args as any);
+  flushPersistImmediately("persist-ordering", args);
 
   releaseFirstWrite();
   await new Promise((resolve) => setTimeout(resolve, 20));
@@ -222,40 +313,34 @@ test("flushPersistImmediately can be superseded while waiting behind an in-fligh
 
 test("normalizePersistOptions rejects invalid async crypto and plaintext sensitive stores", () => {
   assert.throws(
-    () => normalizePersistOptions({ encryptAsync: async (v: string) => v } as unknown as any, "badAsync"),
+    () => normalizePersistOptions({ encryptAsync: async (v: string) => v }, "badAsync"),
     /encryptAsync/
   );
   assert.throws(
-    () => normalizePersistOptions({ sensitiveData: true, encrypt: (v: string) => v, decrypt: (v: string) => v } as unknown as any, "badSensitive"),
+    () => normalizePersistOptions({ sensitiveData: true, encrypt: (v: string) => v, decrypt: (v: string) => v }, "badSensitive"),
     /sensitiveData/
   );
 });
 
 test("persistLoad reports non-string sync driver values", () => {
   const errors: string[] = [];
-  const meta = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: {
-      persist: {
-        key: "persist-nonstring",
-        driver: { getItem: () => ({ bad: true }) },
-        serialize: JSON.stringify,
-        deserialize: JSON.parse,
-        encrypt: (v: string) => v,
-        decrypt: (v: string) => v,
-        checksum: "none",
-        allowPlaintext: true,
-      },
+  const persistConfig: PersistConfig = makePersistConfig({
+    key: "persist-nonstring",
+    driver: {
+      // @ts-expect-error - test intentionally returns a non-string value at runtime.
+      getItem: () => ({ bad: true }),
     },
-  };
+    checksum: "none",
+    allowPlaintext: true,
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options);
   const loaded = persistLoad({
     name: "persistNonString",
     silent: true,
-    getMeta: () => meta as any,
+    getMeta: () => meta,
     getInitialState: () => ({ ok: true }),
-    applyFeatureState: () => undefined,
+    applyFeatureState: (value) => value,
     reportStoreError: (_name, message) => errors.push(message),
     validate: () => ({ ok: true }),
     log: () => undefined,
@@ -269,39 +354,37 @@ test("persistLoad reports non-string sync driver values", () => {
 });
 
 test("persistLoad hydrates stores from async drivers without async crypto flags", async () => {
-  const applied: Array<{ ready: boolean }> = [];
+  const applied: unknown[] = [];
   const envelope = JSON.stringify({
     v: 1,
     checksum: null,
-    data: { ready: true },
+    data: JSON.stringify({ ready: true }),
     updatedAtMs: Date.now(),
   });
-  const meta = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: {
-      persist: {
-        key: "persist-async-driver",
-        driver: { getItem: async () => envelope },
-        serialize: JSON.stringify,
-        deserialize: (value: any) => value,
-        encrypt: (v: string) => v,
-        decrypt: (v: string) => v,
-        checksum: "none",
-        allowPlaintext: true,
-      },
-    },
-  };
+  const persistConfig = makePersistConfig({
+    key: "persist-async-driver",
+    driver: { getItem: async () => envelope },
+    deserialize: JSON.parse,
+    checksum: "none",
+    allowPlaintext: true,
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options);
 
   const loaded = persistLoad({
     name: "persistAsyncDriver",
     silent: true,
-    getMeta: () => meta as any,
+    getMeta: () => meta,
     getInitialState: () => ({ ready: false }),
-    applyFeatureState: (state: any) => applied.push(state),
+    applyFeatureState: (value) => {
+      applied.push(value);
+      return value;
+    },
     reportStoreError: () => undefined,
-    validate: (value: any) => ({ ok: value.ready === true, value }),
+    validate: (value) => ({
+      ok: isRecord(value) && value.ready === true,
+      value,
+    }),
     log: () => undefined,
     hashState: () => 1,
     deepClone,
@@ -326,32 +409,28 @@ test("persistLoad preserves falsy serialized payloads from sync drivers", () => 
       data: payload,
       updatedAtMs: Date.now(),
     });
-    const meta = {
-      version: 1,
-      updatedAt: new Date().toISOString(),
-      updatedAtMs: Date.now(),
-      options: {
-        persist: {
-          key: `persist-falsy-sync-${payload || "empty"}`,
-          driver: { getItem: () => envelope },
-          serialize: (value: unknown) => String(value),
-          deserialize: (value: unknown) => value,
-          encrypt: (v: string) => v,
-          decrypt: (v: string) => v,
-          checksum: "none",
-          allowPlaintext: true,
-        },
-      },
-    };
+    const persistConfig = makePersistConfig({
+      key: `persist-falsy-sync-${payload || "empty"}`,
+      driver: { getItem: () => envelope },
+      serialize: (value: unknown) => String(value),
+      deserialize: (value: string) => value,
+      checksum: "none",
+      allowPlaintext: true,
+    });
+    const options = makeNormalizedOptions(persistConfig);
+    const meta = makeMeta(options);
 
     const loaded = persistLoad({
       name: `persistFalsySync-${payload || "empty"}`,
       silent: true,
-      getMeta: () => meta as any,
+      getMeta: () => meta,
       getInitialState: () => "fallback",
-      applyFeatureState: (state: any) => applied.push(state),
+      applyFeatureState: (value) => {
+        if (typeof value === "string") applied.push(value);
+        return value;
+      },
       reportStoreError: (_name, message) => errors.push(message),
-      validate: (value: any) => ({ ok: typeof value === "string", value }),
+      validate: (value) => ({ ok: typeof value === "string", value }),
       log: () => undefined,
       hashState: () => 1,
       deepClone,
@@ -377,32 +456,28 @@ test("persistLoad preserves falsy serialized payloads from async drivers", async
       data: payload,
       updatedAtMs: Date.now(),
     });
-    const meta = {
-      version: 1,
-      updatedAt: new Date().toISOString(),
-      updatedAtMs: Date.now(),
-      options: {
-        persist: {
-          key: `persist-falsy-async-${payload || "empty"}`,
-          driver: { getItem: async () => envelope },
-          serialize: (value: unknown) => String(value),
-          deserialize: (value: unknown) => value,
-          encrypt: (v: string) => v,
-          decrypt: (v: string) => v,
-          checksum: "none",
-          allowPlaintext: true,
-        },
-      },
-    };
+    const persistConfig = makePersistConfig({
+      key: `persist-falsy-async-${payload || "empty"}`,
+      driver: { getItem: async () => envelope },
+      serialize: (value: unknown) => String(value),
+      deserialize: (value: string) => value,
+      checksum: "none",
+      allowPlaintext: true,
+    });
+    const options = makeNormalizedOptions(persistConfig);
+    const meta = makeMeta(options);
 
     const loaded = persistLoad({
       name: `persistFalsyAsync-${payload || "empty"}`,
       silent: true,
-      getMeta: () => meta as any,
+      getMeta: () => meta,
       getInitialState: () => "fallback",
-      applyFeatureState: (state: any) => applied.push(state),
+      applyFeatureState: (value) => {
+        if (typeof value === "string") applied.push(value);
+        return value;
+      },
       reportStoreError: (_name, message) => errors.push(message),
-      validate: (value: any) => ({ ok: typeof value === "string", value }),
+      validate: (value) => ({ ok: typeof value === "string", value }),
       log: () => undefined,
       hashState: () => 1,
       deepClone,
@@ -418,41 +493,42 @@ test("persistLoad preserves falsy serialized payloads from async drivers", async
 });
 
 test("persistLoad handles schema failure after migration changes", () => {
-  const applied: Array<{ ok: boolean }> = [];
+  const applied: unknown[] = [];
   const errors: string[] = [];
   const envelope = JSON.stringify({
     v: 1,
     checksum: null,
-    data: { ok: false },
+    data: JSON.stringify({ ok: false }),
     updatedAtMs: Date.now(),
   });
-  const meta = {
-    version: 2,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: {
-      persist: {
-        key: "persist-schema",
-        driver: { getItem: () => envelope },
-        serialize: JSON.stringify,
-        deserialize: (value: any) => value,
-        encrypt: (v: string) => v,
-        decrypt: (v: string) => v,
-        checksum: "none",
-        allowPlaintext: true,
-        onMigrationFail: "reset",
-        migrate: (data: any) => ({ ok: data.ok }),
-      },
+  const persistConfig = makePersistConfig({
+    key: "persist-schema",
+    driver: { getItem: () => envelope },
+    deserialize: JSON.parse,
+    checksum: "none",
+    allowPlaintext: true,
+    onMigrationFail: "reset",
+    migrate: (data: StoreValue) => {
+      if (!isRecord(data)) return { ok: false };
+      return { ok: data.ok === true };
     },
-  };
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options, { version: 2 });
   const loaded = persistLoad({
     name: "persistSchema",
     silent: true,
-    getMeta: () => meta as any,
+    getMeta: () => meta,
     getInitialState: () => ({ ok: true }),
-    applyFeatureState: (state: any) => applied.push(state),
+    applyFeatureState: (value) => {
+      applied.push(value);
+      return value;
+    },
     reportStoreError: (_name, message) => errors.push(message),
-    validate: (value: any) => ({ ok: value.ok === true, value }),
+    validate: (value) => ({
+      ok: isRecord(value) && value.ok === true,
+      value,
+    }),
     log: () => undefined,
     hashState: () => 1,
     deepClone,
@@ -469,33 +545,25 @@ test("persistLoad resets when validation fails after migration fallback", () => 
   const envelope = JSON.stringify({
     v: 1,
     checksum: null,
-    data: { ok: false },
+    data: JSON.stringify({ ok: false }),
     updatedAtMs: Date.now(),
   });
-  const meta = {
-    version: 2,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: {
-      persist: {
-        key: "persist-schema-reset",
-        driver: { getItem: () => envelope },
-        serialize: JSON.stringify,
-        deserialize: (value: any) => value,
-        encrypt: (v: string) => v,
-        decrypt: (v: string) => v,
-        checksum: "none",
-        allowPlaintext: true,
-        onMigrationFail: "reset",
-      },
-    },
-  };
+  const persistConfig = makePersistConfig({
+    key: "persist-schema-reset",
+    driver: { getItem: () => envelope },
+    deserialize: JSON.parse,
+    checksum: "none",
+    allowPlaintext: true,
+    onMigrationFail: "reset",
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options, { version: 2 });
   const loaded = persistLoad({
     name: "persistSchemaReset",
     silent: true,
-    getMeta: () => meta as any,
+    getMeta: () => meta,
     getInitialState: () => ({ ok: true }),
-    applyFeatureState: () => undefined,
+    applyFeatureState: (value) => value,
     reportStoreError: (_name, message) => errors.push(message),
     validate: () => ({ ok: false }),
     log: () => undefined,
@@ -511,21 +579,21 @@ test("persistLoad resets when validation fails after migration fallback", () => 
 test("setupPersistWatch notifies on clear/remove/missing and handles read errors", () => {
   const notifications: Array<{ reason: string }> = [];
   let present = true;
-  const watchState: Record<string, { lastPresent?: boolean; dispose?: () => void }> = Object.create(null);
-  const persistConfig = {
+  const watchState: PersistWatchState = {};
+  const persistConfig = makePersistConfig({
     key: "watch-key",
     driver: {
       getItem: () => (present ? "value" : null),
     },
-    onStorageCleared: (info: { reason: string }) => notifications.push(info),
-  };
+    onStorageCleared: (info) => notifications.push({ reason: info.reason }),
+  });
 
-  setupPersistWatch({ name: "watchStore", persistConfig: persistConfig as any, persistWatchState: watchState });
+  setupPersistWatch({ name: "watchStore", persistConfig, persistWatchState: watchState });
   assert.strictEqual(watchState.watchStore?.lastPresent, true);
 
   const makeStorageEvent = (key: string | null, newValue?: string | null) => {
-    const StorageEventCtor = (window as any).StorageEvent;
-    if (typeof StorageEventCtor === "function") {
+    const StorageEventCtor = (window as unknown as { StorageEvent?: typeof StorageEvent }).StorageEvent;
+    if (StorageEventCtor) {
       return new StorageEventCtor("storage", { key, newValue });
     }
     const evt = new Event("storage");
@@ -536,9 +604,9 @@ test("setupPersistWatch notifies on clear/remove/missing and handles read errors
 
   present = false;
   window.dispatchEvent(makeStorageEvent(null));
-  setPersistPresence(watchState as any, "watchStore", true);
+  setPersistPresence(watchState, "watchStore", true);
   window.dispatchEvent(makeStorageEvent("watch-key", null));
-  setPersistPresence(watchState as any, "watchStore", true);
+  setPersistPresence(watchState, "watchStore", true);
   window.dispatchEvent(new Event("focus"));
 
   const reasons = notifications.map((entry) => entry.reason);
@@ -551,23 +619,28 @@ test("setupPersistWatch notifies on clear/remove/missing and handles read errors
     driver: { getItem: () => { throw new Error("boom"); } },
     onStorageCleared: () => undefined,
   };
-  setupPersistWatch({ name: "watchThrow", persistConfig: throwingConfig as any, persistWatchState: watchState });
+  const normalizedThrowingConfig = makePersistConfig({
+    ...throwingConfig,
+    checksum: "none",
+    allowPlaintext: true,
+  });
+  setupPersistWatch({ name: "watchThrow", persistConfig: normalizedThrowingConfig, persistWatchState: watchState });
   assert.strictEqual(watchState.watchThrow?.lastPresent, false);
 });
 
 test("setupPersistWatch notifies when async drivers become missing", async () => {
   const notifications: Array<{ reason: string }> = [];
   let present = true;
-  const watchState: Record<string, { lastPresent?: boolean; dispose?: () => void }> = Object.create(null);
-  const persistConfig = {
+  const watchState: PersistWatchState = {};
+  const persistConfig = makePersistConfig({
     key: "watch-async",
     driver: {
       getItem: async () => (present ? "value" : null),
     },
-    onStorageCleared: (info: { reason: string }) => notifications.push(info),
-  };
+    onStorageCleared: (info) => notifications.push({ reason: info.reason }),
+  });
 
-  setupPersistWatch({ name: "watchAsync", persistConfig: persistConfig as any, persistWatchState: watchState });
+  setupPersistWatch({ name: "watchAsync", persistConfig, persistWatchState: watchState });
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.strictEqual(watchState.watchAsync?.lastPresent, true);
 
@@ -583,45 +656,28 @@ test("persist feature flushes on pagehide and cleans up on delete/reset", async 
   const runtime = createPersistFeatureRuntime();
   let setCalls = 0;
   let removeCalls = 0;
-  const persistConfig = {
+  const persistConfig = makePersistConfig({
     key: "persist-flush",
     driver: {
       getItem: () => null,
       setItem: () => { setCalls += 1; },
       removeItem: () => { removeCalls += 1; throw new Error("remove boom"); },
     },
-    serialize: JSON.stringify,
-    deserialize: JSON.parse,
-    encrypt: (v: string) => v,
-    decrypt: (v: string) => v,
     checksum: "none",
     allowPlaintext: true,
     onStorageCleared: () => undefined,
-  };
-  const meta = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: { persist: persistConfig },
-  };
-  const ctx = {
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options);
+  const ctx = makeHookContext({
     name: "persistFlush",
-    options: { persist: persistConfig },
-    getMeta: () => meta as any,
-    getInitialState: () => ({ ok: true }),
-    applyFeatureState: () => undefined,
-    getStoreValue: () => ({ ok: true }),
-    hasStore: () => true,
-    reportStoreError: () => undefined,
-    warn: () => undefined,
-    log: () => undefined,
-    hashState: () => 1,
-    deepClone,
-    sanitize,
-    validate: () => ({ ok: true }),
-  };
+    options,
+    getMeta: () => meta,
+    initialState: { ok: true },
+    storeValue: { ok: true },
+  });
 
-  runtime.onStoreCreate(ctx as any);
+  runtime.onStoreCreate?.(ctx);
   window.dispatchEvent(new Event("pagehide"));
   window.dispatchEvent(new Event("beforeunload"));
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -635,54 +691,37 @@ test("persist feature flushes on pagehide and cleans up on delete/reset", async 
     window.removeEventListener = originalRemove;
   }
 
-  runtime.beforeStoreDelete(ctx as any);
+  runtime.beforeStoreDelete?.({ ...ctx, prev: { ok: true } });
   assert.ok(removeCalls >= 1);
 });
 
 test("persist feature removes unload flush listeners when a store is deleted and recreated", async () => {
   const runtime = createPersistFeatureRuntime();
   let setCalls = 0;
-  const persistConfig = {
+  const persistConfig = makePersistConfig({
     key: "persist-recreate",
     driver: {
       getItem: () => null,
       setItem: () => { setCalls += 1; },
       removeItem: () => undefined,
     },
-    serialize: JSON.stringify,
-    deserialize: JSON.parse,
-    encrypt: (v: string) => v,
-    decrypt: (v: string) => v,
     checksum: "none",
     allowPlaintext: true,
     onStorageCleared: () => undefined,
-  };
-  const meta = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: { persist: persistConfig },
-  };
-  const ctx = {
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options);
+  const ctx = makeHookContext({
     name: "persistRecreate",
-    options: { persist: persistConfig },
-    getMeta: () => meta as any,
-    getInitialState: () => ({ ok: true }),
-    applyFeatureState: () => undefined,
-    getStoreValue: () => ({ ok: true }),
-    hasStore: () => true,
-    reportStoreError: () => undefined,
-    warn: () => undefined,
-    log: () => undefined,
-    hashState: () => 1,
-    deepClone,
-    sanitize,
-    validate: () => ({ ok: true }),
-  };
+    options,
+    getMeta: () => meta,
+    initialState: { ok: true },
+    storeValue: { ok: true },
+  });
 
-  runtime.onStoreCreate(ctx as any);
-  runtime.beforeStoreDelete(ctx as any);
-  runtime.onStoreCreate(ctx as any);
+  runtime.onStoreCreate?.(ctx);
+  runtime.beforeStoreDelete?.({ ...ctx, prev: { ok: true } });
+  runtime.onStoreCreate?.(ctx);
 
   setCalls = 0;
   window.dispatchEvent(new Event("pagehide"));
@@ -694,43 +733,26 @@ test("persist feature removes unload flush listeners when a store is deleted and
 
 test("persist feature swallows async removeItem rejections during store delete", async () => {
   const runtime = createPersistFeatureRuntime();
-  const persistConfig = {
+  const persistConfig = makePersistConfig({
     key: "persist-async-remove",
     driver: {
       getItem: () => null,
       setItem: () => undefined,
       removeItem: () => Promise.reject(new Error("remove reject")),
     },
-    serialize: JSON.stringify,
-    deserialize: JSON.parse,
-    encrypt: (v: string) => v,
-    decrypt: (v: string) => v,
     checksum: "none",
     allowPlaintext: true,
     onStorageCleared: () => undefined,
-  };
-  const meta = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: { persist: persistConfig },
-  };
-  const ctx = {
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options);
+  const ctx = makeHookContext({
     name: "persistAsyncRemove",
-    options: { persist: persistConfig },
-    getMeta: () => meta as any,
-    getInitialState: () => ({ ok: true }),
-    applyFeatureState: () => undefined,
-    getStoreValue: () => ({ ok: true }),
-    hasStore: () => true,
-    reportStoreError: () => undefined,
-    warn: () => undefined,
-    log: () => undefined,
-    hashState: () => 1,
-    deepClone,
-    sanitize,
-    validate: () => ({ ok: true }),
-  };
+    options,
+    getMeta: () => meta,
+    initialState: { ok: true },
+    storeValue: { ok: true },
+  });
 
   let unhandled: unknown = null;
   const onUnhandled = (reason: unknown) => {
@@ -739,7 +761,7 @@ test("persist feature swallows async removeItem rejections during store delete",
   process.once("unhandledRejection", onUnhandled);
 
   try {
-    runtime.beforeStoreDelete(ctx as any);
+    runtime.beforeStoreDelete?.({ ...ctx, prev: { ok: true } });
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.strictEqual(unhandled, null);
   } finally {
@@ -751,52 +773,35 @@ test("persist feature handles async load failures with pending saves", async () 
   const runtime = createPersistFeatureRuntime();
   let setCalls = 0;
   let throwOnGetMeta = false;
-  const persistConfig = {
+  const persistConfig = makePersistConfig({
     key: "persist-async",
     driver: {
       getItem: () => Promise.resolve(null),
       setItem: () => { setCalls += 1; },
     },
-    serialize: JSON.stringify,
-    deserialize: JSON.parse,
-    encrypt: (v: string) => v,
-    decrypt: (v: string) => v,
     decryptAsync: async (v: string) => v,
     checksum: "none",
     allowPlaintext: true,
     onStorageCleared: () => undefined,
-  };
-  const meta = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    updatedAtMs: Date.now(),
-    options: { persist: persistConfig },
-  };
-  const ctx = {
+  });
+  const options = makeNormalizedOptions(persistConfig);
+  const meta = makeMeta(options);
+  const ctx = makeHookContext({
     name: "persistAsync",
-    options: { persist: persistConfig },
+    options,
     getMeta: () => {
       if (throwOnGetMeta) {
         throwOnGetMeta = false;
         throw new Error("meta boom");
       }
-      return meta as any;
+      return meta;
     },
-    getInitialState: () => ({ ok: true }),
-    applyFeatureState: () => undefined,
-    getStoreValue: () => ({ ok: true }),
-    hasStore: () => true,
-    reportStoreError: () => undefined,
-    warn: () => undefined,
-    log: () => undefined,
-    hashState: () => 1,
-    deepClone,
-    sanitize,
-    validate: () => ({ ok: true }),
-  };
-  runtime.onStoreCreate(ctx as any);
+    initialState: { ok: true },
+    storeValue: { ok: true },
+  });
+  runtime.onStoreCreate?.(ctx);
   throwOnGetMeta = true;
-  runtime.onStoreWrite(ctx as any);
+  runtime.onStoreWrite?.({ ...ctx, action: "set", prev: { ok: true }, next: { ok: true } });
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.ok(setCalls >= 1);
 });
@@ -805,37 +810,47 @@ test("persist feature reports sensitive data and key collisions", () => {
   const runtime = createPersistFeatureRuntime();
   const errors: string[] = [];
   const warnings: string[] = [];
-  const baseConfig = {
+  const baseConfig = makePersistConfig({
     key: "shared-key",
     driver: { getItem: () => null, setItem: () => undefined },
-    serialize: JSON.stringify,
-    deserialize: JSON.parse,
-    encrypt: (v: string) => v,
-    decrypt: (v: string) => v,
     checksum: "none",
     allowPlaintext: true,
-  };
-  const baseCtx = {
-    getMeta: () => ({ version: 1, updatedAt: new Date().toISOString(), updatedAtMs: Date.now(), options: { persist: baseConfig } }),
-    getInitialState: () => ({ ok: true }),
-    applyFeatureState: () => undefined,
-    getStoreValue: () => ({ ok: true }),
-    hasStore: () => true,
-    reportStoreError: (message: string) => errors.push(message),
-    warn: (message: string) => warnings.push(message),
-    log: () => undefined,
-    hashState: () => 1,
-    deepClone,
-    sanitize,
-    validate: () => ({ ok: true }),
+  });
+  const baseOptions = makeNormalizedOptions(baseConfig);
+  const baseMeta = makeMeta(baseOptions);
+  const baseCtx = makeHookContext({
+    name: "persistA",
+    options: baseOptions,
+    getMeta: () => baseMeta,
+    initialState: { ok: true },
+    storeValue: { ok: true },
+    reportStoreError: (message) => errors.push(message),
+    warn: (message) => warnings.push(message),
     isDev: () => true,
-  };
+  });
 
-  runtime.onStoreCreate({ ...baseCtx, name: "persistA", options: { persist: baseConfig } } as any);
-  runtime.onStoreCreate({ ...baseCtx, name: "persistB", options: { persist: baseConfig } } as any);
+  runtime.onStoreCreate?.(baseCtx);
+  runtime.onStoreCreate?.({ ...baseCtx, name: "persistB" });
 
-  const sensitiveConfig = { ...baseConfig, key: "sensitive-key", sensitiveData: true };
-  runtime.onStoreCreate({ ...baseCtx, name: "persistSensitive", options: { persist: sensitiveConfig } } as any);
+  const sensitiveConfig = makePersistConfig({
+    ...baseConfig,
+    key: "sensitive-key",
+    sensitiveData: true,
+  });
+  const sensitiveOptions = makeNormalizedOptions(sensitiveConfig);
+  const sensitiveMeta = makeMeta(sensitiveOptions);
+  const sensitiveCtx = makeHookContext({
+    name: "persistSensitive",
+    options: sensitiveOptions,
+    getMeta: () => sensitiveMeta,
+    initialState: { ok: true },
+    storeValue: { ok: true },
+    reportStoreError: (message) => errors.push(message),
+    warn: (message) => warnings.push(message),
+    isDev: () => true,
+  });
+
+  runtime.onStoreCreate?.(sensitiveCtx);
 
   assert.ok(warnings.some((message) => message.includes("Persist key collision")));
   assert.ok(errors.some((message) => message.includes("marked sensitiveData")));
@@ -882,21 +897,23 @@ test("normalizePersistOptions handles storage access errors and probe failures",
     throw new Error("probe boom");
   };
   const res = normalizePersistOptions({
-    encrypt: throwingEncrypt as any,
+    encrypt: (_value: string): string => {
+      throwingEncrypt();
+    },
     decrypt: (v: string) => v,
     allowPlaintext: true,
-  } as any, "probeFail");
+  }, "probeFail");
   assert.ok(res);
 });
 
 test("normalizePersistOptions tolerates encrypt probe errors for sensitive data", () => {
   const res = normalizePersistOptions({
     sensitiveData: true,
-    encrypt: () => {
+    encrypt: (_value: string) => {
       throw new Error("encrypt probe fail");
     },
     decrypt: (value: string) => value,
-  } as any, "sensitiveProbe");
+  }, "sensitiveProbe");
   assert.ok(res);
 });
 
@@ -917,7 +934,7 @@ test("computePersistChecksum falls back to node crypto", async () => {
     if (descriptor) {
       Object.defineProperty(globalThis, "crypto", descriptor);
     } else {
-      delete (globalThis as any).crypto;
+      delete (globalThis as unknown as Record<string, unknown>).crypto;
     }
   }
 });

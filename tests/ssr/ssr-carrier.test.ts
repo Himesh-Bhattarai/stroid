@@ -75,7 +75,7 @@ test("SSR Carrier perfectly isolates concurrent requests", async () => {
     // or if the `buffer` was sent to `hydrateStores`, it might have initialized `initialStates` with UserA buffer.
     // It's still safe because it's just the shape, not the mutated data.
     
-    // We expect the global store to NOT contain 'ModifiedUserA' or any cross-polluted data.
+    // We expect the global store to NOT contain 'ModifiedUserA' or cross-polluted data.
     const globalState = getStore("session");
     assert.ok(
         globalState == null,

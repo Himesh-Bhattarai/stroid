@@ -14,13 +14,14 @@ import { createStore, deleteStore, clearAllStores } from "../../src/store.js";
 test("enableRevalidateOnFocus removes listeners when store is deleted", () => {
   clearAllStores();
 
-  const addCalls: Array<{ type: string; handler: (...args: any[]) => void }> = [];
+  type Listener = (...args: unknown[]) => void;
+  const addCalls: Array<{ type: string; handler: Listener }> = [];
   const removeCalls: typeof addCalls = [];
 
   // Minimal window shim
-  const win: any = {
-    addEventListener: (type: string, handler: any) => addCalls.push({ type, handler }),
-    removeEventListener: (type: string, handler: any) => removeCalls.push({ type, handler }),
+  const win: { addEventListener: (type: string, handler: Listener) => void; removeEventListener: (type: string, handler: Listener) => void } = {
+    addEventListener: (type: string, handler: Listener) => addCalls.push({ type, handler }),
+    removeEventListener: (type: string, handler: Listener) => removeCalls.push({ type, handler }),
   };
 
   // @ts-ignore
@@ -50,12 +51,13 @@ test("enableRevalidateOnFocus removes listeners when store is deleted", () => {
 test("resetAsyncState cleans up wildcard revalidate listeners", () => {
   clearAllStores();
 
-  const addCalls: Array<{ type: string; handler: (...args: any[]) => void }> = [];
+  type Listener = (...args: unknown[]) => void;
+  const addCalls: Array<{ type: string; handler: Listener }> = [];
   const removeCalls: typeof addCalls = [];
 
-  const win: any = {
-    addEventListener: (type: string, handler: any) => addCalls.push({ type, handler }),
-    removeEventListener: (type: string, handler: any) => removeCalls.push({ type, handler }),
+  const win: { addEventListener: (type: string, handler: Listener) => void; removeEventListener: (type: string, handler: Listener) => void } = {
+    addEventListener: (type: string, handler: Listener) => addCalls.push({ type, handler }),
+    removeEventListener: (type: string, handler: Listener) => removeCalls.push({ type, handler }),
   };
 
   // @ts-ignore
@@ -76,5 +78,4 @@ test("resetAsyncState cleans up wildcard revalidate listeners", () => {
     ["focus", "online"]
   );
 });
-
 

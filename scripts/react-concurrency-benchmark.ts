@@ -32,33 +32,49 @@ const RUNS = Number(process.env.STROID_REACT_CONCURRENCY_RUNS ?? 8);
 const UPDATES = Number(process.env.STROID_REACT_CONCURRENCY_UPDATES ?? 24);
 
 const bootstrapDom = (): void => {
-  if (typeof (globalThis as any).window !== "undefined" && typeof (globalThis as any).document !== "undefined") {
+  const globalDom = globalThis as unknown as {
+    window?: unknown;
+    document?: unknown;
+    HTMLElement?: unknown;
+    Node?: unknown;
+    Element?: unknown;
+    Text?: unknown;
+    Event?: unknown;
+    CustomEvent?: unknown;
+    MutationObserver?: unknown;
+    getComputedStyle?: unknown;
+    requestAnimationFrame?: unknown;
+    cancelAnimationFrame?: unknown;
+    IS_REACT_ACT_ENVIRONMENT?: unknown;
+  };
+
+  if (typeof globalDom.window !== "undefined" && typeof globalDom.document !== "undefined") {
     return;
   }
 
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost" });
   const { window } = dom;
-  (globalThis as any).window = window;
-  (globalThis as any).document = window.document;
-  (globalThis as any).HTMLElement = window.HTMLElement;
-  (globalThis as any).Node = window.Node;
-  (globalThis as any).Element = window.Element;
-  (globalThis as any).Text = window.Text;
-  (globalThis as any).Event = window.Event;
-  (globalThis as any).CustomEvent = window.CustomEvent;
-  (globalThis as any).MutationObserver = window.MutationObserver;
+  globalDom.window = window;
+  globalDom.document = window.document;
+  globalDom.HTMLElement = window.HTMLElement;
+  globalDom.Node = window.Node;
+  globalDom.Element = window.Element;
+  globalDom.Text = window.Text;
+  globalDom.Event = window.Event;
+  globalDom.CustomEvent = window.CustomEvent;
+  globalDom.MutationObserver = window.MutationObserver;
   if (!("navigator" in globalThis)) {
     Object.defineProperty(globalThis, "navigator", {
       value: window.navigator,
       configurable: true,
     });
   }
-  (globalThis as any).getComputedStyle = window.getComputedStyle.bind(window);
-  (globalThis as any).requestAnimationFrame = window.requestAnimationFrame?.bind(window)
+  globalDom.getComputedStyle = window.getComputedStyle.bind(window);
+  globalDom.requestAnimationFrame = window.requestAnimationFrame?.bind(window)
     ?? ((callback: FrameRequestCallback) => setTimeout(callback, 0));
-  (globalThis as any).cancelAnimationFrame = window.cancelAnimationFrame?.bind(window)
+  globalDom.cancelAnimationFrame = window.cancelAnimationFrame?.bind(window)
     ?? ((id: number) => clearTimeout(id));
-  (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+  globalDom.IS_REACT_ACT_ENVIRONMENT = true;
 };
 
 const measureScenario = async (args: {

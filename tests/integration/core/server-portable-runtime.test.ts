@@ -21,7 +21,8 @@ test("createStoreForRequest capture preserves render-created store options for p
 
   await request.hydrate(() => {
     createStore("portableSession", { value: 1 }, {
-      validate: (candidate: any) => (typeof candidate?.value === "number" ? candidate : false),
+      validate: (candidate: unknown) =>
+        typeof (candidate as { value?: unknown } | null)?.value === "number" ? candidate : false,
       onError: (message) => { errors.push(message); },
     });
     setStore("portableSession", { value: 2 });
@@ -32,7 +33,7 @@ test("createStoreForRequest capture preserves render-created store options for p
 
   await portable.run(async (api) => {
     await Promise.resolve();
-    api.set("portableSession", { value: "bad" as any });
+    api.set("portableSession", { value: "bad" as unknown as number });
     snapshot = api.get("portableSession");
   });
 

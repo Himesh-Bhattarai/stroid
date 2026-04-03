@@ -34,7 +34,7 @@ import { clearSsrGlobalAllowWarned } from "../../src/core/store-create.js";
 import { createSelector, subscribeWithSelector } from "../../src/selectors/index.js";
 import { broadcastSync } from "../../src/features/sync.js";
 import { hashState, warn } from "../../src/utils.js";
-import { createStoreRegistry, runWithRegistry, createTransactionState } from "../../src/core/store-registry.js";
+import { createStoreRegistry, runWithRegistry, createTransactionState, type StoreLifecycleEvent } from "../../src/core/store-registry.js";
 import { stores, validatePathSafety, pathValidationCache, getStoreAdmin, getRegistry } from "../../src/core/store-lifecycle.js";
 import { initialStates, onStoreLifecycle } from "../../src/core/store-lifecycle/registry.js";
 import { createStoreForRequest } from "../../src/server/index.js";
@@ -48,13 +48,47 @@ import { buildFlushPlan } from "../../src/notification/priority.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { injectTransactionRunner, beginTransaction, endTransaction, stageTransactionValue, getStagedTransactionValue } from "../../src/core/store-transaction.js";
 
+type MapValue<M> = M extends Map<unknown, infer V> ? V : never;
+type PathCacheNode = MapValue<typeof pathValidationCache>;
+
+type GlobalTestEnv = typeof globalThis & {
+  window?: unknown;
+  document?: unknown;
+};
+
+const g = globalThis as GlobalTestEnv;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const readNumberProp = (value: unknown, key: string): number | undefined => {
+  if (!isRecord(value)) return undefined;
+  const prop = value[key];
+  return typeof prop === "number" ? prop : undefined;
+};
+
+const readStringProp = (value: unknown, key: string): string | undefined => {
+  if (!isRecord(value)) return undefined;
+  const prop = value[key];
+  return typeof prop === "string" ? prop : undefined;
+};
+
+const readNumberPath = (value: unknown, ...path: readonly string[]): number | undefined => {
+  let cursor: unknown = value;
+  for (const segment of path) {
+    if (!isRecord(cursor)) return undefined;
+    cursor = cursor[segment];
+  }
+  return typeof cursor === "number" ? cursor : undefined;
+};
+
 test("validator with side effects runs once per write", () => {
   clearAllStores();
   let calls = 0;
   createStore("x", { value: 0 }, {
     validate: (next) => {
       calls += 1;
-      return (next as any).value >= 0;
+      return next.value >= 0;
     },
   });
   calls = 0;
@@ -66,11 +100,14 @@ test("subscribeWithSelector does not fire on first notification", async () => {
   clearAllStores();
   createStore("x", { count: 0 });
   const calls: Array<[number, number]> = [];
-  subscribeWithSelector(
+  subscribeWithSelector<{ count: number }, number>(
     "x",
-    (s: any) => s.count,
+    (s) => s.count,
     Object.is,
-    (next, prev) => calls.push([next as number, prev as number])
+    (next, prev) => {
+      assert.ok(prev !== undefined);
+      calls.push([next, prev]);
+    }
   );
 
   setStore("x", "count", 0);
@@ -90,7 +127,10 @@ test("createSelector invalidates cached results when object-valued dependencies 
     settings: { theme: "light" },
   });
 
-  const selectUser = createSelector("selectorObjectDeps", (state: any) => ({
+  const selectUser = createSelector("selectorObjectDeps", (state: {
+    user: { profile: { name: string } };
+    settings: { theme: string };
+  }) => ({
     profile: state.user.profile,
     theme: state.settings.theme,
   }));
@@ -133,12 +173,12 @@ test("validatePathSafety LRU caps verdict entries under high-cardinality paths",
     validatePathSafety("lru", base, `items.k${i}.value`, i);
   }
 
-  const root = pathValidationCache.get("lru") as any;
-  const countVerdicts = (node: any): number => {
+  const root = pathValidationCache.get("lru");
+  const countVerdicts = (node: PathCacheNode | undefined): number => {
     if (!node) return 0;
     let count = 0;
     if (node.verdicts) count += node.verdicts.size;
-    node.children?.forEach((child: any) => {
+    node.children?.forEach((child) => {
       count += countVerdicts(child);
     });
     return count;
@@ -160,7 +200,7 @@ test("configureStroid pathCacheSize limits cached path verdicts per store", () =
     validatePathSafety("pathLimit", base, "b.v", 2);
     validatePathSafety("pathLimit", base, "c.v", 3);
 
-    const root = pathValidationCache.get("pathLimit") as any;
+    const root = pathValidationCache.get("pathLimit");
     const readVerdicts = (path: string): number => {
       const parts = path.split(".");
       let node = root;
@@ -200,7 +240,7 @@ test("hydrateStores accepts allowTrusted trust flag", () => {
 
 test("hydrateStores recomputes computed stores after out-of-order snapshot keys", () => {
   clearAllStores();
-  createComputed("derived", ["base"], (base: any) => ({ value: (base?.value ?? 0) * 2 }));
+  createComputed("derived", ["base"], (base) => ({ value: (readNumberProp(base, "value") ?? 0) * 2 }));
 
   const snapshot: Record<string, unknown> = {};
   snapshot.derived = { value: 1 }; // stale on purpose
@@ -226,7 +266,7 @@ test("hydrateStores throws when trust.validate throws in dev", () => {
 
 test("onStoreLifecycle emits created/deleted events and respects unsubscribe", () => {
   clearAllStores();
-  const events: any[] = [];
+  const events: StoreLifecycleEvent[] = [];
   const off = onStoreLifecycle((event) => {
     events.push(event);
   });
@@ -254,7 +294,7 @@ test("replaceStore inside batch commits as part of the transaction", () => {
   clearAllStores();
   createStore("batchReplace", { value: 1 });
 
-  let result: any;
+  let result: ReturnType<typeof replaceStore> | undefined;
   setStoreBatch(() => {
     result = replaceStore("batchReplace", { value: 2 });
   });
@@ -324,13 +364,15 @@ test("slow mutator warning clears after store deletion", () => {
   };
 
   try {
-    createStore("slow", { value: 0 });
-    setStore("slow", (draft: any) => {
+    const slowA = createStore("slow", { value: 0 });
+    assert.ok(slowA);
+    setStore(slowA, (draft) => {
       draft.value += 1;
     });
     deleteStore("slow");
-    createStore("slow", { value: 0 });
-    setStore("slow", (draft: any) => {
+    const slowB = createStore("slow", { value: 0 });
+    assert.ok(slowB);
+    setStore(slowB, (draft) => {
       draft.value += 1;
     });
   } finally {
@@ -351,11 +393,11 @@ test("allowSSRGlobalStore warning can re-fire after delete", () => {
     },
   });
   const originalEnv = process.env.NODE_ENV;
-  const realWindow = (globalThis as any).window;
-  const realDocument = (globalThis as any).document;
+  const realWindow = g.window;
+  const realDocument = g.document;
   process.env.NODE_ENV = "production";
-  (globalThis as any).window = undefined;
-  (globalThis as any).document = undefined;
+  g.window = undefined;
+  g.document = undefined;
 
   try {
     createStore("ssrWarn", { value: 1 }, { scope: "global" });
@@ -366,8 +408,8 @@ test("allowSSRGlobalStore warning can re-fire after delete", () => {
     createStore("ssrWarn", { value: 1 }, { scope: "global" });
   } finally {
     process.env.NODE_ENV = originalEnv;
-    (globalThis as any).window = realWindow;
-    (globalThis as any).document = realDocument;
+    g.window = realWindow;
+    g.document = realDocument;
     resetConfig();
   }
 
@@ -385,19 +427,31 @@ test("snapshot freezing differs by mode", () => {
   const refSnap = _getSnapshot("snapRef");
   const shallowSnap = _getSnapshot("snapShallow");
 
+  assert.ok(deepSnap && typeof deepSnap === "object");
+  assert.ok(refSnap && typeof refSnap === "object");
+  assert.ok(shallowSnap && typeof shallowSnap === "object");
+
+  const deepNested = (deepSnap as Record<string, unknown>).nested;
+  const refNested = (refSnap as Record<string, unknown>).nested;
+  const shallowNested = (shallowSnap as Record<string, unknown>).nested;
+
+  assert.ok(deepNested && typeof deepNested === "object");
+  assert.ok(refNested && typeof refNested === "object");
+  assert.ok(shallowNested && typeof shallowNested === "object");
+
   assert.strictEqual(Object.isFrozen(deepSnap as object), true);
   assert.strictEqual(Object.isFrozen(refSnap as object), true);
   assert.strictEqual(Object.isFrozen(shallowSnap as object), true);
-  assert.strictEqual(Object.isFrozen((deepSnap as any).nested), true);
-  assert.strictEqual(Object.isFrozen((refSnap as any).nested), false);
-  assert.strictEqual(Object.isFrozen((shallowSnap as any).nested), false);
+  assert.strictEqual(Object.isFrozen(deepNested as object), true);
+  assert.strictEqual(Object.isFrozen(refNested as object), false);
+  assert.strictEqual(Object.isFrozen(shallowNested as object), false);
 });
 
 test("concurrent setStore calls in the same microtask coalesce", async () => {
   clearAllStores();
   createStore("micro", { value: 0 });
   let calls = 0;
-  let last: any = null;
+  let last: unknown = null;
   subscribe("micro", (value) => {
     calls += 1;
     last = value;
@@ -443,7 +497,7 @@ test("fetchStore propagates correlationId through middleware and computed writes
   try {
     createStore("orders", { data: null, loading: false, error: null, status: "idle" });
     createComputed("totals", ["orders"], (state) => ({
-      value: (state as any)?.data?.value ?? 0,
+      value: readNumberPath(state, "data", "value") ?? 0,
     }));
 
     await fetchStore("orders", Promise.resolve({ value: 7 }), { correlationId: "corr-abc" });
@@ -451,8 +505,8 @@ test("fetchStore propagates correlationId through middleware and computed writes
 
     const meta = getStoreMeta("orders");
     assert.strictEqual(meta?.lastCorrelationId, "corr-abc");
-    const asyncState = getStore("orders") as any;
-    assert.strictEqual(asyncState?.correlationId, "corr-abc");
+    const asyncState = getStore("orders");
+    assert.strictEqual(readStringProp(asyncState, "correlationId"), "corr-abc");
     assert.ok(seen.includes("orders:corr-abc"));
     assert.ok(seen.includes("totals:corr-abc"));
   } finally {
@@ -508,13 +562,15 @@ test("getStoreHealth returns per-store and global metrics", () => {
   clearAllStores();
   createStore("healthStore", { value: 1 });
 
-  const entry = getStoreHealth("healthStore") as any;
-  assert.strictEqual(entry?.name, "healthStore");
-  assert.ok(entry?.meta);
+  const entry = getStoreHealth("healthStore");
+  assert.ok(entry && !("stores" in entry));
+  assert.strictEqual(entry.name, "healthStore");
+  assert.ok(entry.meta);
 
-  const summary = getStoreHealth() as any;
-  assert.ok(Array.isArray(summary?.stores));
-  assert.ok(summary?.registry?.totalStores >= 1);
+  const summary = getStoreHealth();
+  assert.ok(summary && "stores" in summary);
+  assert.ok(Array.isArray(summary.stores));
+  assert.ok(summary.registry.totalStores >= 1);
 });
 
 test("bindRegistry preserves lazy factories across scope switches", () => {
@@ -571,7 +627,7 @@ test("transaction state is registry-scoped across request registries", () => {
     api.create("count", { value: 100 });
   });
 
-  let resultB: any = null;
+  let resultB: unknown = null;
   const resultA = reqA.hydrate(() => {
     setStoreBatch(() => {
       setStore("count", { value: 1 });
@@ -594,7 +650,9 @@ test("setStore rejects path writes to primitive stores", () => {
 
   const res = setStore("count", "value", 1);
   assert.strictEqual(res.ok, false);
-  assert.strictEqual((res as any).reason, "path");
+  if (!res.ok) {
+    assert.strictEqual(res.reason, "path");
+  }
 });
 
 test("chunked flush snapshots ordered names (orderedNames race)", async () => {
@@ -756,8 +814,8 @@ test("hydrateStores accepts undefined values in snapshots", () => {
   createStore("defined", { value: 1 });
 
   const result = hydrateStores({
-    defined: undefined as any,
-    missing: undefined as any,
+    defined: undefined,
+    missing: undefined,
   }, {}, { allowUntrusted: true });
 
   assert.deepStrictEqual(result.hydrated.slice().sort(), []);
@@ -789,7 +847,7 @@ test("getStoreSnapshot reads staged values inside setStoreBatch", () => {
   const pre = _getSnapshot("batched");
   assert.deepStrictEqual(pre, { value: 0 });
 
-  let stagedSnapshot: any = null;
+  let stagedSnapshot: unknown = null;
   setStoreBatch(() => {
     setStore("batched", "value", 1);
     stagedSnapshot = _getSnapshot("batched");
@@ -827,9 +885,9 @@ test("configureStroid is registry-scoped", () => {
 test("computed diamond dependencies recompute once per flush", async () => {
   clearAllStores();
   createStore("a", { value: 1 });
-  createComputed("b", ["a"], (a) => ({ value: (a as any)?.value ?? 0 }));
-  createComputed("c", ["a"], (a) => ({ value: (a as any)?.value ?? 0 }));
-  createComputed("d", ["b", "c"], (b, c) => ({ sum: (b as any)?.value + (c as any)?.value }));
+  createComputed("b", ["a"], (a) => ({ value: readNumberProp(a, "value") ?? 0 }));
+  createComputed("c", ["a"], (a) => ({ value: readNumberProp(a, "value") ?? 0 }));
+  createComputed("d", ["b", "c"], (b, c) => ({ sum: (readNumberProp(b, "value") ?? 0) + (readNumberProp(c, "value") ?? 0) }));
 
   let calls = 0;
   subscribe("d", () => { calls += 1; });
@@ -926,7 +984,7 @@ test("failed transactions roll back reset metrics along with staged state", () =
 
   setStoreBatch(() => {
     resetStore("resetMetrics");
-    setStore("resetMetricsGuard", "missing", 1 as any);
+    setStore("resetMetricsGuard", "missing", 1);
   });
 
   assert.deepStrictEqual(getStore("resetMetrics"), { value: 2 });
@@ -941,8 +999,10 @@ test("snapshotStrategy sets the default snapshot mode", () => {
 
   try {
     createStore("snap", { nested: { value: 1 } });
-    const snap = _getSnapshot("snap") as any;
-    const ref = _getStoreValueRef("snap") as any;
+    const snap = _getSnapshot("snap");
+    const ref = _getStoreValueRef("snap");
+    assert.ok(isRecord(snap));
+    assert.ok(isRecord(ref));
     assert.notStrictEqual(snap, ref);
     assert.strictEqual(snap.nested, ref.nested);
   } finally {
@@ -953,8 +1013,10 @@ test("snapshotStrategy sets the default snapshot mode", () => {
 test("default snapshot mode is deep", () => {
   clearAllStores();
   createStore("defaultSnap", { nested: { value: 1 } });
-  const snap = _getSnapshot("defaultSnap") as any;
-  const ref = _getStoreValueRef("defaultSnap") as any;
+  const snap = _getSnapshot("defaultSnap");
+  const ref = _getStoreValueRef("defaultSnap");
+  assert.ok(isRecord(snap));
+  assert.ok(isRecord(ref));
   assert.notStrictEqual(snap, ref);
   assert.notStrictEqual(snap.nested, ref.nested);
 });
@@ -1052,9 +1114,9 @@ test("transaction state isolates concurrent async contexts on a shared registry"
       txContext.run(createTransactionState(), () => {
         beginTransaction(registry);
         stageTransactionValue("txShared", { value });
-        results.push({ ctx: label, value: (getStagedTransactionValue("txShared").value as any)?.value });
+        results.push({ ctx: label, value: readNumberProp(getStagedTransactionValue("txShared").value, "value") ?? 0 });
         setTimeout(() => {
-          results.push({ ctx: label, value: (getStagedTransactionValue("txShared").value as any)?.value });
+          results.push({ ctx: label, value: readNumberProp(getStagedTransactionValue("txShared").value, "value") ?? 0 });
           endTransaction(undefined, registry);
           resolve();
         }, delay);
@@ -1100,7 +1162,7 @@ test("mid-flush store deletion does not crash or notify deleted subscribers", as
 
     subscribe("chaos", (snap) => {
       events.push({ id: "first", value: snap });
-      if (snap && (snap as any).value === 1) {
+      if (readNumberProp(snap, "value") === 1) {
         deleteStore("chaos");
       }
     });
@@ -1111,7 +1173,7 @@ test("mid-flush store deletion does not crash or notify deleted subscribers", as
     setStore("chaos", "value", 1);
     await new Promise((r) => setTimeout(r, 60));
 
-    assert.ok(events.some((entry) => entry.id === "first" && (entry.value as any)?.value === 1));
+    assert.ok(events.some((entry) => entry.id === "first" && readNumberProp(entry.value, "value") === 1));
     assert.ok(events.some((entry) => entry.value === null));
     assert.strictEqual(getStore("chaos"), null);
   } finally {
@@ -1128,15 +1190,19 @@ test("chunked flush avoids mixed snapshots when store updates mid-chunk", async 
     const calls: Array<[string, number]> = [];
     let triggered = false;
 
-    subscribe("chunkMix", (snap: any) => {
-      calls.push(["first", snap.value as number]);
+    subscribe("chunkMix", (snap) => {
+      const value = readNumberProp(snap, "value");
+      assert.ok(typeof value === "number");
+      calls.push(["first", value]);
       if (!triggered) {
         triggered = true;
-        setStore("chunkMix", "value", (snap.value as number) + 1);
+        setStore("chunkMix", "value", value + 1);
       }
     });
-    subscribe("chunkMix", (snap: any) => {
-      calls.push(["second", snap.value as number]);
+    subscribe("chunkMix", (snap) => {
+      const value = readNumberProp(snap, "value");
+      assert.ok(typeof value === "number");
+      calls.push(["second", value]);
     });
 
     setStore("chunkMix", "value", 1);
@@ -1176,12 +1242,13 @@ test("mutatorProduce enables structural sharing", async () => {
   configureStroid({ mutatorProduce: produce });
 
   try {
-    createStore("sharing", { a: { value: 1 }, b: { value: 2 } });
-    const before = _getStoreValueRef("sharing") as any;
-    setStore("sharing", (draft: any) => {
+    const sharing = createStore("sharing", { a: { value: 1 }, b: { value: 2 } });
+    assert.ok(sharing);
+    const before = _getStoreValueRef("sharing") as { a: { value: number }; b: { value: number } };
+    setStore(sharing, (draft) => {
       draft.a.value = 99;
     });
-    const after = _getStoreValueRef("sharing") as any;
+    const after = _getStoreValueRef("sharing") as { a: { value: number }; b: { value: number } };
     assert.notStrictEqual(before, after);
     assert.notStrictEqual(before.a, after.a);
     assert.strictEqual(before.b, after.b);
@@ -1197,12 +1264,13 @@ test("mutatorProduce accepts the \"immer\" alias after registration", async () =
   try {
     registerMutatorProduce(produce);
     configureStroid({ mutatorProduce: "immer" });
-    createStore("sharingAlias", { a: { value: 1 }, b: { value: 2 } });
-    const before = _getStoreValueRef("sharingAlias") as any;
-    setStore("sharingAlias", (draft: any) => {
+    const sharingAlias = createStore("sharingAlias", { a: { value: 1 }, b: { value: 2 } });
+    assert.ok(sharingAlias);
+    const before = _getStoreValueRef("sharingAlias") as { a: { value: number }; b: { value: number } };
+    setStore(sharingAlias, (draft) => {
       draft.a.value = 2;
     });
-    const after = _getStoreValueRef("sharingAlias") as any;
+    const after = _getStoreValueRef("sharingAlias") as { a: { value: number }; b: { value: number } };
     assert.notStrictEqual(before, after);
     assert.notStrictEqual(before.a, after.a);
     assert.strictEqual(before.b, after.b);
@@ -1231,8 +1299,9 @@ test("registerMutatorProduce locks and can be force-overridden", async () => {
     registerMutatorProduce(producerA);
     registerMutatorProduce(producerB);
     registerMutatorProduce(producerB, { force: true });
-    createStore("lockTest", { value: 1 });
-    setStore("lockTest", (draft: any) => {
+    const lockTest = createStore("lockTest", { value: 1 });
+    assert.ok(lockTest);
+    setStore(lockTest, (draft) => {
       draft.value = 2;
     });
   } finally {
@@ -1248,9 +1317,9 @@ test("getStoreSnapshot caches within a transaction and invalidates on stage", ()
   clearAllStores();
   createStore("batchCache", { value: 0 });
 
-  let first: any = null;
-  let second: any = null;
-  let third: any = null;
+  let first: unknown = null;
+  let second: unknown = null;
+  let third: unknown = null;
 
   setStoreBatch(() => {
     setStore("batchCache", "value", 1);
@@ -1278,7 +1347,7 @@ test("critical fires when sync payload is dropped", () => {
   broadcastSync({
     name: "big",
     syncOption: { maxPayloadBytes: 10 },
-    syncChannels: { big: { postMessage: () => { /* noop */ } } as any },
+    syncChannels: { big: { postMessage: () => { /* noop */ } } as unknown as BroadcastChannel },
     syncClocks: { big: 1 },
     instanceId: "test",
     updatedAt: new Date().toISOString(),
@@ -1312,7 +1381,7 @@ test("createSelector handles object replacement vs deep mutation", () => {
     user: { profile: { name: "A" } }
   });
 
-  const sel = createSelector("selEdge", (s: any) => ({
+  const sel = createSelector("selEdge", (s: { user: { profile: { name: string } } }) => ({
     profile: s.user.profile
   }));
 
@@ -1337,7 +1406,7 @@ test("createSelector clones frozen store refs when selectorCloneFrozen is enable
     const frozen = getStoreSnapshot("selFrozen") as Record<string, unknown> | null;
     assert.ok(frozen && Object.isFrozen(frozen));
 
-    const sel = createSelector("selFrozen", (state: any) => {
+    const sel = createSelector("selFrozen", (state: { user: { profile: { name: string } } }) => {
       state.user = { profile: { name: "B" } };
       return state.user.profile.name;
     });
@@ -1380,9 +1449,11 @@ test("write during chunked flush does not corrupt order", async () => {
 
   const seen: number[] = [];
 
-  subscribe("race", (s: any) => {
-    seen.push(s.value);
-    if (s.value === 1) {
+  subscribe("race", (s) => {
+    const value = readNumberProp(s, "value");
+    assert.ok(typeof value === "number");
+    seen.push(value);
+    if (value === 1) {
       setStore("race", "value", 2);
     }
   });
@@ -1413,7 +1484,7 @@ test("setStore handles invalid values safely", () => {
   clearAllStores();
   createStore("misuse", { value: 1 });
 
-  const res = setStore("misuse", undefined as any);
+  const res = setStore("misuse", undefined as unknown as { value: number });
 
   assert.strictEqual(res.ok, false);
 });
@@ -1468,4 +1539,3 @@ test("nested transaction failure rolls back the entire transaction", () => {
 
   assert.deepStrictEqual(getStore("nested-tx-failure"), { value: 0 });
 });
-

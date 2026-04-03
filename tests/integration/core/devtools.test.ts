@@ -12,6 +12,7 @@ import { createStore, setStore, deleteStore } from "../../../src/store.js";
 import { installAllFeatures } from "../../../src/install.js";
 import { getHistory, clearHistory } from "../../../src/devtools/api.js";
 import { createDevtoolsFeatureRuntime } from "../../../src/features/devtools.js";
+import { normalizeStoreOptions } from "../../../src/adapters/options.js";
 import { deepClone } from "../../../src/utils.js";
 
 test("devtools api returns safe defaults without feature registration", () => {
@@ -20,7 +21,9 @@ test("devtools api returns safe defaults without feature registration", () => {
 });
 
 test("devtools feature sends updates and clears history", () => {
-  const original = (window as any).__REDUX_DEVTOOLS_EXTENSION__;
+  type ReduxDevtoolsExtension = { connect: () => { init: () => void; send: () => void } };
+  const windowWithDevtools = window as unknown as Window & { __REDUX_DEVTOOLS_EXTENSION__?: ReduxDevtoolsExtension };
+  const original = windowWithDevtools.__REDUX_DEVTOOLS_EXTENSION__;
   let sends = 0;
   const devtoolsMock = {
     init: () => undefined,
@@ -29,7 +32,7 @@ test("devtools feature sends updates and clears history", () => {
       if (sends === 1) throw new Error("devtools send boom");
     },
   };
-  (window as any).__REDUX_DEVTOOLS_EXTENSION__ = {
+  windowWithDevtools.__REDUX_DEVTOOLS_EXTENSION__ = {
     connect: () => devtoolsMock,
   };
 
@@ -44,34 +47,65 @@ test("devtools feature sends updates and clears history", () => {
 
   assert.ok(sends >= 1);
   assert.deepStrictEqual(getHistory("devStore"), []);
-  (window as any).__REDUX_DEVTOOLS_EXTENSION__ = original;
+  windowWithDevtools.__REDUX_DEVTOOLS_EXTENSION__ = original;
 });
 
 test("devtools runtime trims history, clones safely, and clears history", () => {
   const warnings: string[] = [];
   const runtime = createDevtoolsFeatureRuntime();
-  const ctxBase = {
+  type CreateCtx = Parameters<NonNullable<typeof runtime.onStoreCreate>>[0];
+  type WriteCtx = Parameters<NonNullable<typeof runtime.onStoreWrite>>[0];
+  const options = normalizeStoreOptions({ devtools: true, historyLimit: 1, redactor: undefined }, "devStore");
+
+  const storeValue = { value: 1, big: BigInt(1) };
+  const ctxBase: CreateCtx = {
     name: "devStore",
-    options: { devtools: true, historyLimit: 1, redactor: undefined },
+    options,
+    getMeta: () => undefined,
+    getStoreValue: () => storeValue,
     getAllStores: () => ({ devStore: { value: 1 } }),
-    getStoreValue: () => ({ value: 1, big: BigInt(1) }),
+    getInitialState: () => ({ value: 1 }),
+    hasStore: () => true,
+    setStoreValue: () => undefined,
+    applyFeatureState: (value) => value,
+    notify: () => undefined,
+    reportStoreError: () => undefined,
     warn: (message: string) => warnings.push(message),
+    warnAlways: (message: string) => warnings.push(message),
+    log: () => undefined,
+    hashState: () => 0,
     deepClone,
+    sanitize: (value) => value,
+    validate: (next) => ({ ok: true, value: next }),
+    isDev: () => true,
   };
 
-  runtime.onStoreCreate(ctxBase as any);
+  runtime.onStoreCreate(ctxBase);
   assert.ok(warnings.some((message) => message.includes("DevTools requested")));
 
-  runtime.onStoreWrite({ ...ctxBase, action: "set", prev: { value: 1 }, next: { value: 2 }, getStoreValue: () => ({ value: 2, big: BigInt(2) }) } as any);
-  runtime.onStoreWrite({ ...ctxBase, action: "set", prev: { value: 2 }, next: { value: 3 }, getStoreValue: () => ({ value: 3, big: BigInt(3) }) } as any);
+  runtime.onStoreWrite({
+    ...ctxBase,
+    action: "set",
+    prev: { value: 1 },
+    next: { value: 2 },
+    getStoreValue: () => ({ value: 2, big: BigInt(2) }),
+  } satisfies WriteCtx);
+  runtime.onStoreWrite({
+    ...ctxBase,
+    action: "set",
+    prev: { value: 2 },
+    next: { value: 3 },
+    getStoreValue: () => ({ value: 3, big: BigInt(3) }),
+  } satisfies WriteCtx);
 
-  const originalClone = (globalThis as any).structuredClone;
+  const globalWithClone = globalThis as typeof globalThis & { structuredClone?: typeof structuredClone };
+  const originalClone = globalWithClone.structuredClone;
   try {
-    (globalThis as any).structuredClone = undefined;
+    globalWithClone.structuredClone = undefined;
     const history = runtime.api?.getHistory?.("devStore");
     assert.ok(Array.isArray(history));
   } finally {
-    (globalThis as any).structuredClone = originalClone;
+    globalWithClone.structuredClone = originalClone;
   }
 
   runtime.api?.clearHistory?.();

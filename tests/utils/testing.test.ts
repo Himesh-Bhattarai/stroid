@@ -39,7 +39,7 @@ test("createMockStore proxies set, reset, and use helpers", () => {
   mock.set({ value: 2 });
   assert.deepStrictEqual(getStore("mockUser"), { value: 2, nested: { color: "blue" } });
 
-  mock.set((draft: any) => {
+  mock.set((draft: { value: number; nested: { color: string } }) => {
     draft.nested.color = "green";
   });
   assert.deepStrictEqual(getStore("mockUser"), { value: 2, nested: { color: "green" } });
@@ -161,5 +161,4 @@ test("resetAllStoresForTest runs registered reset hooks", () => {
   resetAllStoresForTest();
   assert.ok(calls > before);
 });
-
 

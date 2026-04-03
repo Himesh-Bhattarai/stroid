@@ -337,7 +337,7 @@ test("computed", async (t) => {
         decrypt: (v: string) => v,
       },
     });
-    createComputed("derivedPersist", ["basePersist"], (v) => (v as any).value * 2);
+    createComputed("derivedPersist", ["basePersist"], (v) => (v as { value: number }).value * 2);
 
     replaceStore("basePersist", { value: 3 });
     await wait(20);
@@ -355,7 +355,7 @@ test("computed", async (t) => {
       if (calls === 2) {
         deleteStore("dep");
       }
-      return value ? (value as any).value * 2 : null;
+      return value ? (value as { value: number }).value * 2 : null;
     });
 
     replaceStore("dep", { value: 2 });

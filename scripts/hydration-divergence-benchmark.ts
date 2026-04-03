@@ -17,6 +17,15 @@ import {
 
 type CampaignProfile = "try" | "hit" | "stress" | "hammer";
 
+type DriftSource = "server" | "effect" | "storage" | "sync";
+
+type AsyncState = {
+  data: string | null;
+  loading: boolean;
+  error: string | null;
+  status: "idle" | "loading" | "success" | "error" | "aborted";
+};
+
 type CampaignSample = {
   durationMs: number;
   queuedWrites: number;
@@ -55,7 +64,7 @@ const identityValidate = <T>(candidate: T): { ok: true; value: T } => ({
   value: candidate,
 });
 
-const createAsyncState = (data: string) => ({
+const createAsyncState = (data: string): AsyncState => ({
   data,
   loading: false,
   error: null,
@@ -202,7 +211,7 @@ const runTryCase = async (): Promise<{ sample: CampaignSample; finalState: unkno
   assert.strictEqual(boot.isActive(), false);
   await settleAfterClose();
 
-  const remote = getStore("tryRemote") as any;
+  const remote = getStore("tryRemote") as AsyncState | null;
   assert.deepStrictEqual(getStore("tryCounter"), { count: 1 });
   assert.deepStrictEqual(getStore("tryPrefs"), { theme: "dark" });
   assert.deepStrictEqual(getStore("tryPresence"), { online: true });
@@ -249,7 +258,7 @@ const runHitCase = async (): Promise<{ sample: CampaignSample; finalState: unkno
 
   const controller = new AbortController();
   await fetchStore("hitRemote", () => Promise.resolve("fresh"), { signal: controller.signal });
-  replaceStore("hitRemote", createAsyncState("server") as any);
+  replaceStore("hitRemote", createAsyncState("server"));
 
   let invalidations = 0;
   const hydration = hydrateStores(
@@ -289,8 +298,8 @@ const runHitCase = async (): Promise<{ sample: CampaignSample; finalState: unkno
   setStore("hitFilters", {
     q: "client",
     nested: { client: true },
-  } as any);
-  replaceStore("hitRemote", createAsyncState("client") as any);
+  } as unknown as Partial<{ q: string; nested: { server: boolean; client: boolean } }>);
+  replaceStore("hitRemote", createAsyncState("client"));
 
   assert.deepStrictEqual(getStore("hitSession"), { token: "server" });
   assert.deepStrictEqual(getStore("hitDraft"), { value: "server" });
@@ -311,7 +320,7 @@ const runHitCase = async (): Promise<{ sample: CampaignSample; finalState: unkno
     q: "client",
     nested: { server: true, client: true },
   });
-  const remote = getStore("hitRemote") as any;
+  const remote = getStore("hitRemote") as AsyncState | null;
   assert.strictEqual(remote?.data, "fresh");
   assert.strictEqual(invalidations, 1);
 
@@ -350,10 +359,11 @@ const runHitCase = async (): Promise<{ sample: CampaignSample; finalState: unkno
 
 const runStressCase = async (): Promise<{ sample: CampaignSample; finalState: unknown }> => {
   resetAllStoresForTest();
-  createStore("stressTimeline", {
+  const initialTimeline: { revision: number; source: DriftSource } = {
     revision: 0,
     source: "server",
-  });
+  };
+  createStore("stressTimeline", initialTimeline);
 
   const hydration = hydrateStores(
     {
@@ -386,13 +396,13 @@ const runStressCase = async (): Promise<{ sample: CampaignSample; finalState: un
       setStore("stressTimeline", {
         revision,
         source,
-      } as any);
+      });
       continue;
     }
     applyFeatureState("stressTimeline", {
       revision,
       source,
-    } as any, Date.now(), {
+    }, Date.now(), {
       source,
       validate: identityValidate,
     });
@@ -436,10 +446,11 @@ const runStressCase = async (): Promise<{ sample: CampaignSample; finalState: un
 const runHammerCase = async (): Promise<{ sample: CampaignSample; finalState: unknown }> => {
   resetAllStoresForTest();
   createStore("hammerCounter", { count: 0 });
-  createStore("hammerPrefs", {
+  const initialPrefs: { revision: number; source: DriftSource } = {
     revision: 0,
     source: "server",
-  });
+  };
+  createStore("hammerPrefs", initialPrefs);
   createStore("hammerPresence", {
     revision: 0,
     peers: 0,
@@ -488,7 +499,7 @@ const runHammerCase = async (): Promise<{ sample: CampaignSample; finalState: un
     applyFeatureState("hammerPrefs", {
       revision,
       source: "storage",
-    } as any, Date.now(), {
+    }, Date.now(), {
       source: "storage",
       validate: identityValidate,
     });
@@ -498,7 +509,7 @@ const runHammerCase = async (): Promise<{ sample: CampaignSample; finalState: un
     applyFeatureState("hammerPresence", {
       revision,
       peers: revision,
-    } as any, Date.now(), {
+    }, Date.now(), {
       source: "sync",
       validate: identityValidate,
     });

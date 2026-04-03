@@ -23,7 +23,7 @@ const makeJsonResponse = (payload: unknown) => ({
   headers: { get: () => "application/json" },
   json: async () => payload,
   text: async () => JSON.stringify(payload),
-}) as any;
+}) as unknown as Response;
 
 test("fetchStore with autoCreate disabled requires an existing backing store", async () => {
   clearAllStores();

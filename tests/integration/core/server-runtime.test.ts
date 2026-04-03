@@ -8,7 +8,7 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import { createStoreForRequest } from "../../../src/server/index.js";
+import { createStoreForRequest, type RequestStoreApi } from "../../../src/server/index.js";
 import { getStore, setStore, createStore, resetStore, deleteStore } from "../../../src/store.js";
 import { createSelector } from "../../../src/selectors/index.js";
 import { getRequestCarrier } from "../../../src/core/store-registry.js";
@@ -16,16 +16,17 @@ import { getRequestCarrier } from "../../../src/core/store-registry.js";
 test("createStoreForRequest throws when set is called before create", () => {
   assert.throws(() => {
     createStoreForRequest((api) => {
-      api.set("missing" as any, { value: 1 } as any);
+      api.set("missing", { value: 1 });
     });
   }, /requires create/);
 });
 
 test("createStoreForRequest supports functional updates and snapshots", () => {
-  let api: any = null;
+  let api: RequestStoreApi | null = null;
   const ctx = createStoreForRequest((requestApi) => {
     api = requestApi;
   });
+  if (!api) throw new Error("Expected request api");
   api.create("user", { name: "Ada", count: 1 });
   api.set("user", (draft: { count: number }) => {
     draft.count += 1;
@@ -39,7 +40,7 @@ test("createStoreForRequest supports functional updates and snapshots", () => {
 });
 
 test("createStoreForRequest exposes api.snapshot inside the callback API", () => {
-  let snapshot: any = null;
+  let snapshot: ReturnType<RequestStoreApi["snapshot"]> | null = null;
 
   createStoreForRequest((api) => {
     api.create("user", { name: "Ada", count: 1 });
@@ -55,11 +56,12 @@ test("createStoreForRequest exposes api.snapshot inside the callback API", () =>
 });
 
 test("createStoreForRequest isolates direct api.set payloads from later external mutation", () => {
-  let api: any = null;
+  let api: RequestStoreApi | null = null;
   const ctx = createStoreForRequest((requestApi) => {
     api = requestApi;
     api.create("session", { user: "Init", count: 0 });
   });
+  if (!api) throw new Error("Expected request api");
 
   const payload = { user: "A", count: 1 };
   api.set("session", payload);

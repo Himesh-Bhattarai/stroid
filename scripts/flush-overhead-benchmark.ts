@@ -41,7 +41,7 @@ const prepare = (storesCount: number, subscribersPerStore: number) => {
   let expected = 0;
   let resolver: (() => void) | null = null;
   const last = storeNames[storeNames.length - 1];
-  const stop = _subscribe(last, (state: any) => {
+  const stop = _subscribe(last, (state: { value?: number } | null) => {
     if (!resolver || state?.value !== expected) return;
     const current = resolver;
     resolver = null;

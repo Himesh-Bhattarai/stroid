@@ -30,8 +30,9 @@ test("snapshotSafety=warn logs mutation warnings for ref snapshots", async () =>
   });
 
   createStore("warnStore", { count: 0 }, { snapshot: "ref", snapshotSafety: "warn" });
-  const off = subscribeStore("warnStore", (snap: any) => {
-    snap.count = 1;
+  const off = subscribeStore("warnStore", (snap) => {
+    if (!snap) return;
+    (snap as unknown as { count: number }).count = 1;
   });
 
   setStore("warnStore", { count: 1 });
@@ -55,10 +56,12 @@ test("snapshotSafety=auto-clone delivers cloned snapshot without corrupting stor
 
   createStore("cloneStore", { count: 0 }, { snapshot: "ref", snapshotSafety: "auto-clone" });
   let seen: number | null = null;
-  const offA = subscribeStore("cloneStore", (snap: any) => {
-    snap.count = 99;
+  const offA = subscribeStore("cloneStore", (snap) => {
+    if (!snap) return;
+    (snap as unknown as { count: number }).count = 99;
   });
-  const offB = subscribeStore("cloneStore", (snap: any) => {
+  const offB = subscribeStore("cloneStore", (snap) => {
+    if (!snap) return;
     seen = snap.count;
   });
 
@@ -78,8 +81,9 @@ test("snapshotSafety=auto-clone delivers cloned snapshot without corrupting stor
 test("snapshotSafety=throw surfaces mutation errors", async () => {
   clearAllStores();
   createStore("throwStore", { count: 0 }, { snapshot: "ref", snapshotSafety: "throw" });
-  subscribeStore("throwStore", (snap: any) => {
-    snap.count = 2;
+  subscribeStore("throwStore", (snap) => {
+    if (!snap) return;
+    (snap as unknown as { count: number }).count = 2;
   });
 
   const err = await new Promise<Error>((resolve, reject) => {

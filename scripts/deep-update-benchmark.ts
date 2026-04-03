@@ -20,12 +20,18 @@ const seedDeepState = () => ({
   deep: { a: { b: { c: { d: { e: 1, f: 2, g: 3 } } } } },
 });
 
-const createMarker = (name: string, readValue: (state: any) => number = (state) => state?.value) => {
+type DeepState = ReturnType<typeof seedDeepState>;
+type StoreSnapshot = DeepState | null;
+
+const createMarker = (
+  name: string,
+  readValue: (state: StoreSnapshot) => number | undefined = (state) => state?.value,
+) => {
   let expected = 0;
   let resolver: (() => void) | null = null;
   let endTime = 0;
 
-  const off = _subscribe(name, (state: any) => {
+  const off = _subscribe(name, (state: StoreSnapshot) => {
     if (readValue(state) !== expected || resolver === null) return;
     endTime = performance.now();
     const current = resolver;

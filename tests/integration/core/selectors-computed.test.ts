@@ -30,13 +30,18 @@ const parseNodeId = (nodeId: string): [string, string, Array<string | number>] =
 test("selectors handle invalid inputs and snapshot modes", async () => {
   clearAllStores();
   createStore("selStore", { nested: { value: 1 } }, { snapshot: "ref" });
-  const unsub = subscribeWithSelector("selStore", null as any, Object.is, (() => {}) as any);
+  const unsub = subscribeWithSelector(
+    "selStore",
+    null as unknown as Parameters<typeof subscribeWithSelector>[1],
+    Object.is,
+    () => {},
+  );
   unsub();
 
   let calls = 0;
   const unsubscribe = subscribeWithSelector(
     "selStore",
-    (state) => (state as any).nested?.value,
+    (state: { nested?: { value?: number } }) => state.nested?.value,
     Object.is,
     () => { calls += 1; }
   );
@@ -49,7 +54,7 @@ test("selectors handle invalid inputs and snapshot modes", async () => {
   let shallowCalls = 0;
   const shallowUnsub = subscribeWithSelector(
     "selShallow",
-    (state) => (state as any).nested?.value,
+    (state: { nested?: { value?: number } }) => state.nested?.value,
     Object.is,
     () => { shallowCalls += 1; }
   );
@@ -58,8 +63,8 @@ test("selectors handle invalid inputs and snapshot modes", async () => {
   shallowUnsub();
   assert.ok(shallowCalls >= 1);
 
-  createStore("selValue", 1 as unknown as any);
-  const selector = createSelector("selValue", (state: any) => state);
+  createStore("selValue", 1);
+  const selector = createSelector<number, number>("selValue", (state) => state);
   assert.strictEqual(selector(), 1);
 });
 

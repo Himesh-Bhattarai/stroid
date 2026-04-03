@@ -25,6 +25,8 @@ type ThresholdSummary = {
   maxTestedStable: number;
 };
 
+type StoreSnapshot = { value?: number } | null;
+
 const COUNTS = [
   100,
   500,
@@ -75,10 +77,10 @@ const maybeGc = (): void => {
 
 const createCallback = (mode: Mode) => {
   if (mode === "noop") {
-    return () => {};
+    return (_state: StoreSnapshot) => {};
   }
 
-  return (state: any) => {
+  return (state: StoreSnapshot) => {
     const next = Number(state?.value ?? 0);
     const previous = sink;
     sink = next;
@@ -90,7 +92,7 @@ const createCallback = (mode: Mode) => {
 
 const createUniqueCallback = (mode: Mode, index: number) => {
   const callback = createCallback(mode);
-  return (state: any) => {
+  return (state: StoreSnapshot) => {
     sink += index & 0;
     callback(state);
   };
@@ -115,7 +117,7 @@ const prepareStore = (subscriberCount: number, mode: Mode) => {
   let resolver: (() => void) | null = null;
   let endTime = 0;
 
-  const done = _subscribe(STORE_NAME, (state: any) => {
+  const done = _subscribe(STORE_NAME, (state: StoreSnapshot) => {
     if (state?.value !== expectedValue || resolver === null) return;
     endTime = performance.now();
     const current = resolver;

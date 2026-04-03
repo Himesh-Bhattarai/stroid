@@ -142,7 +142,7 @@ type UseStoreStaticSig = (name: typeof typedUserHandle) => Readonly<UserState> |
 type UseSelectorSig = (name: typeof typedUserHandle, selector: UserSelector) => string | null;
 type UseFormStoreSig = (name: typeof typedFormHandle, field: "profile.name") => {
   value: string | null;
-  onChange: (eOrValue: any) => void;
+  onChange: (eOrValue: unknown) => void;
 };
 type UseAsyncStoreSig = (name: typeof typedAsyncHandle) => {
   status: "idle" | "loading" | "success" | "error" | "aborted";

@@ -11,14 +11,23 @@ type SyncRow = {
 };
 
 const round = (value: number): number => Number(value.toFixed(3));
-const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = (ms = 0): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+type WindowShim = { addEventListener: () => void; removeEventListener: () => void };
+type GlobalShim = { window?: unknown; BroadcastChannel?: unknown };
+const getGlobalShim = (): GlobalShim => globalThis as unknown as GlobalShim;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+const isSyncStateMessage = (value: unknown): value is { type: "sync-state"; name: string } =>
+  isRecord(value) && value.type === "sync-state" && typeof value.name === "string";
 
 class MockBroadcastChannel {
   static channels = new Map<string, Set<MockBroadcastChannel>>();
-  static sent: Array<{ channel: string; data: any }> = [];
+  static sent: Array<{ channel: string; data: unknown }> = [];
 
   readonly name: string;
-  onmessage: ((event: MessageEvent) => void) | null = null;
+  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
 
   constructor(name: string) {
     this.name = name;
@@ -27,13 +36,13 @@ class MockBroadcastChannel {
     MockBroadcastChannel.channels.set(name, peers);
   }
 
-  postMessage(data: any) {
+  postMessage(data: unknown) {
     MockBroadcastChannel.sent.push({ channel: this.name, data });
     const peers = MockBroadcastChannel.channels.get(this.name) ?? new Set<MockBroadcastChannel>();
     peers.forEach((peer) => {
       if (peer === this) return;
       queueMicrotask(() => {
-        peer.onmessage?.({ data } as MessageEvent);
+        peer.onmessage?.({ data } as MessageEvent<unknown>);
       });
     });
   }
@@ -51,10 +60,11 @@ class MockBroadcastChannel {
 }
 
 const benchSyncScale = async (): Promise<SyncRow[]> => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
-  (globalThis as any).window = { addEventListener: () => {}, removeEventListener: () => {} };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  const globalShim = getGlobalShim();
+  const originalWindow = globalShim.window;
+  const originalBroadcastChannel = globalShim.BroadcastChannel;
+  globalShim.window = { addEventListener: () => {}, removeEventListener: () => {} } satisfies WindowShim;
+  globalShim.BroadcastChannel = MockBroadcastChannel;
 
   const scenarios = [
     { peers: 2, stores: 1 },
@@ -70,9 +80,10 @@ const benchSyncScale = async (): Promise<SyncRow[]> => {
   try {
     for (const scenario of scenarios) {
       MockBroadcastChannel.reset();
-      const peers = [];
+      type StoreModule = typeof import("../src/store.js");
+      const peers: StoreModule[] = [];
       for (let i = 0; i < scenario.peers; i++) {
-        peers.push(await import(`${storeUrl}?sync-scale-${scenario.peers}-${scenario.stores}-${i}-${Date.now()}`));
+        peers.push(await import(`${storeUrl}?sync-scale-${scenario.peers}-${scenario.stores}-${i}-${Date.now()}`) as StoreModule);
       }
 
       for (const peer of peers) {
@@ -100,7 +111,7 @@ const benchSyncScale = async (): Promise<SyncRow[]> => {
         stores: scenario.stores,
         latencyMs: round(performance.now() - start),
         syncStateMessages: MockBroadcastChannel.sent.filter(
-          (entry) => entry.data?.type === "sync-state" && entry.data?.name === "shared-0",
+          (entry) => isSyncStateMessage(entry.data) && entry.data.name === "shared-0",
         ).length,
         converged,
       });
@@ -109,22 +120,24 @@ const benchSyncScale = async (): Promise<SyncRow[]> => {
     }
   } finally {
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    globalShim.window = originalWindow;
+    globalShim.BroadcastChannel = originalBroadcastChannel;
   }
 
   return rows;
 };
 
 const benchConflictDeterminism = async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
-  (globalThis as any).window = { addEventListener: () => {}, removeEventListener: () => {} };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  const globalShim = getGlobalShim();
+  const originalWindow = globalShim.window;
+  const originalBroadcastChannel = globalShim.BroadcastChannel;
+  globalShim.window = { addEventListener: () => {}, removeEventListener: () => {} } satisfies WindowShim;
+  globalShim.BroadcastChannel = MockBroadcastChannel;
 
   const rounds = 50;
   let mismatches = 0;
   const storeUrl = pathToFileURL(`${process.cwd()}\\src\\store.ts`).href;
+  type ConflictCandidate<T> = { updatedAt: number; data: T };
 
   try {
     const first = await import(`${storeUrl}?conflict-first-${Date.now()}`);
@@ -132,11 +145,13 @@ const benchConflictDeterminism = async () => {
 
     first.createStore("shared", { value: "seed" }, {
       sync: true,
-      conflictResolver: (local: any, remote: any) => (local.updatedAt >= remote.updatedAt ? local.data : remote.data),
+      conflictResolver: (local: ConflictCandidate<{ value: string }>, remote: ConflictCandidate<{ value: string }>) =>
+        (local.updatedAt >= remote.updatedAt ? local.data : remote.data),
     });
     second.createStore("shared", { value: "seed" }, {
       sync: true,
-      conflictResolver: (local: any, remote: any) => (local.updatedAt >= remote.updatedAt ? local.data : remote.data),
+      conflictResolver: (local: ConflictCandidate<{ value: string }>, remote: ConflictCandidate<{ value: string }>) =>
+        (local.updatedAt >= remote.updatedAt ? local.data : remote.data),
     });
 
     await wait();
@@ -180,8 +195,8 @@ const benchConflictDeterminism = async () => {
     second.clearAllStores();
   } finally {
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    globalShim.window = originalWindow;
+    globalShim.BroadcastChannel = originalBroadcastChannel;
   }
 
   return { rounds, mismatches };

@@ -55,7 +55,7 @@ test("heavy repeated async fetch delete cycles clear per-store async state", asy
       headers: { get: () => "application/json" },
       json: async () => ({ call: calls }),
       text: async () => JSON.stringify({ call: calls }),
-    } as any;
+    } as unknown as Response;
   }) as typeof fetch;
 
   try {
@@ -92,5 +92,4 @@ test("heavy repeated create delete cycles leave no residual stores", () => {
 
   assert.deepStrictEqual(listStores(), []);
 });
-
 
