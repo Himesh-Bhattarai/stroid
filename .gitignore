@@ -47,6 +47,10 @@ temp/
 # tests tmp output
 tests/.tmp-*.txt
 
+# benchmark artifacts (baseline is committed)
+/scripts/benchmark-results/latest.json
+/scripts/benchmark-results/summary.md
+
 # local planning docs
 EXPOSE.md
 PSR_NATIVE_REPORT.md

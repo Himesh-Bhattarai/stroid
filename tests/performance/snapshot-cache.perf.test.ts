@@ -56,6 +56,3 @@ test("heavy snapshot cache benchmark (update + notify + snapshot read)", async (
 
   store.clearAllStores();
 });
-
-
-

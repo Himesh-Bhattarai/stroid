@@ -172,6 +172,13 @@
     "benchmark:memory-leak": "node --expose-gc --import tsx scripts/memory-leak-benchmark.ts",
     "benchmark:governance": "node --expose-gc --import tsx scripts/governance-lifecycle-benchmark.ts",
     "benchmark:guarantees": "node --expose-gc --import tsx scripts/guarantee-benchmark-suite.ts",
+    "test:stress": "vitest run --config vitest.config.ts",
+    "test:stress:coverage": "vitest run --config vitest.config.ts --coverage",
+    "test:stress:fuzz": "vitest run --config vitest.config.ts tests/fuzz/**/*.test.tsx",
+    "bench:stress": "node --expose-gc --import tsx scripts/stress-benchmark-suite.bench.ts",
+    "bench:stress:check": "node --import tsx scripts/check-benchmark-regression.bench.ts",
+    "bench:stress:ci": "npm run bench:stress && npm run bench:stress:check",
+    "bench:stress:update-baseline": "node -e \"const fs=require('fs'); const path=require('path'); const dir=path.resolve('scripts/benchmark-results'); fs.mkdirSync(dir,{recursive:true}); fs.copyFileSync(path.join(dir,'latest.json'), path.join(dir,'baseline.json')); console.log('updated scripts/benchmark-results/baseline.json');\"",
     "test:all": "npm test && npm run test:types",
     "test:full": "npm run test:coverage && npm run test:types"
   },
@@ -196,6 +203,7 @@
     "@testing-library/react": "^16.2.0",
     "@types/node": "^22.9.0",
     "@types/react": "^18.2.46",
+    "@vitest/coverage-v8": "^2.1.8",
     "c8": "^10.1.2",
     "eslint": "^8.57.0",
     "eslint-config-standard-with-typescript": "^39.1.1",
@@ -203,6 +211,7 @@
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.1.1",
     "immer": "^11.1.4",
+    "jotai": "^2.12.4",
     "jsdom": "^25.0.1",
     "publint": "^0.3.18",
     "react": "^18.2.0",
@@ -211,6 +220,7 @@
     "tsup": "^8.5.1",
     "tsx": "^4.7.0",
     "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
     "zustand": "^5.0.11"
   }
 }

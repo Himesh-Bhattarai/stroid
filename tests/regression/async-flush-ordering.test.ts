@@ -1,14 +1,25 @@
+/**
+ * @module tests/regression/async-flush-ordering
+ * 
+ * LAYER: Regression
+ * OWNS: Notification ordering and atomicity during asynchronous flushes.
+ * 
+ * This suite ensures that:
+ * 1. Subscribers are notified in a deterministic order (registration order).
+ * 2. Batch updates are atomic; subscribers never see "partial" states where only 
+ *    some stores in a batch have updated.
+ * 3. Sequential updates maintain chronological integrity.
+ * 
+ * Consumers: Test runner.
+ */
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createStore, setStore, setStoreBatch, deleteStore, subscribeStore, getStore } from "../../src/store.js";
 
-// Regression test: async flush ordering
-// Ensure that when multiple stores are updated in a batch, subscribers are notified
-// in a consistent, predictable order. This test verifies:
-// 1. Subscribers are called in the order they were registered
-// 2. All updates in a batch are visible to subscribers (no partial visibility)
-// 3. Ordering is deterministic across multiple runs
-
+/**
+ * Verifies that subscribers across different stores are notified in the order they were registered.
+ */
 test("async flush ordering - subscribers notified in consistent order", async () => {
   createStore("order-store-1", { value: 0 });
   createStore("order-store-2", { value: 0 });
@@ -58,7 +69,9 @@ test("async flush ordering - subscribers notified in consistent order", async ()
   assert.ok(true, "Async flush ordering test passed");
 });
 
-// Edge case: verify ordering with multiple subscribers on the same store
+/**
+ * Verifies that multiple subscribers attached to the same store follow FIFO (First-In-First-Out) execution.
+ */
 test("async flush ordering - multiple subscribers on same store", async () => {
   createStore("order-multi-sub", { value: 0 });
 
@@ -93,7 +106,9 @@ test("async flush ordering - multiple subscribers on same store", async () => {
   assert.ok(true, "Multiple subscribers ordering test passed");
 });
 
-// Edge case: verify ordering with nested/sequential updates
+/**
+ * Verifies that sequential (non-batched) updates result in sequential notifications in the correct state order.
+ */
 test("async flush ordering - sequential updates maintain order", async () => {
   createStore("order-sequential", { value: 0 });
 
@@ -127,7 +142,10 @@ test("async flush ordering - sequential updates maintain order", async () => {
   assert.ok(true, "Sequential updates ordering test passed");
 });
 
-// Edge case: verify that batch updates are atomic from subscriber perspective
+/**
+ * Verifies atomicity: when Store A and Store B are updated in one batch, a subscriber to Store A 
+ * must already see the new value of Store B if it queries it during its notification.
+ */
 test("async flush ordering - batch updates appear atomic to subscribers", async () => {
   createStore("atomic-1", { value: 0 });
   createStore("atomic-2", { value: 0 });

@@ -1,15 +1,27 @@
+
+/**
+ * @module tests/regression/selector-cache-growth
+ * 
+ * LAYER: Regression
+ * OWNS: Memory management and leak prevention for computed store registries.
+ * 
+ * This suite ensures that:
+ * 1. Dynamic creation and deletion of computed stores (selectors) does not leak memory.
+ * 2. The internal registry correctly prunes metadata and cache entries when `deleteComputed` is called.
+ * 3. Rapid lifecycle cycles (create/delete) maintain a stable memory footprint.
+ * 
+ * Consumers: Test runner.
+ */
+
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createStore, createComputed, deleteComputed, deleteStore } from '../../src/index.js'
 
-// Regression test: selector cache growth
-// Ensure that selector caches do not grow unbounded when selectors are called
-// with many unique input shapes. This test verifies that the system either:
-// 1. Implements cache eviction (LRU, TTL, or size limit)
-// 2. Throws an error when cache exceeds a threshold
-// 3. Provides a way to clear/reset caches
-
-test('selector cache growth — should not grow unbounded', async () => {
+/**
+ * Verifies that creating thousands of unique computed stores doesn't cause linear memory growth
+ * if they are properly disposed of.
+ */
+test('selector cache growth — should not grow unbounded with disposal', async () => {
   const store = createStore('selector-cache-test', { items: Array.from({ length: 100 }, (_, i) => ({ id: i, value: i * 2 })) })
 
   // Create a computed selector that depends on store state
@@ -83,7 +95,10 @@ test('selector cache growth — should not grow unbounded', async () => {
   assert.ok(true, 'Selector cache growth test completed without unbounded growth')
 })
 
-// Edge case: verify cache behavior under rapid create/delete cycles
+/**
+ * Verifies that the internal registry doesn't retain references to computed stores
+ * after immediate deletion, preventing accumulation of "zombie" metadata.
+ */
 test('selector cache — rapid create/delete should not leak', async () => {
   const store = createStore('selector-rapid-test', { counter: 0 })
 

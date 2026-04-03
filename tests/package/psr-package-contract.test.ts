@@ -1,3 +1,14 @@
+/**
+ * @module tests/package/psr-package-contract.test
+ *
+ * LAYER: Tests
+ * OWNS:  Integration tests for the Public Store Runtime (PSR) contract against built artifacts.
+ *
+ * This test suite ensures that the exported APIs from the 'dist' folder maintain 
+ * behavioral parity with the source implementation, specifically focusing on 
+ * store resolution, patch application, and computed graph integrity.
+ */
+
 import test from "node:test";
 import assert from "node:assert";
 import path from "node:path";

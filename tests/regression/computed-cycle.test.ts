@@ -1,11 +1,24 @@
+/**
+ * @module tests/regression/computed-cycle
+ * 
+ * LAYER: Regression
+ * OWNS: Circular dependency detection and stack-overflow prevention in computed stores.
+ * 
+ * This suite ensures that:
+ * 1. Creating computed selectors that form a cycle (A -> B -> A) does not cause a hang or crash.
+ * 2. The system either throws a descriptive error or safely terminates the recursion.
+ * 3. Resources are cleaned up correctly even after a failed/circular registration.
+ * 
+ * Consumers: Test runner.
+ */
+
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createStore, createComputed, deleteComputed } from '../../src/index.js'
 
-// Regression test: ensure creating computed selectors that form a cycle either
-// throws a clear error or is detected and prevented. The system must not enter
-// an infinite loop or stack overflow.
-
+/**
+ * Verifies that circular dependencies between computed stores are handled gracefully.
+ */
 test('computed cycle detection — should not hang or crash', async () => {
   // Create two base stores
   const a = createStore('reg-a', 1)

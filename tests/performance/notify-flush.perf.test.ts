@@ -6,6 +6,7 @@
  *
  * Consumers: Test runner (performance suite).
  */
+
 import test from "node:test";
 import assert from "node:assert";
 import { _subscribe, createStore, setStore } from "../../src/store.js";
