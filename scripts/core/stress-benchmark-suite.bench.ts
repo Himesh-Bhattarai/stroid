@@ -13,12 +13,12 @@ import {
     createStore as createStroidStore,
     getStore as getStroidStore,
     setStore as setStroidStore,
-} from "../src/index.ts";
-import { fetchStore } from "../src/async.ts";
-import { createSelector } from "../src/selectors/index.ts";
-import { installSync } from "../src/sync.ts";
-import { installPersist } from "../src/persist.ts";
-import { resetAllStoresForTest } from "../src/helpers/testing.ts";
+} from "../../src/index.ts";
+import { fetchStore } from "../../src/async.ts";
+import { createSelector } from "../../src/selectors/index.ts";
+import { installSync } from "../../src/sync.ts";
+import { installPersist } from "../../src/persist.ts";
+import { resetAllStoresForTest } from "../../src/helpers/testing.ts";
 import { formatSummary, runCase, type BenchmarkSummary } from "./benchmark-helpers.bench.ts";
 
 type LibraryName = "stroid" | "zustand" | "jotai";
