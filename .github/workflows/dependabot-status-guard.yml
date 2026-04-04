@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate Dependabot PR title and commit subjects
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
-            const statusPattern = /^status\((?:\d{3}|infinity)\):\s.+/i;
+            const statusPattern = /^status\((?:\d{3}|infinity)\)(?:\((?:deps|deps-dev)\))?:\s.+/i;
             const pr = context.payload.pull_request;
             const title = pr.title || "";
             const errors = [];

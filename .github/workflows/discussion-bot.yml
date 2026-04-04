@@ -5,6 +5,8 @@ on:
     types: [created]
   discussion:
     types: [created]
+permissions:
+  contents: read
 
 jobs:
   respond:
@@ -15,13 +17,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Check if bot should respond
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const payload = context.payload;
@@ -181,7 +183,7 @@ jobs:
 
       - name: Post Answer to Discussion
         if: steps.check.outputs.should_respond == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           DISCUSSION_NUMBER: ${{ steps.check.outputs.discussion_number }}
         with:

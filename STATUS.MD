@@ -39,6 +39,7 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - Use short imperative subjects after the status code.
 - Prefer one issue-focused commit per fix when the work is separable.
 - Reference the GitHub issue when it adds clarity, for example: `status(601): Return no-initial-state from resetStore (#66)`.
+- Dependabot may append an automated scope marker for dependency updates: `status(300)(deps-dev): ...` or `status(302)(deps): ...`. These still satisfy STATUS formatting.
 - If runtime behavior changes, add regression coverage and update `CHANGELOG.md` under `Unreleased`.
 - If the issue is a browser or platform limitation rather than a runtime bug, update `README.md` and the relevant guide before closing it.
 - Dependabot updates are enforced in CI to use this same format for both PR title and commit subject.
