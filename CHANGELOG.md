@@ -39,6 +39,7 @@
 >- Added configurable `resetStore` clone strategy (`deep` / `shallow` / `none`) via per-store `resetClone` and global `configureStroid({ resetCloneMode })`.
 >- Reorganized stress benchmark runner scripts under `scripts/core/` and updated benchmark npm commands accordingly.
 >- Reorganized benchmark scripts by domain under `scripts/core`, `scripts/ssr`, `scripts/hydration`, `scripts/react`, `scripts/guarantees`, and `scripts/comparison`, then updated benchmark command wiring.
+>- Added manual `workflow_dispatch` support to the Scorecard workflow so code-scanning and supply-chain checks can be re-run on demand after hardening changes.
 >
 >### Fix
 >
@@ -46,6 +47,7 @@
 >- Fixed workflow hardening gaps flagged by code scanning: added explicit top-level token permissions where missing and pinned GitHub Actions to immutable commit SHAs.
 >- Fixed STATUS commit validation for Dependabot updates by accepting the bot-generated optional `(deps)` / `(deps-dev)` scope suffix while preserving STATUS-code enforcement.
 >- Fixed `getAsyncMetrics(...)` public typings so `getAsyncMetrics()` remains non-null while `getAsyncMetrics(name)` is correctly typed as nullable per-store lookup.
+>- Fixed SSR isolation benchmark request stability by retrying transient loopback `fetch` failures in the React streaming HTTP certification phase.
 >
 >### Docs
 >

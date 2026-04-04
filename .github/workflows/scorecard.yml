@@ -6,6 +6,7 @@ on:
   branch_protection_rule:
   schedule:
     - cron: "12 18 * * 5"
+  workflow_dispatch:
 
 permissions:
   contents: read
