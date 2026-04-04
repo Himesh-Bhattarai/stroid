@@ -6,7 +6,7 @@
  *
  * Consumers: store-admin.
  */
-import { warn, deepClone } from "../utils.js";
+import { warn, deepClone, shallowClone } from "../utils.js";
 import { getRegistry, getStoreAdmin, getStoreValueRef } from "./store-lifecycle/registry.js";
 import { invalidatePathCache, materializeInitial } from "./store-lifecycle/validation.js";
 import { nameOf, exists, reportStoreWarning } from "./store-lifecycle/identity.js";
@@ -96,10 +96,20 @@ const resetStoreInternal = (
         }
         return { ok: false, reason: "no-initial-state" };
     }
+    const cloneMode = registry.metaEntries[name]?.options?.resetClone ?? "deep";
+    const cloneResetValue = (value: StoreValue): StoreValue => {
+        if (cloneMode === "none") return value;
+        if (cloneMode === "shallow") {
+            return (value && typeof value === "object")
+                ? shallowClone(value as Record<string, unknown>) as StoreValue
+                : value;
+        }
+        return deepClone(value);
+    };
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(name, registry);
     const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-    const resetValue = deepClone(registry.initialStates[name]);
+    const resetValue = cloneResetValue(registry.initialStates[name]);
     const elapsed = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) - start;
 
     stageOrCommitUpdate(registry, {

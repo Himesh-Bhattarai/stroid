@@ -103,9 +103,15 @@ export function createStore<Name extends string, State>(
         warn(message);
     });
 
+    const runtimeConfig = getConfig();
     const normalizedOptions = resolveFeatureAvailability(
         name,
-        normalizeStoreOptions(option, name, getConfig().defaultSnapshotMode)
+        normalizeStoreOptions(
+            option,
+            name,
+            runtimeConfig.defaultSnapshotMode,
+            runtimeConfig.resetCloneMode
+        )
     );
 
     if (normalizedOptions.scope === "temp" && option.persist) {

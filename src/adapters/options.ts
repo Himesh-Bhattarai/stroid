@@ -26,6 +26,7 @@ export interface PersistDriver {
 
 export type StoreScope = "request" | "global" | "temp";
 export type SnapshotMode = "deep" | "shallow" | "ref";
+export type ResetCloneMode = "deep" | "shallow" | "none";
 
 export type ValidateFn<State = StoreValue> = (next: State) => boolean | State;
 
@@ -260,6 +261,13 @@ export interface StoreOptions<State = StoreValue> {
      */
     snapshot?: SnapshotMode;
     /**
+     * Clone strategy used by resetStore(...) when restoring the initial snapshot.
+     * - "deep" (default): deep clone initial snapshot (safest).
+     * - "shallow": clone top-level container only.
+     * - "none": reuse initial snapshot reference.
+     */
+    resetClone?: ResetCloneMode;
+    /**
      * Safety policy for snapshot deliveries when using "ref" or "shallow" modes.
      * - "warn": (default) log a warning in dev when mutation is detected.
      * - "throw": throw an error in dev when mutation is detected.
@@ -290,6 +298,7 @@ export interface NormalizedOptions {
     sync?: boolean | SyncOptions;
     features?: FeatureOptions;
     snapshot: SnapshotMode;
+    resetClone: ResetCloneMode;
     /** normalized snapshotSafety value */
     snapshotSafety?: 'warn' | 'throw' | 'auto-clone';
     explicitPersist: boolean;
@@ -515,7 +524,8 @@ export const collectLegacyOptionDeprecationWarnings = <State>(option: StoreOptio
 export const normalizeStoreOptions = <State>(
     option: StoreOptions<State> = {},
     name: string,
-    defaultSnapshotMode: SnapshotMode = "deep"
+    defaultSnapshotMode: SnapshotMode = "deep",
+    defaultResetCloneMode: ResetCloneMode = "deep"
 ): NormalizedOptions => {
     const normalizedScope: StoreScope = option.scope ?? "request";
     const normalizedLazy = option.lazy === true;
@@ -534,6 +544,10 @@ export const normalizeStoreOptions = <State>(
         option.snapshotSafety === "warn" || option.snapshotSafety === "throw" || option.snapshotSafety === "auto-clone"
             ? option.snapshotSafety
             : undefined;
+    const normalizedResetClone =
+        option.resetClone === "none" || option.resetClone === "shallow" || option.resetClone === "deep"
+            ? option.resetClone
+            : defaultResetCloneMode;
     const normalizedFeatures = isObject(option.features)
         ? { ...(option.features as Record<string, unknown>) }
         : undefined;
@@ -594,6 +608,7 @@ export const normalizeStoreOptions = <State>(
         features: normalizedFeatures,
         allowSSRGlobalStore: normalizedAllowSSRGlobalStore,
         snapshot: normalizedSnapshot,
+        resetClone: normalizedResetClone,
         snapshotSafety: normalizedSnapshotSafety,
         explicitPersist,
         explicitSync,
