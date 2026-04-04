@@ -33,6 +33,7 @@ import {
     type FetchInput,
     type FetchOptions,
     type AsyncStateSnapshot,
+    type AsyncMetricsSnapshot,
 } from "./cache.js";
 import { resetAsyncState } from "./cache.js";
 import { delay, normalizeRetryOptions, MAX_RETRY_DELAY_MS } from "./retry.js";
@@ -767,11 +768,13 @@ export function enableRevalidateOnFocus(
     return cleanup;
 }
 
-export const getAsyncMetrics = (name?: string) => {
+export function getAsyncMetrics(): AsyncMetricsSnapshot;
+export function getAsyncMetrics(name: string): AsyncMetricsSnapshot | null;
+export function getAsyncMetrics(name?: string): AsyncMetricsSnapshot | null {
     if (!name) return { ...getAsyncMetricsRegistry() };
     const metrics = getAsyncMetricsByStore().get(name);
     return metrics ? { ...metrics } : null;
-};
+}
 
 export const _resetAsyncStateForTests = (): void => {
     cleanupAllRevalidateHandlers();

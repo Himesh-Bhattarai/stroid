@@ -258,6 +258,16 @@ type AsyncMetricsReturn = Expect<Equal<typeof asyncMetrics, {
   avgMs: number;
   lastMs: number;
 }>>;
+const asyncMetricsByStore = getAsyncMetrics("typedUser");
+type AsyncMetricsByStoreReturn = Expect<Equal<typeof asyncMetricsByStore, {
+  cacheHits: number;
+  cacheMisses: number;
+  dedupes: number;
+  requests: number;
+  failures: number;
+  avgMs: number;
+  lastMs: number;
+} | null>>;
 
 const mock = createMockStore("typedMock", { value: 1 });
 mock.set({ value: 2 });

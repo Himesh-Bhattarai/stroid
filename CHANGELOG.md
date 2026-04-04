@@ -44,6 +44,7 @@
 >- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, instead of collapsing that branch into `not-found`.
 >- Fixed workflow hardening gaps flagged by code scanning: added explicit top-level token permissions where missing and pinned GitHub Actions to immutable commit SHAs.
 >- Fixed STATUS commit validation for Dependabot updates by accepting the bot-generated optional `(deps)` / `(deps-dev)` scope suffix while preserving STATUS-code enforcement.
+>- Fixed `getAsyncMetrics(...)` public typings so `getAsyncMetrics()` remains non-null while `getAsyncMetrics(name)` is correctly typed as nullable per-store lookup.
 >
 >### Docs
 >

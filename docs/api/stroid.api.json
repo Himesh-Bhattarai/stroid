@@ -448,7 +448,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 10,
             "endIndex": 12
@@ -585,7 +585,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 14,
             "endIndex": 16
@@ -715,7 +715,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 10,
             "endIndex": 12
@@ -852,7 +852,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 14,
             "endIndex": 16
@@ -1002,7 +1002,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 6,
             "endIndex": 7
@@ -1084,7 +1084,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 6,
             "endIndex": 7
@@ -1162,7 +1162,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 5,
             "endIndex": 6
@@ -1313,11 +1313,16 @@
           "excerptTokens": [
             {
               "kind": "Content",
-              "text": "getAsyncMetrics: () => "
+              "text": "declare function getAsyncMetrics(): "
+            },
+            {
+              "kind": "Reference",
+              "text": "AsyncMetricsSnapshot",
+              "canonicalReference": "stroid!~AsyncMetricsSnapshot:type"
             },
             {
               "kind": "Content",
-              "text": "{\n    cacheHits: number;\n    cacheMisses: number;\n    dedupes: number;\n    requests: number;\n    failures: number;\n    avgMs: number;\n    lastMs: number;\n}"
+              "text": ";"
             }
           ],
           "fileUrlPath": "dist/async.d.ts",
@@ -1328,6 +1333,56 @@
           "releaseTag": "Public",
           "overloadIndex": 1,
           "parameters": [],
+          "name": "getAsyncMetrics"
+        },
+        {
+          "kind": "Function",
+          "canonicalReference": "stroid!getAsyncMetrics:function(2)",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "declare function getAsyncMetrics(name: "
+            },
+            {
+              "kind": "Content",
+              "text": "string"
+            },
+            {
+              "kind": "Content",
+              "text": "): "
+            },
+            {
+              "kind": "Reference",
+              "text": "AsyncMetricsSnapshot",
+              "canonicalReference": "stroid!~AsyncMetricsSnapshot:type"
+            },
+            {
+              "kind": "Content",
+              "text": " | null"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/async.d.ts",
+          "returnTypeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 5
+          },
+          "releaseTag": "Public",
+          "overloadIndex": 2,
+          "parameters": [
+            {
+              "parameterName": "name",
+              "parameterTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "isOptional": false
+            }
+          ],
           "name": "getAsyncMetrics"
         },
         {
@@ -1357,7 +1412,7 @@
               "text": " | null"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 3,
             "endIndex": 5
@@ -1450,7 +1505,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 11,
             "endIndex": 15
@@ -1564,7 +1619,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 8,
             "endIndex": 10
@@ -1689,7 +1744,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 11,
             "endIndex": 15
@@ -1803,7 +1858,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 8,
             "endIndex": 10
@@ -1942,7 +1997,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 12,
             "endIndex": 18
@@ -2050,7 +2105,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 7,
             "endIndex": 11
@@ -2167,7 +2222,7 @@
               "text": "boolean"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 3,
             "endIndex": 4
@@ -4102,7 +4157,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 6,
             "endIndex": 7
@@ -4185,7 +4240,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 6,
             "endIndex": 7
@@ -4264,7 +4319,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 5,
             "endIndex": 6
@@ -4366,7 +4421,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 13,
             "endIndex": 14
@@ -4474,7 +4529,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-internal.d.ts",
+          "fileUrlPath": "dist/index-mo.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 8,
             "endIndex": 9
@@ -5469,6 +5524,34 @@
               "isOptional": true,
               "releaseTag": "Public",
               "name": "redactor",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreOptions#resetClone:member",
+              "docComment": "/**\n * Clone strategy used by resetStore(...) when restoring the initial snapshot. - \"deep\" (default): deep clone initial snapshot (safest). - \"shallow\": clone top-level container only. - \"none\": reuse initial snapshot reference.\n */\n",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "resetClone?: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "ResetCloneMode",
+                  "canonicalReference": "stroid!~ResetCloneMode:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "resetClone",
               "propertyTypeTokenRange": {
                 "startIndex": 1,
                 "endIndex": 2

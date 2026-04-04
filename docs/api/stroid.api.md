@@ -64,16 +64,13 @@ export const findColdStores: (options?: {
     includeWriteOnly?: boolean;
 }) => ColdStoreReport[];
 
+// Warning: (ae-forgotten-export) The symbol "AsyncMetricsSnapshot" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
-export const getAsyncMetrics: () => {
-    cacheHits: number;
-    cacheMisses: number;
-    dedupes: number;
-    requests: number;
-    failures: number;
-    avgMs: number;
-    lastMs: number;
-};
+export function getAsyncMetrics(): AsyncMetricsSnapshot;
+
+// @public (undocumented)
+export function getAsyncMetrics(name: string): AsyncMetricsSnapshot | null;
 
 // Warning: (ae-forgotten-export) The symbol "FeatureMetrics" needs to be exported by the entry point index.d.ts
 //
@@ -403,6 +400,8 @@ export interface StoreOptions<State = StoreValue_2> {
     persist?: boolean | string | PersistOptions<State>;
     // (undocumented)
     redactor?: (state: State) => State;
+    // Warning: (ae-forgotten-export) The symbol "ResetCloneMode" needs to be exported by the entry point index.d.ts
+    resetClone?: ResetCloneMode;
     // @deprecated (undocumented)
     schema?: unknown;
     // Warning: (ae-forgotten-export) The symbol "StoreScope" needs to be exported by the entry point index.d.ts
