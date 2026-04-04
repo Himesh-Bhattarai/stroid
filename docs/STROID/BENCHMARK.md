@@ -45,11 +45,11 @@ If you are capturing JSON to a file, prefer running the underlying `node --impor
 
 | Purpose | Command | Output |
 | --- | --- | --- |
-| Certified suite | `node --expose-gc --import tsx scripts/guarantee-benchmark-suite.ts > scripts/guarantee-benchmark-suite-output.json` | [`scripts/guarantee-benchmark-suite-output.json`](../../scripts/guarantee-benchmark-suite-output.json) |
-| Large payload | `node --expose-gc --import tsx scripts/hydration-large-payload-benchmark.ts > scripts/hydration-large-payload-benchmark-output.json` | [`scripts/hydration-large-payload-benchmark-output.json`](../../scripts/hydration-large-payload-benchmark-output.json) |
-| Fanout scale | `node --expose-gc --import tsx scripts/subscriber-benchmark.ts > scripts/subscriber-benchmark-output.json` | [`scripts/subscriber-benchmark-output.json`](../../scripts/subscriber-benchmark-output.json) |
-| Cross-library fanout | `node --expose-gc --import tsx scripts/compare-state-libraries.ts > scripts/compare-state-libraries-output.json` | [`scripts/compare-state-libraries-output.json`](../../scripts/compare-state-libraries-output.json) |
-| SSR fair compare | `node --expose-gc --import tsx scripts/ssr-fair-compare.ts > scripts/ssr-fair-compare-output.json` | [`scripts/ssr-fair-compare-output.json`](../../scripts/ssr-fair-compare-output.json) |
+| Certified suite | `node --expose-gc --import tsx scripts/guarantees/guarantee-benchmark-suite.ts > scripts/guarantee-benchmark-suite-output.json` | [`scripts/guarantee-benchmark-suite-output.json`](../../scripts/guarantee-benchmark-suite-output.json) |
+| Large payload | `node --expose-gc --import tsx scripts/hydration/hydration-large-payload-benchmark.ts > scripts/hydration-large-payload-benchmark-output.json` | [`scripts/hydration-large-payload-benchmark-output.json`](../../scripts/hydration-large-payload-benchmark-output.json) |
+| Fanout scale | `node --expose-gc --import tsx scripts/core/subscriber-benchmark.ts > scripts/subscriber-benchmark-output.json` | [`scripts/subscriber-benchmark-output.json`](../../scripts/subscriber-benchmark-output.json) |
+| Cross-library fanout | `node --expose-gc --import tsx scripts/comparison/compare-state-libraries.ts > scripts/compare-state-libraries-output.json` | [`scripts/compare-state-libraries-output.json`](../../scripts/compare-state-libraries-output.json) |
+| SSR fair compare | `node --expose-gc --import tsx scripts/ssr/ssr-fair-compare.ts > scripts/ssr-fair-compare-output.json` | [`scripts/ssr-fair-compare-output.json`](../../scripts/ssr-fair-compare-output.json) |
 
 ## Certified Guarantee Suite (Correctness)
 
@@ -194,7 +194,7 @@ Important comparison note:
 
 ### Single Write Average
 
-All values are `singleAvgMs` from `scripts/compare-state-libraries.ts`.
+All values are `singleAvgMs` from `scripts/comparison/compare-state-libraries.ts`.
 
 | Subscribers | Stroid | Redux plain | Redux + Immer | Zustand |
 | --- | ---: | ---: | ---: | ---: |
@@ -206,7 +206,7 @@ All values are `singleAvgMs` from `scripts/compare-state-libraries.ts`.
 
 ### 100 Write Batch Total
 
-All values are `batch100Ms` from `scripts/compare-state-libraries.ts`.
+All values are `batch100Ms` from `scripts/comparison/compare-state-libraries.ts`.
 
 | Subscribers | Stroid | Redux plain | Redux + Immer | Zustand |
 | --- | ---: | ---: | ---: | ---: |

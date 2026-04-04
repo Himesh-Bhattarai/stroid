@@ -170,6 +170,7 @@ Import note:
 
 Stroid exposes governance-oriented write flows through `stroid/psr`, including committed snapshot reads, patch application APIs, runtime graph inspection, and timing contracts.
 Benchmark report: [docs/STROID/BENCHMARK.md](./docs/STROID/BENCHMARK.md).
+Benchmark script layout is categorized by domain under `scripts/core`, `scripts/ssr`, `scripts/hydration`, `scripts/react`, `scripts/guarantees`, and `scripts/comparison`.
 
 Stroid is a fit when you need these together:
 - Named global stores with direct writes

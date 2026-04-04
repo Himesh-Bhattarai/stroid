@@ -38,6 +38,7 @@
 >- Added `getAsyncMetrics(name?)` per-store reporting while preserving the existing global aggregate metrics shape.
 >- Added configurable `resetStore` clone strategy (`deep` / `shallow` / `none`) via per-store `resetClone` and global `configureStroid({ resetCloneMode })`.
 >- Reorganized stress benchmark runner scripts under `scripts/core/` and updated benchmark npm commands accordingly.
+>- Reorganized benchmark scripts by domain under `scripts/core`, `scripts/ssr`, `scripts/hydration`, `scripts/react`, `scripts/guarantees`, and `scripts/comparison`, then updated benchmark command wiring.
 >
 >### Fix
 >
