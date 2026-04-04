@@ -1,0 +1,235 @@
+{
+  "startedAt": "2026-04-04T16:57:15.012Z",
+  "finishedAt": "2026-04-04T17:10:26.769Z",
+  "node": "v22.14.0",
+  "scriptCount": 25,
+  "passCount": 25,
+  "failCount": 0,
+  "runs": [
+    {
+      "name": "benchmark:atomic-failure",
+      "startedAt": "2026-04-04T16:57:15.013Z",
+      "endedAt": "2026-04-04T16:57:19.988Z",
+      "durationMs": 4975,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:compare",
+      "startedAt": "2026-04-04T16:57:19.988Z",
+      "endedAt": "2026-04-04T16:57:26.771Z",
+      "durationMs": 6783,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:core-small",
+      "startedAt": "2026-04-04T16:57:26.771Z",
+      "endedAt": "2026-04-04T16:57:32.414Z",
+      "durationMs": 5643,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:deep-update",
+      "startedAt": "2026-04-04T16:57:32.414Z",
+      "endedAt": "2026-04-04T16:57:37.601Z",
+      "durationMs": 5187,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:determinism",
+      "startedAt": "2026-04-04T16:57:37.601Z",
+      "endedAt": "2026-04-04T16:57:46.931Z",
+      "durationMs": 9330,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:governance",
+      "startedAt": "2026-04-04T16:57:46.931Z",
+      "endedAt": "2026-04-04T16:57:49.768Z",
+      "durationMs": 2837,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:guarantees",
+      "startedAt": "2026-04-04T16:57:49.768Z",
+      "endedAt": "2026-04-04T17:01:41.256Z",
+      "durationMs": 231488,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:hydration-divergence",
+      "startedAt": "2026-04-04T17:01:41.256Z",
+      "endedAt": "2026-04-04T17:01:57.149Z",
+      "durationMs": 15893,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:hydration-large-payload",
+      "startedAt": "2026-04-04T17:01:57.149Z",
+      "endedAt": "2026-04-04T17:04:48.964Z",
+      "durationMs": 171815,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:hydration-randomized",
+      "startedAt": "2026-04-04T17:04:48.964Z",
+      "endedAt": "2026-04-04T17:04:56.203Z",
+      "durationMs": 7239,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:lifecycle",
+      "startedAt": "2026-04-04T17:04:56.203Z",
+      "endedAt": "2026-04-04T17:04:58.766Z",
+      "durationMs": 2563,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:memory-leak",
+      "startedAt": "2026-04-04T17:04:58.766Z",
+      "endedAt": "2026-04-04T17:05:33.298Z",
+      "durationMs": 34532,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:next-server-actions",
+      "startedAt": "2026-04-04T17:05:33.298Z",
+      "endedAt": "2026-04-04T17:05:35.324Z",
+      "durationMs": 2026,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:race",
+      "startedAt": "2026-04-04T17:05:35.324Z",
+      "endedAt": "2026-04-04T17:05:38.661Z",
+      "durationMs": 3337,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:react-concurrency",
+      "startedAt": "2026-04-04T17:05:38.662Z",
+      "endedAt": "2026-04-04T17:05:45.253Z",
+      "durationMs": 6591,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:selector",
+      "startedAt": "2026-04-04T17:05:45.253Z",
+      "endedAt": "2026-04-04T17:06:19.826Z",
+      "durationMs": 34573,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:serverless-provider",
+      "startedAt": "2026-04-04T17:06:19.826Z",
+      "endedAt": "2026-04-04T17:06:25.267Z",
+      "durationMs": 5441,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:ssr-fair-compare",
+      "startedAt": "2026-04-04T17:06:25.267Z",
+      "endedAt": "2026-04-04T17:06:42.077Z",
+      "durationMs": 16810,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:ssr-isolation",
+      "startedAt": "2026-04-04T17:06:42.077Z",
+      "endedAt": "2026-04-04T17:08:50.330Z",
+      "durationMs": 128253,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:ssr-warm",
+      "startedAt": "2026-04-04T17:08:50.330Z",
+      "endedAt": "2026-04-04T17:09:12.960Z",
+      "durationMs": 22630,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:subscriber",
+      "startedAt": "2026-04-04T17:09:12.960Z",
+      "endedAt": "2026-04-04T17:09:30.891Z",
+      "durationMs": 17931,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:subscriber:concurrent",
+      "startedAt": "2026-04-04T17:09:30.891Z",
+      "endedAt": "2026-04-04T17:09:33.424Z",
+      "durationMs": 2533,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:trust-matrix",
+      "startedAt": "2026-04-04T17:09:33.424Z",
+      "endedAt": "2026-04-04T17:09:50.543Z",
+      "durationMs": 17119,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "benchmark:websocket-stream",
+      "startedAt": "2026-04-04T17:09:50.543Z",
+      "endedAt": "2026-04-04T17:09:54.815Z",
+      "durationMs": 4272,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    },
+    {
+      "name": "bench:stress",
+      "startedAt": "2026-04-04T17:09:54.815Z",
+      "endedAt": "2026-04-04T17:10:26.769Z",
+      "durationMs": 31954,
+      "exitCode": 0,
+      "ok": true,
+      "spawnError": null
+    }
+  ]
+}

@@ -103,8 +103,11 @@ describe("stress regressions", () => {
             encoding: "utf8",
             env: { ...process.env, NODE_ENV: "test" },
         });
+        if (result.status !== 0) {
+            throw new Error(`subpath import isolation subprocess failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+        }
         expect(result.status).toBe(0);
-    });
+    }, 20000);
 
     it("devtools bridge does not throw when Redux DevTools extension is missing", () => {
         const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});

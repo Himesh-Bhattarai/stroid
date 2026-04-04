@@ -123,6 +123,8 @@ const EFFECTIVE_CONCURRENCIES = CONCURRENCIES.length > 0 ? CONCURRENCIES : [100,
 const WARMUP_ROUNDS = Number(process.env.STROID_SSR_COMPARE_WARMUP_ROUNDS ?? 2);
 const WARMUP_CONCURRENCY = Number(process.env.STROID_SSR_COMPARE_WARMUP_CONCURRENCY ?? 25);
 const RESPONSE_TIMEOUT_MS = Number(process.env.STROID_SSR_COMPARE_RESPONSE_TIMEOUT_MS ?? 10_000);
+const FETCH_RETRY_COUNT = Number(process.env.STROID_SSR_COMPARE_FETCH_RETRY_COUNT ?? 3);
+const FETCH_RETRY_DELAY_MS = Number(process.env.STROID_SSR_COMPARE_FETCH_RETRY_DELAY_MS ?? 15);
 
 const modeOffsets: Record<ModeName, number> = {
   baseline: 1_000_000,
@@ -501,6 +503,30 @@ const runBurst = async (
   requestBase: number,
   correctness: CorrectnessAccumulator,
 ): Promise<{ summary: BurstSummary; latencies: number[] }> => {
+  const isRetryableFetchFailure = (error: unknown): boolean => {
+    if (!error || typeof error !== "object") return false;
+    const err = error as { message?: unknown; cause?: { code?: unknown } };
+    const message = typeof err.message === "string" ? err.message : "";
+    const code = typeof err.cause?.code === "string" ? err.cause.code : "";
+    if (!message.includes("fetch failed")) return false;
+    return code === "ECONNREFUSED" || code === "ECONNRESET" || code === "ETIMEDOUT";
+  };
+
+  const fetchWithRetries = async (url: string): Promise<Response> => {
+    let attempt = 0;
+    while (true) {
+      try {
+        return await fetch(url);
+      } catch (error) {
+        if (!isRetryableFetchFailure(error) || attempt >= FETCH_RETRY_COUNT) {
+          throw error;
+        }
+        attempt += 1;
+        await wait(FETCH_RETRY_DELAY_MS * attempt);
+      }
+    }
+  };
+
   const requestIds = Array.from(
     { length: concurrency },
     (_value, index) => requestBase + index + 1,
@@ -509,16 +535,25 @@ const runBurst = async (
   const responses = await Promise.all(
     requestIds.map(async (requestId) => {
       const requestStartedAt = performance.now();
-      const response = await fetch(
-        `${baseUrl}/render?mode=${mode}&requestId=${requestId}`,
-      );
-      const html = await response.text();
-      const durationMs = round(performance.now() - requestStartedAt);
-      validateResponse(requestId, response.status, html, correctness);
-      return {
-        durationMs,
-        status: response.status,
-      };
+      try {
+        const response = await fetchWithRetries(
+          `${baseUrl}/render?mode=${mode}&requestId=${requestId}`,
+        );
+        const html = await response.text();
+        const durationMs = round(performance.now() - requestStartedAt);
+        validateResponse(requestId, response.status, html, correctness);
+        return {
+          durationMs,
+          status: response.status,
+        };
+      } catch (_error) {
+        correctness.statusErrorCount += 1;
+        const durationMs = round(performance.now() - requestStartedAt);
+        return {
+          durationMs,
+          status: 599,
+        };
+      }
     }),
   );
 

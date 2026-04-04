@@ -172,6 +172,8 @@
     "benchmark:memory-leak": "node --expose-gc --import tsx scripts/guarantees/memory-leak-benchmark.ts",
     "benchmark:governance": "node --expose-gc --import tsx scripts/guarantees/governance-lifecycle-benchmark.ts",
     "benchmark:guarantees": "node --expose-gc --import tsx scripts/guarantees/guarantee-benchmark-suite.ts",
+    "benchmark:trust-matrix": "node --expose-gc --import tsx scripts/guarantees/production-trust-matrix-benchmark.ts",
+    "benchmark:all": "node --import tsx scripts/guarantees/run-all-benchmarks.ts",
     "test:stress": "vitest run --config vitest.config.ts",
     "test:stress:coverage": "vitest run --config vitest.config.ts --coverage",
     "test:stress:fuzz": "vitest run --config vitest.config.ts tests/fuzz/stress-fuzz.test.tsx",
