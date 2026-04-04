@@ -31,9 +31,10 @@
 | 7 | [Abort Control](#-abort-control) | `AbortController`, `signal`, abort state |
 | 8 | [`refetchStore`](#-refetchstore) | Force re-fetch, bypass TTL cache |
 | 9 | [`enableRevalidateOnFocus`](#-enablerevalidateonfocus) | Focus / online revalidation, global config |
-| 10 | [Suspense Integration](#-suspense-integration-useasyncstoresuspense) | `useAsyncStoreSuspense`, promise reuse |
-| 11 | [Limits & Safeguards](#-limits--safeguards) | Slots, rate limiting, dedup, auto-create |
-| 12 | [Correlation IDs & Tracing](#-correlation-ids--tracing) | `autoCorrelationIds`, `getStoreHealth` |
+| 10 | [`getAsyncMetrics`](#-getasyncmetrics) | Global counters and per-store async metrics |
+| 11 | [Suspense Integration](#-suspense-integration-useasyncstoresuspense) | `useAsyncStoreSuspense`, promise reuse |
+| 12 | [Limits & Safeguards](#-limits--safeguards) | Slots, rate limiting, dedup, auto-create |
+| 13 | [Correlation IDs & Tracing](#-correlation-ids--tracing) | `autoCorrelationIds`, `getStoreHealth` |
 
 ---
 
@@ -465,6 +466,35 @@ flowchart LR
 
 > [!NOTE]
 > `debounceMs` is critical in tabbed apps. Without it, switching between tabs rapidly could fire dozens of revalidations. The default debounce prevents this while still ensuring data is fresh when the user actually returns to focus.
+
+---
+
+## 📊 `getAsyncMetrics`
+
+Use `getAsyncMetrics()` to inspect async performance counters.
+
+```ts
+import { getAsyncMetrics } from "stroid/async"
+
+// Global counters across all async stores
+const global = getAsyncMetrics()
+
+// Optional per-store counters
+const user = getAsyncMetrics("user")
+```
+
+Returned fields:
+
+- `cacheHits`
+- `cacheMisses`
+- `dedupes`
+- `requests`
+- `failures`
+- `avgMs`
+- `lastMs`
+
+If a store has no async activity yet, `getAsyncMetrics("storeName")` returns `null`.
+Per-store metrics are removed automatically when that store is deleted.
 
 ---
 

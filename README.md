@@ -255,6 +255,11 @@ resetStore("cart");
 ```
 Resets a store back to its original initial state.
 
+Reset clone behavior is configurable:
+
+- Per store: `createStore("cart", initial, { resetClone: "deep" | "shallow" | "none" })`
+- Global default: `configureStroid({ resetCloneMode: "deep" | "shallow" | "none" })`
+
 ---
 
 ### `deleteStore`
@@ -1037,6 +1042,7 @@ Import from `stroid` for batching/hydration/computed plus runtime metrics and co
 | `useStore(name, selectorOrPath?)` | React subscription hook. |
 | `useSelector(name, fn, equality?)` | Fine-grained React selector hook. |
 | `fetchStore(name, input, options?)` | Fetch remote data into store. |
+| `getAsyncMetrics(name?)` | Read global or per-store async counters. |
 | `createComputed(name, deps, fn)` | Define computed store. |
 | `createStoreForRequest(fn)` | Build SSR request-scoped store runtime. |
 

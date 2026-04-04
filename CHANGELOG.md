@@ -33,10 +33,17 @@
 >- Reduced `stroid/persist` import retention by routing the leaf entrypoint to the direct feature installer, and regrouped `runtime-tools` internals plus query-key helpers for narrower future tree-shaking work.
 >- Removed the dead `computed-types` JavaScript build entry and added `module` plus explicit `./query` export metadata for bundler compatibility.
 >- Removed incorrect `sideEffects` metadata that pointed at unpublished source paths; the package now stays conservative until the remaining import-time effects are isolated explicitly.
+>- Added computed topo-order memoization with graph-version invalidation so unchanged computed graphs no longer re-run dependency ordering on every flush.
+>- Added async slot indexing and incremental prune cadence, reducing repeated full-map scans in `pruneAsyncCache`, `clearAsyncMeta`, and inflight slot counting paths.
+>- Added `getAsyncMetrics(name?)` per-store reporting while preserving the existing global aggregate metrics shape.
+>- Added configurable `resetStore` clone strategy (`deep` / `shallow` / `none`) via per-store `resetClone` and global `configureStroid({ resetCloneMode })`.
+>- Reorganized stress benchmark runner scripts under `scripts/core/` and updated benchmark npm commands accordingly.
 >
 >### Fix
 >
 >- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, instead of collapsing that branch into `not-found`.
+>- Fixed workflow hardening gaps flagged by code scanning: added explicit top-level token permissions where missing and pinned GitHub Actions to immutable commit SHAs.
+>- Fixed STATUS commit validation for Dependabot updates by accepting the bot-generated optional `(deps)` / `(deps-dev)` scope suffix while preserving STATUS-code enforcement.
 >
 >### Docs
 >
@@ -44,6 +51,7 @@
 >- Added bundle-sensitive import guidance and bundle-closure benchmark notes to the README and docs, including the new `stroid/query` path, the measurable `stroid/persist` win, and the current root-entry limitations.
 >- Documented runtime caveats for validated store names, direct-Promise async fetches, BroadcastChannel startup/BFCache limits, and Safari/WebKit storage eviction in the README and guides.
 >- Added `STATUS.md` so the commit and issue-close workflow referenced by `CONTRIBUTING.md` is now present in the repository.
+>- Documented async metrics per-store reads and reset clone-mode controls in README and guide docs.
 ></details>
 
 

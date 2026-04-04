@@ -129,6 +129,7 @@ revalidateOnFocus?: {
 |--------|------|--------|---------|-------------|
 | `defaultSnapshotMode` | `string` | `"deep"` \| `"shallow"` \| `"ref"` | `"deep"` | How deeply to clone store state on reads. `"ref"` = no clone, `"shallow"` = one level. |
 | `snapshotStrategy` | `string` | `"deep"` \| `"shallow"` \| `"ref"` | — | Alias for `defaultSnapshotMode`. |
+| `resetCloneMode` | `string` | `"deep"` \| `"shallow"` \| `"none"` | `"deep"` | Default clone mode for `resetStore()`. Use `"none"` only when shared reset references are intentional. |
 | `selectorCloneFrozen` | `boolean` | - | `true` | Clone frozen stores before proxy tracking in selectors (safer in dev). |
 | `pathCacheSize` | `number` | - | `500` | Max cached path validation verdicts per store. Increase if using many unique paths. |
 
@@ -292,3 +293,4 @@ resetConfig() // Restore defaults
 | **Auto-fetch validation** | `middleware` |
 | **Async reliability** | `autoCorrelationIds`, `revalidateOnFocus` |
 | **SSR safety** | `allowTrustedHydration` (only for trusted sources) |
+
