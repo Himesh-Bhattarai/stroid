@@ -17,6 +17,7 @@ import { getStore, clearAllStores, deleteStore, createStore } from "../../src/st
 import {
   MAX_CACHE_SLOTS_PER_STORE,
   MAX_INFLIGHT_SLOTS_PER_STORE,
+  getAsyncCachePruneCounters,
   getRateCountRegistry,
 } from "../../src/async/cache.js";
 import { RATE_MAX, RATE_WINDOW_MS, pruneRateCounters } from "../../src/async/rate.js";
@@ -1097,6 +1098,84 @@ test("getAsyncMetrics tracks request, cache, dedupe, and failure counters", asyn
     assert.strictEqual(after.failures - before.failures, 1);
     assert.ok(after.lastMs >= 0);
     assert.ok(after.avgMs >= 0);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("getAsyncMetrics supports per-store breakdowns and clears on delete", async () => {
+  clearAllStores();
+  ensureAsyncStore("metricsByStoreA");
+  ensureAsyncStore("metricsByStoreB");
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    if (calls === 2) throw new Error("metrics by store boom");
+    return makeJsonResponse({ call: calls });
+  }) as typeof fetch;
+
+  try {
+    await fetchStore("metricsByStoreA", "https://api.example.com/a", {
+      ttl: 1_000,
+      dedupe: false,
+    });
+    await fetchStore("metricsByStoreA", "https://api.example.com/a", {
+      ttl: 1_000,
+      dedupe: false,
+    });
+    await fetchStore("metricsByStoreB", "https://api.example.com/b", {
+      dedupe: false,
+    });
+
+    const storeA = getAsyncMetrics("metricsByStoreA");
+    const storeB = getAsyncMetrics("metricsByStoreB");
+
+    assert.ok(storeA);
+    assert.ok(storeB);
+    assert.strictEqual(storeA.cacheHits, 1);
+    assert.strictEqual(storeA.failures, 0);
+    assert.ok(storeA.requests >= 1);
+    assert.strictEqual(storeB.failures, 1);
+    assert.strictEqual(storeB.cacheHits, 0);
+
+    deleteStore("metricsByStoreA");
+    assert.strictEqual(getAsyncMetrics("metricsByStoreA"), null);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("fetchStore defers cache pruning until interval cadence or overflow", async () => {
+  clearAllStores();
+  ensureAsyncStore("pruneCadenceStore");
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return makeJsonResponse({ call: calls });
+  }) as typeof fetch;
+
+  try {
+    for (let i = 0; i < 5; i += 1) {
+      await fetchStore("pruneCadenceStore", "https://api.example.com/cadence", {
+        cacheKey: `slot-${i}`,
+        ttl: 60_000,
+        dedupe: false,
+      });
+    }
+    assert.strictEqual(getAsyncCachePruneCounters().get("pruneCadenceStore"), 5);
+
+    for (let i = 5; i < 32; i += 1) {
+      await fetchStore("pruneCadenceStore", "https://api.example.com/cadence", {
+        cacheKey: `slot-${i}`,
+        ttl: 60_000,
+        dedupe: false,
+      });
+    }
+    assert.strictEqual(getAsyncCachePruneCounters().has("pruneCadenceStore"), false);
   } finally {
     globalThis.fetch = realFetch;
   }

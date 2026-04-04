@@ -15,11 +15,15 @@ import {
     getCacheMeta,
     countInflightSlots,
     getAsyncMetrics as getAsyncMetricsRegistry,
+    getAsyncMetricsByStore,
+    getOrCreateAsyncStoreMetrics,
     getFetchRegistry,
     getRevalidateHandlers,
     getRevalidateKeys,
     cleanupStoreCleanupsByKind,
     MAX_INFLIGHT_SLOTS_PER_STORE,
+    noteAsyncCacheWrite,
+    trackAsyncSlot,
     warnOnce,
     ensureCleanupSubscription,
     pruneAsyncCache,
@@ -165,6 +169,7 @@ export async function fetchStore(
     const cacheMeta = getCacheMeta();
     const fetchRegistry = getFetchRegistry();
     const asyncMetrics = getAsyncMetricsRegistry();
+    const storeMetrics = getOrCreateAsyncStoreMetrics(name);
     const baseContext: WriteContext | null = (() => {
         const explicit = options.correlationId;
         const trace = options.traceContext;
@@ -319,6 +324,7 @@ export async function fetchStore(
 
     if (shouldUseCache(cacheSlot, ttl)) {
         asyncMetrics.cacheHits += 1;
+        storeMetrics.cacheHits += 1;
         cachedData = readCachedData();
         applyState({
             data: cachedData,
@@ -332,6 +338,7 @@ export async function fetchStore(
         backgroundRevalidate = true;
     } else {
         asyncMetrics.cacheMisses += 1;
+        storeMetrics.cacheMisses += 1;
     }
 
     if (dedupe) {
@@ -346,7 +353,7 @@ export async function fetchStore(
     const nowTs = Date.now();
     pruneRateCounters(nowTs);
     scheduleRatePrune();
-    if (registerRateHit(cacheSlot, nowTs)) {
+    if (registerRateHit(cacheSlot, nowTs, name)) {
         return reportAsyncUsageError(
             name,
             `fetchStore("${name}") rate limited: ${RATE_MAX} requests per ${RATE_WINDOW_MS}ms window for store "${name}".`,
@@ -362,7 +369,7 @@ export async function fetchStore(
         );
     }
 
-    const currentVersion = reserveRequestVersion(cacheSlot);
+    const currentVersion = reserveRequestVersion(cacheSlot, name);
 
     if (!backgroundRevalidate) {
         applyState({
@@ -375,6 +382,7 @@ export async function fetchStore(
     }
 
     asyncMetrics.requests += 1;
+    storeMetrics.requests += 1;
     const startedAt = Date.now();
 
     const controller = !signal && typeof AbortController !== "undefined"
@@ -482,7 +490,8 @@ export async function fetchStore(
                     expiresAt: ttl ? Date.now() + ttl : null,
                     data: cloned,
                 };
-                pruneAsyncCache(name);
+                trackAsyncSlot(name, cacheSlot);
+                if (noteAsyncCacheWrite(name)) pruneAsyncCache(name);
 
                 applyState({
                     data: cloned,
@@ -497,6 +506,8 @@ export async function fetchStore(
                 const elapsed = Date.now() - startedAt;
                 asyncMetrics.lastMs = elapsed;
                 asyncMetrics.avgMs = ((asyncMetrics.avgMs * (asyncMetrics.requests - 1)) + elapsed) / asyncMetrics.requests;
+                storeMetrics.lastMs = elapsed;
+                storeMetrics.avgMs = ((storeMetrics.avgMs * (storeMetrics.requests - 1)) + elapsed) / storeMetrics.requests;
                 return { raw: result, transformed: cloned };
             } catch (err) {
                 attempts += 1;
@@ -530,6 +541,7 @@ export async function fetchStore(
 
                 runAsyncHook(name, "onError", onError, errorMessage);
                 asyncMetrics.failures += 1;
+                storeMetrics.failures += 1;
                 warn(`fetchStore("${name}") failed: ${errorMessage}`);
                 return null;
             }
@@ -571,6 +583,7 @@ export async function fetchStore(
         });
         runAsyncHook(name, "onError", onError, errorMessage);
         asyncMetrics.failures += 1;
+        storeMetrics.failures += 1;
         warn(`fetchStore("${name}") failed: ${errorMessage}`);
         return null;
     });
@@ -582,7 +595,7 @@ export async function fetchStore(
     });
     const rawPromise = execution.then((res) => res?.raw);
 
-    setInflightEntry(cacheSlot, { promise, raw: rawPromise, transform, cloneResult: cloneMode, contract: dedupeContract });
+    setInflightEntry(cacheSlot, { promise, raw: rawPromise, transform, cloneResult: cloneMode, contract: dedupeContract }, name);
     if (typeof urlOrRequest === "function") {
         fetchRegistry[name] = { kind: "factory", factory: urlOrRequest, options: { ...options, cacheKey } };
     } else if (typeof urlOrRequest === "string") {
@@ -754,7 +767,11 @@ export function enableRevalidateOnFocus(
     return cleanup;
 }
 
-export const getAsyncMetrics = () => ({ ...getAsyncMetricsRegistry() });
+export const getAsyncMetrics = (name?: string) => {
+    if (!name) return { ...getAsyncMetricsRegistry() };
+    const metrics = getAsyncMetricsByStore().get(name);
+    return metrics ? { ...metrics } : null;
+};
 
 export const _resetAsyncStateForTests = (): void => {
     cleanupAllRevalidateHandlers();

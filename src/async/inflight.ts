@@ -6,7 +6,15 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { getAsyncMetrics, getInflightRegistry, getRequestSequenceRegistry, getRequestVersionRegistry } from "./cache.js";
+import {
+    getAsyncMetrics,
+    getInflightRegistry,
+    getOrCreateAsyncStoreMetrics,
+    getRequestSequenceRegistry,
+    getRequestVersionRegistry,
+    releaseAsyncSlotIfOrphaned,
+    trackAsyncSlot,
+} from "./cache.js";
 import type { FetchOptions } from "./cache.js";
 import { reportAsyncUsageError } from "./errors.js";
 import { shallowEqual } from "../utils.js";
@@ -63,7 +71,8 @@ const sameRequestContract = (
 export const isCurrentRequest = (cacheSlot: string, version: number): boolean =>
     (getRequestVersionRegistry()[cacheSlot] ?? 0) === version;
 
-export const reserveRequestVersion = (cacheSlot: string): number => {
+export const reserveRequestVersion = (cacheSlot: string, storeName?: string): number => {
+    if (storeName) trackAsyncSlot(storeName, cacheSlot);
     const requestSequence = getRequestSequenceRegistry();
     const requestVersion = getRequestVersionRegistry();
     const currentVersion = (requestSequence[cacheSlot] ?? 0) + 1;
@@ -74,10 +83,14 @@ export const reserveRequestVersion = (cacheSlot: string): number => {
 
 export const clearRequestVersion = (cacheSlot: string, version: number): void => {
     const requestVersion = getRequestVersionRegistry();
-    if (requestVersion[cacheSlot] === version) delete requestVersion[cacheSlot];
+    if (requestVersion[cacheSlot] === version) {
+        delete requestVersion[cacheSlot];
+        releaseAsyncSlotIfOrphaned(cacheSlot);
+    }
 };
 
-export const setInflightEntry = (cacheSlot: string, entry: InflightEntry): void => {
+export const setInflightEntry = (cacheSlot: string, entry: InflightEntry, storeName?: string): void => {
+    if (storeName) trackAsyncSlot(storeName, cacheSlot);
     const inflight = getInflightRegistry();
     (inflight as Record<string, InflightEntry>)[cacheSlot] = entry;
 };
@@ -85,6 +98,7 @@ export const setInflightEntry = (cacheSlot: string, entry: InflightEntry): void 
 export const clearInflightEntry = (cacheSlot: string): void => {
     const inflight = getInflightRegistry();
     delete inflight[cacheSlot];
+    releaseAsyncSlotIfOrphaned(cacheSlot);
 };
 
 export const hasInflightEntry = (cacheSlot: string): boolean =>
@@ -100,6 +114,7 @@ export const tryDedupeRequest = (
     if (!active) return undefined;
 
     getAsyncMetrics().dedupes += 1;
+    getOrCreateAsyncStoreMetrics(name).dedupes += 1;
     if (!sameRequestContract(active.contract, request.contract)) {
         reportAsyncUsageError(
             name,

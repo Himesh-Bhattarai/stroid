@@ -31,6 +31,15 @@ export type StoreCleanupBucket = {
     store?: Set<() => void>;
     revalidate?: Set<() => void>;
 };
+export type AsyncMetricsSnapshot = {
+    cacheHits: number;
+    cacheMisses: number;
+    dedupes: number;
+    requests: number;
+    failures: number;
+    avgMs: number;
+    lastMs: number;
+};
 
 export interface FetchOptions {
     transform?: (result: unknown) => unknown;
@@ -92,15 +101,11 @@ export type AsyncRegistry = {
     storeCleanups: Map<string, StoreCleanupBucket>;
     revalidateKeys: Set<string>;
     revalidateHandlers: Record<string, () => void>;
-    asyncMetrics: {
-        cacheHits: number;
-        cacheMisses: number;
-        dedupes: number;
-        requests: number;
-        failures: number;
-        avgMs: number;
-        lastMs: number;
-    };
+    slotOwners: Map<string, string>;
+    slotsByStore: Map<string, Set<string>>;
+    cachePruneCounters: Map<string, number>;
+    asyncMetrics: AsyncMetricsSnapshot;
+    asyncMetricsByStore: Map<string, AsyncMetricsSnapshot>;
 };
 
 const createWarnedOnce = (): Map<WarnCategory, Set<string>> => new Map([
@@ -109,6 +114,16 @@ const createWarnedOnce = (): Map<WarnCategory, Set<string>> => new Map([
     ["autoCreate", new Set<string>()],
     ["mutableResult", new Set<string>()],
 ]);
+
+const createAsyncMetricsSnapshot = (): AsyncMetricsSnapshot => ({
+    cacheHits: 0,
+    cacheMisses: 0,
+    dedupes: 0,
+    requests: 0,
+    failures: 0,
+    avgMs: 0,
+    lastMs: 0,
+});
 
 export const createAsyncRegistry = (): AsyncRegistry => ({
     fetchRegistry: Object.create(null),
@@ -124,15 +139,11 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     storeCleanups: new Map<string, StoreCleanupBucket>(),
     revalidateKeys: new Set<string>(),
     revalidateHandlers: Object.create(null),
-    asyncMetrics: {
-        cacheHits: 0,
-        cacheMisses: 0,
-        dedupes: 0,
-        requests: 0,
-        failures: 0,
-        avgMs: 0,
-        lastMs: 0,
-    },
+    slotOwners: new Map<string, string>(),
+    slotsByStore: new Map<string, Set<string>>(),
+    cachePruneCounters: new Map<string, number>(),
+    asyncMetrics: createAsyncMetricsSnapshot(),
+    asyncMetricsByStore: new Map<string, AsyncMetricsSnapshot>(),
 });
 
 export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
@@ -153,6 +164,10 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     Object.keys(registry.rateCount).forEach((key) => delete registry.rateCount[key]);
     registry.storeCleanups.clear();
     Object.keys(registry.revalidateHandlers).forEach((key) => delete registry.revalidateHandlers[key]);
+    registry.slotOwners.clear();
+    registry.slotsByStore.clear();
+    registry.cachePruneCounters.clear();
+    registry.asyncMetricsByStore.clear();
 
     registry.revalidateKeys.clear();
     registry.warnedOnce.forEach((set) => set.clear());

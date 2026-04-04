@@ -10,7 +10,20 @@ import test from "node:test";
 import assert from "node:assert";
 import { clearAllStores, createStore } from "../../../src/store.js";
 import { fetchStore, enableRevalidateOnFocus } from "../../../src/async.js";
-import { shouldUseCache, pruneAsyncCache, getCacheMeta, getRequestVersionRegistry, getFetchRegistry } from "../../../src/async/cache.js";
+import {
+  clearAsyncMeta,
+  getAsyncCachePruneCounters,
+  getAsyncMetricsByStore,
+  getCacheMeta,
+  getFetchRegistry,
+  getRateCountRegistry,
+  getRateWindowStartRegistry,
+  getRequestSequenceRegistry,
+  getRequestVersionRegistry,
+  pruneAsyncCache,
+  shouldUseCache,
+  trackAsyncSlot,
+} from "../../../src/async/cache.js";
 import { createAsyncRegistry, resetAsyncRegistry } from "../../../src/async/registry.js";
 import { delay, normalizeRetryOptions } from "../../../src/async/retry.js";
 import { reactQueryKey, createReactQueryFetcher, createSwrFetcher } from "../../../src/integrations/query.js";
@@ -32,6 +45,49 @@ test("async cache expiry and prune paths clear expired entries", () => {
   requestVersion["persist:old"] = 1;
   pruneAsyncCache("persist");
   assert.ok(!("persist:old" in cacheMeta));
+});
+
+test("clearAsyncMeta removes tracked async bookkeeping in one pass", () => {
+  const cacheMeta = getCacheMeta();
+  const requestVersion = getRequestVersionRegistry();
+  const requestSequence = getRequestSequenceRegistry();
+  const rateWindowStart = getRateWindowStartRegistry();
+  const rateCount = getRateCountRegistry();
+  const fetchRegistry = getFetchRegistry();
+  const slot = "clearMetaStore:slot-a";
+
+  trackAsyncSlot("clearMetaStore", slot);
+  cacheMeta[slot] = { timestamp: Date.now(), expiresAt: Date.now() + 5000, data: { ok: true } };
+  requestVersion[slot] = 1;
+  requestSequence[slot] = 1;
+  rateWindowStart[slot] = Date.now();
+  rateCount[slot] = 1;
+  fetchRegistry.clearMetaStore = {
+    kind: "url",
+    url: "https://api.example.com/clear",
+    options: {},
+  };
+  getAsyncMetricsByStore().set("clearMetaStore", {
+    cacheHits: 1,
+    cacheMisses: 2,
+    dedupes: 0,
+    requests: 3,
+    failures: 0,
+    avgMs: 10,
+    lastMs: 5,
+  });
+  getAsyncCachePruneCounters().set("clearMetaStore", 9);
+
+  clearAsyncMeta("clearMetaStore");
+
+  assert.ok(!Object.prototype.hasOwnProperty.call(cacheMeta, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(requestVersion, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(requestSequence, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(rateWindowStart, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(rateCount, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(fetchRegistry, "clearMetaStore"));
+  assert.strictEqual(getAsyncMetricsByStore().has("clearMetaStore"), false);
+  assert.strictEqual(getAsyncCachePruneCounters().has("clearMetaStore"), false);
 });
 
 test("resetAsyncRegistry cleans handlers and timers", () => {
