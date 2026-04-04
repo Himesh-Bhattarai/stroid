@@ -14,6 +14,7 @@ import {
 } from "../core/store-registry.js";
 import { error } from "../utils.js";
 import { setComputedOrderResolver } from "../internals/computed-order.js";
+import { registerTestResetHook } from "../internals/test-reset.js";
 import type {
     ComputedClassification,
     ComputedDescriptor,
@@ -28,9 +29,38 @@ import type {
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
 const DEFAULT_COMPUTED_CLASSIFICATION: ComputedClassification = "opaque";
+let computedGraphVersion = 0;
+let topoCacheVersion = -1;
+let topoCacheComputeCount = 0;
+const topoCacheBySources = new Map<string, readonly string[]>();
 
 const getEntries = () => getRegistry().computedEntries;
 const getDependents = () => getRegistry().computedDependents;
+
+const markComputedGraphDirty = (): void => {
+    computedGraphVersion += 1;
+};
+
+const resetComputedOrderCache = (): void => {
+    computedGraphVersion = 0;
+    topoCacheVersion = -1;
+    topoCacheComputeCount = 0;
+    topoCacheBySources.clear();
+};
+
+registerTestResetHook("computed.topo-cache", resetComputedOrderCache, 104);
+
+export const _getComputedOrderCacheStatsForTests = (): {
+    graphVersion: number;
+    cacheVersion: number;
+    computeCount: number;
+    entryCount: number;
+} => ({
+    graphVersion: computedGraphVersion,
+    cacheVersion: topoCacheVersion,
+    computeCount: topoCacheComputeCount,
+    entryCount: topoCacheBySources.size,
+});
 
 export const detectCycle = (name: string, deps: string[]): string | null => {
     const entries = getEntries();
@@ -109,6 +139,8 @@ export const registerComputed = (
         dependents[dep].add(name);
     }
 
+    markComputedGraphDirty();
+
     return true;
 };
 
@@ -119,6 +151,7 @@ export const unregisterComputed = (name: string): void => {
 
     removeComputedDependentLinks(name, entry.deps);
     delete entries[name];
+    markComputedGraphDirty();
 };
 
 export const markStale = (name: string): void => {
@@ -219,7 +252,7 @@ export const getComputedDescriptor = (nodeId: RuntimeNodeId): ComputedDescriptor
     return buildComputedDescriptor(name, entry);
 };
 
-export const getTopoOrderedComputeds = (changedSources: string[]): string[] => {
+const computeTopoOrderedComputeds = (changedSources: string[]): string[] => {
     const entries = getEntries();
     const dependents = getDependents();
 
@@ -296,6 +329,27 @@ export const getTopoOrderedComputeds = (changedSources: string[]): string[] => {
     }
 
     return sorted;
+};
+
+const getTopoCacheKey = (changedSources: string[]): string => {
+    const uniqueSorted = Array.from(new Set(changedSources)).sort();
+    return JSON.stringify(uniqueSorted);
+};
+
+export const getTopoOrderedComputeds = (changedSources: string[]): string[] => {
+    if (computedGraphVersion !== topoCacheVersion) {
+        topoCacheBySources.clear();
+        topoCacheVersion = computedGraphVersion;
+    }
+
+    const cacheKey = getTopoCacheKey(changedSources);
+    const cached = topoCacheBySources.get(cacheKey);
+    if (cached) return [...cached];
+
+    const next = computeTopoOrderedComputeds(changedSources);
+    topoCacheBySources.set(cacheKey, next);
+    topoCacheComputeCount += 1;
+    return [...next];
 };
 
 setComputedOrderResolver(getTopoOrderedComputeds);
