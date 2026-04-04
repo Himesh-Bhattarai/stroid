@@ -17,7 +17,7 @@ import {
   createBaselineState,
   type RandomizedPolicy,
   type RandomizedState,
-} from "../../scripts/hydration-randomized-shared.js";
+} from "../../scripts/hydration/hydration-randomized-shared.js";
 
 test("randomized hydration replay matches immediate execution across core policies", async () => {
   const seeds = [11, 29, 101, 303];

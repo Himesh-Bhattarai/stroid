@@ -10,7 +10,7 @@ import test from "node:test";
 import assert from "node:assert";
 import {
   runWebsocketHydrationStreamScenario,
-} from "../../scripts/websocket-hydration-stream-shared.js";
+} from "../../scripts/hydration/websocket-hydration-stream-shared.js";
 
 test("websocket-style sync frames queue before boot-window close and continue in order after replay", async () => {
   const result = await runWebsocketHydrationStreamScenario({

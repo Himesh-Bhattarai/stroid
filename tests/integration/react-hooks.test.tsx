@@ -20,7 +20,7 @@ import { configureStroid, resetConfig } from "../../src/config.js";
 import {
   runDeferredScenario,
   runTransitionScenario,
-} from "../../scripts/react-concurrency-shared.js";
+} from "../../scripts/react/react-concurrency-shared.js";
 
 test("useStore inline primitive selector stays stable through unrelated updates", async () => {
   clearAllStores();

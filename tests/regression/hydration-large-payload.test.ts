@@ -8,7 +8,7 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import { runLargePayloadScenario } from "../../scripts/hydration-large-payload-shared.js";
+import { runLargePayloadScenario } from "../../scripts/hydration/hydration-large-payload-shared.js";
 
 test("large-payload hydration replay matches immediate execution", async () => {
   const immediate = await runLargePayloadScenario({

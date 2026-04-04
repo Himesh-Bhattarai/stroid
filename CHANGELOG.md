@@ -48,6 +48,7 @@
 >- Fixed STATUS commit validation for Dependabot updates by accepting the bot-generated optional `(deps)` / `(deps-dev)` scope suffix while preserving STATUS-code enforcement.
 >- Fixed `getAsyncMetrics(...)` public typings so `getAsyncMetrics()` remains non-null while `getAsyncMetrics(name)` is correctly typed as nullable per-store lookup.
 >- Fixed SSR isolation benchmark request stability by retrying transient loopback `fetch` failures in the React streaming HTTP certification phase.
+>- Fixed integration/regression harness imports to follow the new benchmark shared-helper locations after script folder reorganization.
 >
 >### Docs
 >
