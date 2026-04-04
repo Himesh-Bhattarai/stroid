@@ -95,14 +95,16 @@ const useStore = create((set) => ({
 ### Stroid (After)
 
 ```ts
+import { useEffect } from "react"
 import { fetchStore } from "stroid/async"
 import { useAsyncStore } from "stroid/react"
 
 function Component() {
-  const { data, isLoading, error } = useAsyncStore(
-    "data",
-    fetchStore("/api/data")
-  )
+  const { data, loading, error } = useAsyncStore("data")
+
+  useEffect(() => {
+    void fetchStore("data", "/api/data", { autoCreate: true })
+  }, [])
 }
 ```
 

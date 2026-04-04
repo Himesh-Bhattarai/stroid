@@ -435,7 +435,7 @@ import { fetchStore } from "stroid/async";
 
 function Menu() {
   useEffect(() => {
-    void fetchStore("menu", "https://api.example.com/menu");
+    void fetchStore("menu", "https://api.example.com/menu", { autoCreate: true });
   }, []);
 
   const { loading, error, data } = useAsyncStore("menu");
@@ -457,7 +457,8 @@ import { useAsyncStoreSuspense } from "stroid/react";
 function MenuSuspense() {
   const menu = useAsyncStoreSuspense<Array<{ id: string; name: string }>>(
     "menu",
-    "https://api.example.com/menu"
+    "https://api.example.com/menu",
+    { autoCreate: true }
   );
 
   return <MenuList items={menu} />;
@@ -686,6 +687,7 @@ Provides ready-made entity, list, and counter store helpers.
 ## 🧪 Testing - `stroid/testing`
 
 ```ts
+import { store } from "stroid";
 import {
   createMockStore,
   resetAllStoresForTest,
@@ -700,7 +702,7 @@ withMockedTime(1700000000000, () => {
   // Date.now() is fixed in this callback
 });
 
-const result = benchmarkStoreSet({ name: "cart" } as any, 300);
+const result = benchmarkStoreSet(store("cart"), 300);
 const avgMs = result.avgMs;
 
 resetAllStoresForTest();
@@ -958,7 +960,8 @@ import { useAsyncStoreSuspense } from "stroid/react";
 function MenuList() {
   const menu = useAsyncStoreSuspense<Array<{ id: string; name: string }>>(
     "menu",
-    "https://api.example.com/menu"
+    "https://api.example.com/menu",
+    { autoCreate: true }
   );
 
   return <ul>{menu.map((item) => <li key={item.id}>{item.name}</li>)}</ul>;

@@ -305,10 +305,16 @@ Real meaning: read snapshot directly in component context.
 ### `useAsyncStore`
 
 ```tsx
+import { useEffect } from "react";
+import { fetchStore } from "stroid/async";
 import { useAsyncStore } from "stroid/react";
 
 function Menu() {
-  const asyncState = useAsyncStore("menu", "https://api.example.com/menu");
+  useEffect(() => {
+    void fetchStore("menu", "https://api.example.com/menu", { autoCreate: true });
+  }, []);
+
+  const asyncState = useAsyncStore("menu");
   if (asyncState?.loading) return <p>Loading menu...</p>;
   if (asyncState?.error) return <p>Failed to load</p>;
   return <p>Menu ready</p>;
@@ -321,8 +327,8 @@ function Menu() {
 import { useFormStore } from "stroid/react";
 
 function LoginForm() {
-  const form = useFormStore("loginForm", { email: "", password: "" });
-  return <button disabled={!form}>Sign in</button>;
+  const { value: email, onChange: onEmailChange } = useFormStore("loginForm", "email");
+  return <input value={email ?? ""} onChange={onEmailChange} />;
 }
 ```
 
@@ -332,7 +338,11 @@ function LoginForm() {
 import { useAsyncStoreSuspense } from "stroid/react";
 
 function MenuSuspense() {
-  const data = useAsyncStoreSuspense("menu", "https://api.example.com/menu");
+  const data = useAsyncStoreSuspense(
+    "menu",
+    "https://api.example.com/menu",
+    { autoCreate: true }
+  );
   return <p>{data ? "Loaded with suspense" : ""}</p>;
 }
 ```
@@ -573,9 +583,10 @@ withMockedTime(1700000000000, () => {
 ### `benchmarkStoreSet`
 
 ```ts
+import { store } from "stroid";
 import { benchmarkStoreSet } from "stroid/testing";
 
-const result = benchmarkStoreSet({ name: "cart" } as any, 300);
+const result = benchmarkStoreSet(store("cart"), 300);
 ```
 
 ---

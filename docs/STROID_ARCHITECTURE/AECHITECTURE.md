@@ -438,7 +438,7 @@ flowchart LR
 <summary>🔍 How to register a custom feature (click to expand)</summary>
 
 ```ts
-import { registerStoreFeature } from 'stroid/features';
+import { registerStoreFeature } from "stroid/feature";
 
 registerStoreFeature({
   name: 'my-feature',

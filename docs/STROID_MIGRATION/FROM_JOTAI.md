@@ -211,25 +211,26 @@ function UserProfile() {
 ### Stroid (After)
 
 ```ts
+import { useEffect } from "react"
 import { fetchStore } from "stroid/async"
-import { useAsyncStore } from "stroid/react"
+import { useAsyncStore, useAsyncStoreSuspense } from "stroid/react"
 
 function UserProfile() {
-  const { data: user, isLoading, error } = useAsyncStore(
-    "user",
-    fetchStore("/api/user")
-  )
+  const { data: user, loading, error } = useAsyncStore("user")
 
-  if (isLoading) return <Spinner />
+  useEffect(() => {
+    void fetchStore("user", "/api/user", { autoCreate: true })
+  }, [])
+
+  if (loading) return <Spinner />
   if (error) return <Error error={error} />
   return <h1>{user.name}</h1>
 }
 
 // Or with Suspense
 function UserProfileWithSuspense() {
-  const user = fetchStore("/api/user", { suspense: true })
-  // Throws promise during loading
-  return <h1>{user.data.name}</h1>
+  const user = useAsyncStoreSuspense("user", "/api/user", { autoCreate: true })
+  return <h1>{user.name}</h1>
 }
 ```
 
@@ -282,9 +283,9 @@ function App() {
 
 ```ts
 import { createStore, setStore, getStore } from "stroid"
-import { useStore, useSelector } from "stroid/react"
-import { fetchStore, useAsyncStore } from "stroid/async"
 import { useEffect } from "react"
+import { fetchStore } from "stroid/async"
+import { useStore, useSelector, useAsyncStore } from "stroid/react"
 
 createStore("counter", 0)
 
@@ -293,10 +294,11 @@ function App() {
 
   const isHigh = useSelector("counter", (c) => c > 5)
 
-  const { data: user } = useAsyncStore(
-    "user",
-    fetchStore("/api/user")
-  )
+  const { data: user } = useAsyncStore("user")
+
+  useEffect(() => {
+    void fetchStore("user", "/api/user", { autoCreate: true })
+  }, [])
 
   return (
     <div>

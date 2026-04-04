@@ -377,7 +377,10 @@ import { useAsyncStoreSuspense } from "stroid/react"
 
 // This component never has to handle loading state — Suspense does it
 function UserName() {
-  const name = useAsyncStoreSuspense("user", "/api/user", { ttl: 30_000 })
+  const name = useAsyncStoreSuspense("user", "/api/user", {
+    ttl: 30_000,
+    autoCreate: true,
+  })
   return <span>{name}</span>  // ← name is always defined here
 }
 
