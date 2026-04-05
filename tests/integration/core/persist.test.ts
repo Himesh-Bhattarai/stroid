@@ -23,6 +23,15 @@ import type { FeatureHookContext, StoreFeatureMeta } from "../../../src/features
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+const waitUntil = async (predicate: () => boolean, timeoutMs = 500, intervalMs = 5): Promise<boolean> => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return predicate();
+};
+
 const makePersistConfig = (
   overrides: Pick<PersistConfig, "key" | "driver"> & Partial<PersistConfig> & {
     migrate?: (state: StoreValue) => StoreValue;
@@ -802,7 +811,8 @@ test("persist feature handles async load failures with pending saves", async () 
   runtime.onStoreCreate?.(ctx);
   throwOnGetMeta = true;
   runtime.onStoreWrite?.({ ...ctx, action: "set", prev: { ok: true }, next: { ok: true } });
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  const wrote = await waitUntil(() => setCalls >= 1);
+  assert.ok(wrote);
   assert.ok(setCalls >= 1);
 });
 
