@@ -12,6 +12,7 @@ import { clearAllStores, createStore } from "../../../src/store.js";
 import { fetchStore, enableRevalidateOnFocus } from "../../../src/async.js";
 import {
   clearAsyncMeta,
+  countInflightSlots,
   getAsyncCachePruneCounters,
   getAsyncMetricsByStore,
   getCacheMeta,
@@ -115,6 +116,23 @@ test("clearAsyncMeta does not delete async slots owned by a namespaced child sto
   assert.ok(Object.prototype.hasOwnProperty.call(rateCount, slot));
 
   clearAsyncMeta("ns::child");
+});
+
+test("countInflightSlots does not attribute a namespaced child slot to its parent store", () => {
+  const slot = "ns::child:slot-inflight";
+  const never = new Promise(() => {});
+
+  setInflightEntry(slot, {
+    promise: never,
+    raw: never,
+  }, "ns::child");
+
+  try {
+    assert.strictEqual(countInflightSlots("ns"), 0);
+    assert.strictEqual(countInflightSlots("ns::child"), 1);
+  } finally {
+    clearInflightEntry(slot);
+  }
 });
 
 test("resetAsyncRegistry cleans handlers and timers", () => {

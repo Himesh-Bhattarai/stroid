@@ -405,6 +405,7 @@ export const pruneAsyncCache = (name: string): void => {
 
 export const countInflightSlots = (name: string): number => {
     const inflight = getInflightRegistry();
+    const owners = getAsyncSlotOwners();
     const trackedSlots = getAsyncSlotsByStore().get(name);
     if (trackedSlots && trackedSlots.size > 0) {
         let indexedCount = 0;
@@ -416,6 +417,11 @@ export const countInflightSlots = (name: string): number => {
 
     let count = 0;
     Object.keys(inflight).forEach((key) => {
+        const owner = owners.get(key);
+        if (owner !== undefined) {
+            if (owner === name) count += 1;
+            return;
+        }
         if (isStoreSlot(name, key)) count += 1;
     });
     return count;
