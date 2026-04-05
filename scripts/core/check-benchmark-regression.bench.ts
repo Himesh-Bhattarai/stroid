@@ -28,6 +28,23 @@ type BenchmarkRecord = {
 type BenchmarkReport = {
     generatedAt: string;
     node: string;
+    environment?: {
+        platform?: string;
+        arch?: string;
+        node?: string;
+        cpuModel?: string;
+        cpuCount?: number;
+        totalMemMb?: number;
+        freeMemMb?: number;
+        loadAvg?: number[];
+        host?: string;
+        runContext?: {
+            ci?: boolean;
+            githubRunId?: string | null;
+            githubSha?: string | null;
+            githubRef?: string | null;
+        };
+    };
     records: BenchmarkRecord[];
 };
 
@@ -48,6 +65,23 @@ const keyOf = (record: BenchmarkRecord): string => `${record.id}::${record.libra
 
 const formatPct = (ratio: number): string => `${(ratio * 100).toFixed(2)}%`;
 
+const formatEnv = (report: BenchmarkReport): string => {
+    const env = report.environment;
+    if (!env) return `node=${report.node}, generatedAt=${report.generatedAt}`;
+    const load = Array.isArray(env.loadAvg) ? env.loadAvg.map((value) => value.toFixed(2)).join(", ") : "n/a";
+    return [
+        `node=${env.node ?? report.node}`,
+        `platform=${env.platform ?? "unknown"}`,
+        `arch=${env.arch ?? "unknown"}`,
+        `cpu=${env.cpuModel ?? "unknown"} x${env.cpuCount ?? "?"}`,
+        `mem=${env.totalMemMb ?? "?"}MB`,
+        `load=[${load}]`,
+        `generatedAt=${report.generatedAt}`,
+        env.runContext?.githubRunId ? `runId=${env.runContext.githubRunId}` : "",
+        env.runContext?.githubSha ? `sha=${env.runContext.githubSha?.slice(0, 12)}` : "",
+    ].filter(Boolean).join(", ");
+};
+
 const main = (): void => {
     const latest = readReport(latestPath);
     const baseline = readReport(baselinePath);
@@ -59,6 +93,8 @@ const main = (): void => {
         `- Baseline: \`${baselinePath}\``,
         `- Latest: \`${latestPath}\``,
         `- Threshold: ${formatPct(REGRESSION_THRESHOLD)} of baseline ops/sec`,
+        `- Baseline origin: ${formatEnv(baseline)}`,
+        `- Latest origin: ${formatEnv(latest)}`,
         "",
         "| Benchmark | Library | Baseline ops/sec | Latest ops/sec | Ratio | Status |",
         "|---|---:|---:|---:|---:|---|",
@@ -108,4 +144,3 @@ const main = (): void => {
 };
 
 main();
-

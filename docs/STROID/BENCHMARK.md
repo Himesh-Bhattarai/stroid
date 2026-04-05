@@ -19,6 +19,24 @@
 | Platform | Microsoft Windows 10 Pro x64 |
 | Benchmark iterations | 3 |
 
+## Advanced Reality Suite (Now Tracked)
+The benchmark matrix now includes an advanced production-focused suite:
+- Command: `npm run benchmark:production-reality`
+- Output: `scripts/production-reality-benchmark-output.json`
+- Included by: `npm run benchmark:all` and `npm run benchmark:guarantees`
+
+Tracked dimensions:
+- Devtools overhead under high write/subscriber load (history disabled vs 50 vs 500).
+- Computed chain depth propagation latency (depth 1/3/5/10) and mismatch detection.
+- Long-session memory trends (retained growth, peak delta, slope per 1k cycles, monotonic growth count).
+- Persist failure-mode stress (quota pressure, async race ordering, eviction recovery loops).
+- Query-cache co-load pressure (Stroid-only vs Stroid + query-cache style workload).
+- User-perceived signals (frame-budget misses >16ms/>50ms and event-loop delay p95/p99).
+
+Scope note:
+- Bundle-size and cross-version trend benchmarking are intentionally excluded from this gate for now.
+- Versionized trend tracking starts from this benchmark generation onward (2026-04-05) as forward-only history.
+
 ## Core Throughput: Stroid vs Zustand vs Jotai (`bench:stress`)
 | Operation | Library | Ops/sec (median) | p50 (ms) | p95 (ms) | Memory delta |
 |---|---|---:|---:|---:|---:|
@@ -160,6 +178,7 @@ Source: `scripts/guarantee-benchmark-suite-output.json` (dedicated certification
 - Source URL: `https://github.com/Himesh-Bhattarai/stroid/actions/runs/24000828199`.
 - Workflow status: `completed/success`; benchmark job `Benchmarks + Regression Gate` is `success`.
 - CI environment used by gate data: Node `v20.20.2` (from CI `latest.json`).
+- Baseline provenance metadata is now embedded in benchmark JSON (`environment` block: node/platform/arch/cpu/memory/load/CI context) and surfaced in `summary.md`.
 
 | Metric | Baseline ops/sec | CI latest ops/sec | Ratio | Status |
 |---|---:|---:|---:|---|
@@ -192,6 +211,35 @@ CI-gate summary: `0` regressions out of `15` tracked metrics.
 - Deep-path single update spikes at 800k subscribers: `93.221 ms` median.
 - Hydration large payloads remain a major hotspot: `1MB immediate = 10,286.352 ms`, `2MB immediate = 39,950.619 ms`, `2MB queued = 40,254.600 ms`.
 - SSR fair-compare throughput is lower for Stroid (`176.87 req/s`) than Zustand (`408.72 req/s`) and Redux (`338.61 req/s`); this is directional only, not strict apples-to-apples, because Stroid keeps extra deterministic/safety work in-path.
+
+## Critical Coverage Gaps (To Add In Next Benchmark Cycle)
+- Baseline provenance must be explicit and auditable:
+  - Baseline source run id, exact date, Node version, runner/OS, and load assumptions must be recorded with each baseline snapshot.
+  - Regression interpretation is unreliable without this metadata.
+- Browser-runtime benchmark coverage is missing:
+  - Current numbers are Node-only.
+  - Add browser benchmark tracks for React-thread contention, selector work, notification fanout, and snapshot cloning under render load.
+- Fuzz coverage breadth is currently narrow:
+  - Stress suite reports `tests/fuzz: 1 file / 1 test`.
+  - Add multiple fuzz targets with documented input domains and invariants (async, persist, hydration, sync message streams, selector graph churn).
+- Devtools overhead is not isolated in performance reports:
+  - Add dedicated benchmark profiles comparing devtools off vs on (history enabled) at high write volume and high subscriber counts.
+- Computed chain depth is not benchmarked:
+  - Add chain-depth scenarios (for example depth 3/5/10+) to measure recompute propagation and flush ordering overhead.
+- Long-session memory behavior is under-sampled:
+  - Current memory micro-benchmark (`240` measured cycles) is useful but short.
+  - Add long-horizon session simulations (multi-hour equivalent navigation/store churn patterns).
+- Persist benchmark is happy-path focused:
+  - Existing persist throughput does not exercise failure modes (BFCache, storage races, Safari ITP eviction behavior, quota pressure).
+  - Add failure-mode certification scenarios in benchmark outputs.
+- Real-stack coexistence is missing (Stroid + server-state cache runtime):
+  - Add benchmark tracks that run Stroid alongside TanStack Query style workloads to capture contention and practical production behavior.
+- User-perceived performance is not measured directly:
+  - Add UX-facing metrics: frame-time impact, long-task counts, hydration visual stability windows, and observable interaction latency.
+
+### Scope Note (Tracking Starts Now)
+- Bundle size benchmarking and version-trend longitudinal benchmarking are not included in this report revision.
+- Both will start being tracked from the next benchmark cycle onward.
 
 ## Notes & Reproducibility
 - Reproduce (run): `npm run benchmark:all` (3 times, median taken), plus `npm run test:stress` and `npm run bench:stress` each iteration.
