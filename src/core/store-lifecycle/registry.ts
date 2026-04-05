@@ -50,6 +50,8 @@ export type { StoreLifecycleEvent } from "../store-registry.js";
 let _scope = defaultRegistryScope;
 let _defaultRegistry = getStoreRegistry(_scope);
 var _invalidatePathCache: ((name: string) => void) | null = null;
+let _lastIsoTimestampMs = Number.NaN;
+let _lastIsoTimestamp = "";
 
 const getActiveRegistry = (): StoreRegistry => {
     const registry = getActiveStoreRegistry(_defaultRegistry);
@@ -64,6 +66,13 @@ export const setRegistryContext = (scope: string, registry: StoreRegistry): void
 };
 
 export const getRegistry = (): StoreRegistry => getActiveRegistry();
+
+export const formatIsoTimestamp = (ms: number): string => {
+    if (ms === _lastIsoTimestampMs) return _lastIsoTimestamp;
+    _lastIsoTimestampMs = ms;
+    _lastIsoTimestamp = new Date(ms).toISOString();
+    return _lastIsoTimestamp;
+};
 
 export const onStoreLifecycle = (fn: StoreLifecycleListener | null): (() => void) => {
     const registry = getActiveRegistry();
@@ -241,7 +250,7 @@ export const applyFeatureState = (
     const nextValue = reconciled.value as StoreValue;
     setStoreValueInternal(name, nextValue, registry);
     if (!meta[name]) return nextValue;
-    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    meta[name].updatedAt = formatIsoTimestamp(updatedAtMs);
     meta[name].updatedAtMs = updatedAtMs;
     meta[name].lastCorrelationId = null;
     meta[name].lastCorrelationAt = null;
@@ -278,7 +287,7 @@ export const recordStoreRead = (name: string, registry: StoreRegistry = getActiv
     metaEntry.readCount = (metaEntry.readCount ?? 0) + 1;
     const now = Date.now();
     metaEntry.lastReadAtMs = now;
-    metaEntry.lastReadAt = new Date(now).toISOString();
+    metaEntry.lastReadAt = formatIsoTimestamp(now);
 };
 
 export const clearAllRegistries = (): void => {

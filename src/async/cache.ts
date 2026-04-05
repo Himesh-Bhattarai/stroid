@@ -67,6 +67,8 @@ export const getStoreCleanups = (): ReturnType<typeof getActiveAsyncRegistry>["s
     getActiveAsyncRegistry().storeCleanups;
 export const getWarnedOnce = (): ReturnType<typeof getActiveAsyncRegistry>["warnedOnce"] =>
     getActiveAsyncRegistry().warnedOnce;
+export const getAsyncUsageErrorEmissions = (): ReturnType<typeof getActiveAsyncRegistry>["usageErrorEmissions"] =>
+    getActiveAsyncRegistry().usageErrorEmissions;
 export const getRevalidateKeys = (): ReturnType<typeof getActiveAsyncRegistry>["revalidateKeys"] =>
     getActiveAsyncRegistry().revalidateKeys;
 export const getAsyncMetrics = (): ReturnType<typeof getActiveAsyncRegistry>["asyncMetrics"] =>

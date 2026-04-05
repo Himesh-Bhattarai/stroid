@@ -104,6 +104,7 @@ export type AsyncRegistry = {
     slotOwners: Map<string, string>;
     slotsByStore: Map<string, Set<string>>;
     cachePruneCounters: Map<string, number>;
+    usageErrorEmissions: Map<string, number>;
     asyncMetrics: AsyncMetricsSnapshot;
     asyncMetricsByStore: Map<string, AsyncMetricsSnapshot>;
 };
@@ -142,6 +143,7 @@ export const createAsyncRegistry = (): AsyncRegistry => ({
     slotOwners: new Map<string, string>(),
     slotsByStore: new Map<string, Set<string>>(),
     cachePruneCounters: new Map<string, number>(),
+    usageErrorEmissions: new Map<string, number>(),
     asyncMetrics: createAsyncMetricsSnapshot(),
     asyncMetricsByStore: new Map<string, AsyncMetricsSnapshot>(),
 });
@@ -167,6 +169,7 @@ export const resetAsyncRegistry = (registry: AsyncRegistry): void => {
     registry.slotOwners.clear();
     registry.slotsByStore.clear();
     registry.cachePruneCounters.clear();
+    registry.usageErrorEmissions.clear();
     registry.asyncMetricsByStore.clear();
 
     registry.revalidateKeys.clear();

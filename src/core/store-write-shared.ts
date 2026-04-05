@@ -7,7 +7,7 @@
  * Consumers: store-set-impl, store-replace-impl, store-admin-impl.
  */
 import { warn, log, isDev } from "../utils.js";
-import { setStoreValueInternal } from "./store-lifecycle/registry.js";
+import { setStoreValueInternal, formatIsoTimestamp } from "./store-lifecycle/registry.js";
 import { runFeatureWriteHooks, runStoreHookSafe } from "./store-lifecycle/hooks.js";
 import { invalidatePathCache } from "./store-lifecycle/validation.js";
 import { notifyStore } from "./store-shared/notify.js";
@@ -122,12 +122,13 @@ const commitStoreUpdate = (
     setStoreValueInternal(name, next, registry);
     invalidatePathCache(name);
     const updatedAtMs = Date.now();
-    registryMeta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    const updatedAtIso = formatIsoTimestamp(updatedAtMs);
+    registryMeta[name].updatedAt = updatedAtIso;
     registryMeta[name].updatedAtMs = updatedAtMs;
     const resolvedContext = context ?? getWriteContext();
     if (resolvedContext && (resolvedContext.correlationId || resolvedContext.traceContext)) {
         registryMeta[name].lastCorrelationId = resolvedContext.correlationId ?? null;
-        registryMeta[name].lastCorrelationAt = new Date(updatedAtMs).toISOString();
+        registryMeta[name].lastCorrelationAt = updatedAtIso;
         registryMeta[name].lastCorrelationAtMs = updatedAtMs;
         registryMeta[name].lastTraceContext = (resolvedContext.traceContext ?? null) as TraceContext | null;
     } else {

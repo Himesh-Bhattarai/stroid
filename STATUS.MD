@@ -31,6 +31,9 @@ Use these STATUS codes in commit messages: `status(###): short summary`.
 - `status(601)`: Bug/failure fixed.
 - `status(603)`: Structure/state corrected.
 
+## Something optimize
+- `status(000) : Performance/ size / structure optimize
+
 ## Special
 - `status(infinity)`: Gold master / fully trusted.
 - `status(404)`: Human chaos/debugging note (does not imply code quality).

@@ -109,6 +109,44 @@ test("fetchStore with autoCreate disabled stays side-effect free under 3 concurr
   }
 });
 
+test("fetchStore with autoCreate disabled caps repeated diagnostics while preserving callbacks", async () => {
+  clearAllStores();
+  const errors: string[] = [];
+  configureStroid({
+    asyncAutoCreate: false,
+    logSink: {
+      warn: (msg: string) => {
+        errors.push(msg);
+      },
+      critical: () => {},
+    },
+  });
+
+  const storeName = "mem";
+  let callbackCalls = 0;
+
+  try {
+    for (let i = 0; i < 120; i += 1) {
+      const result = await fetchStore(storeName, `https://api.example.com/mem-${i}`, {
+        onError: () => {
+          callbackCalls += 1;
+        },
+      });
+      assert.strictEqual(result, null);
+    }
+
+    const diagnostics = errors.filter((msg) =>
+      msg.includes(`fetchStore("${storeName}") requires an existing backing store when autoCreate is disabled.`)
+    );
+
+    assert.strictEqual(callbackCalls, 120);
+    assert.strictEqual(diagnostics.length, 50);
+  } finally {
+    resetConfig();
+    clearAllStores();
+  }
+});
+
 test("fetchStore with autoCreate disabled succeeds once a backing store exists", async () => {
   clearAllStores();
   configureStroid({ asyncAutoCreate: false });

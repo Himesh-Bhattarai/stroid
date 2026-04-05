@@ -8,6 +8,24 @@
  */
 import { critical, error, isDev, warn } from "../utils.js";
 import { getConfig } from "../internals/config.js";
+import { getAsyncUsageErrorEmissions } from "./cache.js";
+
+const MAX_ASYNC_USAGE_ERROR_EMISSIONS = 50;
+const MAX_TRACKED_ASYNC_USAGE_ERROR_MESSAGES = 512;
+
+const shouldEmitAsyncUsageError = (message: string): boolean => {
+    const emissions = getAsyncUsageErrorEmissions();
+    const seen = emissions.get(message) ?? 0;
+    if (seen >= MAX_ASYNC_USAGE_ERROR_EMISSIONS) return false;
+
+    if (seen === 0 && emissions.size >= MAX_TRACKED_ASYNC_USAGE_ERROR_MESSAGES) {
+        const oldest = emissions.keys().next().value as string | undefined;
+        if (oldest !== undefined) emissions.delete(oldest);
+    }
+
+    emissions.set(message, seen + 1);
+    return true;
+};
 
 export function runAsyncHook(
     name: string,
@@ -44,6 +62,7 @@ export const reportAsyncUsageError = (
         return throwAsyncUsageError(name, message, onError);
     }
     runAsyncHook(name, "onError", onError, message);
+    if (!shouldEmitAsyncUsageError(message)) return null;
     if (isDev()) {
         error(message);
         return null;
@@ -58,10 +77,12 @@ export const throwAsyncUsageError = (
     onError?: (message: string) => void
 ): never => {
     runAsyncHook(name, "onError", onError, message);
-    if (isDev()) {
-        error(message);
-    } else {
-        critical(message);
+    if (shouldEmitAsyncUsageError(message)) {
+        if (isDev()) {
+            error(message);
+        } else {
+            critical(message);
+        }
     }
     throw new Error(message);
 };
