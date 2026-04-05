@@ -90,6 +90,33 @@ test("clearAsyncMeta removes tracked async bookkeeping in one pass", () => {
   assert.strictEqual(getAsyncCachePruneCounters().has("clearMetaStore"), false);
 });
 
+test("clearAsyncMeta does not delete async slots owned by a namespaced child store", () => {
+  const cacheMeta = getCacheMeta();
+  const requestVersion = getRequestVersionRegistry();
+  const requestSequence = getRequestSequenceRegistry();
+  const rateWindowStart = getRateWindowStartRegistry();
+  const rateCount = getRateCountRegistry();
+  const slot = "ns::child:slot-a";
+  const now = Date.now();
+
+  trackAsyncSlot("ns::child", slot);
+  cacheMeta[slot] = { timestamp: now, expiresAt: now + 5000, data: { ok: true } };
+  requestVersion[slot] = 1;
+  requestSequence[slot] = 1;
+  rateWindowStart[slot] = now;
+  rateCount[slot] = 1;
+
+  clearAsyncMeta("ns");
+
+  assert.ok(Object.prototype.hasOwnProperty.call(cacheMeta, slot));
+  assert.ok(Object.prototype.hasOwnProperty.call(requestVersion, slot));
+  assert.ok(Object.prototype.hasOwnProperty.call(requestSequence, slot));
+  assert.ok(Object.prototype.hasOwnProperty.call(rateWindowStart, slot));
+  assert.ok(Object.prototype.hasOwnProperty.call(rateCount, slot));
+
+  clearAsyncMeta("ns::child");
+});
+
 test("resetAsyncRegistry cleans handlers and timers", () => {
   const registry = createAsyncRegistry();
   let calls = 0;
