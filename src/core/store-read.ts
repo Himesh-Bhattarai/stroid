@@ -19,6 +19,7 @@ import {
     getStoreValueRef,
     recordStoreRead,
     getRegistry,
+    isDeleting,
 } from "./store-lifecycle/registry.js";
 import { materializeInitial } from "./store-lifecycle/validation.js";
 import { nameOf, exists, getFeatureApi } from "./store-lifecycle/identity.js";
@@ -74,7 +75,8 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
     return cloneSnapshot(value, snapshotMode);
 }
 
-export const hasStore = (name: string): boolean => hasStoreEntryInternal(name);
+export const hasStore = (name: string): boolean =>
+    hasStoreEntryInternal(name) && !isDeleting(name);
 
 export const isLazyStore = (name: string): boolean => {
     const registry = getRegistry();

@@ -303,6 +303,25 @@ test("replaceStore inside batch commits as part of the transaction", () => {
   assert.deepStrictEqual(getStore("batchReplace"), { value: 2 });
 });
 
+test("hasStore and getStore stay consistent during delete notifications", () => {
+  clearAllStores();
+  createStore("deleteConsistency", { value: 1 });
+
+  let observedHasStore: boolean | null = null;
+  let observedSnapshot: unknown = Symbol("unset");
+
+  subscribe("deleteConsistency", (snapshot) => {
+    if (snapshot !== null) return;
+    observedHasStore = hasStore("deleteConsistency");
+    observedSnapshot = getStore("deleteConsistency");
+  });
+
+  deleteStore("deleteConsistency");
+
+  assert.strictEqual(observedHasStore, false);
+  assert.strictEqual(observedSnapshot, null);
+});
+
 test("setStoreBatch warns on promise-returning callbacks", async () => {
   clearAllStores();
   createStore("batchPromise", { value: 0 });
