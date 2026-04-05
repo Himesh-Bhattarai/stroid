@@ -25,6 +25,9 @@
 >
 >### Change
 >
+>- Reduced cold and write-path overhead by lazily short-circuiting feature lifecycle dispatch when no registered runtime hooks apply to a store, avoiding unnecessary per-store context allocation on `createStore(...)` and `setStore(...)`.
+>- Added an internal large-snapshot hydration gate: when consistency mode is enabled and no explicit boot window is provided, payloads above ~256KB now use a short timer boot-window path so early writes can route through the existing hydration queue.
+>- Added request-scope carrier memoization during SSR hydration runs to reduce repeated AsyncLocalStorage lookups for carrier access inside the same request boundary.
 >- Hardened `createStoreForRequest().hydrate(...)` to scrub finished carrier state after snapshot sync, then added detached-continuation regression coverage and a warm-container SSR certification benchmark for sequential request reuse.
 >- Hardened hydration reconciliation so throwing custom `merge(...)` or normalization callbacks now fall back safely to the hydrated baseline, then added randomized replay certification coverage and a dedicated `benchmark:hydration-randomized` script.
 >- Hardened hydration replay ordering by draining deferred writes through their monotonic enqueue sequence, then added long-lived websocket/sync stream regression coverage plus `benchmark:websocket-stream` to certify pre-close queueing and post-close continuation order.
@@ -43,6 +46,7 @@
 >
 >### Fix
 >
+>- Fixed store-destroy teardown so deleted stores now clear pending notify queue references and drop cached feature-hook contexts immediately, preventing long-run subscriber/context retention across create/delete churn.
 >- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, instead of collapsing that branch into `not-found`.
 >- Fixed workflow hardening gaps flagged by code scanning: added explicit top-level token permissions where missing and pinned GitHub Actions to immutable commit SHAs.
 >- Fixed STATUS commit validation for Dependabot updates by accepting the bot-generated optional `(deps)` / `(deps-dev)` scope suffix while preserving STATUS-code enforcement.

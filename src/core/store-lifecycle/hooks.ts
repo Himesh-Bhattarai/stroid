@@ -12,11 +12,13 @@ import { getConfig } from "../../internals/config.js";
 import { registerTestResetHook } from "../../internals/test-reset.js";
 import {
     hasRegisteredStoreFeature,
+    getRegisteredFeatureNames,
     type FeatureDeleteContext,
     type FeatureHookContext,
     type FeatureName,
     type FeatureWriteContext,
     type StoreFeatureMeta,
+    type StoreFeatureRuntime,
 } from "../../features/feature-registry.js";
 import type { NormalizedOptions } from "../../adapters/options.js";
 import type { StoreValue } from "./types.js";
@@ -50,6 +52,13 @@ export const clearFeatureContexts = (): void => {
 };
 
 registerTestResetHook("features.contexts", clearFeatureContexts, 100);
+
+export const dropFeatureContextForStore = (name: string, registry = getRegistry()): void => {
+    getBaseFeatureContexts(registry).delete(name);
+};
+
+export const _getFeatureContextCountForTests = (registry = getRegistry()): number =>
+    getBaseFeatureContexts(registry).size;
 
 const shouldRunFeatureForStore = (
     featureName: FeatureName,
@@ -90,13 +99,16 @@ const bindNotify = (
 export const createBaseFeatureContext = (name: string): FeatureHookContext | null => {
     const registry = getRegistry();
     const baseFeatureContexts = getBaseFeatureContexts(registry);
-    const cached = baseFeatureContexts.get(name);
-    if (cached) return cached;
 
     const metaEntry = meta[name];
     if (!metaEntry) {
         warn(`Internal feature context requested for "${name}" after metadata was cleared.`);
         return null;
+    }
+    const cached = baseFeatureContexts.get(name);
+    if (cached && cached.options === metaEntry.options) return cached;
+    if (cached) {
+        baseFeatureContexts.delete(name);
     }
 
     const getAllCommittedStores = (): Record<string, StoreValue> =>
@@ -170,13 +182,37 @@ const validateFeatureContext = (storeName: string, ctx: FeatureHookContext): voi
     if (config.assertRuntime) throw new Error(message);
 };
 
+const hasRegisteredFeatureFactories = (): boolean =>
+    getRegisteredFeatureNames().length > 0;
+
+const hasApplicableFeatureHook = (
+    name: string,
+    hook: "onStoreCreate" | "onStoreWrite" | "beforeStoreDelete" | "afterStoreDelete",
+    excluded?: ReadonlySet<FeatureName>
+): boolean => {
+    const options = meta[name]?.options;
+    if (!options) return false;
+    const runtimes = featureRuntimes as Map<FeatureName, StoreFeatureRuntime>;
+    for (const [featureName, runtime] of runtimes) {
+        if (excluded?.has(featureName)) continue;
+        if (!shouldRunFeatureForStore(featureName, options)) continue;
+        if (hook === "onStoreCreate" && runtime.onStoreCreate) return true;
+        if (hook === "onStoreWrite" && runtime.onStoreWrite) return true;
+        if (hook === "beforeStoreDelete" && runtime.beforeStoreDelete) return true;
+        if (hook === "afterStoreDelete" && runtime.afterStoreDelete) return true;
+    }
+    return false;
+};
+
 export const runFeatureCreateHooks = (name: string, notify: (name: string) => void): void => {
+    if (!hasRegisteredFeatureFactories()) return;
     initializeRegisteredFeatureRuntimes();
+    if (!hasApplicableFeatureHook(name, "onStoreCreate")) return;
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     bindNotify(baseContext, name, notify);
     validateFeatureContext(name, baseContext);
-    featureRuntimes.forEach((runtime, featureName) => {
+    (featureRuntimes as Map<FeatureName, StoreFeatureRuntime>).forEach((runtime, featureName) => {
         if (!shouldRunFeatureForStore(featureName, baseContext.options)) return;
         try {
             runtime.onStoreCreate?.(baseContext);
@@ -191,11 +227,13 @@ export const runFeatureCreateHooks = (name: string, notify: (name: string) => vo
 };
 
 export const runFeatureWriteHooks = (name: string, action: string, prev: StoreValue, next: StoreValue, notify: (name: string) => void): void => {
+    if (!hasRegisteredFeatureFactories()) return;
     initializeRegisteredFeatureRuntimes();
+    if (!hasApplicableFeatureHook(name, "onStoreWrite")) return;
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     let ctx: FeatureWriteContext | null = null;
-    featureRuntimes.forEach((runtime, featureName) => {
+    (featureRuntimes as Map<FeatureName, StoreFeatureRuntime>).forEach((runtime, featureName) => {
         const hook = runtime.onStoreWrite;
         if (!hook) return;
         if (!shouldRunFeatureForStore(featureName, baseContext.options)) return;
@@ -227,13 +265,15 @@ export const runFeatureWriteHooksExcept = (
     notify: (name: string) => void,
     excluded: FeatureName[]
 ): void => {
+    if (!hasRegisteredFeatureFactories()) return;
     initializeRegisteredFeatureRuntimes();
+    const excludedSet = new Set(excluded);
+    if (!hasApplicableFeatureHook(name, "onStoreWrite", excludedSet)) return;
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
-    const excludedSet = new Set(excluded);
     let ctx: FeatureWriteContext | null = null;
 
-    featureRuntimes.forEach((runtime, featureName) => {
+    (featureRuntimes as Map<FeatureName, StoreFeatureRuntime>).forEach((runtime, featureName) => {
         const hook = runtime.onStoreWrite;
         if (!hook) return;
         if (excludedSet.has(featureName)) return;
@@ -259,7 +299,17 @@ export const runFeatureWriteHooksExcept = (
 };
 
 export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (name: string) => void): void => {
+    if (!hasRegisteredFeatureFactories()) {
+        dropFeatureContextForStore(name);
+        return;
+    }
     initializeRegisteredFeatureRuntimes();
+    const hasBefore = hasApplicableFeatureHook(name, "beforeStoreDelete");
+    const hasAfter = hasApplicableFeatureHook(name, "afterStoreDelete");
+    if (!hasBefore && !hasAfter) {
+        dropFeatureContextForStore(name);
+        return;
+    }
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
     let ctx: FeatureDeleteContext | null = null;
@@ -271,7 +321,7 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
         validateFeatureContext(name, ctx);
         return ctx;
     };
-    featureRuntimes.forEach((runtime, featureName) => {
+    (featureRuntimes as Map<FeatureName, StoreFeatureRuntime>).forEach((runtime, featureName) => {
         const hook = runtime.beforeStoreDelete;
         if (!hook) return;
         if (!shouldRunFeatureForStore(featureName, baseContext.options)) return;
@@ -285,7 +335,7 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
             );
         }
     });
-    featureRuntimes.forEach((runtime, featureName) => {
+    (featureRuntimes as Map<FeatureName, StoreFeatureRuntime>).forEach((runtime, featureName) => {
         const hook = runtime.afterStoreDelete;
         if (!hook) return;
         if (!shouldRunFeatureForStore(featureName, baseContext.options)) return;
@@ -299,7 +349,7 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
             );
         }
     });
-    getBaseFeatureContexts(getRegistry()).delete(name);
+    dropFeatureContextForStore(name);
 };
 
 export const runMiddlewareForStore = (

@@ -38,10 +38,59 @@ const serverAsyncContext = new AsyncLocalStorage<CarrierContext>();
 const serverRegistryContext = new AsyncLocalStorage<ReturnType<typeof createStoreRegistry>>();
 const serverTransactionContext = new AsyncLocalStorage<TransactionState>();
 const serverWriteContext = new AsyncLocalStorage<WriteContext>();
+const memoizedCarrierByRegistry = new WeakMap<StoreRegistry, CarrierContext>();
+
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
+    value !== null
+    && (typeof value === "object" || typeof value === "function")
+    && typeof (value as { then?: unknown }).then === "function";
+
+const withCarrierMemo = <T>(
+    registry: StoreRegistry | null,
+    carrier: CarrierContext,
+    run: () => T
+): T => {
+    if (!registry) return run();
+
+    const hadPrevious = memoizedCarrierByRegistry.has(registry);
+    const previousCarrier = memoizedCarrierByRegistry.get(registry);
+    memoizedCarrierByRegistry.set(registry, carrier);
+
+    const restore = (): void => {
+        if (hadPrevious && previousCarrier) {
+            memoizedCarrierByRegistry.set(registry, previousCarrier);
+            return;
+        }
+        memoizedCarrierByRegistry.delete(registry);
+    };
+
+    try {
+        const result = run();
+        if (isPromiseLike(result)) {
+            return Promise.resolve(result).finally(restore) as T;
+        }
+        restore();
+        return result;
+    } catch (error) {
+        restore();
+        throw error;
+    }
+};
 
 injectCarrierRunner({
-    run: (carrier, fn) => serverAsyncContext.run(carrier, fn),
-    get: () => serverAsyncContext.getStore() || null,
+    run: (carrier, fn) => withCarrierMemo(
+        serverRegistryContext.getStore(),
+        carrier,
+        () => serverAsyncContext.run(carrier, fn),
+    ),
+    get: () => {
+        const registry = serverRegistryContext.getStore();
+        if (registry) {
+            const memoized = memoizedCarrierByRegistry.get(registry);
+            if (memoized) return memoized;
+        }
+        return serverAsyncContext.getStore() || null;
+    },
 });
 
 injectRegistryRunner({
@@ -68,11 +117,6 @@ type RequestStoreValue<StateMap, Name extends RequestStoreName<StateMap>> =
 type RequestHydrateOptionsInternal = RequestScopeOptionsInternal & {
     default?: StoreOptions<unknown>;
 };
-
-const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
-    value !== null
-    && (typeof value === "object" || typeof value === "function")
-    && typeof (value as { then?: unknown }).then === "function";
 
 const clearCarrierBuffer = (carrier: CarrierContext): void => {
     Object.keys(carrier).forEach((name) => {

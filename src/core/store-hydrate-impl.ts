@@ -30,6 +30,9 @@ import {
     type HydrationConsistencyOptions,
 } from "./hydration-consistency.js";
 
+const AUTO_QUEUE_HYDRATION_THRESHOLD_BYTES = 256 * 1024;
+const AUTO_QUEUE_BOOT_WINDOW_MS = 1;
+
 type HydrateSnapshot = HydrateSnapshotFor<StoreStateMap & StrictStoreMap>;
 type HydrateOptions<Snapshot extends object> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
@@ -54,6 +57,48 @@ type HydrationTrust<Snapshot extends object> =
     | (HydrationTrustBase<Snapshot> & { allowHydration: true })
     | (HydrationTrustBase<Snapshot> & { allowUntrusted: true })
     | (HydrationTrustBase<Snapshot> & { validate: (snapshot: Snapshot) => boolean });
+
+const estimateHydrationEntryBytes = (value: unknown): number => {
+    if (typeof value === "string") return value.length;
+    try {
+        const serialized = JSON.stringify(value);
+        return typeof serialized === "string" ? serialized.length : 0;
+    } catch {
+        // Conservative fallback: assume "large" so we prefer the safer queued path.
+        return AUTO_QUEUE_HYDRATION_THRESHOLD_BYTES;
+    }
+};
+
+const shouldAutoQueueLargeHydration = <Snapshot extends object>(
+    snapshot: Snapshot,
+    consistency?: HydrationConsistencyOptions<Snapshot>
+): boolean => {
+    if (!consistency) return false;
+    if (consistency.bootWindow !== undefined || consistency.bootWindowMs !== undefined) return false;
+    let totalBytes = 0;
+    const values = Object.values(snapshot as Record<string, unknown>);
+    for (let index = 0; index < values.length; index += 1) {
+        totalBytes += estimateHydrationEntryBytes(values[index]);
+        if (totalBytes >= AUTO_QUEUE_HYDRATION_THRESHOLD_BYTES) {
+            return true;
+        }
+    }
+    return false;
+};
+
+const resolveHydrationConsistencyOptions = <Snapshot extends object>(
+    snapshot: Snapshot,
+    consistency?: HydrationConsistencyOptions<Snapshot>
+): HydrationConsistencyOptions<Snapshot> | undefined => {
+    if (!shouldAutoQueueLargeHydration(snapshot, consistency)) return consistency;
+    return {
+        ...consistency,
+        bootWindow: {
+            mode: "timer",
+            ms: AUTO_QUEUE_BOOT_WINDOW_MS,
+        },
+    };
+};
 
 export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     snapshot: Snapshot,
@@ -225,7 +270,8 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     if (runtimePatches.length > 0) {
         setLastRuntimePatches(runtimePatches, registry);
     }
-    const bootWindow = initializeHydrationConsistency(registry, snapshot, consistency);
+    const resolvedConsistency = resolveHydrationConsistencyOptions(snapshot, consistency);
+    const bootWindow = initializeHydrationConsistency(registry, snapshot, resolvedConsistency);
     if (bootWindow) {
         result.bootWindow = bootWindow;
     }
