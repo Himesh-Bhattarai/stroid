@@ -146,28 +146,28 @@ Batch100 latencies (ms)
 
 ## Regression Gate Status (vs Baseline)
 ### CI Gate (Authoritative)
-- Source run: Stress Test Pipeline run `23999390506` (2026-04-05), benchmark artifact `benchmark-results`.
-- Source URL: `https://github.com/Himesh-Bhattarai/stroid/actions/runs/23999390506`.
+- Source run: Stress Test Pipeline run `24000567733` (2026-04-05), benchmark artifact `benchmark-results`.
+- Source URL: `https://github.com/Himesh-Bhattarai/stroid/actions/runs/24000567733`.
 - Workflow status: `completed/success`; benchmark job `Benchmarks + Regression Gate` is `success`.
 - CI environment used by gate data: Node `v20.20.2` (from CI `latest.json`).
 
 | Metric | Baseline ops/sec | CI latest ops/sec | Ratio | Status |
 |---|---:|---:|---:|---|
-| create_store_10000 (stroid) | 13,478.31 | 30,561.19 | 226.74% | PASS |
-| create_store_10000 (zustand) | 425,056.21 | 853,008.69 | 200.68% | PASS |
-| create_store_10000 (jotai) | 39,576.72 | 127,823.09 | 322.98% | PASS |
-| set_primitive_100000 (stroid) | 25,453.41 | 64,462.42 | 253.26% | PASS |
-| set_primitive_100000 (zustand) | 1,274,003.82 | 2,790,687.34 | 219.05% | PASS |
-| set_primitive_100000 (jotai) | 175,043.61 | 495,536.99 | 283.09% | PASS |
-| set_deep_10000 (stroid) | 15,858.01 | 34,880.95 | 219.96% | PASS |
-| set_deep_10000 (zustand) | 593,376.73 | 515,380.31 | 86.86% | PASS |
-| set_deep_10000 (jotai) | 132,427.35 | 198,206.43 | 149.67% | PASS |
-| selector_irrelevant_update_10000 (stroid) | 19,691.76 | 52,315.03 | 265.67% | PASS |
-| selector_irrelevant_update_10000 (zustand) | 927,721.24 | 1,810,205.07 | 195.12% | PASS |
-| selector_irrelevant_update_10000 (jotai) | 62,625.72 | 147,181.44 | 235.02% | PASS |
-| persist_cycle_1000 (stroid) | 82.46 | 700.24 | 849.16% | PASS |
-| broadcast_dispatch_receive_10000 (stroid) | 29,667.18 | 78,851.98 | 265.79% | PASS |
-| async_ttl_100_concurrent_x_100_rounds (stroid) | 5,823.70 | 21,334.16 | 366.33% | PASS |
+| create_store_10000 (stroid) | 13,478.31 | 53,654.95 | 398.08% | PASS |
+| create_store_10000 (zustand) | 425,056.21 | 1,111,199.27 | 261.42% | PASS |
+| create_store_10000 (jotai) | 39,576.72 | 128,696.42 | 325.18% | PASS |
+| set_primitive_100000 (stroid) | 25,453.41 | 64,280.67 | 252.54% | PASS |
+| set_primitive_100000 (zustand) | 1,274,003.82 | 2,492,451.49 | 195.64% | PASS |
+| set_primitive_100000 (jotai) | 175,043.61 | 513,377.13 | 293.29% | PASS |
+| set_deep_10000 (stroid) | 15,858.01 | 32,878.59 | 207.33% | PASS |
+| set_deep_10000 (zustand) | 593,376.73 | 690,882.42 | 116.43% | PASS |
+| set_deep_10000 (jotai) | 132,427.35 | 197,376.04 | 149.04% | PASS |
+| selector_irrelevant_update_10000 (stroid) | 19,691.76 | 52,605.17 | 267.14% | PASS |
+| selector_irrelevant_update_10000 (zustand) | 927,721.24 | 1,758,766.22 | 189.58% | PASS |
+| selector_irrelevant_update_10000 (jotai) | 62,625.72 | 153,032.61 | 244.36% | PASS |
+| persist_cycle_1000 (stroid) | 82.46 | 729.53 | 884.67% | PASS |
+| broadcast_dispatch_receive_10000 (stroid) | 29,667.18 | 83,913.56 | 282.85% | PASS |
+| async_ttl_100_concurrent_x_100_rounds (stroid) | 5,823.70 | 22,055.29 | 378.72% | PASS |
 
 CI-gate summary: `0` regressions out of `15` tracked metrics.
 
