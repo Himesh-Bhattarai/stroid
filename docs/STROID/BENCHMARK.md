@@ -146,34 +146,35 @@ Batch100 latencies (ms)
 
 ## Regression Gate Status (vs Baseline)
 ### CI Gate (Authoritative)
-- Source run: Stress Test Pipeline run `24000567733` (2026-04-05), benchmark artifact `benchmark-results`.
-- Source URL: `https://github.com/Himesh-Bhattarai/stroid/actions/runs/24000567733`.
+- Source run: Stress Test Pipeline run `24000828199` (2026-04-05), benchmark artifact `benchmark-results`.
+- Source URL: `https://github.com/Himesh-Bhattarai/stroid/actions/runs/24000828199`.
 - Workflow status: `completed/success`; benchmark job `Benchmarks + Regression Gate` is `success`.
 - CI environment used by gate data: Node `v20.20.2` (from CI `latest.json`).
 
 | Metric | Baseline ops/sec | CI latest ops/sec | Ratio | Status |
 |---|---:|---:|---:|---|
-| create_store_10000 (stroid) | 13,478.31 | 53,654.95 | 398.08% | PASS |
-| create_store_10000 (zustand) | 425,056.21 | 1,111,199.27 | 261.42% | PASS |
-| create_store_10000 (jotai) | 39,576.72 | 128,696.42 | 325.18% | PASS |
-| set_primitive_100000 (stroid) | 25,453.41 | 64,280.67 | 252.54% | PASS |
-| set_primitive_100000 (zustand) | 1,274,003.82 | 2,492,451.49 | 195.64% | PASS |
-| set_primitive_100000 (jotai) | 175,043.61 | 513,377.13 | 293.29% | PASS |
-| set_deep_10000 (stroid) | 15,858.01 | 32,878.59 | 207.33% | PASS |
-| set_deep_10000 (zustand) | 593,376.73 | 690,882.42 | 116.43% | PASS |
-| set_deep_10000 (jotai) | 132,427.35 | 197,376.04 | 149.04% | PASS |
-| selector_irrelevant_update_10000 (stroid) | 19,691.76 | 52,605.17 | 267.14% | PASS |
-| selector_irrelevant_update_10000 (zustand) | 927,721.24 | 1,758,766.22 | 189.58% | PASS |
-| selector_irrelevant_update_10000 (jotai) | 62,625.72 | 153,032.61 | 244.36% | PASS |
-| persist_cycle_1000 (stroid) | 82.46 | 729.53 | 884.67% | PASS |
-| broadcast_dispatch_receive_10000 (stroid) | 29,667.18 | 83,913.56 | 282.85% | PASS |
-| async_ttl_100_concurrent_x_100_rounds (stroid) | 5,823.70 | 22,055.29 | 378.72% | PASS |
+| create_store_10000 (stroid) | 13,478.31 | 51,737.83 | 383.86% | PASS |
+| create_store_10000 (zustand) | 425,056.21 | 837,632.34 | 197.06% | PASS |
+| create_store_10000 (jotai) | 39,576.72 | 90,338.55 | 228.26% | PASS |
+| set_primitive_100000 (stroid) | 25,453.41 | 60,034.52 | 235.86% | PASS |
+| set_primitive_100000 (zustand) | 1,274,003.82 | 2,801,942.90 | 219.93% | PASS |
+| set_primitive_100000 (jotai) | 175,043.61 | 519,386.07 | 296.72% | PASS |
+| set_deep_10000 (stroid) | 15,858.01 | 33,418.65 | 210.74% | PASS |
+| set_deep_10000 (zustand) | 593,376.73 | 609,370.37 | 102.70% | PASS |
+| set_deep_10000 (jotai) | 132,427.35 | 171,177.00 | 129.26% | PASS |
+| selector_irrelevant_update_10000 (stroid) | 19,691.76 | 50,416.96 | 256.03% | PASS |
+| selector_irrelevant_update_10000 (zustand) | 927,721.24 | 1,921,438.16 | 207.11% | PASS |
+| selector_irrelevant_update_10000 (jotai) | 62,625.72 | 149,871.06 | 239.31% | PASS |
+| persist_cycle_1000 (stroid) | 82.46 | 708.59 | 859.29% | PASS |
+| broadcast_dispatch_receive_10000 (stroid) | 29,667.18 | 82,659.15 | 278.62% | PASS |
+| async_ttl_100_concurrent_x_100_rounds (stroid) | 5,823.70 | 21,262.59 | 365.10% | PASS |
 
 CI-gate summary: `0` regressions out of `15` tracked metrics.
 
 ### Local Median Gate (Informational, Non-blocking)
 - Local median simulation on Windows/Node 22 previously showed 14/15 below threshold.
 - Because CI is fully green and cross-library local drops happened together, treat that local result as machine/environment variance unless reproduced on the CI runner.
+- Local benchmark variance is non-authoritative; CI benchmark artifacts are the merge/source-of-truth data.
 
 ## Red Signal Watchlist (Non-gating)
 - Subscriber fanout cost at 250k remains heavy: `compute batch100 = 2,393.053 ms`, `noop batch100 = 1,180.980 ms`.
