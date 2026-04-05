@@ -79,7 +79,7 @@ const withCarrierMemo = <T>(
 
 injectCarrierRunner({
     run: (carrier, fn) => withCarrierMemo(
-        serverRegistryContext.getStore(),
+        serverRegistryContext.getStore() ?? null,
         carrier,
         () => serverAsyncContext.run(carrier, fn),
     ),
