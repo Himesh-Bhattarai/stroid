@@ -133,7 +133,7 @@ const readStoreSnapshot = (
     if (!options.committedOnly && isTransactionActive()) {
         const txCache = registry.transaction.snapshotCache;
         const source = getStoreValueRef(name);
-        if (source === undefined) return null;
+        if (source === undefined && registry.initialFactories[name]) return null;
         const cached = txCache.get(name);
         if (cached && cached.source === source && cached.mode === snapshotMode) {
             const snap = cached.snapshot;
@@ -150,7 +150,7 @@ const readStoreSnapshot = (
     const source = options.committedOnly
         ? getCommittedStoreValueRef(name, registry)
         : getStoreValueRef(name, registry);
-    if (source === undefined) return null;
+    if (source === undefined && registry.initialFactories[name]) return null;
     const cached = registry.snapshotCache[name];
     if (cached && cached.source === source && cached.mode === snapshotMode) {
         const snap = cached.snapshot;

@@ -322,6 +322,15 @@ test("hasStore and getStore stay consistent during delete notifications", () => 
   assert.strictEqual(observedSnapshot, null);
 });
 
+test("getStoreSnapshot preserves explicit undefined store values", () => {
+  clearAllStores();
+  createStore("explicitUndefinedSnapshot", undefined);
+
+  assert.strictEqual(hasStore("explicitUndefinedSnapshot"), true);
+  assert.strictEqual(getStoreSnapshot("explicitUndefinedSnapshot"), undefined);
+  assert.strictEqual(_getSnapshot("explicitUndefinedSnapshot"), undefined);
+});
+
 test("setStoreBatch warns on promise-returning callbacks", async () => {
   clearAllStores();
   createStore("batchPromise", { value: 0 });
