@@ -27,6 +27,15 @@ import { applyFeatureState } from "../../src/core/store-lifecycle/registry.js";
 const wait = async (ms: number): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, ms));
 
+const waitFor = async (predicate: () => boolean, timeoutMs = 500, intervalMs = 5): Promise<boolean> => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return true;
+    await wait(intervalMs);
+  }
+  return predicate();
+};
+
 type RemoteState = { data: string | null; loading: boolean; error: string | null; status: string };
 
 test("hydrateStores exposes hydration consistency metadata through runtime-tools", () => {
@@ -439,8 +448,11 @@ test("invalidate_and_refetch marks drift and accepts the replayed network refres
   assert.strictEqual(event?.resolution, "invalidated");
   assert.strictEqual(invalidations, 1);
 
-  await wait(0);
-  await wait(0);
+  const refreshed = await waitFor(() => {
+    const snapshot = getStore("remote") as RemoteState | null;
+    return snapshot?.data === "fresh";
+  });
+  assert.ok(refreshed);
 
   const remote = getStore("remote") as RemoteState | null;
   assert.strictEqual(remote?.data, "fresh");
