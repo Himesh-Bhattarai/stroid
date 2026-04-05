@@ -95,6 +95,16 @@ Batch100 latencies (ms)
 | Memory retained growth (MB) | 0.100 |
 | Invariants | foreignRead=0, contextMismatch=0, registryResidual=0, subscriberResidual=0 |
 
+### SSR Deployment Models (Portable / Serverless)
+Source: `scripts/guarantee-benchmark-suite-output.json` (dedicated certification run).
+
+| Certification | Value |
+|---|---|
+| Warm container | 1,024 requests, 2,048 detached probes, detachedLeakCount=0, globalResidualCount=0 |
+| Provider model | 288 total invocations (`aws_lambda`, `vercel`, `cloudflare_workers`), detached/global residual leaks all 0 |
+| Next.js server actions boundary | 48 render/action pairs, stateMismatchCount=0, crossCaptureBleedCount=0 |
+| React 18 concurrency | `useTransition` + `useDeferredValue`, invariantViolations=0 in both scenarios |
+
 ### Hydration Large Payload
 | Payload | Clone median (ms) | Immediate median (ms) | Queued median (ms) | Retained growth (MB) | Mismatches |
 |---|---:|---:|---:|---:|---:|
