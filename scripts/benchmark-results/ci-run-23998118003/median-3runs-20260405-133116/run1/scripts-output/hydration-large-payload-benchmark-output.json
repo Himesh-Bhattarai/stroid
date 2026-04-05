@@ -1,0 +1,118 @@
+{
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "result": {
+    "name": "Hydration Large Payload Benchmark",
+    "sizes": [
+      {
+        "targetKb": 256,
+        "approximateBytes": 262551,
+        "cloneTiming": {
+          "count": 2,
+          "medianMs": 0.376,
+          "p95Ms": 0.406,
+          "maxMs": 0.406,
+          "totalMs": 0.752
+        },
+        "immediateTiming": {
+          "count": 2,
+          "medianMs": 90.228,
+          "p95Ms": 104.861,
+          "maxMs": 104.861,
+          "totalMs": 180.456
+        },
+        "queuedTiming": {
+          "count": 2,
+          "medianMs": 81.826,
+          "p95Ms": 82.723,
+          "maxMs": 82.723,
+          "totalMs": 163.651
+        },
+        "retainedGrowthMb": 7.375,
+        "mismatches": 0,
+        "queuedWritesSeen": [
+          3
+        ],
+        "replayedWritesSeen": [
+          3
+        ],
+        "sampleRevision": 2,
+        "sampleTouchedCount": 3
+      },
+      {
+        "targetKb": 1024,
+        "approximateBytes": 1048881,
+        "cloneTiming": {
+          "count": 2,
+          "medianMs": 1.371,
+          "p95Ms": 1.411,
+          "maxMs": 1.411,
+          "totalMs": 2.741
+        },
+        "immediateTiming": {
+          "count": 2,
+          "medianMs": 822.616,
+          "p95Ms": 825.285,
+          "maxMs": 825.285,
+          "totalMs": 1645.233
+        },
+        "queuedTiming": {
+          "count": 2,
+          "medianMs": 836.635,
+          "p95Ms": 838.335,
+          "maxMs": 838.335,
+          "totalMs": 1673.269
+        },
+        "retainedGrowthMb": 15.492,
+        "mismatches": 0,
+        "queuedWritesSeen": [
+          3
+        ],
+        "replayedWritesSeen": [
+          3
+        ],
+        "sampleRevision": 2,
+        "sampleTouchedCount": 3
+      },
+      {
+        "targetKb": 2048,
+        "approximateBytes": 2097591,
+        "cloneTiming": {
+          "count": 2,
+          "medianMs": 2.566,
+          "p95Ms": 2.619,
+          "maxMs": 2.619,
+          "totalMs": 5.131
+        },
+        "immediateTiming": {
+          "count": 2,
+          "medianMs": 3108.53,
+          "p95Ms": 3109.825,
+          "maxMs": 3109.825,
+          "totalMs": 6217.06
+        },
+        "queuedTiming": {
+          "count": 2,
+          "medianMs": 3069.392,
+          "p95Ms": 3071.273,
+          "maxMs": 3071.273,
+          "totalMs": 6138.785
+        },
+        "retainedGrowthMb": 19.229,
+        "mismatches": 0,
+        "queuedWritesSeen": [
+          3
+        ],
+        "replayedWritesSeen": [
+          3
+        ],
+        "sampleRevision": 2,
+        "sampleTouchedCount": 3
+      }
+    ],
+    "totalWallMs": 23417.594
+  }
+}

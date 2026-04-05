@@ -1,0 +1,145 @@
+{
+  "generatedAt": "2026-04-05T08:36:06.957Z",
+  "node": "v22.14.0",
+  "scenarioCount": 4,
+  "passCount": 4,
+  "failCount": 0,
+  "results": [
+    {
+      "id": "request-deep-default",
+      "scope": "request",
+      "snapshot": "deep",
+      "resetClone": "deep",
+      "middlewareDepth": 0,
+      "write": {
+        "name": "trust:request-deep-default:batched-write",
+        "iterations": 20000,
+        "totalMs": 3823.3358,
+        "opsPerSec": 5231.034114241287,
+        "p50Ms": 0.08649999999943248,
+        "p95Ms": 0.3392999999996391,
+        "p99Ms": 2.3016999999999825,
+        "memoryDeltaBytes": 632896
+      },
+      "churn": {
+        "name": "trust:request-deep-default:create-delete-churn",
+        "iterations": 4000,
+        "totalMs": 2214.434399999999,
+        "opsPerSec": 1806.330320735625,
+        "p50Ms": 0.2668999999996231,
+        "p95Ms": 1.1036000000003696,
+        "p99Ms": 5.101299999999355,
+        "memoryDeltaBytes": 15530144
+      },
+      "invariants": {
+        "writeInvariantViolations": 0,
+        "finalPrimary": 19999,
+        "finalReplica": 39998,
+        "deleteLeakCount": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "request-shallow-mid-10",
+      "scope": "request",
+      "snapshot": "shallow",
+      "resetClone": "shallow",
+      "middlewareDepth": 10,
+      "write": {
+        "name": "trust:request-shallow-mid-10:batched-write",
+        "iterations": 20000,
+        "totalMs": 5143.854600000001,
+        "opsPerSec": 3888.134785147309,
+        "p50Ms": 0.11050000000068394,
+        "p95Ms": 0.4728999999988446,
+        "p99Ms": 3.3932999999997264,
+        "memoryDeltaBytes": 406064
+      },
+      "churn": {
+        "name": "trust:request-shallow-mid-10:create-delete-churn",
+        "iterations": 4000,
+        "totalMs": 1816.6877000000004,
+        "opsPerSec": 2201.8093698768366,
+        "p50Ms": 0.23730000000068685,
+        "p95Ms": 0.9501999999993131,
+        "p99Ms": 4.674800000000687,
+        "memoryDeltaBytes": 15257080
+      },
+      "invariants": {
+        "writeInvariantViolations": 0,
+        "finalPrimary": 19999,
+        "finalReplica": 39998,
+        "deleteLeakCount": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "global-ref-mid-4",
+      "scope": "global",
+      "snapshot": "ref",
+      "resetClone": "none",
+      "middlewareDepth": 4,
+      "write": {
+        "name": "trust:global-ref-mid-4:batched-write",
+        "iterations": 20000,
+        "totalMs": 3786.509899999999,
+        "opsPerSec": 5281.908810009979,
+        "p50Ms": 0.10449999999764259,
+        "p95Ms": 0.3320000000021537,
+        "p99Ms": 2.038300000000163,
+        "memoryDeltaBytes": 272392
+      },
+      "churn": {
+        "name": "trust:global-ref-mid-4:create-delete-churn",
+        "iterations": 4000,
+        "totalMs": 1666.3653999999988,
+        "opsPerSec": 2400.4339024322053,
+        "p50Ms": 0.23170000000027358,
+        "p95Ms": 0.9012000000002445,
+        "p99Ms": 4.308000000000902,
+        "memoryDeltaBytes": 15194288
+      },
+      "invariants": {
+        "writeInvariantViolations": 0,
+        "finalPrimary": 19999,
+        "finalReplica": 39998,
+        "deleteLeakCount": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "temp-deep-mid-2",
+      "scope": "temp",
+      "snapshot": "deep",
+      "resetClone": "deep",
+      "middlewareDepth": 2,
+      "write": {
+        "name": "trust:temp-deep-mid-2:batched-write",
+        "iterations": 20000,
+        "totalMs": 4886.466899999999,
+        "opsPerSec": 4092.936759686227,
+        "p50Ms": 0.10710000000108266,
+        "p95Ms": 0.46160000000236323,
+        "p99Ms": 2.8980000000010477,
+        "memoryDeltaBytes": 268928
+      },
+      "churn": {
+        "name": "trust:temp-deep-mid-2:create-delete-churn",
+        "iterations": 4000,
+        "totalMs": 1549.0162999999993,
+        "opsPerSec": 2582.2839953330395,
+        "p50Ms": 0.22420000000056461,
+        "p95Ms": 0.8097999999990861,
+        "p99Ms": 4.342799999998533,
+        "memoryDeltaBytes": 15186216
+      },
+      "invariants": {
+        "writeInvariantViolations": 0,
+        "finalPrimary": 19999,
+        "finalReplica": 39998,
+        "deleteLeakCount": 0
+      },
+      "passed": true
+    }
+  ]
+}

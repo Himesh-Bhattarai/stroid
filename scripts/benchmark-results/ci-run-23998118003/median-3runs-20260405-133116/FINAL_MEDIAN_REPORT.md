@@ -6,9 +6,9 @@
 **Methodology:** Each benchmark script executed 3 times; reported values are medians.
 
 ## Executive Summary
-- Overall status: CI regression gate is green (15/15 pass) and stress tests pass (63/63).
-- Key movement vs baseline: on CI (Node v20.20.2), every tracked ops/sec metric is above the 80% threshold (all marked `ok`).
-- Recommendation: CI is merge-ready; keep local Windows median gate deltas as variance signals only, and prioritize subscriber/selector/hydration hotspots.
+- Overall status: All stress tests pass (63/63); regression-gate simulation on median metrics shows 14 tracked metrics below 80% baseline.
+- Key movement vs baseline: median Stroid ops/sec shows pressure on raw throughput paths (createStore=49.84%, set primitive=51.21%, selector irrelevant=65.75%).
+- Recommendation: Investigate CI-reproducible regressions first; keep CI as merge gate. Local variance on Windows/Node 22 remains material.
 - Context (not apples-to-apples): Stroid carries deterministic guarantees (queue replay, isolation, invariant safety, lifecycle controls), so cross-library throughput numbers reflect additional correctness work, not only raw setter speed.
 
 ## Environment
@@ -145,42 +145,25 @@ Batch100 latencies (ms)
 | **Total** | **14** | **63** | **63** | **0** |
 
 ## Regression Gate Status (vs Baseline)
-### CI Gate (Authoritative)
-- Source run: Stress Test Pipeline run `23998118003` (2026-04-05), benchmark artifact `benchmark-results`.
-- Source URL: `https://github.com/Himesh-Bhattarai/stroid/actions/runs/23998118003`.
-- Workflow status: `completed/success`; benchmark job `Benchmarks + Regression Gate` is `success`.
-- CI environment used by gate data: Node `v20.20.2` (from CI `latest.json`).
-
-| Metric | Baseline ops/sec | CI latest ops/sec | Ratio | Status |
+| Metric | Baseline ops/sec | Median ops/sec (3 runs) | Ratio | Status |
 |---|---:|---:|---:|---|
-| create_store_10000 (stroid) | 13,478.31 | 26,993.96 | 200.28% | PASS |
-| create_store_10000 (zustand) | 425,056.21 | 798,313.39 | 187.81% | PASS |
-| create_store_10000 (jotai) | 39,576.72 | 112,111.83 | 283.28% | PASS |
-| set_primitive_100000 (stroid) | 25,453.41 | 62,948.68 | 247.31% | PASS |
-| set_primitive_100000 (zustand) | 1,274,003.82 | 2,920,670.70 | 229.25% | PASS |
-| set_primitive_100000 (jotai) | 175,043.61 | 508,062.17 | 290.25% | PASS |
-| set_deep_10000 (stroid) | 15,858.01 | 30,496.46 | 192.31% | PASS |
-| set_deep_10000 (zustand) | 593,376.73 | 677,809.03 | 114.23% | PASS |
-| set_deep_10000 (jotai) | 132,427.35 | 197,503.46 | 149.14% | PASS |
-| selector_irrelevant_update_10000 (stroid) | 19,691.76 | 49,938.61 | 253.60% | PASS |
-| selector_irrelevant_update_10000 (zustand) | 927,721.24 | 1,891,180.71 | 203.85% | PASS |
-| selector_irrelevant_update_10000 (jotai) | 62,625.72 | 155,896.79 | 248.93% | PASS |
-| persist_cycle_1000 (stroid) | 82.46 | 732.11 | 887.80% | PASS |
-| broadcast_dispatch_receive_10000 (stroid) | 29,667.18 | 82,021.15 | 276.47% | PASS |
-| async_ttl_100_concurrent_x_100_rounds (stroid) | 5,823.70 | 21,909.05 | 376.21% | PASS |
+| create_store_10000 (stroid) | 13,478.31 | 6,718.01 | 49.84% | REGRESSION |
+| create_store_10000 (zustand) | 425,056.21 | 327,137.35 | 76.96% | REGRESSION |
+| create_store_10000 (jotai) | 39,576.72 | 22,922.84 | 57.92% | REGRESSION |
+| set_primitive_100000 (stroid) | 25,453.41 | 13,033.51 | 51.21% | REGRESSION |
+| set_primitive_100000 (zustand) | 1,274,003.82 | 824,293.58 | 64.70% | REGRESSION |
+| set_primitive_100000 (jotai) | 175,043.61 | 128,069.70 | 73.16% | REGRESSION |
+| set_deep_10000 (stroid) | 15,858.01 | 7,218.62 | 45.52% | REGRESSION |
+| set_deep_10000 (zustand) | 593,376.73 | 154,999.59 | 26.12% | REGRESSION |
+| set_deep_10000 (jotai) | 132,427.35 | 81,063.36 | 61.21% | REGRESSION |
+| selector_irrelevant_update_10000 (stroid) | 19,691.76 | 12,946.59 | 65.75% | REGRESSION |
+| selector_irrelevant_update_10000 (zustand) | 927,721.24 | 473,157.76 | 51.00% | REGRESSION |
+| selector_irrelevant_update_10000 (jotai) | 62,625.72 | 43,467.13 | 69.41% | REGRESSION |
+| persist_cycle_1000 (stroid) | 82.46 | 86.61 | 105.03% | PASS |
+| broadcast_dispatch_receive_10000 (stroid) | 29,667.18 | 15,405.04 | 51.93% | REGRESSION |
+| async_ttl_100_concurrent_x_100_rounds (stroid) | 5,823.70 | 3,022.83 | 51.91% | REGRESSION |
 
-CI-gate summary: `0` regressions out of `15` tracked metrics.
-
-### Local Median Gate (Informational, Non-blocking)
-- Local median simulation on Windows/Node 22 previously showed 14/15 below threshold.
-- Because CI is fully green and cross-library local drops happened together, treat that local result as machine/environment variance unless reproduced on the CI runner.
-
-## Red Signal Watchlist (Non-gating)
-- Subscriber fanout cost at 250k remains heavy: `compute batch100 = 2,393.053 ms`, `noop batch100 = 1,180.980 ms`.
-- Selector high-scale curve is still expensive at 800k: `simple = 232.097 ms`, `complex = 220.632 ms`.
-- Deep-path single update spikes at 800k subscribers: `93.221 ms` median.
-- Hydration large payloads remain a major hotspot: `1MB immediate = 10,286.352 ms`, `2MB immediate = 39,950.619 ms`, `2MB queued = 40,254.600 ms`.
-- SSR fair-compare throughput is lower for Stroid (`176.87 req/s`) than Zustand (`408.72 req/s`) and Redux (`338.61 req/s`); this is directional only, not strict apples-to-apples, because Stroid keeps extra deterministic/safety work in-path.
+Median-gate summary: 14 / 15 tracked metrics are below the 80% threshold. Several regressions are cross-library in the same run window, which indicates environment variance; confirm on CI before actioning local-only failures.
 
 ## Notes & Reproducibility
 - Reproduce (run): `npm run benchmark:all` (3 times, median taken), plus `npm run test:stress` and `npm run bench:stress` each iteration.

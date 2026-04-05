@@ -1,0 +1,209 @@
+{
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "darwin",
+    "arch": "arm64",
+    "concurrencies": [
+      100,
+      500,
+      1000
+    ],
+    "warmupRounds": 2,
+    "warmupConcurrency": 25,
+    "renderEngine": "react-dom/server renderToPipeableStream",
+    "transport": "native-http",
+    "note": "All modes run in the same process, use the same async workload, and are measured end-to-end from fetch start until the streamed HTML response is fully read."
+  },
+  "baseline": {
+    "medianMs": 65.291,
+    "p95Ms": 139.065,
+    "reqPerSec": 5366.624,
+    "totalRequests": 1600,
+    "totalWallMs": 298.139,
+    "heapDeltaMb": 9.267,
+    "bursts": [
+      {
+        "concurrency": 100,
+        "requests": 100,
+        "medianMs": 15.268,
+        "p95Ms": 21.033,
+        "reqPerSec": 4068.348,
+        "totalWallMs": 24.58,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      },
+      {
+        "concurrency": 500,
+        "requests": 500,
+        "medianMs": 51.186,
+        "p95Ms": 102.387,
+        "reqPerSec": 4261.23,
+        "totalWallMs": 117.337,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      },
+      {
+        "concurrency": 1000,
+        "requests": 1000,
+        "medianMs": 67.134,
+        "p95Ms": 141.483,
+        "reqPerSec": 6401.147,
+        "totalWallMs": 156.222,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      }
+    ]
+  },
+  "redux": {
+    "medianMs": 45.891,
+    "p95Ms": 113.108,
+    "reqPerSec": 7341.032,
+    "totalRequests": 1600,
+    "totalWallMs": 217.953,
+    "heapDeltaMb": 2.679,
+    "bursts": [
+      {
+        "concurrency": 100,
+        "requests": 100,
+        "medianMs": 8.868,
+        "p95Ms": 11.198,
+        "reqPerSec": 8273.352,
+        "totalWallMs": 12.087,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      },
+      {
+        "concurrency": 500,
+        "requests": 500,
+        "medianMs": 40.578,
+        "p95Ms": 45.801,
+        "reqPerSec": 9919.454,
+        "totalWallMs": 50.406,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      },
+      {
+        "concurrency": 1000,
+        "requests": 1000,
+        "medianMs": 74.607,
+        "p95Ms": 114.728,
+        "reqPerSec": 6432.523,
+        "totalWallMs": 155.46,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      }
+    ]
+  },
+  "zustand": {
+    "medianMs": 58.261,
+    "p95Ms": 83.139,
+    "reqPerSec": 10335.583,
+    "totalRequests": 1600,
+    "totalWallMs": 154.805,
+    "heapDeltaMb": 0.555,
+    "bursts": [
+      {
+        "concurrency": 100,
+        "requests": 100,
+        "medianMs": 9.665,
+        "p95Ms": 10.616,
+        "reqPerSec": 8263.78,
+        "totalWallMs": 12.101,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      },
+      {
+        "concurrency": 500,
+        "requests": 500,
+        "medianMs": 31.075,
+        "p95Ms": 43.982,
+        "reqPerSec": 10376.673,
+        "totalWallMs": 48.185,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      },
+      {
+        "concurrency": 1000,
+        "requests": 1000,
+        "medianMs": 64.747,
+        "p95Ms": 83.688,
+        "reqPerSec": 10579.883,
+        "totalWallMs": 94.519,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      }
+    ]
+  },
+  "stroid": {
+    "medianMs": 102.838,
+    "p95Ms": 161.06,
+    "reqPerSec": 5780.932,
+    "totalRequests": 1600,
+    "totalWallMs": 276.772,
+    "heapDeltaMb": 1.505,
+    "bursts": [
+      {
+        "concurrency": 100,
+        "requests": 100,
+        "medianMs": 17.225,
+        "p95Ms": 20.194,
+        "reqPerSec": 4712.535,
+        "totalWallMs": 21.22,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      },
+      {
+        "concurrency": 500,
+        "requests": 500,
+        "medianMs": 63.701,
+        "p95Ms": 79.089,
+        "reqPerSec": 5974.929,
+        "totalWallMs": 83.683,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      },
+      {
+        "concurrency": 1000,
+        "requests": 1000,
+        "medianMs": 154.989,
+        "p95Ms": 161.73,
+        "reqPerSec": 5818.385,
+        "totalWallMs": 171.869,
+        "contaminationCount": 0,
+        "mismatchCount": 0,
+        "statusErrorCount": 0
+      }
+    ]
+  },
+  "correctness": {
+    "redux": {
+      "contaminationCount": 0,
+      "mismatchCount": 0,
+      "statusErrorCount": 0,
+      "violations": 0
+    },
+    "zustand": {
+      "contaminationCount": 0,
+      "mismatchCount": 0,
+      "statusErrorCount": 0,
+      "violations": 0
+    },
+    "stroid": {
+      "contaminationCount": 0,
+      "mismatchCount": 0,
+      "statusErrorCount": 0,
+      "violations": 0
+    }
+  }
+}
