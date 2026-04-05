@@ -5,6 +5,7 @@
  * WHY: Performance regressions in state engines show up first in tail latency and memory churn.
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { atom } from "jotai";
 import { createStore as createJotaiStore } from "jotai/vanilla";
@@ -40,6 +41,8 @@ type SyncPayload = {
     data: unknown;
     checksum: null;
 };
+
+const round = (value: number): number => Number(value.toFixed(3));
 
 class BenchBroadcastChannel {
     private static channels = new Map<string, Set<BenchBroadcastChannel>>();
@@ -492,6 +495,23 @@ const run = async (): Promise<void> => {
     const report = {
         generatedAt: new Date().toISOString(),
         node: process.version,
+        environment: {
+            platform: process.platform,
+            arch: process.arch,
+            node: process.version,
+            cpuModel: os.cpus()[0]?.model ?? "unknown",
+            cpuCount: os.cpus().length,
+            totalMemMb: round(os.totalmem() / (1024 * 1024)),
+            freeMemMb: round(os.freemem() / (1024 * 1024)),
+            loadAvg: os.loadavg().map((value) => round(value)),
+            host: os.hostname(),
+            runContext: {
+                ci: process.env.CI === "true",
+                githubRunId: process.env.GITHUB_RUN_ID ?? null,
+                githubSha: process.env.GITHUB_SHA ?? null,
+                githubRef: process.env.GITHUB_REF ?? null,
+            },
+        },
         records,
     };
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");

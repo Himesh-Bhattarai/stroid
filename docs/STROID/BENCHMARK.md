@@ -19,6 +19,24 @@
 | Platform | Microsoft Windows 10 Pro x64 |
 | Benchmark iterations | 3 |
 
+## Advanced Reality Suite (Now Tracked)
+The benchmark matrix now includes an advanced production-focused suite:
+- Command: `npm run benchmark:production-reality`
+- Output: `scripts/production-reality-benchmark-output.json`
+- Included by: `npm run benchmark:all` and `npm run benchmark:guarantees`
+
+Tracked dimensions:
+- Devtools overhead under high write/subscriber load (history disabled vs 50 vs 500).
+- Computed chain depth propagation latency (depth 1/3/5/10) and mismatch detection.
+- Long-session memory trends (retained growth, peak delta, slope per 1k cycles, monotonic growth count).
+- Persist failure-mode stress (quota pressure, async race ordering, eviction recovery loops).
+- Query-cache co-load pressure (Stroid-only vs Stroid + query-cache style workload).
+- User-perceived signals (frame-budget misses >16ms/>50ms and event-loop delay p95/p99).
+
+Scope note:
+- Bundle-size and cross-version trend benchmarking are intentionally excluded from this gate for now.
+- Versionized trend tracking starts from this benchmark generation onward (2026-04-05) as forward-only history.
+
 ## Core Throughput: Stroid vs Zustand vs Jotai (`bench:stress`)
 | Operation | Library | Ops/sec (median) | p50 (ms) | p95 (ms) | Memory delta |
 |---|---|---:|---:|---:|---:|
@@ -160,6 +178,7 @@ Source: `scripts/guarantee-benchmark-suite-output.json` (dedicated certification
 - Source URL: `https://github.com/Himesh-Bhattarai/stroid/actions/runs/24000828199`.
 - Workflow status: `completed/success`; benchmark job `Benchmarks + Regression Gate` is `success`.
 - CI environment used by gate data: Node `v20.20.2` (from CI `latest.json`).
+- Baseline provenance metadata is now embedded in benchmark JSON (`environment` block: node/platform/arch/cpu/memory/load/CI context) and surfaced in `summary.md`.
 
 | Metric | Baseline ops/sec | CI latest ops/sec | Ratio | Status |
 |---|---:|---:|---:|---|

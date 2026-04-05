@@ -8,6 +8,7 @@ import { runMemoryLeakBenchmark } from "./memory-leak-benchmark.js";
 import { runNextServerActionsBenchmark } from "../ssr/next-server-actions-benchmark.js";
 import { runRaceConditionBenchmark } from "./race-condition-benchmark.js";
 import { runReactConcurrencyBenchmark } from "../react/react-concurrency-benchmark.js";
+import { runProductionRealityBenchmark } from "./production-reality-benchmark.js";
 import { runServerlessProviderCertification } from "../ssr/serverless-provider-certification.js";
 import { runSsrIsolationBenchmark } from "../ssr/ssr-isolation-benchmark.js";
 import { runSsrWarmContainerBenchmark } from "../ssr/ssr-warm-container-benchmark.js";
@@ -30,6 +31,7 @@ export const runGuaranteeBenchmarkSuite = async () => {
     runDeterminismReplayBenchmark,
     runMemoryLeakBenchmark,
     runGovernanceLifecycleBenchmark,
+    runProductionRealityBenchmark,
   ]) {
     results.push(await run());
     maybeGc();
