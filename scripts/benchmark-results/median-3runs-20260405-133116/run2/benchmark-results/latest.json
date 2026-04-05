@@ -1,0 +1,234 @@
+{
+  "generatedAt": "2026-04-05T08:19:41.066Z",
+  "node": "v22.14.0",
+  "records": [
+    {
+      "id": "create_store_10000",
+      "library": "stroid",
+      "summary": {
+        "name": "stroid:createStore x10000",
+        "iterations": 10000,
+        "totalMs": 3281.4823999999994,
+        "opsPerSec": 3047.40321020768,
+        "p50Ms": 0.07899999999972351,
+        "p95Ms": 0.36639999999988504,
+        "p99Ms": 4.310899999999947,
+        "memoryDeltaBytes": 43788456
+      }
+    },
+    {
+      "id": "create_store_10000",
+      "library": "zustand",
+      "summary": {
+        "name": "zustand:createStore x10000",
+        "iterations": 10000,
+        "totalMs": 30.568199999999706,
+        "opsPerSec": 327137.3518885671,
+        "p50Ms": 0.000600000000304135,
+        "p95Ms": 0.0020000000004074536,
+        "p99Ms": 0.0027000000000043656,
+        "memoryDeltaBytes": 112816
+      }
+    },
+    {
+      "id": "create_store_10000",
+      "library": "jotai",
+      "summary": {
+        "name": "jotai:createStore x10000",
+        "iterations": 10000,
+        "totalMs": 359.3074999999999,
+        "opsPerSec": 27831.314403400997,
+        "p50Ms": 0.012499999999818101,
+        "p95Ms": 0.023100000000340515,
+        "p99Ms": 0.10580000000027212,
+        "memoryDeltaBytes": 381424
+      }
+    },
+    {
+      "id": "set_primitive_100000",
+      "library": "stroid",
+      "summary": {
+        "name": "stroid:set primitive x100000",
+        "iterations": 100000,
+        "totalMs": 8194.9323,
+        "opsPerSec": 12202.663345980296,
+        "p50Ms": 0.04429999999956635,
+        "p95Ms": 0.11560000000099535,
+        "p99Ms": 0.42259999999987485,
+        "memoryDeltaBytes": 1232416
+      }
+    },
+    {
+      "id": "set_primitive_100000",
+      "library": "zustand",
+      "summary": {
+        "name": "zustand:set primitive x100000",
+        "iterations": 100000,
+        "totalMs": 121.3159999999989,
+        "opsPerSec": 824293.5804016034,
+        "p50Ms": 0.0005000000001018634,
+        "p95Ms": 0.0010000000002037268,
+        "p99Ms": 0.0018999999992956873,
+        "memoryDeltaBytes": 827072
+      }
+    },
+    {
+      "id": "set_primitive_100000",
+      "library": "jotai",
+      "summary": {
+        "name": "jotai:set primitive x100000",
+        "iterations": 100000,
+        "totalMs": 686.8952000000008,
+        "opsPerSec": 145582.6158051474,
+        "p50Ms": 0.003700000001117587,
+        "p95Ms": 0.007300000001123408,
+        "p99Ms": 0.02109999999993306,
+        "memoryDeltaBytes": 892104
+      }
+    },
+    {
+      "id": "set_deep_10000",
+      "library": "stroid",
+      "summary": {
+        "name": "stroid:set deep x10000",
+        "iterations": 10000,
+        "totalMs": 1385.3064999999988,
+        "opsPerSec": 7218.619128691021,
+        "p50Ms": 0.07619999999951688,
+        "p95Ms": 0.20339999999850988,
+        "p99Ms": 1.0632000000005064,
+        "memoryDeltaBytes": 254464
+      }
+    },
+    {
+      "id": "set_deep_10000",
+      "library": "zustand",
+      "summary": {
+        "name": "zustand:set deep x10000",
+        "iterations": 10000,
+        "totalMs": 64.51629999999932,
+        "opsPerSec": 154999.58925109013,
+        "p50Ms": 0.0007999999979801942,
+        "p95Ms": 0.0021999999989930075,
+        "p99Ms": 0.0026999999972758815,
+        "memoryDeltaBytes": 108144
+      }
+    },
+    {
+      "id": "set_deep_10000",
+      "library": "jotai",
+      "summary": {
+        "name": "jotai:set deep x10000",
+        "iterations": 10000,
+        "totalMs": 123.36030000000028,
+        "opsPerSec": 81063.3566876862,
+        "p50Ms": 0.0059000000001105946,
+        "p95Ms": 0.012200000001030276,
+        "p99Ms": 0.040600000000267755,
+        "memoryDeltaBytes": 183832
+      }
+    },
+    {
+      "id": "selector_irrelevant_update_10000",
+      "library": "stroid",
+      "summary": {
+        "name": "stroid:selector irrelevant update x10000",
+        "iterations": 10000,
+        "totalMs": 772.4039999999986,
+        "opsPerSec": 12946.592715729097,
+        "p50Ms": 0.04750000000058208,
+        "p95Ms": 0.12150000000110595,
+        "p99Ms": 0.4657000000006519,
+        "memoryDeltaBytes": 220344
+      },
+      "details": {
+        "recompute": 1
+      }
+    },
+    {
+      "id": "selector_irrelevant_update_10000",
+      "library": "zustand",
+      "summary": {
+        "name": "zustand:selector irrelevant update x10000",
+        "iterations": 10000,
+        "totalMs": 21.134600000001228,
+        "opsPerSec": 473157.76026039856,
+        "p50Ms": 0.0005999999993946403,
+        "p95Ms": 0.0015999999995983671,
+        "p99Ms": 0.0023999999975785613,
+        "memoryDeltaBytes": 93344
+      },
+      "details": {
+        "recompute": 10101
+      }
+    },
+    {
+      "id": "selector_irrelevant_update_10000",
+      "library": "jotai",
+      "summary": {
+        "name": "jotai:selector irrelevant update x10000",
+        "iterations": 10000,
+        "totalMs": 230.0589,
+        "opsPerSec": 43467.129504661636,
+        "p50Ms": 0.01029999999809661,
+        "p95Ms": 0.02289999999993597,
+        "p99Ms": 0.08680000000094878,
+        "memoryDeltaBytes": 172792
+      },
+      "details": {
+        "recompute": 10101
+      }
+    },
+    {
+      "id": "persist_cycle_1000",
+      "library": "stroid",
+      "summary": {
+        "name": "stroid:serialize+persist x1000",
+        "iterations": 1000,
+        "totalMs": 11546.2546,
+        "opsPerSec": 86.60817162303003,
+        "p50Ms": 10.527299999997922,
+        "p95Ms": 21.29869999999937,
+        "p99Ms": 52.088199999998324,
+        "memoryDeltaBytes": 47040
+      }
+    },
+    {
+      "id": "broadcast_dispatch_receive_10000",
+      "library": "stroid",
+      "summary": {
+        "name": "stroid:broadcast receive x10000",
+        "iterations": 10000,
+        "totalMs": 649.1381000000001,
+        "opsPerSec": 15405.042470931836,
+        "p50Ms": 0.035199999998440035,
+        "p95Ms": 0.09369999999762513,
+        "p99Ms": 0.3774999999986903,
+        "memoryDeltaBytes": 254480
+      },
+      "details": {
+        "finalValue": 9999
+      }
+    },
+    {
+      "id": "async_ttl_100_concurrent_x_100_rounds",
+      "library": "stroid",
+      "summary": {
+        "name": "stroid:async ttl 100x100 (rounds)",
+        "iterations": 10000,
+        "totalMs": 4446.724900000001,
+        "opsPerSec": 2248.8461114381053,
+        "p50Ms": 0.3134599999999773,
+        "p95Ms": 1.3047009999999863,
+        "p99Ms": 2.0469120000000114,
+        "memoryDeltaBytes": 292368
+      },
+      "details": {
+        "rounds": 100,
+        "concurrentKeys": 100,
+        "totalRequests": 10000,
+        "latencyMode": "round_latency_divided_by_concurrency"
+      }
+    }
+  ]
+}

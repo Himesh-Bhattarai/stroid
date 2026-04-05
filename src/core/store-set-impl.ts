@@ -11,6 +11,7 @@ import {
     error,
     isDev,
     isValidData,
+    parsePath,
     validateDepth,
     setByPath,
     deepClone,
@@ -113,40 +114,49 @@ const setStoreInternal = (
     keyOrData: KeyOrData,
     value?: unknown,
     context?: WriteContext | null,
-    deferOptions: { bypassHydrationQueue?: boolean } = {}
+    bypassHydrationQueue = false
 ): WriteResult => {
     const storeName = nameOf(name);
     const registry = getRegistry();
     const registryMeta = registry.metaEntries;
+    const config = getConfig();
+    const txActive = isTransactionActive();
+    const failTx = (reason: unknown): void => {
+        if (txActive) markTransactionFailed(reason);
+    };
     if (!materializeInitial(storeName, registry)) return { ok: false, reason: "validate" };
     if (!hasStoreEntryInternal(storeName, registry)) {
         const message =
             `setStore("${storeName}") called before createStore(). ` +
             `Create the store first or pass a valid StoreDefinition.`;
         reportStoreError(storeName, message);
-        if (isTransactionActive()) markTransactionFailed(message);
+        failTx(message);
         return { ok: false, reason: "not-found" };
     }
     const sourceHint = context?.sourceHint ?? "effect";
-    if (!deferOptions.bypassHydrationQueue && shouldQueueHydrationWrite(registry, storeName, sourceHint)) {
+    if (!bypassHydrationQueue && shouldQueueHydrationWrite(registry, storeName, sourceHint)) {
         enqueueHydrationWrite(registry, storeName, sourceHint, () => {
-            setStoreInternal(name, keyOrData, value, context, { bypassHydrationQueue: true });
+            setStoreInternal(name, keyOrData, value, context, true);
         });
         return { ok: true };
     }
     let updated: StoreValue;
     let runtimePatchIntent: SetStorePatchIntent = { kind: "root" };
-    const stagedPrev = isTransactionActive() ? getStagedTransactionValue(storeName) : { has: false, value: undefined };
-    const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(storeName, registry);
+    let prev = getStoreValueRef(storeName, registry);
+    if (txActive) {
+        const stagedPrev = getStagedTransactionValue(storeName);
+        if (stagedPrev.has) prev = stagedPrev.value;
+    }
 
     const usedMutator = typeof keyOrData === "function" && value === undefined;
 
     if (usedMutator) {
         const mutatorStart = isDev() ? Date.now() : 0;
         try {
-            const producer = getConfig().mutatorProduce;
+            const producer = config.mutatorProduce;
             let didReturn = false;
             let returnedValue: unknown = undefined;
+            const strictMutatorReturns = config.strictMutatorReturns;
             const recipe = (draft: StoreValue) => {
                 const result = (keyOrData as (draft: StoreValue) => void)(draft);
                 if (result !== undefined) {
@@ -162,27 +172,27 @@ const setStoreInternal = (
                     recipe(clone);
                     return clone;
                 })();
-            if (didReturn && getConfig().strictMutatorReturns) {
+            if (didReturn && strictMutatorReturns) {
                 const message =
                     `setStore("${storeName}", mutator) returned a value. ` +
                     `Strict mutator mode forbids return values; mutate the draft instead.`;
                 reportStoreError(storeName, message);
-                if (isTransactionActive()) markTransactionFailed(message);
+                failTx(message);
                 return { ok: false, reason: "validate" };
             }
-            if (didReturn && isDev() && !getConfig().strictMutatorReturns) {
+            if (didReturn && isDev() && !strictMutatorReturns) {
                 warn(
                     `setStore("${storeName}", mutator) returned a value. ` +
                     `Return values replace the entire store; return void to apply draft mutations instead.`
                 );
             }
-            updated = (didReturn && !getConfig().strictMutatorReturns)
+            updated = (didReturn && !strictMutatorReturns)
                 ? (returnedValue as StoreValue)
                 : (draft as StoreValue);
             runtimePatchIntent = { kind: "root" };
         } catch (err) {
             reportStoreError(storeName, `Mutator for "${storeName}" failed: ${(err as { message?: string })?.message ?? err}`);
-            if (isTransactionActive()) markTransactionFailed(err);
+            failTx(err);
             return { ok: false, reason: "validate" };
         } finally {
             if (mutatorStart) {
@@ -191,7 +201,7 @@ const setStoreInternal = (
         }
     } else if (typeof keyOrData === "object" && !Array.isArray(keyOrData) && value === undefined) {
         if (!isValidData(keyOrData)) {
-            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") received invalid data`);
+            failTx(`setStore("${storeName}") received invalid data`);
             return { ok: false, reason: "invalid-args" };
         }
         if (typeof prev !== "object" || prev === null || Array.isArray(prev)) {
@@ -199,41 +209,42 @@ const setStoreInternal = (
                 `setStore("${storeName}", data) only merges into object stores.\n` +
                 `Use setStore("${storeName}", "path", value) or recreate the store with an object shape.`
             );
-            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") attempted object merge on non-object store`);
+            failTx(`setStore("${storeName}") attempted object merge on non-object store`);
             return { ok: false, reason: "validate" };
         }
         const partialResult = sanitizeValue(storeName, keyOrData);
         if (!partialResult.ok) {
-            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") failed sanitize`);
+            failTx(`setStore("${storeName}") failed sanitize`);
             return { ok: false, reason: "validate" };
         }
-        updated = { ...(prev as Record<string, unknown>), ...partialResult.value as Record<string, unknown> };
+        updated = Object.assign({}, prev as Record<string, unknown>, partialResult.value as Record<string, unknown>);
         runtimePatchIntent = { kind: "merge", value: partialResult.value };
     } else if (typeof keyOrData === "string" || Array.isArray(keyOrData)) {
-        if (!validateDepth(keyOrData as PathInput)) {
-            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") received invalid path`);
+        const parsedPath = parsePath(keyOrData as PathInput);
+        if (!validateDepth(parsedPath)) {
+            failTx(`setStore("${storeName}") received invalid path`);
             return { ok: false, reason: "invalid-args" };
         }
         const valueResult = sanitizeValue(storeName, value);
         if (!valueResult.ok) {
-            if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") failed sanitize`);
+            failTx(`setStore("${storeName}") failed sanitize`);
             return { ok: false, reason: "validate" };
         }
         const sanitizedValue = valueResult.value;
-        const safePath = validatePathSafety(storeName, prev, keyOrData as PathInput, sanitizedValue);
+        const safePath = validatePathSafety(storeName, prev, parsedPath, sanitizedValue);
         if (!safePath.ok) {
             safeInvoke(
                 registryMeta[storeName]?.options?.onError,
                 `onError(${storeName})`,
                 safePath.reason ?? `Invalid path for "${storeName}".`
             );
-            if (isTransactionActive()) markTransactionFailed(safePath.reason);
+            failTx(safePath.reason);
             return { ok: false, reason: "path" };
         }
-        updated = setByPath(prev as Record<string, unknown>, keyOrData as PathInput, sanitizedValue);
+        updated = setByPath(prev as Record<string, unknown>, parsedPath, sanitizedValue);
         runtimePatchIntent = {
             kind: "path",
-            path: keyOrData as PathInput,
+            path: parsedPath,
             value: sanitizedValue,
         };
     } else {
@@ -247,12 +258,12 @@ const setStoreInternal = (
             `  replaceStore("${storeName}", value)  // full-store replace`;
         error(message);
         safeInvoke(registryMeta[storeName]?.options?.onError, `onError(${storeName})`, message);
-        if (isTransactionActive()) markTransactionFailed(message);
+        failTx(message);
         return { ok: false, reason: "invalid-args" };
     }
 
     if (!isValidData(updated)) {
-        if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") produced invalid data`);
+        failTx(`setStore("${storeName}") produced invalid data`);
         return { ok: false, reason: "validate" };
     }
     const validateRule = registryMeta[storeName]?.options?.validate;
@@ -267,13 +278,13 @@ const setStoreInternal = (
         traceContext: writeContext?.traceContext,
     });
     if (next === MIDDLEWARE_ABORT) {
-        if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") aborted by middleware`);
+        failTx(`setStore("${storeName}") aborted by middleware`);
         return { ok: false, reason: "middleware" };
     }
     const reuseInput = Object.is(next, updated);
     const committed = normalizeCommittedState(storeName, next, validateRule, undefined, reuseInput ? { reuseInput: true } : undefined);
     if (!committed.ok) {
-        if (isTransactionActive()) markTransactionFailed(`setStore("${storeName}") failed validation`);
+        failTx(`setStore("${storeName}") failed validation`);
         return { ok: false, reason: "validate" };
     }
     const runtimePatches = createCanonicalSetStorePatches({
@@ -288,6 +299,9 @@ const setStoreInternal = (
     });
 
     // Short-circuit: if the committed state is shallow-equal to the previous state, avoid notifying subscribers.
+    if (Object.is(prev, committed.value)) {
+        return { ok: true };
+    }
     try {
         if (shallowEqual(prev, committed.value)) {
             // No change from a shallow perspective; skip notifications and return success.

@@ -64,6 +64,29 @@ const shouldRunFeatureForStore = (
     return true;
 };
 
+type StoreNotifyFn = (name: string) => void;
+type NotifyBinding = {
+    notifyFn: StoreNotifyFn;
+    bound: () => void;
+};
+
+const notifyBindings = new WeakMap<FeatureHookContext, NotifyBinding>();
+
+const bindNotify = (
+    baseContext: FeatureHookContext,
+    name: string,
+    notify: StoreNotifyFn
+): void => {
+    const existing = notifyBindings.get(baseContext);
+    if (existing && existing.notifyFn === notify) {
+        baseContext.notify = existing.bound;
+        return;
+    }
+    const bound = () => notify(name);
+    notifyBindings.set(baseContext, { notifyFn: notify, bound });
+    baseContext.notify = bound;
+};
+
 export const createBaseFeatureContext = (name: string): FeatureHookContext | null => {
     const registry = getRegistry();
     const baseFeatureContexts = getBaseFeatureContexts(registry);
@@ -151,7 +174,7 @@ export const runFeatureCreateHooks = (name: string, notify: (name: string) => vo
     initializeRegisteredFeatureRuntimes();
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
-    baseContext.notify = () => notify(name);
+    bindNotify(baseContext, name, notify);
     validateFeatureContext(name, baseContext);
     featureRuntimes.forEach((runtime, featureName) => {
         if (!shouldRunFeatureForStore(featureName, baseContext.options)) return;
@@ -171,18 +194,21 @@ export const runFeatureWriteHooks = (name: string, action: string, prev: StoreVa
     initializeRegisteredFeatureRuntimes();
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
-    baseContext.notify = () => notify(name);
-    const ctx = Object.assign(Object.create(baseContext), {
-        action,
-        prev,
-        next,
-    }) as FeatureWriteContext;
-    validateFeatureContext(name, ctx);
-
+    let ctx: FeatureWriteContext | null = null;
     featureRuntimes.forEach((runtime, featureName) => {
+        const hook = runtime.onStoreWrite;
+        if (!hook) return;
         if (!shouldRunFeatureForStore(featureName, baseContext.options)) return;
+        if (!ctx) {
+            bindNotify(baseContext, name, notify);
+            ctx = Object.create(baseContext) as FeatureWriteContext;
+            ctx.action = action;
+            ctx.prev = prev;
+            ctx.next = next;
+            validateFeatureContext(name, ctx);
+        }
         try {
-            runtime.onStoreWrite?.(ctx);
+            hook(ctx);
         } catch (err) {
             reportStoreWarning(
                 name,
@@ -204,20 +230,24 @@ export const runFeatureWriteHooksExcept = (
     initializeRegisteredFeatureRuntimes();
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
-    baseContext.notify = () => notify(name);
-    const ctx = Object.assign(Object.create(baseContext), {
-        action,
-        prev,
-        next,
-    }) as FeatureWriteContext;
-    validateFeatureContext(name, ctx);
     const excludedSet = new Set(excluded);
+    let ctx: FeatureWriteContext | null = null;
 
     featureRuntimes.forEach((runtime, featureName) => {
+        const hook = runtime.onStoreWrite;
+        if (!hook) return;
         if (excludedSet.has(featureName)) return;
         if (!shouldRunFeatureForStore(featureName, baseContext.options)) return;
+        if (!ctx) {
+            bindNotify(baseContext, name, notify);
+            ctx = Object.create(baseContext) as FeatureWriteContext;
+            ctx.action = action;
+            ctx.prev = prev;
+            ctx.next = next;
+            validateFeatureContext(name, ctx);
+        }
         try {
-            runtime.onStoreWrite?.(ctx);
+            hook(ctx);
         } catch (err) {
             reportStoreWarning(
                 name,
@@ -232,15 +262,21 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
     initializeRegisteredFeatureRuntimes();
     const baseContext = createBaseFeatureContext(name);
     if (!baseContext) return;
-    baseContext.notify = () => notify(name);
-    const ctx = Object.assign(Object.create(baseContext), {
-        prev,
-    }) as FeatureDeleteContext;
-    validateFeatureContext(name, ctx);
+    let ctx: FeatureDeleteContext | null = null;
+    const resolveDeleteContext = (): FeatureDeleteContext => {
+        if (ctx) return ctx;
+        bindNotify(baseContext, name, notify);
+        ctx = Object.create(baseContext) as FeatureDeleteContext;
+        ctx.prev = prev;
+        validateFeatureContext(name, ctx);
+        return ctx;
+    };
     featureRuntimes.forEach((runtime, featureName) => {
+        const hook = runtime.beforeStoreDelete;
+        if (!hook) return;
         if (!shouldRunFeatureForStore(featureName, baseContext.options)) return;
         try {
-            runtime.beforeStoreDelete?.(ctx);
+            hook(resolveDeleteContext());
         } catch (err) {
             reportStoreWarning(
                 name,
@@ -250,9 +286,11 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
         }
     });
     featureRuntimes.forEach((runtime, featureName) => {
+        const hook = runtime.afterStoreDelete;
+        if (!hook) return;
         if (!shouldRunFeatureForStore(featureName, baseContext.options)) return;
         try {
-            runtime.afterStoreDelete?.(ctx);
+            hook(resolveDeleteContext());
         } catch (err) {
             reportStoreWarning(
                 name,
@@ -267,23 +305,33 @@ export const runFeatureDeleteHooks = (name: string, prev: StoreValue, notify: (n
 export const runMiddlewareForStore = (
     name: string,
     payload: { action: string; prev: StoreValue; next: StoreValue; path: unknown; correlationId?: string; traceContext?: import("../../types/utility.js").TraceContext; }
-): StoreValue | typeof MIDDLEWARE_ABORT =>
-    runMiddleware({
+): StoreValue | typeof MIDDLEWARE_ABORT => {
+    const storeMiddleware = meta[name]?.options?.middleware;
+    const globalMiddleware = getConfig().middleware;
+    const hasStoreMiddleware = !!storeMiddleware && storeMiddleware.length > 0;
+    const hasGlobalMiddleware = !!globalMiddleware && globalMiddleware.length > 0;
+
+    if (!hasStoreMiddleware && !hasGlobalMiddleware) {
+        return payload.next;
+    }
+
+    const middlewares = hasStoreMiddleware
+        ? (hasGlobalMiddleware
+            // Store-level first, then global middleware as the final gate.
+            ? [...storeMiddleware, ...globalMiddleware]
+            : storeMiddleware)
+        : globalMiddleware;
+
+    return runMiddleware({
         name,
         payload,
-        middlewares: (() => {
-            const storeMiddleware = meta[name]?.options?.middleware || [];
-            const globalMiddleware = getConfig().middleware || [];
-            if (storeMiddleware.length === 0) return globalMiddleware;
-            if (globalMiddleware.length === 0) return storeMiddleware;
-            // Store-level first, then global middleware as the final gate.
-            return [...storeMiddleware, ...globalMiddleware];
-        })(),
+        middlewares,
         reportIssue: (message, visibility) => {
             reportStoreWarning(name, message, visibility);
         },
         warn,
     });
+};
 
 export const runStoreHookSafe = (
     name: string,

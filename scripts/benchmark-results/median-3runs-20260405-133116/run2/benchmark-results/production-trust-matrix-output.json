@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-05T08:36:06.957Z",
+  "generatedAt": "2026-04-05T08:17:41.022Z",
   "node": "v22.14.0",
   "scenarioCount": 4,
   "passCount": 4,
@@ -14,22 +14,22 @@
       "write": {
         "name": "trust:request-deep-default:batched-write",
         "iterations": 20000,
-        "totalMs": 3823.3358,
-        "opsPerSec": 5231.034114241287,
-        "p50Ms": 0.08649999999943248,
-        "p95Ms": 0.3392999999996391,
-        "p99Ms": 2.3016999999999825,
-        "memoryDeltaBytes": 632896
+        "totalMs": 2917.9204999999997,
+        "opsPerSec": 6854.196336055078,
+        "p50Ms": 0.0828999999998814,
+        "p95Ms": 0.2609999999995125,
+        "p99Ms": 1.038300000000163,
+        "memoryDeltaBytes": 626480
       },
       "churn": {
         "name": "trust:request-deep-default:create-delete-churn",
         "iterations": 4000,
-        "totalMs": 2214.434399999999,
-        "opsPerSec": 1806.330320735625,
-        "p50Ms": 0.2668999999996231,
-        "p95Ms": 1.1036000000003696,
-        "p99Ms": 5.101299999999355,
-        "memoryDeltaBytes": 15530144
+        "totalMs": 1467.0764,
+        "opsPerSec": 2726.5110392342217,
+        "p50Ms": 0.26230000000032305,
+        "p95Ms": 0.7732999999998356,
+        "p99Ms": 2.5119999999997162,
+        "memoryDeltaBytes": 15501312
       },
       "invariants": {
         "writeInvariantViolations": 0,
@@ -48,22 +48,22 @@
       "write": {
         "name": "trust:request-shallow-mid-10:batched-write",
         "iterations": 20000,
-        "totalMs": 5143.854600000001,
-        "opsPerSec": 3888.134785147309,
-        "p50Ms": 0.11050000000068394,
-        "p95Ms": 0.4728999999988446,
-        "p99Ms": 3.3932999999997264,
-        "memoryDeltaBytes": 406064
+        "totalMs": 3460.1863000000003,
+        "opsPerSec": 5780.035600973277,
+        "p50Ms": 0.11239999999997963,
+        "p95Ms": 0.2908999999999651,
+        "p99Ms": 1.3791000000001077,
+        "memoryDeltaBytes": 369440
       },
       "churn": {
         "name": "trust:request-shallow-mid-10:create-delete-churn",
         "iterations": 4000,
-        "totalMs": 1816.6877000000004,
-        "opsPerSec": 2201.8093698768366,
-        "p50Ms": 0.23730000000068685,
-        "p95Ms": 0.9501999999993131,
-        "p99Ms": 4.674800000000687,
-        "memoryDeltaBytes": 15257080
+        "totalMs": 1595.1908999999996,
+        "opsPerSec": 2507.5368722326593,
+        "p50Ms": 0.236800000000585,
+        "p95Ms": 0.7053000000014435,
+        "p99Ms": 2.8809000000001106,
+        "memoryDeltaBytes": 15271328
       },
       "invariants": {
         "writeInvariantViolations": 0,
@@ -82,22 +82,22 @@
       "write": {
         "name": "trust:global-ref-mid-4:batched-write",
         "iterations": 20000,
-        "totalMs": 3786.509899999999,
-        "opsPerSec": 5281.908810009979,
-        "p50Ms": 0.10449999999764259,
-        "p95Ms": 0.3320000000021537,
-        "p99Ms": 2.038300000000163,
-        "memoryDeltaBytes": 272392
+        "totalMs": 3159.785100000001,
+        "opsPerSec": 6329.544373128411,
+        "p50Ms": 0.1036999999996624,
+        "p95Ms": 0.2556000000004133,
+        "p99Ms": 1.135099999999511,
+        "memoryDeltaBytes": 239608
       },
       "churn": {
         "name": "trust:global-ref-mid-4:create-delete-churn",
         "iterations": 4000,
-        "totalMs": 1666.3653999999988,
-        "opsPerSec": 2400.4339024322053,
-        "p50Ms": 0.23170000000027358,
-        "p95Ms": 0.9012000000002445,
-        "p99Ms": 4.308000000000902,
-        "memoryDeltaBytes": 15194288
+        "totalMs": 1091.1326999999983,
+        "opsPerSec": 3665.915245689187,
+        "p50Ms": 0.21939999999995052,
+        "p95Ms": 0.49120000000039,
+        "p99Ms": 1.8351000000002387,
+        "memoryDeltaBytes": 15177120
       },
       "invariants": {
         "writeInvariantViolations": 0,
@@ -116,22 +116,22 @@
       "write": {
         "name": "trust:temp-deep-mid-2:batched-write",
         "iterations": 20000,
-        "totalMs": 4886.466899999999,
-        "opsPerSec": 4092.936759686227,
-        "p50Ms": 0.10710000000108266,
-        "p95Ms": 0.46160000000236323,
-        "p99Ms": 2.8980000000010477,
-        "memoryDeltaBytes": 268928
+        "totalMs": 2790.349399999999,
+        "opsPerSec": 7167.561166354294,
+        "p50Ms": 0.10250000000087311,
+        "p95Ms": 0.2175999999999476,
+        "p99Ms": 0.6898999999975786,
+        "memoryDeltaBytes": 239088
       },
       "churn": {
         "name": "trust:temp-deep-mid-2:create-delete-churn",
         "iterations": 4000,
-        "totalMs": 1549.0162999999993,
-        "opsPerSec": 2582.2839953330395,
-        "p50Ms": 0.22420000000056461,
-        "p95Ms": 0.8097999999990861,
-        "p99Ms": 4.342799999998533,
-        "memoryDeltaBytes": 15186216
+        "totalMs": 1175.3504999999968,
+        "opsPerSec": 3403.240139856163,
+        "p50Ms": 0.22309999999924912,
+        "p95Ms": 0.5274000000026717,
+        "p99Ms": 1.863099999998667,
+        "memoryDeltaBytes": 15166640
       },
       "invariants": {
         "writeInvariantViolations": 0,

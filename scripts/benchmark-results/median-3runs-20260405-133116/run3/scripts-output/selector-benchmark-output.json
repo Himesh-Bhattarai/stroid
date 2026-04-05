@@ -1,0 +1,38 @@
+[
+  {
+    "count": 50000,
+    "rawHeapMb": 3.951,
+    "rawMs": 0.603,
+    "simpleHeapMb": 27.336,
+    "simpleSelectorMs": 3.687,
+    "complexHeapMb": 27.206,
+    "complexSelectorMs": 3.398
+  },
+  {
+    "count": 100000,
+    "rawHeapMb": 7.871,
+    "rawMs": 0.872,
+    "simpleHeapMb": 54.394,
+    "simpleSelectorMs": 11.523,
+    "complexHeapMb": 54.387,
+    "complexSelectorMs": 12.121
+  },
+  {
+    "count": 200000,
+    "rawHeapMb": 15.688,
+    "rawMs": 1.612,
+    "simpleHeapMb": 108.773,
+    "simpleSelectorMs": 27.774,
+    "complexHeapMb": 108.765,
+    "complexSelectorMs": 27.357
+  },
+  {
+    "count": 800000,
+    "rawHeapMb": 62.732,
+    "rawMs": 6.471,
+    "simpleHeapMb": 435.052,
+    "simpleSelectorMs": 116.042,
+    "complexHeapMb": 435.049,
+    "complexSelectorMs": 114.025
+  }
+]

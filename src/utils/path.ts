@@ -131,7 +131,9 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
             }
             const current = (obj as Record<string, unknown>)[key];
             if (Object.is(current, value)) return obj;
-            return { ...(obj as Record<string, unknown>), [key]: value } as T;
+            const clone = Object.assign({}, obj as Record<string, unknown>);
+            clone[key] = value;
+            return clone as T;
         }
         return obj;
     }
@@ -157,7 +159,7 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
                 critical(`Blocked unsafe path segment "${String(key)}" while setting "${parts.join(".")}".`);
                 return current;
             }
-            const clone: Record<string, unknown> = { ...(current as Record<string, unknown>) };
+            const clone: Record<string, unknown> = Object.assign({}, current as Record<string, unknown>);
             if (isLast) {
                 clone[key] = value;
                 return clone as unknown;

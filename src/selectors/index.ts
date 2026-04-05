@@ -59,7 +59,10 @@ const isShareablePlainGraph = (root: object): boolean => {
 
         if (!isPlainObject) return false;
 
-        for (const value of Object.values(current as Record<string, unknown>)) {
+        const currentRecord = current as Record<string, unknown>;
+        for (const key in currentRecord) {
+            if (!Object.prototype.hasOwnProperty.call(currentRecord, key)) continue;
+            const value = currentRecord[key];
             if (value && typeof value === "object") stack.push(value as object);
         }
     }
@@ -77,30 +80,45 @@ const resolveSelectorSnapshotMode = (name: string): SnapshotMode => {
     return mode === "shallow" || mode === "ref" ? mode : "deep";
 };
 
-const getMutableSelectorSnapshot = (name: string, snapshot?: StoreValue | null): unknown => {
-    const ref = snapshot !== undefined ? snapshot : getStoreSnapshot(name);
+const getMutableSelectorSnapshotForMode = (
+    ref: StoreValue | null | undefined,
+    mode: SnapshotMode
+): unknown => {
     if (ref === null || typeof ref !== "object") return ref;
-    const mode = resolveSelectorSnapshotMode(name);
     if (mode === "ref") return ref;
     if (mode === "shallow") return shallowClone(ref);
     return deepClone(ref);
 };
 
-const getFrozenSelectorSnapshot = (name: string, snapshot?: StoreValue | null): unknown => {
+const getMutableSelectorSnapshot = (
+    name: string,
+    snapshot?: StoreValue | null,
+    mode?: SnapshotMode
+): unknown => {
     const ref = snapshot !== undefined ? snapshot : getStoreSnapshot(name);
+    const snapshotMode = mode ?? resolveSelectorSnapshotMode(name);
+    return getMutableSelectorSnapshotForMode(ref, snapshotMode);
+};
+
+const getFrozenSelectorSnapshotForMode = (
+    ref: StoreValue | null | undefined,
+    mode: SnapshotMode
+): unknown => {
     if (ref === null || typeof ref !== "object") return ref;
-    const mode = resolveSelectorSnapshotMode(name);
     if (mode === "ref") return ref;
     const key = ref as object;
 
     if (mode === "shallow") {
-        const proto = Object.getPrototypeOf(key);
-        const rootShareable = Array.isArray(key) || proto === Object.prototype || proto === null;
-        if (!rootShareable) return shallowClone(ref);
-
         const cached = shallowSelectorSnapshotCache.get(key);
         if (cached) {
             return cached.frozen ?? shallowClone(ref);
+        }
+
+        const proto = Object.getPrototypeOf(key);
+        const rootShareable = Array.isArray(key) || proto === Object.prototype || proto === null;
+        if (!rootShareable) {
+            shallowSelectorSnapshotCache.set(key, { frozen: null });
+            return shallowClone(ref);
         }
 
         const cloned = shallowClone(ref);
@@ -123,6 +141,16 @@ const getFrozenSelectorSnapshot = (name: string, snapshot?: StoreValue | null): 
     const frozen = devDeepFreeze(cloned);
     deepSelectorSnapshotCache.set(key, { frozen });
     return frozen;
+};
+
+const getFrozenSelectorSnapshot = (
+    name: string,
+    snapshot?: StoreValue | null,
+    mode?: SnapshotMode
+): unknown => {
+    const ref = snapshot !== undefined ? snapshot : getStoreSnapshot(name);
+    const snapshotMode = mode ?? resolveSelectorSnapshotMode(name);
+    return getFrozenSelectorSnapshotForMode(ref, snapshotMode);
 };
 
 const trackSelectorDependencies = <TState, TResult>(
@@ -171,8 +199,10 @@ const trackSelectorDependencies = <TState, TResult>(
             return;
         }
 
-        for (const nested of Object.values(value as Record<string, unknown>)) {
-            collectEscapedProxyDeps(nested, walked);
+        const valueRecord = value as Record<string, unknown>;
+        for (const key in valueRecord) {
+            if (!Object.prototype.hasOwnProperty.call(valueRecord, key)) continue;
+            collectEscapedProxyDeps(valueRecord[key], walked);
         }
     };
 
@@ -184,8 +214,28 @@ const trackSelectorDependencies = <TState, TResult>(
     };
 };
 
-const selectorDepsChanged = <TState>(prev: TState, next: TState, deps: SelectorDependency[]): boolean =>
-    deps.some((path) => !Object.is(getByPath(prev, path), getByPath(next, path)));
+const selectorDepsChanged = <TState>(prev: TState, next: TState, deps: SelectorDependency[]): boolean => {
+    const prevIsObject = prev !== null && typeof prev === "object";
+    const nextIsObject = next !== null && typeof next === "object";
+    const prevRecord = prev as unknown as Record<string, unknown>;
+    const nextRecord = next as unknown as Record<string, unknown>;
+
+    for (let i = 0; i < deps.length; i += 1) {
+        const path = deps[i];
+        if (path.length === 1 && prevIsObject && nextIsObject) {
+            const key = path[0];
+            if (!Object.is(prevRecord[key], nextRecord[key])) {
+                return true;
+            }
+            continue;
+        }
+        if (!Object.is(getByPath(prev, path), getByPath(next, path))) {
+            return true;
+        }
+    }
+
+    return false;
+};
 
 export const createSelector = <TState, TResult>(storeName: string, selectorFn: (state: TState) => TResult) => {
     let lastRef: TState | undefined;
@@ -224,34 +274,49 @@ export const subscribeWithSelector = <TState = unknown, R = unknown>(
     let hasPrev = false;
     let prevSel: R | undefined = undefined;
     let needsMutableSnapshot = false;
+    let snapshotMode = "deep" as SnapshotMode;
+    let snapshotModeReady = false;
 
     if (hasSelectorStoreEntry(name)) {
+        snapshotMode = resolveSelectorSnapshotMode(name);
+        snapshotModeReady = true;
         try {
-            prevSel = selector(getFrozenSelectorSnapshot(name) as TState);
+            prevSel = selector(getFrozenSelectorSnapshot(name, undefined, snapshotMode) as TState);
         } catch (err) {
             if (!isMutationError(err)) throw err;
             needsMutableSnapshot = true;
-            prevSel = selector(getMutableSelectorSnapshot(name) as TState);
+            prevSel = selector(getMutableSelectorSnapshot(name, undefined, snapshotMode) as TState);
         }
         hasPrev = true;
     }
 
     const wrapped = (_state: StoreValue | null) => {
-        if (_state === null || !hasSelectorStoreEntry(name)) {
+        if (_state === null) {
             hasPrev = false;
             prevSel = undefined as R;
+            snapshotModeReady = false;
             return;
+        }
+        if (_state === undefined && !hasSelectorStoreEntry(name)) {
+            hasPrev = false;
+            prevSel = undefined as R;
+            snapshotModeReady = false;
+            return;
+        }
+        if (!snapshotModeReady) {
+            snapshotMode = resolveSelectorSnapshotMode(name);
+            snapshotModeReady = true;
         }
         let nextSel: R;
         if (needsMutableSnapshot) {
-            nextSel = selector(getMutableSelectorSnapshot(name, _state) as TState);
+            nextSel = selector(getMutableSelectorSnapshotForMode(_state, snapshotMode) as TState);
         } else {
             try {
-                nextSel = selector(getFrozenSelectorSnapshot(name, _state) as TState);
+                nextSel = selector(getFrozenSelectorSnapshotForMode(_state, snapshotMode) as TState);
             } catch (err) {
                 if (!isMutationError(err)) throw err;
                 needsMutableSnapshot = true;
-                nextSel = selector(getMutableSelectorSnapshot(name, _state) as TState);
+                nextSel = selector(getMutableSelectorSnapshotForMode(_state, snapshotMode) as TState);
             }
         }
         if (!hasPrev) {

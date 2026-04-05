@@ -26,8 +26,8 @@ export const buildFlushPlan = (state: NotifyState): FlushPlan => {
 
     orderedNames.length = 0;
     pendingBuffer.length = 0;
-    const pendingSet = new Set<string>();
     if (prioritySet) {
+        const pendingSet = new Set<string>();
         for (const name of pendingNotifications) {
             pendingBuffer.push(name);
             pendingSet.add(name);
@@ -41,18 +41,19 @@ export const buildFlushPlan = (state: NotifyState): FlushPlan => {
     } else {
         for (const name of pendingNotifications) {
             pendingBuffer.push(name);
-            pendingSet.add(name);
             orderedNames.push(name);
         }
     }
     pendingNotifications.clear();
 
     const computedOrder = getComputedOrder(orderedNames);
-    const orderedSet = new Set(orderedNames);
-    for (const computedName of computedOrder) {
-        if (!orderedSet.has(computedName)) {
-            orderedNames.push(computedName);
-            orderedSet.add(computedName);
+    if (computedOrder.length > 0) {
+        const orderedSet = new Set(orderedNames);
+        for (const computedName of computedOrder) {
+            if (!orderedSet.has(computedName)) {
+                orderedNames.push(computedName);
+                orderedSet.add(computedName);
+            }
         }
     }
 

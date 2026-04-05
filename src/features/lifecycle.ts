@@ -10,6 +10,7 @@ import type { StoreValue } from "../adapters/options.js";
 import { deepClone, isDev } from "../utils.js";
 
 export const MIDDLEWARE_ABORT = Symbol("stroid.middleware.abort");
+const warnedUndefinedMiddleware = new WeakSet<Function>();
 
 export type LifecycleIssueReporter = (message: string, visibility?: "dev" | "always") => void;
 
@@ -42,7 +43,6 @@ export const runMiddleware = ({
     warn: (message: string) => void;
 }): StoreValue | typeof MIDDLEWARE_ABORT => {
     if (!Array.isArray(middlewares) || middlewares.length === 0) return payload.next;
-    const warnedUndefined = new WeakSet<Function>();
     let nextState = deepClone(payload.next);
     for (const mw of middlewares) {
         if (typeof mw !== "function") continue;
@@ -69,8 +69,8 @@ export const runMiddleware = ({
             return MIDDLEWARE_ABORT;
         }
         if (result === undefined) {
-            if (isDev() && !warnedUndefined.has(mw)) {
-                warnedUndefined.add(mw);
+            if (isDev() && !warnedUndefinedMiddleware.has(mw)) {
+                warnedUndefinedMiddleware.add(mw);
                 warn(`Middleware for "${name}" returned undefined; treating as pass-through. Return the new state to override.`);
             }
             nextState = middlewareNext;
