@@ -1079,6 +1079,13 @@ test("lazy store lifecycle helpers report pending vs materialized", () => {
   assert.deepStrictEqual(resetResult, { ok: true });
 });
 
+test("getStoreSnapshot returns null for unmaterialized lazy stores", () => {
+  clearAllStores();
+  createStore("lazySnapshotNull", () => ({ value: 1 }), { lazy: true });
+
+  assert.strictEqual(getStoreSnapshot("lazySnapshotNull"), null);
+});
+
 test("resetStore distinguishes missing initial state from a missing store", () => {
   clearAllStores();
   createStore("missingResetSeed", { value: 1 });

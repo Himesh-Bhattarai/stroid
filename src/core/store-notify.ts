@@ -150,6 +150,7 @@ const readStoreSnapshot = (
     const source = options.committedOnly
         ? getCommittedStoreValueRef(name, registry)
         : getStoreValueRef(name, registry);
+    if (source === undefined) return null;
     const cached = registry.snapshotCache[name];
     if (cached && cached.source === source && cached.mode === snapshotMode) {
         const snap = cached.snapshot;
