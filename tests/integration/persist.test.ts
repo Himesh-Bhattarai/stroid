@@ -24,9 +24,23 @@ import { hashState } from "../../src/utils.js";
 installPersist();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+const waitFor = async (predicate: () => boolean, timeoutMs = 500, intervalMs = 5): Promise<boolean> => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return true;
+    await wait(intervalMs);
+  }
+  return predicate();
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const readNumberProp = (value: unknown, key: string): number | undefined => {
+  if (!isRecord(value)) return undefined;
+  const prop = value[key];
+  return typeof prop === "number" ? prop : undefined;
+};
 
 type WindowLike = {
   localStorage?: unknown;
@@ -209,15 +223,17 @@ test("persist supports async crypto and sha256 checksums", async () => {
 
   createStore("secureAsync", { value: 1 }, { persist });
   setStore("secureAsync", { value: 2 });
-  await wait(20);
+  const persisted = await waitFor(() => typeof stored === "string" && stored.startsWith("enc:"));
 
+  assert.ok(persisted);
   assert.ok(stored?.startsWith("enc:"));
 
   resetAllStoresForTest();
 
   createStore("secureAsync", { value: 0 }, { persist });
-  await wait(20);
+  const restored = await waitFor(() => readNumberProp(getStore("secureAsync"), "value") === 2);
 
+  assert.ok(restored);
   assert.deepStrictEqual(getStore("secureAsync"), { value: 2 });
 });
 

@@ -155,6 +155,7 @@ const isStoreSlot = (name: string, key: string): boolean =>
 
 const collectStoreSlotsByScan = (name: string): Set<string> => {
     const slots = new Set<string>();
+    const owners = getAsyncSlotOwners();
     const inflight = getInflightRegistry();
     const requestVersion = getRequestVersionRegistry();
     const requestSequence = getRequestSequenceRegistry();
@@ -162,18 +163,38 @@ const collectStoreSlotsByScan = (name: string): Set<string> => {
     const rateWindowStart = getRateWindowStartRegistry();
     const rateCount = getRateCountRegistry();
 
-    const collect = (keys: string[]): void => {
+    owners.forEach((owner, slot) => {
+        if (owner === name) slots.add(slot);
+    });
+
+    const collectLegacySlots = (keys: string[]): void => {
         keys.forEach((key) => {
+            const owner = owners.get(key);
+            if (owner !== undefined) {
+                if (owner === name) slots.add(key);
+                return;
+            }
             if (isStoreSlot(name, key)) slots.add(key);
         });
     };
 
-    collect(Object.keys(inflight));
-    collect(Object.keys(requestVersion));
-    collect(Object.keys(requestSequence));
-    collect(Object.keys(cacheMeta));
-    collect(Object.keys(rateWindowStart));
-    collect(Object.keys(rateCount));
+    collectLegacySlots(Object.keys(inflight));
+    collectLegacySlots(Object.keys(requestVersion));
+    collectLegacySlots(Object.keys(requestSequence));
+    collectLegacySlots(Object.keys(cacheMeta));
+    collectLegacySlots(Object.keys(rateWindowStart));
+    collectLegacySlots(Object.keys(rateCount));
+
+    const collectBaseSlot = (record: Record<string, unknown>): void => {
+        if (safeHasKey(record, name)) slots.add(name);
+    };
+
+    collectBaseSlot(inflight as Record<string, unknown>);
+    collectBaseSlot(requestVersion as Record<string, unknown>);
+    collectBaseSlot(requestSequence as Record<string, unknown>);
+    collectBaseSlot(cacheMeta as Record<string, unknown>);
+    collectBaseSlot(rateWindowStart as Record<string, unknown>);
+    collectBaseSlot(rateCount as Record<string, unknown>);
     return slots;
 };
 
@@ -384,6 +405,7 @@ export const pruneAsyncCache = (name: string): void => {
 
 export const countInflightSlots = (name: string): number => {
     const inflight = getInflightRegistry();
+    const owners = getAsyncSlotOwners();
     const trackedSlots = getAsyncSlotsByStore().get(name);
     if (trackedSlots && trackedSlots.size > 0) {
         let indexedCount = 0;
@@ -395,6 +417,11 @@ export const countInflightSlots = (name: string): number => {
 
     let count = 0;
     Object.keys(inflight).forEach((key) => {
+        const owner = owners.get(key);
+        if (owner !== undefined) {
+            if (owner === name) count += 1;
+            return;
+        }
         if (isStoreSlot(name, key)) count += 1;
     });
     return count;

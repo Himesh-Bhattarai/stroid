@@ -303,6 +303,34 @@ test("replaceStore inside batch commits as part of the transaction", () => {
   assert.deepStrictEqual(getStore("batchReplace"), { value: 2 });
 });
 
+test("hasStore and getStore stay consistent during delete notifications", () => {
+  clearAllStores();
+  createStore("deleteConsistency", { value: 1 });
+
+  let observedHasStore: boolean | null = null;
+  let observedSnapshot: unknown = Symbol("unset");
+
+  subscribe("deleteConsistency", (snapshot) => {
+    if (snapshot !== null) return;
+    observedHasStore = hasStore("deleteConsistency");
+    observedSnapshot = getStore("deleteConsistency");
+  });
+
+  deleteStore("deleteConsistency");
+
+  assert.strictEqual(observedHasStore, false);
+  assert.strictEqual(observedSnapshot, null);
+});
+
+test("getStoreSnapshot preserves explicit undefined store values", () => {
+  clearAllStores();
+  createStore("explicitUndefinedSnapshot", undefined);
+
+  assert.strictEqual(hasStore("explicitUndefinedSnapshot"), true);
+  assert.strictEqual(getStoreSnapshot("explicitUndefinedSnapshot"), undefined);
+  assert.strictEqual(_getSnapshot("explicitUndefinedSnapshot"), undefined);
+});
+
 test("setStoreBatch warns on promise-returning callbacks", async () => {
   clearAllStores();
   createStore("batchPromise", { value: 0 });
@@ -1058,6 +1086,13 @@ test("lazy store lifecycle helpers report pending vs materialized", () => {
 
   const resetResult = resetStore("lazyLife");
   assert.deepStrictEqual(resetResult, { ok: true });
+});
+
+test("getStoreSnapshot returns null for unmaterialized lazy stores", () => {
+  clearAllStores();
+  createStore("lazySnapshotNull", () => ({ value: 1 }), { lazy: true });
+
+  assert.strictEqual(getStoreSnapshot("lazySnapshotNull"), null);
 });
 
 test("resetStore distinguishes missing initial state from a missing store", () => {
