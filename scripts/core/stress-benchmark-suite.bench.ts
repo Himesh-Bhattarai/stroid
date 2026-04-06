@@ -15,6 +15,7 @@ import {
     getStore as getStroidStore,
     setStore as setStroidStore,
 } from "../../src/index.ts";
+import { subscribeStore as subscribeStroidStore } from "../../src/store.ts";
 import { fetchStore } from "../../src/async.ts";
 import { createSelector } from "../../src/selectors/index.ts";
 import { installSync } from "../../src/sync.ts";
@@ -349,6 +350,67 @@ const run = async (): Promise<void> => {
             },
         });
         push("selector_irrelevant_update_10000", "jotai", summary, { recompute });
+    }
+
+    // Notification reentrancy: bounded cyclic fanout x 250
+    resetAllStoresForTest();
+    {
+        const storeA = "bench.stroid.reentry.a";
+        const storeB = "bench.stroid.reentry.b";
+        const storeC = "bench.stroid.reentry.c";
+        createStroidStore(storeA, { value: 0 });
+        createStroidStore(storeB, { value: 0 });
+        createStroidStore(storeC, { value: 0 });
+
+        const maxCascadeWrites = 600;
+        let cascadeWrites = 0;
+        let armed = false;
+        const nextWrite = (): number => {
+            cascadeWrites += 1;
+            return cascadeWrites;
+        };
+
+        const offA = subscribeStroidStore(storeA, (snapshot) => {
+            if (!armed || !snapshot || cascadeWrites >= maxCascadeWrites) return;
+            setStroidStore(storeB, "value", nextWrite());
+        });
+        const offB = subscribeStroidStore(storeB, (snapshot) => {
+            if (!armed || !snapshot || cascadeWrites >= maxCascadeWrites) return;
+            setStroidStore(storeC, "value", nextWrite());
+        });
+        const offC = subscribeStroidStore(storeC, (snapshot) => {
+            if (!armed || !snapshot || cascadeWrites >= maxCascadeWrites) return;
+            setStroidStore(storeA, "value", nextWrite());
+        });
+
+        try {
+            const summary = await runCase({
+                name: "stroid:notify reentrant cycle x250",
+                iterations: 250,
+                run: async () => {
+                    cascadeWrites = 0;
+                    armed = true;
+                    setStroidStore(storeA, "value", 1);
+                    let spins = 0;
+                    while (cascadeWrites < maxCascadeWrites) {
+                        await Promise.resolve();
+                        spins += 1;
+                        if (spins > maxCascadeWrites * 8) {
+                            throw new Error(`reentrant notification cycle failed to settle: ${cascadeWrites}/${maxCascadeWrites}`);
+                        }
+                    }
+                    armed = false;
+                },
+            });
+            push("notify_reentrant_cycle_250", "stroid", summary, {
+                maxCascadeWrites,
+            });
+        } finally {
+            armed = false;
+            offA();
+            offB();
+            offC();
+        }
     }
 
     // Full store serialize + persist x 1,000 (stroid specific)

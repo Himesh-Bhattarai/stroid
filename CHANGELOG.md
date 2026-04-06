@@ -52,6 +52,8 @@
 >- Added concurrent async store churn regression coverage that races create/fetch/delete across many stores and asserts no post-delete resurrection or hanging in-flight requests.
 >- Hardened production snapshot delivery safety for `snapshot: "ref"` / `"shallow"` by enforcing a shallow-frozen snapshot envelope across environments and applying `snapshotSafety` mutation handling beyond dev-only checks.
 >- Added production-only regression coverage proving ref-snapshot mutation attempts now warn and preserve committed store state during subscriber delivery.
+>- Added adversarial notification reentrancy stress regressions that force unbounded inline feedback loops through the safety-pass guard and certify runtime recovery plus queue cleanup after teardown.
+>- Added a `bench:stress` notification reentrancy benchmark track (`notify_reentrant_cycle_250`) to track bounded cyclic fanout performance under hostile subscriber write patterns.
 >- Fixed chunked notification delivery context in request-scoped runtimes so continuation slices now execute under the same registry as the originating flush, preventing subscriber writes from escaping to the global registry.
 >- Fixed `createStoreForRequest().hydrate(...)` finalization so queued notification side effects are drained before request snapshot sync, ensuring `snapshot()` includes subscriber-driven writes from the same hydrate pass.
 >- Added regression coverage for portable chunk-continuation registry continuity and request-snapshot coherence after chunked subscriber side effects (sync and delayed async chunk paths).
