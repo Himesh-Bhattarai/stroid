@@ -1,93 +1,42 @@
 /**
  * @module tests/regression/computed-cycle
- * 
+ *
  * LAYER: Regression
- * OWNS: Circular dependency detection and stack-overflow prevention in computed stores.
- * 
- * This suite ensures that:
- * 1. Creating computed selectors that form a cycle (A -> B -> A) does not cause a hang or crash.
- * 2. The system either throws a descriptive error or safely terminates the recursion.
- * 3. Resources are cleaned up correctly even after a failed/circular registration.
- * 
+ * OWNS:  Cycle detection hardening for computed store registration.
+ *
  * Consumers: Test runner.
  */
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createStore, getStore } from "../../src/store.js";
+import { createComputed } from "../../src/computed/index.js";
+import { detectCycle } from "../../src/computed/computed-graph.js";
+import { resetAllStoresForTest } from "../../src/helpers/testing.js";
 
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { createStore, createComputed, deleteComputed } from '../../src/index.js'
+const now = (): number =>
+  (typeof performance !== "undefined" && typeof performance.now === "function")
+    ? performance.now()
+    : Date.now();
 
-/**
- * Verifies that circular dependencies between computed stores are handled gracefully.
- */
-test('computed cycle detection — should not hang or crash', async () => {
-  // Create two base stores
-  const a = createStore('reg-a', 1)
-  const b = createStore('reg-b', 2)
+test("computed cycle registration is rejected without hanging", { timeout: 2000 }, () => {
+  resetAllStoresForTest();
+  createStore("reg-cycle-a", 1);
+  createComputed("reg-cycle-b", ["reg-cycle-a"], (value) => value);
 
-  // Create computed placeholders
-  let compA, compB
+  const start = now();
+  const result = createComputed("reg-cycle-a", ["reg-cycle-b"], (value) => value);
+  const elapsedMs = now() - start;
 
-  // Attempt to create computed A that depends on B, and computed B that depends on A
-  // This tries to provoke a circular dependency.
-  let threw = false
-  try {
-    compA = createComputed('reg-comp-a', (get) => {
-      // read compB (even if not yet created) via get
-      return get('reg-comp-b') + get('reg-b')
-    })
+  assert.strictEqual(result, undefined);
+  assert.strictEqual(getStore("reg-cycle-a"), 1);
+  assert.ok(elapsedMs < 250, `cycle registration should fail fast, took ${elapsedMs.toFixed(2)}ms`);
+});
 
-    compB = createComputed('reg-comp-b', (get) => {
-      return get('reg-comp-a') * get('reg-a')
-    })
+test("detectCycle returns explicit trace for A -> B -> A", () => {
+  resetAllStoresForTest();
+  createStore("reg-trace-a", 1);
+  createComputed("reg-trace-b", ["reg-trace-a"], (value) => value);
 
-    // Accessing them should either throw or return without infinite recursion
-    // We'll call getStore health metric to attempt reads via public API
-    // If the code enters infinite recursion, the test runner will hang/fail.
-
-    // Read computed values safely with a timeout guard.
-    const promise = (async () => {
-      // call the computed stores by reading their values via the base read path
-      // There's no direct getComputed exported in root; rely on createComputed returning callable store
-      // If createComputed returns a store-like API, attempt read via .get or via getStore
-      // Fallback: attempt to call compA() if it's a function
-
-      let valA
-      // try common patterns
-      if (typeof compA === 'function') {
-        valA = compA()
-      } else if (compA && typeof compA.get === 'function') {
-        valA = compA.get()
-      } else {
-        // attempt to import getStore dynamically
-        const { getStore } = await import('../../src/index.js')
-        const s = getStore('reg-comp-a')
-        valA = s && typeof s.get === 'function' ? s.get() : undefined
-      }
-
-      return valA
-    })()
-
-    const val = await Promise.race([
-      promise,
-      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000)),
-    ])
-
-    // If we get here without throwing or timing out, ensure the value is finite
-    assert.ok(val === undefined || Number.isFinite(val) || typeof val === 'number')
-  } catch (err) {
-    threw = true
-    // Acceptable outcome: system detects cycle and throws a clear error
-    assert.ok(err instanceof Error)
-    // error message should be informative (not required, but helpful)
-    // Do not assert on message to avoid brittle tests
-  } finally {
-    // Cleanup: delete computed stores if created
-    try { if (compA) deleteComputed('reg-comp-a') } catch {}
-    try { if (compB) deleteComputed('reg-comp-b') } catch {}
-    // Also delete base stores
-    try { const { deleteStore } = await import('../../src/index.js'); deleteStore('reg-a'); deleteStore('reg-b') } catch {}
-  }
-
-  // The test passes if either it threw (cycle detected) or it completed without hanging.
-  assert.ok(true)
-})
+  const trace = detectCycle("reg-trace-a", ["reg-trace-b"]);
+  assert.strictEqual(trace, "reg-trace-a -> reg-trace-b -> reg-trace-a");
+});

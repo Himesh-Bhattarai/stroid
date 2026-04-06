@@ -144,7 +144,23 @@ export const hydrateStores = <Snapshot extends object = HydrateSnapshot>(
     if (typeof trustInput.validate === "function") {
         let ok = false;
         try {
-            ok = !!trustInput.validate(snapshot);
+            const validationResult = trustInput.validate(snapshot);
+            if (
+                validationResult
+                && typeof validationResult === "object"
+                && typeof (validationResult as PromiseLike<unknown>).then === "function"
+            ) {
+                const asyncMessage =
+                    `hydrateStores() trust.validate must return a boolean synchronously. ` +
+                    `Async validators are not supported in hydrateStores().`;
+                if (isDev()) {
+                    throw new Error(asyncMessage);
+                }
+                warnAlways(asyncMessage);
+                result.blocked = { reason: "validation-error", cause: new Error(asyncMessage) };
+                return result;
+            }
+            ok = !!validationResult;
         } catch (err) {
             const errorMessage =
                 `hydrateStores() trust.validate threw: ${(err as { message?: string })?.message ?? err}`;

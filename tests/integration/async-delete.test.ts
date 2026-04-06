@@ -35,6 +35,54 @@ test("fetchStore resolves after deleteStore without recreating the store", async
   assert.strictEqual(getStore("lateFetch"), null);
 });
 
+test("fetchStore URL-string request resolving after deleteStore does not recreate the store", async () => {
+  resetAllStoresForTest();
+  createStore("lateFetchUrl", {
+    data: null,
+    loading: false,
+    error: null,
+    status: "idle",
+  });
+
+  const realFetch = globalThis.fetch;
+  let resolveJson!: (value: { value: number }) => void;
+  const jsonBody = new Promise<{ value: number }>((resolve) => {
+    resolveJson = resolve;
+  });
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown): void => {
+    unhandled.push(reason);
+  };
+  process.on("unhandledRejection", onUnhandled);
+
+  globalThis.fetch = (async () => ({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    headers: { get: () => "application/json" },
+    json: async () => jsonBody,
+    text: async () => JSON.stringify(await jsonBody),
+  })) as typeof fetch;
+
+  try {
+    const request = fetchStore("lateFetchUrl", "https://example.test/late", { dedupe: false });
+    await Promise.resolve();
+    deleteStore("lateFetchUrl");
+    assert.strictEqual(hasStore("lateFetchUrl"), false);
+
+    resolveJson({ value: 456 });
+    const settled = await request;
+
+    assert.strictEqual(settled, null);
+    assert.strictEqual(hasStore("lateFetchUrl"), false);
+    assert.strictEqual(getStore("lateFetchUrl"), null);
+    assert.deepStrictEqual(unhandled, []);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("deleteStore aborts in-flight fetches even when caller provides AbortSignal", async () => {
   resetAllStoresForTest();
   createStore("deleteWithSignal", {

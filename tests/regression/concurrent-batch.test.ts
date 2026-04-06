@@ -46,5 +46,11 @@ test("concurrent setStoreBatch calls commit independently", async () => {
 
   const meta = getStoreMeta("batchStore");
   assert.ok((meta?.updateCount ?? 0) >= 2);
+  assert.ok(seen.length >= 1, "expected at least one subscriber notification");
+  assert.ok(seen.includes(2), "expected subscriber stream to include final committed value");
+  assert.ok(
+    seen.every((value, index) => index === 0 || value >= seen[index - 1]),
+    `expected monotonic notification order, got [${seen.join(", ")}]`
+  );
   assert.deepStrictEqual(getStore("batchStore"), { value: 2 });
 });
