@@ -8,16 +8,17 @@
  */
 import { runWithRegistry, type StoreRegistry } from "../core/store-registry.js";
 
-export const scheduleChunk = (fn: () => void, delayMs: number): void => {
+export const scheduleChunk = (registry: StoreRegistry, fn: () => void, delayMs: number): void => {
+    const run = () => runWithRegistry(registry, fn);
     if (delayMs > 0 && typeof setTimeout === "function") {
-        setTimeout(fn, delayMs);
+        setTimeout(run, delayMs);
         return;
     }
     if (typeof queueMicrotask === "function") {
-        queueMicrotask(fn);
+        queueMicrotask(run);
         return;
     }
-    Promise.resolve().then(fn);
+    Promise.resolve().then(run);
 };
 
 export const scheduleFlush = (registry: StoreRegistry, flush: (registry: StoreRegistry) => void): void => {

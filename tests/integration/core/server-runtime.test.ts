@@ -9,7 +9,8 @@
 import test from "node:test";
 import assert from "node:assert";
 import { createStoreForRequest, type RequestStoreApi } from "../../../src/server/index.js";
-import { getStore, setStore, createStore, resetStore, deleteStore } from "../../../src/store.js";
+import { configureStroid } from "../../../src/config.js";
+import { getStore, setStore, createStore, resetStore, deleteStore, subscribe } from "../../../src/store.js";
 import { createSelector } from "../../../src/selectors/index.js";
 import { getRequestCarrier } from "../../../src/core/store-registry.js";
 
@@ -97,6 +98,63 @@ test("createStoreForRequest persists async render-time writes into snapshot and 
       user: "B",
       count: 1,
     });
+  });
+});
+
+test("createStoreForRequest snapshots include chunked subscriber side effects before hydrate returns", () => {
+  const ctx = createStoreForRequest();
+
+  ctx.hydrate(() => {
+    configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 0 } });
+
+    createStore("snapshotQueueA", { v: 0 });
+    createStore("snapshotQueueB", { v: 0 });
+    createStore("snapshotQueueTarget", { v: 0 });
+
+    subscribe("snapshotQueueA", () => {
+      // Occupy first queue slot so second store is processed via continuation.
+    });
+    subscribe("snapshotQueueB", () => {
+      setStore("snapshotQueueTarget", "v", 9);
+    });
+
+    setStore("snapshotQueueA", "v", 1);
+    setStore("snapshotQueueB", "v", 1);
+  });
+
+  assert.deepStrictEqual(ctx.snapshot(), {
+    snapshotQueueA: { v: 1 },
+    snapshotQueueB: { v: 1 },
+    snapshotQueueTarget: { v: 9 },
+  });
+});
+
+test("createStoreForRequest async hydrate waits for delayed chunked subscriber effects before snapshot sync", async () => {
+  const ctx = createStoreForRequest();
+
+  await ctx.hydrate(async () => {
+    configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 5 } });
+
+    createStore("asyncSnapshotQueueA", { v: 0 });
+    createStore("asyncSnapshotQueueB", { v: 0 });
+    createStore("asyncSnapshotQueueTarget", { v: 0 });
+
+    subscribe("asyncSnapshotQueueA", () => {
+      // Occupy first slot.
+    });
+    subscribe("asyncSnapshotQueueB", () => {
+      setStore("asyncSnapshotQueueTarget", "v", 11);
+    });
+
+    setStore("asyncSnapshotQueueA", "v", 1);
+    setStore("asyncSnapshotQueueB", "v", 1);
+    await Promise.resolve();
+  });
+
+  assert.deepStrictEqual(ctx.snapshot(), {
+    asyncSnapshotQueueA: { v: 1 },
+    asyncSnapshotQueueB: { v: 1 },
+    asyncSnapshotQueueTarget: { v: 11 },
   });
 });
 

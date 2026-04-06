@@ -10,7 +10,9 @@ import test from "node:test";
 import assert from "node:assert";
 import { createStoreForRequest } from "../../../src/server/index.js";
 import { createRequestScope } from "../../../src/server/portable.js";
-import { createStore, getStore, hasStore, setStore } from "../../../src/store.js";
+import { configureStroid } from "../../../src/config.js";
+import { runWithRegistry } from "../../../src/core/store-registry.js";
+import { createStore, getStore, hasStore, setStore, subscribe } from "../../../src/store.js";
 
 const wait = async (ms = 0): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -158,4 +160,38 @@ test("createRequestScope isolates overlapping async scopes without async-local s
   assert.deepStrictEqual(scopeA.snapshot(), resultA);
   assert.deepStrictEqual(scopeB.snapshot(), resultB);
   assert.strictEqual(hasStore("session"), false);
+});
+
+test("portable chunked notifications keep subscriber writes inside the same request registry", async () => {
+  const scope = createRequestScope<{
+    portableQueueA: { v: number };
+    portableQueueB: { v: number };
+    portableQueueTarget: { v: number };
+  }>();
+
+  let subscriberWriteResult: ReturnType<typeof setStore> | null = null;
+
+  runWithRegistry(scope.registry, () => {
+    configureStroid({ flush: { chunkSize: 1, chunkDelayMs: 0 } });
+
+    createStore("portableQueueA", { v: 0 });
+    createStore("portableQueueB", { v: 0 });
+    createStore("portableQueueTarget", { v: 0 });
+
+    subscribe("portableQueueA", () => {
+      // Occupy first queue slot so the second store is delivered via chunk continuation.
+    });
+    subscribe("portableQueueB", () => {
+      subscriberWriteResult = setStore("portableQueueTarget", "v", 7);
+    });
+
+    setStore("portableQueueA", "v", 1);
+    setStore("portableQueueB", "v", 1);
+  });
+
+  await wait(10);
+
+  assert.deepStrictEqual(subscriberWriteResult, { ok: true });
+  assert.deepStrictEqual(scope.get("portableQueueTarget"), { v: 7 });
+  assert.strictEqual(hasStore("portableQueueTarget"), false);
 });

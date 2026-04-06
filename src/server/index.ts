@@ -22,6 +22,7 @@ import {
     type TransactionState,
 } from "../core/store-registry.js";
 import { injectTransactionRunner } from "../core/store-transaction.js";
+import { flushPendingNotificationsInline, waitForNotificationIdle } from "../notification/index.js";
 import {
     captureRequestScopeFromRegistry,
     cloneRequestScopeCapture,
@@ -151,6 +152,26 @@ const scheduleCarrierCleanup = (registry: StoreRegistry, carrier: CarrierContext
     schedule(attempt);
 };
 
+const finalizeHydrateSync = (
+    registry: StoreRegistry,
+    carrier: CarrierContext,
+    syncBufferFromCarrier: (carrier: CarrierContext) => void
+): void => {
+    flushPendingNotificationsInline(registry);
+    syncBufferFromCarrier(carrier);
+    scheduleCarrierCleanup(registry, carrier);
+};
+
+const finalizeHydrateAsync = async (
+    registry: StoreRegistry,
+    carrier: CarrierContext,
+    syncBufferFromCarrier: (carrier: CarrierContext) => void
+): Promise<void> => {
+    await waitForNotificationIdle(registry);
+    syncBufferFromCarrier(carrier);
+    scheduleCarrierCleanup(registry, carrier);
+};
+
 type RequestStoreContext<StateMap extends StoreStateMap> = {
     registry: StoreRegistry;
     snapshot: () => RequestSnapshot<StateMap>;
@@ -240,17 +261,15 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
                     try {
                         const rendered = renderFn();
                         if (isPromiseLike(rendered)) {
-                            return Promise.resolve(rendered).finally(() => {
-                                syncBufferFromCarrier(carrier);
-                                scheduleCarrierCleanup(registry, carrier);
-                            }) as T;
+                            return Promise.resolve(rendered)
+                                .finally(async () => {
+                                    await finalizeHydrateAsync(registry, carrier, syncBufferFromCarrier);
+                                }) as T;
                         }
-                        syncBufferFromCarrier(carrier);
-                        scheduleCarrierCleanup(registry, carrier);
+                        finalizeHydrateSync(registry, carrier, syncBufferFromCarrier);
                         return rendered;
                     } catch (err) {
-                        syncBufferFromCarrier(carrier);
-                        scheduleCarrierCleanup(registry, carrier);
+                        finalizeHydrateSync(registry, carrier, syncBufferFromCarrier);
                         throw err;
                     }
                 })

@@ -156,6 +156,7 @@ Use this entry when:
 Important boundary note:
 
 - `createRequestScope(...)` does not provide hidden async-local propagation. Async safety comes from the bound scope API (`create`, `get`, `set`, `snapshot`, `capture`) it returns.
+- Notification chunk continuations are registry-bound internally, so subscriber-triggered writes from chunked flushes stay inside the same request scope.
 - `stroid/server` remains the preferred path for Node SSR rendering because React hooks and implicit store reads inside `.hydrate(...)` rely on the request `AsyncLocalStorage` carrier.
 
 ---
@@ -478,7 +479,8 @@ Stroid uses Node.js `AsyncLocalStorage` to manage request context automatically.
 1. `createStoreForRequest()` creates a new `AsyncLocalStorage` context
 2. `hydrate()` enters that context
 3. All store operations inside `hydrate()` use the request's registry
-4. When `hydrate()` returns, the context is cleaned up
+4. Before `hydrate()` finishes, queued notification work is finalized and the request snapshot buffer is synchronized
+5. When `hydrate()` returns, the context is cleaned up
 
 ```ts
 const stores = createStoreForRequest()

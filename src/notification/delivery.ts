@@ -203,7 +203,7 @@ export const deliverFlush = (
                     done();
                     return;
                 }
-                scheduleChunk(processNext, chunkDelayMs);
+                scheduleChunk(registry, processNext, chunkDelayMs);
                 return;
             }
 
@@ -224,7 +224,7 @@ export const deliverFlush = (
                     done();
                     return;
                 }
-                scheduleChunk(processNext, chunkDelayMs);
+                scheduleChunk(registry, processNext, chunkDelayMs);
                 return;
             }
 
@@ -296,7 +296,7 @@ export const deliverFlush = (
                     done();
                     return;
                 }
-                scheduleChunk(processNext, chunkDelayMs);
+                scheduleChunk(registry, processNext, chunkDelayMs);
                 return;
             }
 
@@ -321,7 +321,7 @@ export const deliverFlush = (
                 done();
                 return;
             }
-            scheduleChunk(processNext, chunkDelayMs);
+            scheduleChunk(registry, processNext, chunkDelayMs);
         };
 
         processNext();

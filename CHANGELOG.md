@@ -46,6 +46,9 @@
 >
 >### Fix
 >
+>- Fixed chunked notification delivery context in request-scoped runtimes so continuation slices now execute under the same registry as the originating flush, preventing subscriber writes from escaping to the global registry.
+>- Fixed `createStoreForRequest().hydrate(...)` finalization so queued notification side effects are drained before request snapshot sync, ensuring `snapshot()` includes subscriber-driven writes from the same hydrate pass.
+>- Added regression coverage for portable chunk-continuation registry continuity and request-snapshot coherence after chunked subscriber side effects (sync and delayed async chunk paths).
 >- Fixed root API report surface by exporting previously leaked public dependency types (computed/store/hydration/config/runtime option helpers), removing `ae-forgotten-export` warnings from `docs/api/stroid.api.md`.
 >- Fixed root TypeScript config scope so `tsc -p tsconfig.json --noEmit` now validates the source runtime surface directly instead of traversing docs/test/example-only graphs that require separate tooling configs.
 >- Fixed store-destroy teardown so deleted stores now clear pending notify queue references and drop cached feature-hook contexts immediately, preventing long-run subscriber/context retention across create/delete churn.

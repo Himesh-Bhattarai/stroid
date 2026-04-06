@@ -463,7 +463,7 @@ registerStoreFeature({
 
 ## 🌐 SSR Isolation
 
-`createStoreForRequest` (exported from `stroid/server`) creates a fresh `StoreRegistry` for each inbound request and runs the provided async callback inside it using Node's `AsyncLocalStorage`. **Every store operation inside the callback — including nested awaits — resolves to the request-scoped registry.**
+`createStoreForRequest` (exported from `stroid/server`) creates a fresh `StoreRegistry` for each inbound request and runs the provided async callback inside it using Node's `AsyncLocalStorage`. **Every store operation inside the callback — including nested awaits and chunked notification continuations — resolves to the request-scoped registry.** The hydrate finalization path drains queued notification work before snapshot sync so serialized request state includes subscriber side effects produced during the same request render boundary.
 
 ```mermaid
 sequenceDiagram
