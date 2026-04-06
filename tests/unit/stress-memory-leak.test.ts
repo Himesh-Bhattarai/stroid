@@ -111,6 +111,7 @@ describe("stress memory leaks", () => {
         } finally {
             controller.abort();
             globalThis.fetch = realFetch;
+            vi.useRealTimers();
         }
     });
 });

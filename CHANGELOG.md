@@ -46,6 +46,7 @@
 >
 >### Fix
 >
+>- Fixed async deletion hardening for caller-provided `AbortSignal`: `deleteStore()` now aborts in-flight `fetchStore(...)` requests even when callers supply their own signal, preventing hung network work after store teardown and clearing async metadata deterministically.
 >- Fixed chunked notification delivery context in request-scoped runtimes so continuation slices now execute under the same registry as the originating flush, preventing subscriber writes from escaping to the global registry.
 >- Fixed `createStoreForRequest().hydrate(...)` finalization so queued notification side effects are drained before request snapshot sync, ensuring `snapshot()` includes subscriber-driven writes from the same hydrate pass.
 >- Added regression coverage for portable chunk-continuation registry continuity and request-snapshot coherence after chunked subscriber side effects (sync and delayed async chunk paths).

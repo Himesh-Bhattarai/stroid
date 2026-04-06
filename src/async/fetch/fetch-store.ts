@@ -316,10 +316,29 @@ export async function fetchStore(
     storeMetrics.requests += 1;
     const startedAt = Date.now();
 
-    const controller = !signal && typeof AbortController !== "undefined"
+    const controller = typeof AbortController !== "undefined"
         ? new AbortController()
         : null;
-    const mergedSignal = signal || controller?.signal;
+    const mergedSignal = controller?.signal ?? signal;
+    let detachCallerAbortRelay: (() => void) | null = null;
+    if (controller && signal) {
+        if (signal.aborted) {
+            controller.abort();
+        } else {
+            const relayAbort = () => {
+                if (!controller.signal.aborted) controller.abort();
+            };
+            signal.addEventListener("abort", relayAbort, { once: true });
+            detachCallerAbortRelay = () => {
+                signal.removeEventListener("abort", relayAbort);
+            };
+        }
+    }
+    const detachRelayCleanup = () => {
+        if (!detachCallerAbortRelay) return;
+        detachCallerAbortRelay();
+        detachCallerAbortRelay = null;
+    };
     const abortOnCleanup = controller
         ? () => {
             if (!controller.signal.aborted) controller.abort();
@@ -328,6 +347,9 @@ export async function fetchStore(
 
     if (abortOnCleanup) {
         registerStoreCleanup(name, abortOnCleanup);
+    }
+    if (detachCallerAbortRelay) {
+        registerStoreCleanup(name, detachRelayCleanup);
     }
 
     const executeFetch = async (): Promise<{ raw: unknown; transformed: unknown } | null> => {
@@ -352,11 +374,11 @@ export async function fetchStore(
 
                 if (typeof currentRequest === "string") {
                     const fetchOptions = buildFetchOptions({
+                        ...options,
                         method,
                         headers,
                         body,
                         signal: mergedSignal,
-                        ...options,
                     });
                     const response = await fetch(currentRequest, fetchOptions);
                     if (!response.ok) {
@@ -523,6 +545,8 @@ export async function fetchStore(
         clearInflightEntry(cacheSlot);
         clearRequestVersion(cacheSlot, currentVersion);
         if (abortOnCleanup) unregisterStoreCleanup(name, abortOnCleanup);
+        if (detachCallerAbortRelay) unregisterStoreCleanup(name, detachRelayCleanup);
+        detachRelayCleanup();
     });
     const rawPromise = execution.then((res) => res?.raw);
 
