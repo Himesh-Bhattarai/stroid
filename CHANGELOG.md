@@ -46,6 +46,7 @@
 >
 >### Fix
 >
+>- Added an explicit `storeDeleteCleanup` lifecycle phase in the delete path so async cleanup handlers run in a dedicated teardown stage before `afterStoreDelete`, then added regression coverage for cleanup ordering and immediate async metadata removal.
 >- Fixed async deletion hardening for caller-provided `AbortSignal`: `deleteStore()` now aborts in-flight `fetchStore(...)` requests even when callers supply their own signal, preventing hung network work after store teardown and clearing async metadata deterministically.
 >- Fixed chunked notification delivery context in request-scoped runtimes so continuation slices now execute under the same registry as the originating flush, preventing subscriber writes from escaping to the global registry.
 >- Fixed `createStoreForRequest().hydrate(...)` finalization so queued notification side effects are drained before request snapshot sync, ensuring `snapshot()` includes subscriber-driven writes from the same hydrate pass.

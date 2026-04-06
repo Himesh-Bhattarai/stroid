@@ -236,6 +236,7 @@ export const warnOnce = (category: WarnCategory, key: string, onWarn: () => void
 };
 
 let deleteHookCleanup: (() => void) | null = null;
+let deleteCleanupPhaseHookCleanup: (() => void) | null = null;
 
 const runCleanupSet = (set?: Set<() => void>): void => {
     if (!set) return;
@@ -307,11 +308,18 @@ export const cleanupStoreCleanupsByKind = (kind: StoreCleanupKind): void => {
 };
 
 const ensureDeleteHook = (): void => {
-    if (deleteHookCleanup) return;
-    deleteHookCleanup = registerHook("afterStoreDelete", (name) => {
+    if (deleteHookCleanup && deleteCleanupPhaseHookCleanup) return;
+    const runDeleteCleanup = (name: string): void => {
         runStoreCleanups(name);
         clearAsyncMeta(name);
-    });
+    };
+    if (!deleteCleanupPhaseHookCleanup) {
+        deleteCleanupPhaseHookCleanup = registerHook("storeDeleteCleanup", runDeleteCleanup);
+    }
+    if (!deleteHookCleanup) {
+        // Backward-compatible fallback for any delete paths that still emit only afterStoreDelete.
+        deleteHookCleanup = registerHook("afterStoreDelete", runDeleteCleanup);
+    }
 };
 
 export const resetAsyncState = (): void => {

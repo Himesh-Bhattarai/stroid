@@ -197,6 +197,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                     notifyState.orderedNames.splice(index, 1);
                 }
             }
+            fireHook("storeDeleteCleanup", name, { type: "storeDeleteCleanup", prev });
             dropFeatureContextForStore(name, registry);
 
             if (isComputed(name)) {
