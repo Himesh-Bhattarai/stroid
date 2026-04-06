@@ -33,10 +33,10 @@ import {
 const AUTO_QUEUE_HYDRATION_THRESHOLD_BYTES = 256 * 1024;
 const AUTO_QUEUE_BOOT_WINDOW_MS = 1;
 
-type HydrateSnapshot = HydrateSnapshotFor<StoreStateMap & StrictStoreMap>;
-type HydrateOptions<Snapshot extends object> =
+export type HydrateSnapshot = HydrateSnapshotFor<StoreStateMap & StrictStoreMap>;
+export type HydrateOptions<Snapshot extends object> =
     Partial<{ [K in keyof Snapshot]: StoreOptions<Snapshot[K]> }> & { default?: StoreOptions };
-type HydrationTrustBase<Snapshot extends object> = {
+export type HydrationTrustBase<Snapshot extends object> = {
     /**
      * Explicitly trust this snapshot and allow hydration.
      */
@@ -52,7 +52,7 @@ type HydrationTrustBase<Snapshot extends object> = {
     validate?: (snapshot: Snapshot) => boolean;
     onValidationError?: (error: unknown, snapshot: Snapshot) => boolean;
 };
-type HydrationTrust<Snapshot extends object> =
+export type HydrationTrust<Snapshot extends object> =
     | (HydrationTrustBase<Snapshot> & { allowTrusted: true })
     | (HydrationTrustBase<Snapshot> & { allowHydration: true })
     | (HydrationTrustBase<Snapshot> & { allowUntrusted: true })

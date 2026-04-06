@@ -67,27 +67,27 @@ import {
 
 type KeyOrData = StoreValue | string | string[] | Record<string, unknown> | ((draft: StoreValue) => void);
 // If store names are loose (not registered via StoreStateMap), fall back to untyped paths/values.
-type IsStoreNameLoose = string extends StoreName ? true : false;
-type StoreUpdate<State> = State | Partial<State> | PartialDeep<State> | ((draft: State) => void);
-type StoreTarget<Name extends string = string, State = StoreValue> =
+export type IsStoreNameLoose = string extends StoreName ? true : false;
+export type StoreUpdate<State> = State | Partial<State> | PartialDeep<State> | ((draft: State) => void);
+export type StoreTarget<Name extends string = string, State = StoreValue> =
     | StoreDefinition<Name, State>
     | StoreKey<Name, State>
     | StoreName;
-type StoreStateForTarget<T> =
+export type StoreStateForTarget<T> =
     T extends StoreDefinition<infer _Name extends string, infer S> ? S
         : T extends StoreKey<infer _Name extends string, infer S> ? S
             : (T extends StoreName ? StateFor<T> : StoreValue);
-type StorePathForTarget<T> =
+export type StorePathForTarget<T> =
     T extends StoreDefinition<infer _Name extends string, infer S> ? Path<S>
         : T extends StoreKey<infer _Name extends string, infer S> ? Path<S>
             : (IsStoreNameLoose extends true ? string | string[] : (T extends StoreName ? Path<StateFor<T>> : string | string[]));
-type StorePathValueForTarget<T, P> =
+export type StorePathValueForTarget<T, P> =
     T extends StoreDefinition<infer _Name extends string, infer S>
         ? (P extends Path<S> ? PathValue<S, P> : never)
         : T extends StoreKey<infer _Name extends string, infer S>
             ? (P extends Path<S> ? PathValue<S, P> : never)
             : (IsStoreNameLoose extends true ? unknown : (T extends StoreName ? (P extends Path<StateFor<T>> ? PathValue<StateFor<T>, P> : never) : unknown));
-type StoreUpdateForTarget<T> =
+export type StoreUpdateForTarget<T> =
     T extends StoreDefinition<infer _Name extends string, infer S> ? StoreUpdate<S>
         : T extends StoreKey<infer _Name extends string, infer S> ? StoreUpdate<S>
             : (IsStoreNameLoose extends true ? StoreUpdate<StoreValue> : (T extends StoreName ? StoreUpdate<StateFor<T>> : StoreUpdate<StoreValue>));

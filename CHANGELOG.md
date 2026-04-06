@@ -46,6 +46,7 @@
 >
 >### Fix
 >
+>- Fixed root API report surface by exporting previously leaked public dependency types (computed/store/hydration/config/runtime option helpers), removing `ae-forgotten-export` warnings from `docs/api/stroid.api.md`.
 >- Fixed root TypeScript config scope so `tsc -p tsconfig.json --noEmit` now validates the source runtime surface directly instead of traversing docs/test/example-only graphs that require separate tooling configs.
 >- Fixed store-destroy teardown so deleted stores now clear pending notify queue references and drop cached feature-hook contexts immediately, preventing long-run subscriber/context retention across create/delete churn.
 >- Fixed `resetStore()` so it now returns `reason: "no-initial-state"` when a store exists but its reset snapshot is missing, instead of collapsing that branch into `not-found`.

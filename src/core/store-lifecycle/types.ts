@@ -8,9 +8,9 @@
  */
 import type { HydrationBootWindowControl } from "../hydration-consistency.js";
 
-type Primitive = string | number | boolean | bigint | symbol | null | undefined;
-type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-type PathInternal<T, Depth extends number> = Depth extends 0
+export type Primitive = string | number | boolean | bigint | symbol | null | undefined;
+export type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export type PathInternal<T, Depth extends number> = Depth extends 0
     ? never
     : T extends Primitive
         ? never
@@ -77,9 +77,9 @@ export interface StoreStateMap {}
 //   declare module "stroid" { interface StrictStoreMap { user: UserState } }
 //   declare module "stroid/core" { interface StrictStoreMap { user: UserState } }
 export interface StrictStoreMap {}
-type RegisteredStoreMap = StoreStateMap & StrictStoreMap;
+export type RegisteredStoreMap = StoreStateMap & StrictStoreMap;
 declare const storeNameBrand: unique symbol;
-type BrandedStoreName = string & { readonly [storeNameBrand]: true };
+export type BrandedStoreName = string & { readonly [storeNameBrand]: true };
 export type StoreName = (keyof RegisteredStoreMap & string) | BrandedStoreName;
 export type StateFor<Name extends string> =
     Name extends keyof RegisteredStoreMap ? RegisteredStoreMap[Name] : StoreValue;

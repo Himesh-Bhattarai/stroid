@@ -35,7 +35,7 @@ import type {
 import type { SnapshotMode } from "../adapters/options.js";
 import type { FeatureMetrics } from "../features/feature-registry.js";
 
-type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
+export type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 
 const resolveSnapshotMode = (
     metaEntry: { options?: { snapshot?: SnapshotMode } } | undefined,

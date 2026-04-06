@@ -189,6 +189,180 @@
       "preserveMemberOrder": false,
       "members": [
         {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!AsyncCloneMode:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type AsyncCloneMode = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"none\" | \"shallow\" | \"deep\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index.d.ts",
+          "releaseTag": "Public",
+          "name": "AsyncCloneMode",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!AsyncMetricsSnapshot:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type AsyncMetricsSnapshot = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    cacheHits: number;\n    cacheMisses: number;\n    dedupes: number;\n    requests: number;\n    failures: number;\n    avgMs: number;\n    lastMs: number;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/registry.d.ts",
+          "releaseTag": "Public",
+          "name": "AsyncMetricsSnapshot",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!BrandedStoreName:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type BrandedStoreName = "
+            },
+            {
+              "kind": "Content",
+              "text": "string & {\n    readonly ["
+            },
+            {
+              "kind": "Reference",
+              "text": "storeNameBrand",
+              "canonicalReference": "stroid!~storeNameBrand:var"
+            },
+            {
+              "kind": "Content",
+              "text": "]: true;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types.d.ts",
+          "releaseTag": "Public",
+          "name": "BrandedStoreName",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 4
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!ColdStoreReport:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type ColdStoreReport = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    name: string;\n    createdAt: string;\n    lastReadAt: string | null;\n    updateCount: number;\n    readCount: number;\n    subscriberCount: number;\n    ageMs: number;\n    verdict: \"cold\" | \"write-only\" | \"stale\" | \"active\";\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/core-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "ColdStoreReport",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!ComputedClassification:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type ComputedClassification = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"deterministic\" | \"opaque\" | \"asyncBoundary\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-2.d.ts",
+          "releaseTag": "Public",
+          "name": "ComputedClassification",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!ComputedOptions:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type ComputedOptions = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    autoDispose?: boolean;\n    onError?: (err: unknown) => void;\n    classification?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "ComputedClassification",
+              "canonicalReference": "stroid!ComputedClassification:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/computed.d.ts",
+          "releaseTag": "Public",
+          "name": "ComputedOptions",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 4
+          }
+        },
+        {
           "kind": "Function",
           "canonicalReference": "stroid!configureStroid:function(1)",
           "docComment": "",
@@ -200,7 +374,7 @@
             {
               "kind": "Reference",
               "text": "StroidConfig",
-              "canonicalReference": "stroid!~StroidConfig:type"
+              "canonicalReference": "stroid!StroidConfig:type"
             },
             {
               "kind": "Content",
@@ -255,7 +429,7 @@
             {
               "kind": "Reference",
               "text": "DepHandle",
-              "canonicalReference": "stroid!~DepHandle:type"
+              "canonicalReference": "stroid!DepHandle:type"
             },
             {
               "kind": "Content",
@@ -288,7 +462,7 @@
             {
               "kind": "Reference",
               "text": "DepValue",
-              "canonicalReference": "stroid!~DepValue:type"
+              "canonicalReference": "stroid!DepValue:type"
             },
             {
               "kind": "Content",
@@ -301,7 +475,7 @@
             {
               "kind": "Reference",
               "text": "ComputedOptions",
-              "canonicalReference": "stroid!~ComputedOptions:type"
+              "canonicalReference": "stroid!ComputedOptions:type"
             },
             {
               "kind": "Content",
@@ -448,7 +622,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 10,
             "endIndex": 12
@@ -548,7 +722,7 @@
             {
               "kind": "Reference",
               "text": "NonFunction",
-              "canonicalReference": "stroid!~NonFunction:type"
+              "canonicalReference": "stroid!NonFunction:type"
             },
             {
               "kind": "Content",
@@ -561,7 +735,7 @@
             {
               "kind": "Reference",
               "text": "LazyDisallow",
-              "canonicalReference": "stroid!~LazyDisallow:type"
+              "canonicalReference": "stroid!LazyDisallow:type"
             },
             {
               "kind": "Content",
@@ -585,7 +759,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 14,
             "endIndex": 16
@@ -715,7 +889,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 10,
             "endIndex": 12
@@ -815,7 +989,7 @@
             {
               "kind": "Reference",
               "text": "NonFunction",
-              "canonicalReference": "stroid!~NonFunction:type"
+              "canonicalReference": "stroid!NonFunction:type"
             },
             {
               "kind": "Content",
@@ -828,7 +1002,7 @@
             {
               "kind": "Reference",
               "text": "LazyDisallow",
-              "canonicalReference": "stroid!~LazyDisallow:type"
+              "canonicalReference": "stroid!LazyDisallow:type"
             },
             {
               "kind": "Content",
@@ -852,7 +1026,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 14,
             "endIndex": 16
@@ -1002,7 +1176,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 6,
             "endIndex": 7
@@ -1084,7 +1258,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 6,
             "endIndex": 7
@@ -1162,7 +1336,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 5,
             "endIndex": 6
@@ -1193,6 +1367,476 @@
             }
           ],
           "name": "deleteStore"
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!DepHandle:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type DepHandle = "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreDefinition",
+              "canonicalReference": "stroid!StoreDefinition:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!StoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "> | "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreKey",
+              "canonicalReference": "stroid!StoreKey:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!StoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": ">"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/computed.d.ts",
+          "releaseTag": "Public",
+          "name": "DepHandle",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 9
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!DepValue:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type DepValue<T> = "
+            },
+            {
+              "kind": "Content",
+              "text": "T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreDefinition",
+              "canonicalReference": "stroid!StoreDefinition:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, infer S> ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "Readonly",
+              "canonicalReference": "!Readonly:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S> | null : T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreKey",
+              "canonicalReference": "stroid!StoreKey:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, infer S> ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "Readonly",
+              "canonicalReference": "!Readonly:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S> | null : T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreName",
+              "canonicalReference": "stroid!StoreName:type"
+            },
+            {
+              "kind": "Content",
+              "text": " ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "Readonly",
+              "canonicalReference": "!Readonly:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<"
+            },
+            {
+              "kind": "Reference",
+              "text": "StateFor",
+              "canonicalReference": "stroid!StateFor:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<T>> | null : "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!StoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": " | null"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/computed.d.ts",
+          "releaseTag": "Public",
+          "name": "DepValue",
+          "typeParameters": [
+            {
+              "typeParameterName": "T",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 18
+          }
+        },
+        {
+          "kind": "Interface",
+          "canonicalReference": "stroid!DevtoolsOptions:interface",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "interface DevtoolsOptions<State = "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!OptionStoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "> "
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "typeParameters": [
+            {
+              "typeParameterName": "State",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "name": "DevtoolsOptions",
+          "preserveMemberOrder": false,
+          "members": [
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!DevtoolsOptions#enabled:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "enabled?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "enabled",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!DevtoolsOptions#historyLimit:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "historyLimit?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "historyLimit",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!DevtoolsOptions#redactor:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "redactor?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(state: State) => State"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "redactor",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "extendsTokenRanges": []
+        },
+        {
+          "kind": "Interface",
+          "canonicalReference": "stroid!FeatureMetrics:interface",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "interface FeatureMetrics "
+            }
+          ],
+          "fileUrlPath": "dist/feature.d.ts",
+          "releaseTag": "Public",
+          "name": "FeatureMetrics",
+          "preserveMemberOrder": false,
+          "members": [
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!FeatureMetrics#lastNotifyMs:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "lastNotifyMs: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "lastNotifyMs",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!FeatureMetrics#lastResetMs:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "lastResetMs: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "lastResetMs",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!FeatureMetrics#notifyCount:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "notifyCount: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "notifyCount",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!FeatureMetrics#resetCount:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "resetCount: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "resetCount",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!FeatureMetrics#totalNotifyMs:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "totalNotifyMs: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "totalNotifyMs",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!FeatureMetrics#totalResetMs:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "totalResetMs: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "totalResetMs",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "extendsTokenRanges": []
         },
         {
           "kind": "TypeAlias",
@@ -1235,7 +1879,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/options.d.ts",
+          "fileUrlPath": "dist/types-internal-3.d.ts",
           "releaseTag": "Public",
           "name": "FeatureOptions",
           "typeTokenRange": {
@@ -1253,7 +1897,7 @@
               "text": "interface FeatureOptionsMap "
             }
           ],
-          "fileUrlPath": "dist/options.d.ts",
+          "fileUrlPath": "dist/types-internal-3.d.ts",
           "releaseTag": "Public",
           "name": "FeatureOptionsMap",
           "preserveMemberOrder": false,
@@ -1280,7 +1924,7 @@
             {
               "kind": "Reference",
               "text": "ColdStoreReport",
-              "canonicalReference": "stroid!~ColdStoreReport:type"
+              "canonicalReference": "stroid!ColdStoreReport:type"
             },
             {
               "kind": "Content",
@@ -1307,9 +1951,35 @@
           "name": "findColdStores"
         },
         {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!FlushConfig:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type FlushConfig = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    chunkSize?: number;\n    chunkDelayMs?: number;\n    priorityStores?: string[];\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index.d.ts",
+          "releaseTag": "Public",
+          "name": "FlushConfig",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
           "kind": "Function",
           "canonicalReference": "stroid!getAsyncMetrics:function(1)",
-          "docComment": "",
+          "docComment": "/**\n * @module async/fetch/metrics\n *\n * LAYER: Module OWNS: Async fetch metrics readers.\n */\n",
           "excerptTokens": [
             {
               "kind": "Content",
@@ -1318,14 +1988,14 @@
             {
               "kind": "Reference",
               "text": "AsyncMetricsSnapshot",
-              "canonicalReference": "stroid!~AsyncMetricsSnapshot:type"
+              "canonicalReference": "stroid!AsyncMetricsSnapshot:type"
             },
             {
               "kind": "Content",
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/async.d.ts",
+          "fileUrlPath": "dist/metrics.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 1,
             "endIndex": 2
@@ -1355,7 +2025,7 @@
             {
               "kind": "Reference",
               "text": "AsyncMetricsSnapshot",
-              "canonicalReference": "stroid!~AsyncMetricsSnapshot:type"
+              "canonicalReference": "stroid!AsyncMetricsSnapshot:type"
             },
             {
               "kind": "Content",
@@ -1366,7 +2036,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/async.d.ts",
+          "fileUrlPath": "dist/metrics.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 3,
             "endIndex": 5
@@ -1405,14 +2075,14 @@
             {
               "kind": "Reference",
               "text": "FeatureMetrics",
-              "canonicalReference": "stroid!~FeatureMetrics:interface"
+              "canonicalReference": "stroid!FeatureMetrics:interface"
             },
             {
               "kind": "Content",
               "text": " | null"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 3,
             "endIndex": 5
@@ -1485,7 +2155,7 @@
             {
               "kind": "Reference",
               "text": "StoreSnapshot",
-              "canonicalReference": "stroid!~StoreSnapshot:type"
+              "canonicalReference": "stroid!StoreSnapshot:type"
             },
             {
               "kind": "Content",
@@ -1505,7 +2175,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 11,
             "endIndex": 15
@@ -1608,7 +2278,7 @@
             {
               "kind": "Reference",
               "text": "StoreSnapshot",
-              "canonicalReference": "stroid!~StoreSnapshot:type"
+              "canonicalReference": "stroid!StoreSnapshot:type"
             },
             {
               "kind": "Content",
@@ -1619,7 +2289,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 8,
             "endIndex": 10
@@ -1724,7 +2394,7 @@
             {
               "kind": "Reference",
               "text": "StoreSnapshot",
-              "canonicalReference": "stroid!~StoreSnapshot:type"
+              "canonicalReference": "stroid!StoreSnapshot:type"
             },
             {
               "kind": "Content",
@@ -1744,7 +2414,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 11,
             "endIndex": 15
@@ -1847,7 +2517,7 @@
             {
               "kind": "Reference",
               "text": "StoreSnapshot",
-              "canonicalReference": "stroid!~StoreSnapshot:type"
+              "canonicalReference": "stroid!StoreSnapshot:type"
             },
             {
               "kind": "Content",
@@ -1858,7 +2528,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 8,
             "endIndex": 10
@@ -1968,7 +2638,7 @@
             {
               "kind": "Reference",
               "text": "StoreSnapshot",
-              "canonicalReference": "stroid!~StoreSnapshot:type"
+              "canonicalReference": "stroid!StoreSnapshot:type"
             },
             {
               "kind": "Content",
@@ -1997,7 +2667,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 12,
             "endIndex": 18
@@ -2085,7 +2755,7 @@
             {
               "kind": "Reference",
               "text": "StoreSnapshot",
-              "canonicalReference": "stroid!~StoreSnapshot:type"
+              "canonicalReference": "stroid!StoreSnapshot:type"
             },
             {
               "kind": "Content",
@@ -2105,7 +2775,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 7,
             "endIndex": 11
@@ -2165,7 +2835,7 @@
             {
               "kind": "Reference",
               "text": "StoreHealthEntry",
-              "canonicalReference": "stroid!~StoreHealthEntry:type"
+              "canonicalReference": "stroid!StoreHealthEntry:type"
             },
             {
               "kind": "Content",
@@ -2174,7 +2844,7 @@
             {
               "kind": "Reference",
               "text": "StoreHealthReport",
-              "canonicalReference": "stroid!~StoreHealthReport:type"
+              "canonicalReference": "stroid!StoreHealthReport:type"
             },
             {
               "kind": "Content",
@@ -2222,7 +2892,7 @@
               "text": "boolean"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 3,
             "endIndex": 4
@@ -2240,6 +2910,125 @@
             }
           ],
           "name": "hasStore"
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrateOptions:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrateOptions<Snapshot extends "
+            },
+            {
+              "kind": "Content",
+              "text": "object"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Reference",
+              "text": "Partial",
+              "canonicalReference": "!Partial:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<{\n    [K in keyof Snapshot]: "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreOptions",
+              "canonicalReference": "stroid!StoreOptions:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "<Snapshot[K]>;\n}> & {\n    default?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreOptions",
+              "canonicalReference": "stroid!StoreOptions:interface"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrateOptions",
+          "typeParameters": [
+            {
+              "typeParameterName": "Snapshot",
+              "constraintTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 9
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrateSnapshot:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrateSnapshot = "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrateSnapshotFor",
+              "canonicalReference": "stroid!HydrateSnapshotFor:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<"
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreStateMap",
+              "canonicalReference": "stroid!StoreStateMap:interface"
+            },
+            {
+              "kind": "Content",
+              "text": " & "
+            },
+            {
+              "kind": "Reference",
+              "text": "StrictStoreMap",
+              "canonicalReference": "stroid!StrictStoreMap:interface"
+            },
+            {
+              "kind": "Content",
+              "text": ">"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrateSnapshot",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 7
+          }
         },
         {
           "kind": "TypeAlias",
@@ -2313,7 +3102,7 @@
             {
               "kind": "Reference",
               "text": "HydrateSnapshot",
-              "canonicalReference": "stroid!~HydrateSnapshot:type"
+              "canonicalReference": "stroid!HydrateSnapshot:type"
             },
             {
               "kind": "Content",
@@ -2330,7 +3119,7 @@
             {
               "kind": "Reference",
               "text": "HydrateOptions",
-              "canonicalReference": "stroid!~HydrateOptions:type"
+              "canonicalReference": "stroid!HydrateOptions:type"
             },
             {
               "kind": "Content",
@@ -2343,7 +3132,7 @@
             {
               "kind": "Reference",
               "text": "HydrationTrust",
-              "canonicalReference": "stroid!~HydrationTrust:type"
+              "canonicalReference": "stroid!HydrationTrust:type"
             },
             {
               "kind": "Content",
@@ -2427,6 +3216,32 @@
             }
           ],
           "name": "hydrateStores"
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationBlockReason:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationBlockReason = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"transaction\" | \"untrusted\" | \"validation-error\" | \"validation-failed\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationBlockReason",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
         },
         {
           "kind": "TypeAlias",
@@ -2615,7 +3430,7 @@
             {
               "kind": "Reference",
               "text": "HydrationConsistencyStoreContract",
-              "canonicalReference": "stroid!~HydrationConsistencyStoreContract:type"
+              "canonicalReference": "stroid!HydrationConsistencyStoreContract:type"
             },
             {
               "kind": "Content",
@@ -2841,6 +3656,46 @@
         },
         {
           "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationConsistencyStoreContract:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationConsistencyStoreContract = "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationSnapshotMetadata",
+              "canonicalReference": "stroid!HydrationSnapshotMetadata:type"
+            },
+            {
+              "kind": "Content",
+              "text": " & {\n    authority?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencyAuthority",
+              "canonicalReference": "stroid!HydrationConsistencyAuthority:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationConsistencyStoreContract",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 5
+          }
+        },
+        {
+          "kind": "TypeAlias",
           "canonicalReference": "stroid!HydrationConsistencyStorePolicy:type",
           "docComment": "",
           "excerptTokens": [
@@ -2877,7 +3732,7 @@
             {
               "kind": "Reference",
               "text": "HydrationMergeArgs",
-              "canonicalReference": "stroid!~HydrationMergeArgs:type"
+              "canonicalReference": "stroid!HydrationMergeArgs:type"
             },
             {
               "kind": "Content",
@@ -2886,7 +3741,7 @@
             {
               "kind": "Reference",
               "text": "HydrationInvalidateArgs",
-              "canonicalReference": "stroid!~HydrationInvalidateArgs:type"
+              "canonicalReference": "stroid!HydrationInvalidateArgs:type"
             },
             {
               "kind": "Content",
@@ -3039,7 +3894,7 @@
             {
               "kind": "Reference",
               "text": "HydrationFailureReason",
-              "canonicalReference": "stroid!~HydrationFailureReason:type"
+              "canonicalReference": "stroid!HydrationFailureReason:type"
             },
             {
               "kind": "Content",
@@ -3056,6 +3911,144 @@
           "typeTokenRange": {
             "startIndex": 1,
             "endIndex": 4
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationFailureReason:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationFailureReason = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"invalid-name\" | \"create-failed\" | \"merge-failed\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationFailureReason",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationInvalidateArgs:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationInvalidateArgs<State = "
+            },
+            {
+              "kind": "Content",
+              "text": "unknown"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    store: string;\n    baseline: State;\n    live: State;\n    source: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencySource",
+              "canonicalReference": "stroid!HydrationConsistencySource:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationInvalidateArgs",
+          "typeParameters": [
+            {
+              "typeParameterName": "State",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 6
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationMergeArgs:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationMergeArgs<State = "
+            },
+            {
+              "kind": "Content",
+              "text": "unknown"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    store: string;\n    baseline: State;\n    live: State;\n    source: "
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationConsistencySource",
+              "canonicalReference": "stroid!HydrationConsistencySource:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationMergeArgs",
+          "typeParameters": [
+            {
+              "typeParameterName": "State",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 6
           }
         },
         {
@@ -3083,7 +4076,7 @@
             {
               "kind": "Reference",
               "text": "HydrationBlockReason",
-              "canonicalReference": "stroid!~HydrationBlockReason:type"
+              "canonicalReference": "stroid!HydrationBlockReason:type"
             },
             {
               "kind": "Content",
@@ -3135,6 +4128,136 @@
           "typeTokenRange": {
             "startIndex": 1,
             "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationTrust:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationTrust<Snapshot extends "
+            },
+            {
+              "kind": "Content",
+              "text": "object"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Content",
+              "text": "("
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationTrustBase",
+              "canonicalReference": "stroid!HydrationTrustBase:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<Snapshot> & {\n    allowTrusted: true;\n}) | ("
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationTrustBase",
+              "canonicalReference": "stroid!HydrationTrustBase:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<Snapshot> & {\n    allowHydration: true;\n}) | ("
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationTrustBase",
+              "canonicalReference": "stroid!HydrationTrustBase:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<Snapshot> & {\n    allowUntrusted: true;\n}) | ("
+            },
+            {
+              "kind": "Reference",
+              "text": "HydrationTrustBase",
+              "canonicalReference": "stroid!HydrationTrustBase:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<Snapshot> & {\n    validate: (snapshot: Snapshot) => boolean;\n})"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationTrust",
+          "typeParameters": [
+            {
+              "typeParameterName": "Snapshot",
+              "constraintTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 12
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!HydrationTrustBase:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type HydrationTrustBase<Snapshot extends "
+            },
+            {
+              "kind": "Content",
+              "text": "object"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    allowTrusted?: boolean;\n    allowHydration?: boolean;\n    allowUntrusted?: boolean;\n    validate?: (snapshot: Snapshot) => boolean;\n    onValidationError?: (error: unknown, snapshot: Snapshot) => boolean;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index.d.ts",
+          "releaseTag": "Public",
+          "name": "HydrationTrustBase",
+          "typeParameters": [
+            {
+              "typeParameterName": "Snapshot",
+              "constraintTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 4
           }
         },
         {
@@ -3220,6 +4343,541 @@
           "name": "isComputedStore"
         },
         {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!IsStoreNameLoose:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type IsStoreNameLoose = "
+            },
+            {
+              "kind": "Content",
+              "text": "string extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreName",
+              "canonicalReference": "stroid!StoreName:type"
+            },
+            {
+              "kind": "Content",
+              "text": " ? true : false"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "IsStoreNameLoose",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 4
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!LazyDisallow:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type LazyDisallow<T> = "
+            },
+            {
+              "kind": "Content",
+              "text": "T extends {\n    lazy: true;\n} ? never : T"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "LazyDisallow",
+          "typeParameters": [
+            {
+              "typeParameterName": "T",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "Interface",
+          "canonicalReference": "stroid!LifecycleOptions:interface",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "interface LifecycleOptions<State = "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!OptionStoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "> "
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "typeParameters": [
+            {
+              "typeParameterName": "State",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "name": "LifecycleOptions",
+          "preserveMemberOrder": false,
+          "members": [
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!LifecycleOptions#middleware:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "middleware?: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "Array",
+                  "canonicalReference": "!Array:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": "<(ctx: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "MiddlewareCtx",
+                  "canonicalReference": "stroid!MiddlewareCtx:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": ") => "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": " | void>"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "middleware",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 7
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!LifecycleOptions#onCreate:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onCreate?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(initial: State) => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onCreate",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!LifecycleOptions#onDelete:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onDelete?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(prev: State) => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onDelete",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!LifecycleOptions#onReset:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onReset?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(prev: State, next: State) => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onReset",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!LifecycleOptions#onSet:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onSet?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(prev: State, next: State) => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onSet",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "extendsTokenRanges": []
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!LogSink:type",
+          "docComment": "/**\n * @module internals/config\n *\n * LAYER: Internal subsystem OWNS: Module-level behavior and exports for internals/config.\n *\n * Consumers: Internal imports and public API.\n */\n",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type LogSink = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    log?: (msg: string, meta?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "Record",
+              "canonicalReference": "!Record:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, unknown>) => void;\n    warn?: (msg: string, meta?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "Record",
+              "canonicalReference": "!Record:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, unknown>) => void;\n    critical?: (msg: string, meta?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "Record",
+              "canonicalReference": "!Record:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, unknown>) => void;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index.d.ts",
+          "releaseTag": "Public",
+          "name": "LogSink",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 8
+          }
+        },
+        {
+          "kind": "Interface",
+          "canonicalReference": "stroid!MiddlewareCtx:interface",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "interface MiddlewareCtx "
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "MiddlewareCtx",
+          "preserveMemberOrder": false,
+          "members": [
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!MiddlewareCtx#action:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "action: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "action",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!MiddlewareCtx#correlationId:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "correlationId?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "correlationId",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!MiddlewareCtx#name:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "name: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "name",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!MiddlewareCtx#next:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "next: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "next",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!MiddlewareCtx#path:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "path: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "unknown"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "path",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!MiddlewareCtx#prev:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "prev: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "prev",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!MiddlewareCtx#traceContext:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "traceContext?: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "TraceContext",
+                  "canonicalReference": "stroid!TraceContext:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "traceContext",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "extendsTokenRanges": []
+        },
+        {
           "kind": "Function",
           "canonicalReference": "stroid!namespace:function(1)",
           "docComment": "",
@@ -3252,7 +4910,7 @@
             {
               "kind": "Reference",
               "text": "NonFunction",
-              "canonicalReference": "stroid!~NonFunction:type"
+              "canonicalReference": "stroid!NonFunction:type"
             },
             {
               "kind": "Content",
@@ -3279,7 +4937,7 @@
             {
               "kind": "Reference",
               "text": "NonFunction",
-              "canonicalReference": "stroid!~NonFunction:type"
+              "canonicalReference": "stroid!NonFunction:type"
             },
             {
               "kind": "Content",
@@ -3370,6 +5028,902 @@
         },
         {
           "kind": "TypeAlias",
+          "canonicalReference": "stroid!NonFunction:type",
+          "docComment": "/**\n * @module types/utility\n *\n * LAYER: Types OWNS: Shared utility types for cross-module reuse.\n *\n * Consumers: store-create.ts, store-name.ts, computed.ts, testing.ts.\n */\n",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type NonFunction<T> = "
+            },
+            {
+              "kind": "Content",
+              "text": "T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "Function",
+              "canonicalReference": "!Function:interface"
+            },
+            {
+              "kind": "Content",
+              "text": " ? never : T"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/utility.d.ts",
+          "releaseTag": "Public",
+          "name": "NonFunction",
+          "typeParameters": [
+            {
+              "typeParameterName": "T",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 4
+          }
+        },
+        {
+          "kind": "Interface",
+          "canonicalReference": "stroid!NormalizedOptions:interface",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "interface NormalizedOptions "
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "NormalizedOptions",
+          "preserveMemberOrder": false,
+          "members": [
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#allowSSRGlobalStore:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "allowSSRGlobalStore?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "allowSSRGlobalStore",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#devtools:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "devtools: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "devtools",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#explicitDevtools:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "explicitDevtools: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "explicitDevtools",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#explicitPersist:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "explicitPersist: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "explicitPersist",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#explicitSync:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "explicitSync: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "explicitSync",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#features:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "features?: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "FeatureOptions",
+                  "canonicalReference": "stroid!FeatureOptions:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "features",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#historyLimit:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "historyLimit: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "historyLimit",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#lazy:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "lazy: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "lazy",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#middleware:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "middleware: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "Array",
+                  "canonicalReference": "!Array:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": "<(ctx: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "MiddlewareCtx",
+                  "canonicalReference": "stroid!MiddlewareCtx:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": ") => "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": " | void>"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "middleware",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 7
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#migrations:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "migrations: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "Record",
+                  "canonicalReference": "!Record:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": "<number, (state: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ") => "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ">"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "migrations",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 7
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#onCreate:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onCreate?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(initial: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ") => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onCreate",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 4
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#onDelete:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onDelete?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(prev: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ") => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onDelete",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 4
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#onError:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onError?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(err: string) => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onError",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#onReset:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onReset?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(prev: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ", next: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ") => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onReset",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 6
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#onSet:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onSet?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(prev: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ", next: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ") => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onSet",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 6
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#pathCreate:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "pathCreate: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "pathCreate",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#persist:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "persist: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "PersistConfig",
+                  "canonicalReference": "stroid!PersistConfig:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": " | null"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "persist",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 3
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#redactor:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "redactor?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(state: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ") => "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreValue",
+                  "canonicalReference": "stroid!OptionStoreValue:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "redactor",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 5
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#resetClone:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "resetClone: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "ResetCloneMode",
+                  "canonicalReference": "stroid!ResetCloneMode:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "resetClone",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#scope:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "scope: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "StoreScope",
+                  "canonicalReference": "stroid!StoreScope:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "scope",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#snapshot:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "snapshot: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "SnapshotMode",
+                  "canonicalReference": "stroid!SnapshotMode:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "snapshot",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#snapshotSafety:member",
+              "docComment": "/**\n * normalized snapshotSafety value\n */\n",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "snapshotSafety?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "\"warn\" | \"throw\" | \"auto-clone\""
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "snapshotSafety",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#sync:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "sync?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean | "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "SyncOptions",
+                  "canonicalReference": "stroid!SyncOptions:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "sync",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 3
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#validate:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "validate?: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "ValidateOption",
+                  "canonicalReference": "stroid!ValidateOption:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "validate",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!NormalizedOptions#version:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "version: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "version",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "extendsTokenRanges": []
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!OptionStoreValue:type",
+          "docComment": "/**\n * @module adapters/options/types\n *\n * LAYER: Module OWNS: Shared option and config types for store adapters.\n */\n",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StoreValue = "
+            },
+            {
+              "kind": "Content",
+              "text": "unknown"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "OptionStoreValue",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
           "canonicalReference": "stroid!PartialDeep:type",
           "docComment": "",
           "excerptTokens": [
@@ -3384,7 +5938,7 @@
             {
               "kind": "Reference",
               "text": "Primitive",
-              "canonicalReference": "stroid!~Primitive:type"
+              "canonicalReference": "stroid!Primitive:type"
             },
             {
               "kind": "Content",
@@ -3453,7 +6007,7 @@
             {
               "kind": "Reference",
               "text": "PathInternal",
-              "canonicalReference": "stroid!~PathInternal:type"
+              "canonicalReference": "stroid!PathInternal:type"
             },
             {
               "kind": "Content",
@@ -3494,6 +6048,172 @@
           "typeTokenRange": {
             "startIndex": 5,
             "endIndex": 7
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!PathDepth:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type PathDepth<T, Depth extends "
+            },
+            {
+              "kind": "Content",
+              "text": "number"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Reference",
+              "text": "PathInternal",
+              "canonicalReference": "stroid!PathInternal:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<T, Depth>"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types.d.ts",
+          "releaseTag": "Public",
+          "name": "PathDepth",
+          "typeParameters": [
+            {
+              "typeParameterName": "T",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            },
+            {
+              "typeParameterName": "Depth",
+              "constraintTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 5
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!PathInternal:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type PathInternal<T, Depth extends "
+            },
+            {
+              "kind": "Content",
+              "text": "number"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Content",
+              "text": "Depth extends 0 ? never : T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "Primitive",
+              "canonicalReference": "stroid!Primitive:type"
+            },
+            {
+              "kind": "Content",
+              "text": " ? never : {\n    [K in keyof T & (string | number)]: T[K] extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "Primitive",
+              "canonicalReference": "stroid!Primitive:type"
+            },
+            {
+              "kind": "Content",
+              "text": " | "
+            },
+            {
+              "kind": "Reference",
+              "text": "Array",
+              "canonicalReference": "!Array:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "<unknown> ? `${K}` : `${K}` | `${K}.${"
+            },
+            {
+              "kind": "Reference",
+              "text": "PathInternal",
+              "canonicalReference": "stroid!PathInternal:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<T[K], "
+            },
+            {
+              "kind": "Reference",
+              "text": "PrevDepth",
+              "canonicalReference": "stroid!PrevDepth:type"
+            },
+            {
+              "kind": "Content",
+              "text": "[Depth]>}`;\n}[keyof T & (string | number)]"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types.d.ts",
+          "releaseTag": "Public",
+          "name": "PathInternal",
+          "typeParameters": [
+            {
+              "typeParameterName": "T",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            },
+            {
+              "typeParameterName": "Depth",
+              "constraintTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 14
           }
         },
         {
@@ -3579,6 +6299,591 @@
         },
         {
           "kind": "Interface",
+          "canonicalReference": "stroid!PersistConfig:interface",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "interface PersistConfig "
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "PersistConfig",
+          "preserveMemberOrder": false,
+          "members": [
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#allowPlaintext:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "allowPlaintext?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "allowPlaintext",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#checksum:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "checksum: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "\"hash\" | \"none\" | \"sha256\""
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "checksum",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#decrypt:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "decrypt: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(v: string) => string"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "decrypt",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#decryptAsync:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "decryptAsync?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(v: string) => "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "Promise",
+                  "canonicalReference": "!Promise:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": "<string>"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "decryptAsync",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 4
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#deserialize:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "deserialize: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(v: string) => unknown"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "deserialize",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#driver:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "driver: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "PersistDriver",
+                  "canonicalReference": "stroid!PersistDriver:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "driver",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#encrypt:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "encrypt: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(v: string) => string"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "encrypt",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#encryptAsync:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "encryptAsync?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(v: string) => "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "Promise",
+                  "canonicalReference": "!Promise:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": "<string>"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "encryptAsync",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 4
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#key:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "key: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "key",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#maxSize:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "maxSize?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "maxSize",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#onMigrationFail:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onMigrationFail?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "\"reset\" | \"keep\" | ((state: unknown) => unknown)"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onMigrationFail",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#onStorageCleared:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "onStorageCleared?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(info: {\n        name: string;\n        key: string;\n        reason: \"clear\" | \"remove\" | \"missing\";\n    }) => void"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "onStorageCleared",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#sensitiveData:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "sensitiveData?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "boolean"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "sensitiveData",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistConfig#serialize:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "serialize: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(v: unknown) => string"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "serialize",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "extendsTokenRanges": []
+        },
+        {
+          "kind": "Interface",
+          "canonicalReference": "stroid!PersistDriver:interface",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "interface PersistDriver "
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "PersistDriver",
+          "preserveMemberOrder": false,
+          "members": [
+            {
+              "kind": "IndexSignature",
+              "canonicalReference": "stroid!PersistDriver:index(1)",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "[key: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string"
+                },
+                {
+                  "kind": "Content",
+                  "text": "]: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "unknown"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "returnTypeTokenRange": {
+                "startIndex": 3,
+                "endIndex": 4
+              },
+              "releaseTag": "Public",
+              "overloadIndex": 1,
+              "parameters": [
+                {
+                  "parameterName": "key",
+                  "parameterTypeTokenRange": {
+                    "startIndex": 1,
+                    "endIndex": 2
+                  },
+                  "isOptional": false
+                }
+              ]
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistDriver#getItem:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "getItem?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(k: string) => string | null | "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "Promise",
+                  "canonicalReference": "!Promise:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": "<string | null>"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "getItem",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 4
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistDriver#removeItem:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "removeItem?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(k: string) => void | "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "Promise",
+                  "canonicalReference": "!Promise:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": "<void>"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "removeItem",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 4
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!PersistDriver#setItem:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "setItem?: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "(k: string, v: string) => void | "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "Promise",
+                  "canonicalReference": "!Promise:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": "<void>"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": true,
+              "releaseTag": "Public",
+              "name": "setItem",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 4
+              }
+            }
+          ],
+          "extendsTokenRanges": []
+        },
+        {
+          "kind": "Interface",
           "canonicalReference": "stroid!PersistOptions:interface",
           "docComment": "",
           "excerptTokens": [
@@ -3589,14 +6894,14 @@
             {
               "kind": "Reference",
               "text": "StoreValue",
-              "canonicalReference": "stroid!~StoreValue_2:type"
+              "canonicalReference": "stroid!OptionStoreValue:type"
             },
             {
               "kind": "Content",
               "text": "> "
             }
           ],
-          "fileUrlPath": "dist/options.d.ts",
+          "fileUrlPath": "dist/types-internal-3.d.ts",
           "releaseTag": "Public",
           "typeParameters": [
             {
@@ -3770,7 +7075,7 @@
                 {
                   "kind": "Reference",
                   "text": "PersistDriver",
-                  "canonicalReference": "stroid!~PersistDriver:interface"
+                  "canonicalReference": "stroid!PersistDriver:interface"
                 },
                 {
                   "kind": "Content",
@@ -4055,7 +7360,7 @@
                 {
                   "kind": "Reference",
                   "text": "PersistDriver",
-                  "canonicalReference": "stroid!~PersistDriver:interface"
+                  "canonicalReference": "stroid!PersistDriver:interface"
                 },
                 {
                   "kind": "Content",
@@ -4102,6 +7407,58 @@
           "extendsTokenRanges": []
         },
         {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!PrevDepth:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type PrevDepth = "
+            },
+            {
+              "kind": "Content",
+              "text": "[never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types.d.ts",
+          "releaseTag": "Public",
+          "name": "PrevDepth",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!Primitive:type",
+          "docComment": "/**\n * @module store-lifecycle/types\n *\n * LAYER: Store lifecycle OWNS: Module-level behavior and exports for store-lifecycle/types.\n *\n * Consumers: Internal imports and public API.\n */\n",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type Primitive = "
+            },
+            {
+              "kind": "Content",
+              "text": "string | number | boolean | bigint | symbol | null | undefined"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types.d.ts",
+          "releaseTag": "Public",
+          "name": "Primitive",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
           "kind": "Namespace",
           "canonicalReference": "stroid!queryIntegrations:namespace",
           "docComment": "",
@@ -4116,6 +7473,68 @@
           "name": "queryIntegrations",
           "preserveMemberOrder": false,
           "members": []
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!RegisteredStoreMap:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type RegisteredStoreMap = "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreStateMap",
+              "canonicalReference": "stroid!StoreStateMap:interface"
+            },
+            {
+              "kind": "Content",
+              "text": " & "
+            },
+            {
+              "kind": "Reference",
+              "text": "StrictStoreMap",
+              "canonicalReference": "stroid!StrictStoreMap:interface"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types.d.ts",
+          "releaseTag": "Public",
+          "name": "RegisteredStoreMap",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 4
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!ResetCloneMode:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type ResetCloneMode = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"deep\" | \"shallow\" | \"none\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "ResetCloneMode",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
         },
         {
           "kind": "Function",
@@ -4157,7 +7576,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 6,
             "endIndex": 7
@@ -4240,7 +7659,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 6,
             "endIndex": 7
@@ -4319,7 +7738,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 5,
             "endIndex": 6
@@ -4352,6 +7771,58 @@
           "name": "resetStore"
         },
         {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!RevalidateOnFocusConfig:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type RevalidateOnFocusConfig = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    debounceMs?: number;\n    maxConcurrent?: number;\n    staggerMs?: number;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index.d.ts",
+          "releaseTag": "Public",
+          "name": "RevalidateOnFocusConfig",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!SchemaValidateOption:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type SchemaValidateOption = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    safeParse: (value: unknown) => {\n        success: true;\n        data: unknown;\n    } | {\n        success: false;\n        error?: unknown;\n    };\n} | {\n    parse: (value: unknown) => unknown;\n} | {\n    validateSync: (value: unknown) => unknown;\n} | {\n    isValidSync: (value: unknown) => boolean;\n} | {\n    validate: (value: unknown) => unknown;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "SchemaValidateOption",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
           "kind": "Function",
           "canonicalReference": "stroid!setStore:function(1)",
           "docComment": "",
@@ -4363,7 +7834,7 @@
             {
               "kind": "Reference",
               "text": "StoreTarget",
-              "canonicalReference": "stroid!~StoreTarget:type"
+              "canonicalReference": "stroid!StoreTarget:type"
             },
             {
               "kind": "Content",
@@ -4372,7 +7843,7 @@
             {
               "kind": "Reference",
               "text": "StorePathForTarget",
-              "canonicalReference": "stroid!~StorePathForTarget:type"
+              "canonicalReference": "stroid!StorePathForTarget:type"
             },
             {
               "kind": "Content",
@@ -4401,7 +7872,7 @@
             {
               "kind": "Reference",
               "text": "StorePathValueForTarget",
-              "canonicalReference": "stroid!~StorePathValueForTarget:type"
+              "canonicalReference": "stroid!StorePathValueForTarget:type"
             },
             {
               "kind": "Content",
@@ -4421,7 +7892,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 13,
             "endIndex": 14
@@ -4492,7 +7963,7 @@
             {
               "kind": "Reference",
               "text": "StoreTarget",
-              "canonicalReference": "stroid!~StoreTarget:type"
+              "canonicalReference": "stroid!StoreTarget:type"
             },
             {
               "kind": "Content",
@@ -4509,7 +7980,7 @@
             {
               "kind": "Reference",
               "text": "StoreUpdateForTarget",
-              "canonicalReference": "stroid!~StoreUpdateForTarget:type"
+              "canonicalReference": "stroid!StoreUpdateForTarget:type"
             },
             {
               "kind": "Content",
@@ -4529,7 +8000,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/index-mo.d.ts",
+          "fileUrlPath": "dist/index-internal.d.ts",
           "returnTypeTokenRange": {
             "startIndex": 8,
             "endIndex": 9
@@ -4612,6 +8083,32 @@
         },
         {
           "kind": "TypeAlias",
+          "canonicalReference": "stroid!SnapshotMode:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type SnapshotMode = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"deep\" | \"shallow\" | \"ref\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "SnapshotMode",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
           "canonicalReference": "stroid!StateFor:type",
           "docComment": "",
           "excerptTokens": [
@@ -4634,7 +8131,7 @@
             {
               "kind": "Reference",
               "text": "RegisteredStoreMap",
-              "canonicalReference": "stroid!~RegisteredStoreMap:type"
+              "canonicalReference": "stroid!RegisteredStoreMap:type"
             },
             {
               "kind": "Content",
@@ -4643,7 +8140,7 @@
             {
               "kind": "Reference",
               "text": "RegisteredStoreMap",
-              "canonicalReference": "stroid!~RegisteredStoreMap:type"
+              "canonicalReference": "stroid!RegisteredStoreMap:type"
             },
             {
               "kind": "Content",
@@ -4889,6 +8386,524 @@
           "extendsTokenRanges": []
         },
         {
+          "kind": "Interface",
+          "canonicalReference": "stroid!StoreFeatureMeta:interface",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "interface StoreFeatureMeta "
+            }
+          ],
+          "fileUrlPath": "dist/feature.d.ts",
+          "releaseTag": "Public",
+          "name": "StoreFeatureMeta",
+          "preserveMemberOrder": false,
+          "members": [
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#createdAt:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "createdAt: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "createdAt",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#lastCorrelationAt:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "lastCorrelationAt: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string | null"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "lastCorrelationAt",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#lastCorrelationAtMs:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "lastCorrelationAtMs: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number | null"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "lastCorrelationAtMs",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#lastCorrelationId:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "lastCorrelationId: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string | null"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "lastCorrelationId",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#lastReadAt:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "lastReadAt: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string | null"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "lastReadAt",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#lastReadAtMs:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "lastReadAtMs: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number | null"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "lastReadAtMs",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#lastTraceContext:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "lastTraceContext: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "TraceContext",
+                  "canonicalReference": "stroid!TraceContext:type"
+                },
+                {
+                  "kind": "Content",
+                  "text": " | null"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "lastTraceContext",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 3
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#metrics:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "metrics: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "FeatureMetrics",
+                  "canonicalReference": "stroid!FeatureMetrics:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "metrics",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#options:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "options: "
+                },
+                {
+                  "kind": "Reference",
+                  "text": "NormalizedOptions",
+                  "canonicalReference": "stroid!NormalizedOptions:interface"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "options",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#readCount:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "readCount: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "readCount",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#updateCount:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "updateCount: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "updateCount",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#updatedAt:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "updatedAt: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "string"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "updatedAt",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#updatedAtMs:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "updatedAtMs: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "updatedAtMs",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            },
+            {
+              "kind": "PropertySignature",
+              "canonicalReference": "stroid!StoreFeatureMeta#version:member",
+              "docComment": "",
+              "excerptTokens": [
+                {
+                  "kind": "Content",
+                  "text": "version: "
+                },
+                {
+                  "kind": "Content",
+                  "text": "number"
+                },
+                {
+                  "kind": "Content",
+                  "text": ";"
+                }
+              ],
+              "isReadonly": false,
+              "isOptional": false,
+              "releaseTag": "Public",
+              "name": "version",
+              "propertyTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "extendsTokenRanges": []
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StoreHealthEntry:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StoreHealthEntry = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    name: string;\n    meta: "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreFeatureMeta",
+              "canonicalReference": "stroid!StoreFeatureMeta:interface"
+            },
+            {
+              "kind": "Content",
+              "text": " | null;\n    metrics: "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreFeatureMeta",
+              "canonicalReference": "stroid!StoreFeatureMeta:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "[\"metrics\"] | null;\n    async: {\n        inflight: number;\n        lastCorrelationId: string | null;\n        traceContext: "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreFeatureMeta",
+              "canonicalReference": "stroid!StoreFeatureMeta:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "[\"lastTraceContext\"] | null;\n    };\n    persist: {\n        queueDepth: number;\n    };\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/async-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "StoreHealthEntry",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 8
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StoreHealthReport:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StoreHealthReport = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    stores: "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreHealthEntry",
+              "canonicalReference": "stroid!StoreHealthEntry:type"
+            },
+            {
+              "kind": "Content",
+              "text": "[];\n    async: "
+            },
+            {
+              "kind": "Reference",
+              "text": "ReturnType",
+              "canonicalReference": "!ReturnType:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<typeof "
+            },
+            {
+              "kind": "Reference",
+              "text": "getAsyncMetrics",
+              "canonicalReference": "stroid!getAsyncMetrics:function"
+            },
+            {
+              "kind": "Content",
+              "text": ">;\n    registry: {\n        totalStores: number;\n        coldStores: "
+            },
+            {
+              "kind": "Reference",
+              "text": "ColdStoreReport",
+              "canonicalReference": "stroid!ColdStoreReport:type"
+            },
+            {
+              "kind": "Content",
+              "text": "[];\n    };\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/async-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "StoreHealthReport",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 10
+          }
+        },
+        {
           "kind": "TypeAlias",
           "canonicalReference": "stroid!StoreKey:type",
           "docComment": "",
@@ -4984,7 +8999,7 @@
             {
               "kind": "Reference",
               "text": "RegisteredStoreMap",
-              "canonicalReference": "stroid!~RegisteredStoreMap:type"
+              "canonicalReference": "stroid!RegisteredStoreMap:type"
             },
             {
               "kind": "Content",
@@ -4993,7 +9008,7 @@
             {
               "kind": "Reference",
               "text": "BrandedStoreName",
-              "canonicalReference": "stroid!~BrandedStoreName:type"
+              "canonicalReference": "stroid!BrandedStoreName:type"
             },
             {
               "kind": "Content",
@@ -5020,14 +9035,14 @@
             {
               "kind": "Reference",
               "text": "StoreValue",
-              "canonicalReference": "stroid!~StoreValue_2:type"
+              "canonicalReference": "stroid!OptionStoreValue:type"
             },
             {
               "kind": "Content",
               "text": "> "
             }
           ],
-          "fileUrlPath": "dist/options.d.ts",
+          "fileUrlPath": "dist/types-internal-3.d.ts",
           "releaseTag": "Public",
           "typeParameters": [
             {
@@ -5088,7 +9103,7 @@
                 {
                   "kind": "Reference",
                   "text": "DevtoolsOptions",
-                  "canonicalReference": "stroid!~DevtoolsOptions:interface"
+                  "canonicalReference": "stroid!DevtoolsOptions:interface"
                 },
                 {
                   "kind": "Content",
@@ -5202,7 +9217,7 @@
                 {
                   "kind": "Reference",
                   "text": "LifecycleOptions",
-                  "canonicalReference": "stroid!~LifecycleOptions:interface"
+                  "canonicalReference": "stroid!LifecycleOptions:interface"
                 },
                 {
                   "kind": "Content",
@@ -5243,7 +9258,7 @@
                 {
                   "kind": "Reference",
                   "text": "MiddlewareCtx",
-                  "canonicalReference": "stroid!~MiddlewareCtx:interface"
+                  "canonicalReference": "stroid!MiddlewareCtx:interface"
                 },
                 {
                   "kind": "Content",
@@ -5252,7 +9267,7 @@
                 {
                   "kind": "Reference",
                   "text": "StoreValue",
-                  "canonicalReference": "stroid!~StoreValue_2:type"
+                  "canonicalReference": "stroid!OptionStoreValue:type"
                 },
                 {
                   "kind": "Content",
@@ -5541,7 +9556,7 @@
                 {
                   "kind": "Reference",
                   "text": "ResetCloneMode",
-                  "canonicalReference": "stroid!~ResetCloneMode:type"
+                  "canonicalReference": "stroid!ResetCloneMode:type"
                 },
                 {
                   "kind": "Content",
@@ -5596,7 +9611,7 @@
                 {
                   "kind": "Reference",
                   "text": "StoreScope",
-                  "canonicalReference": "stroid!~StoreScope:type"
+                  "canonicalReference": "stroid!StoreScope:type"
                 },
                 {
                   "kind": "Content",
@@ -5624,7 +9639,7 @@
                 {
                   "kind": "Reference",
                   "text": "SnapshotMode",
-                  "canonicalReference": "stroid!~SnapshotMode:type"
+                  "canonicalReference": "stroid!SnapshotMode:type"
                 },
                 {
                   "kind": "Content",
@@ -5651,7 +9666,7 @@
                 },
                 {
                   "kind": "Content",
-                  "text": "'warn' | 'throw' | 'auto-clone'"
+                  "text": "\"warn\" | \"throw\" | \"auto-clone\""
                 },
                 {
                   "kind": "Content",
@@ -5711,7 +9726,7 @@
                 {
                   "kind": "Reference",
                   "text": "ValidateOption",
-                  "canonicalReference": "stroid!~ValidateOption:type"
+                  "canonicalReference": "stroid!ValidateOption:type"
                 },
                 {
                   "kind": "Content",
@@ -5789,6 +9804,349 @@
           "extendsTokenRanges": []
         },
         {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StorePathForTarget:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StorePathForTarget<T> = "
+            },
+            {
+              "kind": "Content",
+              "text": "T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreDefinition",
+              "canonicalReference": "stroid!StoreDefinition:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "<infer _Name extends string, infer S> ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "Path",
+              "canonicalReference": "stroid!Path:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S> : T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreKey",
+              "canonicalReference": "stroid!StoreKey:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<infer _Name extends string, infer S> ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "Path",
+              "canonicalReference": "stroid!Path:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S> : ("
+            },
+            {
+              "kind": "Reference",
+              "text": "IsStoreNameLoose",
+              "canonicalReference": "stroid!IsStoreNameLoose:type"
+            },
+            {
+              "kind": "Content",
+              "text": " extends true ? string | string[] : (T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreName",
+              "canonicalReference": "stroid!StoreName:type"
+            },
+            {
+              "kind": "Content",
+              "text": " ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "Path",
+              "canonicalReference": "stroid!Path:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<"
+            },
+            {
+              "kind": "Reference",
+              "text": "StateFor",
+              "canonicalReference": "stroid!StateFor:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<T>> : string | string[]))"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "StorePathForTarget",
+          "typeParameters": [
+            {
+              "typeParameterName": "T",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 18
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StorePathValueForTarget:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StorePathValueForTarget<T, P> = "
+            },
+            {
+              "kind": "Content",
+              "text": "T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreDefinition",
+              "canonicalReference": "stroid!StoreDefinition:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "<infer _Name extends string, infer S> ? (P extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "Path",
+              "canonicalReference": "stroid!Path:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S> ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "PathValue",
+              "canonicalReference": "stroid!PathValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S, P> : never) : T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreKey",
+              "canonicalReference": "stroid!StoreKey:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<infer _Name extends string, infer S> ? (P extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "Path",
+              "canonicalReference": "stroid!Path:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S> ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "PathValue",
+              "canonicalReference": "stroid!PathValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S, P> : never) : ("
+            },
+            {
+              "kind": "Reference",
+              "text": "IsStoreNameLoose",
+              "canonicalReference": "stroid!IsStoreNameLoose:type"
+            },
+            {
+              "kind": "Content",
+              "text": " extends true ? unknown : (T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreName",
+              "canonicalReference": "stroid!StoreName:type"
+            },
+            {
+              "kind": "Content",
+              "text": " ? (P extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "Path",
+              "canonicalReference": "stroid!Path:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<"
+            },
+            {
+              "kind": "Reference",
+              "text": "StateFor",
+              "canonicalReference": "stroid!StateFor:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<T>> ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "PathValue",
+              "canonicalReference": "stroid!PathValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<"
+            },
+            {
+              "kind": "Reference",
+              "text": "StateFor",
+              "canonicalReference": "stroid!StateFor:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<T>, P> : never) : unknown))"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "StorePathValueForTarget",
+          "typeParameters": [
+            {
+              "typeParameterName": "T",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            },
+            {
+              "typeParameterName": "P",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 26
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StoreScope:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StoreScope = "
+            },
+            {
+              "kind": "Content",
+              "text": "\"request\" | \"global\" | \"temp\""
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "StoreScope",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 2
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StoreSnapshot:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StoreSnapshot<T> = "
+            },
+            {
+              "kind": "Content",
+              "text": "T extends object ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "Readonly",
+              "canonicalReference": "!Readonly:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<T> : T"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "StoreSnapshot",
+          "typeParameters": [
+            {
+              "typeParameterName": "T",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 4
+          }
+        },
+        {
           "kind": "Interface",
           "canonicalReference": "stroid!StoreStateMap:interface",
           "docComment": "",
@@ -5804,6 +10162,304 @@
           "preserveMemberOrder": false,
           "members": [],
           "extendsTokenRanges": []
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StoreTarget:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StoreTarget<Name extends "
+            },
+            {
+              "kind": "Content",
+              "text": "string"
+            },
+            {
+              "kind": "Content",
+              "text": " = "
+            },
+            {
+              "kind": "Content",
+              "text": "string"
+            },
+            {
+              "kind": "Content",
+              "text": ", State = "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!StoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreDefinition",
+              "canonicalReference": "stroid!StoreDefinition:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "<Name, State> | "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreKey",
+              "canonicalReference": "stroid!StoreKey:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<Name, State> | "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreName",
+              "canonicalReference": "stroid!StoreName:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "StoreTarget",
+          "typeParameters": [
+            {
+              "typeParameterName": "Name",
+              "constraintTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 3,
+                "endIndex": 4
+              }
+            },
+            {
+              "typeParameterName": "State",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 5,
+                "endIndex": 6
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 7,
+            "endIndex": 12
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StoreUpdate:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StoreUpdate<State> = "
+            },
+            {
+              "kind": "Content",
+              "text": "State | "
+            },
+            {
+              "kind": "Reference",
+              "text": "Partial",
+              "canonicalReference": "!Partial:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<State> | "
+            },
+            {
+              "kind": "Reference",
+              "text": "PartialDeep",
+              "canonicalReference": "stroid!PartialDeep:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<State> | ((draft: State) => void)"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "StoreUpdate",
+          "typeParameters": [
+            {
+              "typeParameterName": "State",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 6
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StoreUpdateForTarget:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StoreUpdateForTarget<T> = "
+            },
+            {
+              "kind": "Content",
+              "text": "T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreDefinition",
+              "canonicalReference": "stroid!StoreDefinition:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "<infer _Name extends string, infer S> ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreUpdate",
+              "canonicalReference": "stroid!StoreUpdate:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S> : T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreKey",
+              "canonicalReference": "stroid!StoreKey:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<infer _Name extends string, infer S> ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreUpdate",
+              "canonicalReference": "stroid!StoreUpdate:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<S> : ("
+            },
+            {
+              "kind": "Reference",
+              "text": "IsStoreNameLoose",
+              "canonicalReference": "stroid!IsStoreNameLoose:type"
+            },
+            {
+              "kind": "Content",
+              "text": " extends true ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreUpdate",
+              "canonicalReference": "stroid!StoreUpdate:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<"
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!StoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "> : (T extends "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreName",
+              "canonicalReference": "stroid!StoreName:type"
+            },
+            {
+              "kind": "Content",
+              "text": " ? "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreUpdate",
+              "canonicalReference": "stroid!StoreUpdate:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<"
+            },
+            {
+              "kind": "Reference",
+              "text": "StateFor",
+              "canonicalReference": "stroid!StateFor:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<T>> : "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreUpdate",
+              "canonicalReference": "stroid!StoreUpdate:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<"
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!StoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": ">))"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index-internal.d.ts",
+          "releaseTag": "Public",
+          "name": "StoreUpdateForTarget",
+          "typeParameters": [
+            {
+              "typeParameterName": "T",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 26
+          }
         },
         {
           "kind": "TypeAlias",
@@ -5849,6 +10505,157 @@
           "extendsTokenRanges": []
         },
         {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!StroidConfig:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type StroidConfig = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    logSink?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "LogSink",
+              "canonicalReference": "stroid!LogSink:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    flush?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "FlushConfig",
+              "canonicalReference": "stroid!FlushConfig:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    revalidateOnFocus?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "RevalidateOnFocusConfig",
+              "canonicalReference": "stroid!RevalidateOnFocusConfig:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    namespace?: string;\n    strictMissingFeatures?: boolean;\n    strictFeatures?: boolean;\n    assertRuntime?: boolean;\n    strictMutatorReturns?: boolean;\n    asyncAutoCreate?: boolean;\n    asyncCloneResult?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "AsyncCloneMode",
+              "canonicalReference": "stroid!AsyncCloneMode:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    resetCloneMode?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "ResetCloneMode",
+              "canonicalReference": "stroid!ResetCloneMode:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    autoCorrelationIds?: boolean;\n    acknowledgeLooseTypes?: boolean;\n    pathCacheSize?: number;\n    defaultSnapshotMode?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "SnapshotMode",
+              "canonicalReference": "stroid!SnapshotMode:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    snapshotStrategy?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "SnapshotMode",
+              "canonicalReference": "stroid!SnapshotMode:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    strictAsyncUsageErrors?: boolean;\n    middleware?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "Array",
+              "canonicalReference": "!Array:interface"
+            },
+            {
+              "kind": "Content",
+              "text": "<(ctx: "
+            },
+            {
+              "kind": "Reference",
+              "text": "MiddlewareCtx",
+              "canonicalReference": "stroid!MiddlewareCtx:interface"
+            },
+            {
+              "kind": "Content",
+              "text": ") => "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue$1",
+              "canonicalReference": "stroid!OptionStoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": " | void>;\n    allowTrustedHydration?: boolean;\n    allowUntrustedHydration?: boolean;\n    allowHydration?: boolean;\n    mutatorProduce?: (<T>(base: T, recipe: (draft: T) => void) => T) | \"immer\";\n    selectorCloneFrozen?: boolean;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/index.d.ts",
+          "releaseTag": "Public",
+          "name": "StroidConfig",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 22
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!SyncMessage:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type SyncMessage = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    v: number;\n    protocol: number;\n    type: \"sync-request\" | \"sync-state\";\n    name: string;\n    clock: number;\n    source: string;\n    updatedAt?: number;\n    data?: "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!OptionStoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";\n    checksum?: number | null;\n    auth?: unknown;\n    token?: string;\n    requestedAt?: number;\n}"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "SyncMessage",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 4
+          }
+        },
+        {
           "kind": "Interface",
           "canonicalReference": "stroid!SyncOptions:interface",
           "docComment": "",
@@ -5858,7 +10665,7 @@
               "text": "interface SyncOptions "
             }
           ],
-          "fileUrlPath": "dist/options.d.ts",
+          "fileUrlPath": "dist/types-internal-3.d.ts",
           "releaseTag": "Public",
           "name": "SyncOptions",
           "preserveMemberOrder": false,
@@ -5960,7 +10767,7 @@
                 {
                   "kind": "Reference",
                   "text": "StoreValue",
-                  "canonicalReference": "stroid!~StoreValue_2:type"
+                  "canonicalReference": "stroid!OptionStoreValue:type"
                 },
                 {
                   "kind": "Content",
@@ -5969,7 +10776,7 @@
                 {
                   "kind": "Reference",
                   "text": "StoreValue",
-                  "canonicalReference": "stroid!~StoreValue_2:type"
+                  "canonicalReference": "stroid!OptionStoreValue:type"
                 },
                 {
                   "kind": "Content",
@@ -5978,7 +10785,7 @@
                 {
                   "kind": "Reference",
                   "text": "StoreValue",
-                  "canonicalReference": "stroid!~StoreValue_2:type"
+                  "canonicalReference": "stroid!OptionStoreValue:type"
                 },
                 {
                   "kind": "Content",
@@ -6149,7 +10956,7 @@
                 {
                   "kind": "Reference",
                   "text": "SyncMessage",
-                  "canonicalReference": "stroid!~SyncMessage:type"
+                  "canonicalReference": "stroid!SyncMessage:type"
                 },
                 {
                   "kind": "Content",
@@ -6185,7 +10992,7 @@
                 {
                   "kind": "Reference",
                   "text": "SyncMessage",
-                  "canonicalReference": "stroid!~SyncMessage:type"
+                  "canonicalReference": "stroid!SyncMessage:type"
                 },
                 {
                   "kind": "Content",
@@ -6207,6 +11014,147 @@
             }
           ],
           "extendsTokenRanges": []
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!TraceContext:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type TraceContext = "
+            },
+            {
+              "kind": "Content",
+              "text": "{\n    traceId: string;\n    spanId: string;\n} & "
+            },
+            {
+              "kind": "Reference",
+              "text": "Record",
+              "canonicalReference": "!Record:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<string, unknown>"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/utility.d.ts",
+          "releaseTag": "Public",
+          "name": "TraceContext",
+          "typeTokenRange": {
+            "startIndex": 1,
+            "endIndex": 4
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!ValidateFn:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type ValidateFn<State = "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!OptionStoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Content",
+              "text": "(next: State) => boolean | State"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "ValidateFn",
+          "typeParameters": [
+            {
+              "typeParameterName": "State",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 4
+          }
+        },
+        {
+          "kind": "TypeAlias",
+          "canonicalReference": "stroid!ValidateOption:type",
+          "docComment": "",
+          "excerptTokens": [
+            {
+              "kind": "Content",
+              "text": "type ValidateOption<State = "
+            },
+            {
+              "kind": "Reference",
+              "text": "StoreValue",
+              "canonicalReference": "stroid!OptionStoreValue:type"
+            },
+            {
+              "kind": "Content",
+              "text": "> = "
+            },
+            {
+              "kind": "Reference",
+              "text": "ValidateFn",
+              "canonicalReference": "stroid!ValidateFn:type"
+            },
+            {
+              "kind": "Content",
+              "text": "<State> | "
+            },
+            {
+              "kind": "Reference",
+              "text": "SchemaValidateOption",
+              "canonicalReference": "stroid!SchemaValidateOption:type"
+            },
+            {
+              "kind": "Content",
+              "text": ";"
+            }
+          ],
+          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "releaseTag": "Public",
+          "name": "ValidateOption",
+          "typeParameters": [
+            {
+              "typeParameterName": "State",
+              "constraintTokenRange": {
+                "startIndex": 0,
+                "endIndex": 0
+              },
+              "defaultTypeTokenRange": {
+                "startIndex": 1,
+                "endIndex": 2
+              }
+            }
+          ],
+          "typeTokenRange": {
+            "startIndex": 3,
+            "endIndex": 6
+          }
         },
         {
           "kind": "TypeAlias",
