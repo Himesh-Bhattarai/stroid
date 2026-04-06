@@ -102,7 +102,10 @@ export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {
     const registrySubs = registry.subscribers;
     if (!registrySubs[name]) registrySubs[name] = new Set();
     registrySubs[name].add(fn);
+    let unsubscribed = false;
     return () => {
+        if (unsubscribed) return;
+        unsubscribed = true;
         registrySubs[name]?.delete(fn); // O(1)
         if (registrySubs[name]?.size === 0) delete registrySubs[name];
     };

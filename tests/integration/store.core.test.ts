@@ -24,6 +24,7 @@ import {
 import { clearAllStores } from "../../src/runtime-admin/index.js";
 import { subscribeWithSelector } from "../../src/selectors/index.js";
 import { createComputed } from "../../src/computed/index.js";
+import { getRegistry } from "../../src/core/store-lifecycle/registry.js";
 
 test("core create, set, get, merge, reset, delete flow works", async () => {
   clearAllStores();
@@ -66,6 +67,36 @@ test("subscribers are notified and can unsubscribe", async () => {
 
   assert.deepStrictEqual(getStore("counter"), { value: 2 });
   assert.ok(seen.some((entry) => entry && entry.value === 1));
+});
+
+test("unsubscribe is idempotent while sibling subscribers remain attached", () => {
+  clearAllStores();
+  createStore("idempotentOff", { value: 0 });
+
+  const target = () => undefined;
+  const offTarget = _subscribe("idempotentOff", target);
+  const offSibling = _subscribe("idempotentOff", () => undefined);
+
+  const set = getRegistry().subscribers.idempotentOff as Set<unknown>;
+  assert.ok(set);
+
+  const trackedSet = set as Set<unknown> & { delete: (value: unknown) => boolean };
+  const originalDelete = trackedSet.delete.bind(trackedSet);
+  let targetDeleteCalls = 0;
+  trackedSet.delete = ((value: unknown) => {
+    if (value === target) targetDeleteCalls += 1;
+    return originalDelete(value);
+  }) as (value: unknown) => boolean;
+
+  try {
+    offTarget();
+    offTarget();
+  } finally {
+    trackedSet.delete = originalDelete as (value: unknown) => boolean;
+    offSibling();
+  }
+
+  assert.strictEqual(targetDeleteCalls, 1);
 });
 
 test("subscribeWithSelector skips unrelated updates", async () => {
