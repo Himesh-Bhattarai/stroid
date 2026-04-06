@@ -6,7 +6,7 @@
  *
  * Consumers: notification/index.ts
  */
-import { warn, deepClone, isDev } from "../utils.js";
+import { warn, warnAlways, deepClone } from "../utils.js";
 import { getConfig } from "../internals/config.js";
 import { getRequestCarrier, type StoreRegistry } from "../core/store-registry.js";
 import type { SnapshotMode } from "../adapters/options.js";
@@ -100,8 +100,7 @@ export const deliverFlush = (
                     try { subscriber(snapshot); }
                     catch (err) {
                         const safety = registryMeta[name]?.options?.snapshotSafety ?? "warn";
-                        const mutationError = isDev()
-                            && (snapshotMode === "ref" || snapshotMode === "shallow")
+                        const mutationError = (snapshotMode === "ref" || snapshotMode === "shallow")
                             && isMutationError(err);
 
                         if (mutationError) {
@@ -109,7 +108,7 @@ export const deliverFlush = (
                             if (safety === "auto-clone") {
                                 try {
                                     const cloned = deepClone(snapshot);
-                                    warn(`Snapshot mutation detected for "${name}". Delivered a cloned snapshot to the subscriber.`);
+                                    warnAlways(`Snapshot mutation detected for "${name}". Delivered a cloned snapshot to the subscriber.`);
                                     try { subscriber(cloned); }
                                     catch (err2) { warn(`Subscriber for "${name}" threw on cloned snapshot: ${(err2 as { message?: string })?.message ?? err2}`); }
                                     continue;
@@ -117,7 +116,7 @@ export const deliverFlush = (
                                     // If cloning failed, fall through to warning path below.
                                 }
                             }
-                            warn(`Snapshot mutation detected for "${name}": ${(err as { message?: string })?.message ?? err}`);
+                            warnAlways(`Snapshot mutation detected for "${name}": ${(err as { message?: string })?.message ?? err}`);
                             continue;
                         }
 
@@ -246,8 +245,7 @@ export const deliverFlush = (
                     catch (err) {
                         const safety = registryMeta[task.name]?.options?.snapshotSafety ?? "warn";
                         const mode = resolveMode(task.name);
-                        const mutationError = isDev()
-                            && (mode === "ref" || mode === "shallow")
+                        const mutationError = (mode === "ref" || mode === "shallow")
                             && isMutationError(err);
 
                         if (mutationError) {
@@ -255,7 +253,7 @@ export const deliverFlush = (
                             if (safety === "auto-clone") {
                                 try {
                                     const cloned = deepClone(task.snapshot);
-                                    warn(`Snapshot mutation detected for "${task.name}". Delivered a cloned snapshot to the subscriber.`);
+                                    warnAlways(`Snapshot mutation detected for "${task.name}". Delivered a cloned snapshot to the subscriber.`);
                                     try { subscriber(cloned); }
                                     catch (err2) { warn(`Subscriber for "${task.name}" threw on cloned snapshot: ${(err2 as { message?: string })?.message ?? err2}`); }
                                     // record that this subscriber was notified with a cloned snapshot
@@ -272,7 +270,7 @@ export const deliverFlush = (
                                     // failed to clone - fall through to warning path below
                                 }
                             }
-                            warn(`Snapshot mutation detected for "${task.name}": ${(err as { message?: string })?.message ?? err}`);
+                            warnAlways(`Snapshot mutation detected for "${task.name}": ${(err as { message?: string })?.message ?? err}`);
                             continue;
                         }
 

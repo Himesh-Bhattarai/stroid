@@ -392,6 +392,58 @@ test("history snapshots stay immutable in production", () => {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("ref snapshot mutation safety is enforced in production deliveries", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const configPath = path.join(repoRoot, "src", "config.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
+
+    const warnings = [];
+    config.configureStroid({ logSink: { warn: (msg) => warnings.push(msg) } });
+
+    store.createStore("prodRefSafe", { count: 0 }, {
+      allowSSRGlobalStore: true,
+      snapshot: "ref",
+      snapshotSafety: "warn",
+    });
+
+    let seen = null;
+    store.subscribeStore("prodRefSafe", (snap) => {
+      if (!snap) return;
+      snap.count = 99;
+    });
+    store.subscribeStore("prodRefSafe", (snap) => {
+      if (!snap) return;
+      seen = snap.count;
+    });
+
+    store.setStore("prodRefSafe", { count: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.strictEqual(store.getStore("prodRefSafe").count, 1);
+    assert.strictEqual(seen, 1);
+    assert.ok(
+      warnings.some((msg) => msg.includes("Snapshot mutation detected")),
+      "expected snapshot mutation warning in production"
+    );
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("full package stays lean and requires explicit devtools registration in production", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
   const indexPath = path.join(repoRoot, "src", "index.ts");

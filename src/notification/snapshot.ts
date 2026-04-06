@@ -21,7 +21,6 @@ export const resolveSnapshotMode = (
 
 export const cloneSnapshot = (value: StoreValue, mode: SnapshotMode): StoreValue => {
     if (mode === "ref") {
-        if (!isDev()) return value;
         try {
             return devShallowFreeze(value);
         } catch {
@@ -30,7 +29,6 @@ export const cloneSnapshot = (value: StoreValue, mode: SnapshotMode): StoreValue
     }
     if (mode === "shallow") {
         const next = shallowClone(value);
-        if (!isDev()) return next;
         try {
             return devShallowFreeze(next);
         } catch {

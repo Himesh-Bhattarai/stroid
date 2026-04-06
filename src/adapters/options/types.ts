@@ -253,8 +253,8 @@ export interface StoreOptions<State = StoreValue> {
      * Snapshot cloning strategy used by subscriptions and selector snapshots.
      *
      * - "deep" (default): deep clone and dev-freeze snapshot values.
-     * - "shallow": shallow clone (top-level) only; nested references are shared.
-     * - "ref": return the live store reference (dev-freeze by default).
+     * - "shallow": shallow clone (top-level) only, then shallow-freeze the snapshot envelope.
+     * - "ref": return the live store reference with a shallow-frozen snapshot envelope.
      */
     snapshot?: SnapshotMode;
     /**
@@ -266,9 +266,9 @@ export interface StoreOptions<State = StoreValue> {
     resetClone?: ResetCloneMode;
     /**
      * Safety policy for snapshot deliveries when using "ref" or "shallow" modes.
-     * - "warn": (default) log a warning in dev when mutation is detected.
-     * - "throw": throw an error in dev when mutation is detected.
-     * - "auto-clone": in dev, if a subscriber mutates a frozen snapshot, deliver a cloned
+     * - "warn": (default) log a warning when mutation is detected.
+     * - "throw": throw an error when mutation is detected.
+     * - "auto-clone": if a subscriber mutates a frozen snapshot, deliver a cloned
      *   snapshot to that subscriber so the mutation does not affect other subscribers or the store.
      */
     snapshotSafety?: "warn" | "throw" | "auto-clone";
