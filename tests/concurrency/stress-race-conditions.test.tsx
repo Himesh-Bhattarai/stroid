@@ -7,7 +7,7 @@
 import { useEffect } from "react";
 import { act, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { createStore, getStore, setStore } from "stroid";
+import { createStore, deleteStore, getStore, hasStore, setStore } from "stroid";
 import { enableRevalidateOnFocus, fetchStore } from "stroid/async";
 import { useAsyncStore, useStore } from "stroid/react";
 import { flushMicrotasks } from "../shared/mocks";
@@ -223,5 +223,58 @@ describe("stress concurrency and race conditions", () => {
             globalThis.fetch = realFetch;
         }
     });
-});
 
+    it("survives concurrent create/delete churn without resurrecting async stores", async () => {
+        const realFetch = globalThis.fetch;
+        let abortCount = 0;
+
+        globalThis.fetch = vi.fn((_url: unknown, init?: RequestInit) => new Promise((_resolve, reject) => {
+            const activeSignal = init?.signal;
+            if (!activeSignal) return;
+            const onAbort = () => {
+                abortCount += 1;
+                const abortErr = new Error("aborted");
+                (abortErr as Error & { name: string }).name = "AbortError";
+                reject(abortErr);
+            };
+            if (activeSignal.aborted) {
+                onAbort();
+                return;
+            }
+            activeSignal.addEventListener("abort", onAbort, { once: true });
+        })) as unknown as typeof fetch;
+
+        const timeoutToken = Symbol("timeout");
+        const churnSize = 40;
+
+        try {
+            await Promise.all(Array.from({ length: churnSize }, async (_value, index) => {
+                const name = `race.churn.${index}`;
+                ensureAsyncStore(name);
+                const controller = new AbortController();
+
+                const request = fetchStore(name, "https://example.test/churn", {
+                    dedupe: false,
+                    signal: controller.signal,
+                });
+
+                await flushMicrotasks(2);
+                deleteStore(name);
+
+                const settled = await Promise.race([
+                    request,
+                    new Promise<typeof timeoutToken>((resolve) => {
+                        setTimeout(() => resolve(timeoutToken), 300);
+                    }),
+                ]);
+
+                expect(settled).toBeNull();
+                expect(hasStore(name)).toBe(false);
+            }));
+        } finally {
+            globalThis.fetch = realFetch;
+        }
+
+        expect(abortCount).toBeGreaterThanOrEqual(churnSize);
+    });
+});
