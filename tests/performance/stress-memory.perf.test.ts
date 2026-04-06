@@ -93,3 +93,28 @@ test("heavy repeated create delete cycles leave no residual stores", () => {
   assert.deepStrictEqual(listStores(), []);
 });
 
+test(
+  "heap returns near baseline after repeated create/delete cycles (requires --expose-gc)",
+  { skip: typeof (globalThis as { gc?: () => void }).gc !== "function" },
+  () => {
+    clearAllStores();
+    const gc = (globalThis as { gc: () => void }).gc;
+
+    gc();
+    const before = process.memoryUsage().heapUsed;
+
+    for (let i = 0; i < 200; i++) {
+      createStore(`heap-ephemeral-${i}`, { value: i, payload: "x".repeat(128) });
+      deleteStore(`heap-ephemeral-${i}`);
+    }
+
+    gc();
+    const after = process.memoryUsage().heapUsed;
+    const toleranceBytes = 5 * 1024 * 1024;
+    assert.ok(
+      after <= before + toleranceBytes,
+      `expected post-GC heap <= baseline + 5MB, baseline=${before}, after=${after}`
+    );
+  }
+);
+

@@ -46,6 +46,10 @@
 >
 >### Fix
 >
+>- Hardened `hydrateStores(..., trust.validate)` so Promise-returning async validators are rejected explicitly instead of being coerced to truthy values, preventing silent untrusted hydration.
+>- Replaced flaky/false-positive regressions with deterministic assertions (`computed-cycle`, `selector-cache-growth`, `async-flush-ordering`, and concurrent batch ordering), and added targeted coverage for URL-string `fetchStore(...)` resolution after `deleteStore(...)` plus concurrent same-key `hydrateStores(...)` races.
+>- Hardened structural-sharing coverage to certify large non-Immer path writes keep untouched branch references stable while updating only the targeted branch.
+>- Added stricter performance guardrails for notification flush timing (warmup + median threshold), warning-set cleanup growth across delete/recreate churn, and GC-backed create/delete heap baseline checks.
 >- Added an explicit `storeDeleteCleanup` lifecycle phase in the delete path so async cleanup handlers run in a dedicated teardown stage before `afterStoreDelete`, then added regression coverage for cleanup ordering and immediate async metadata removal.
 >- Fixed async deletion hardening for caller-provided `AbortSignal`: `deleteStore()` now aborts in-flight `fetchStore(...)` requests even when callers supply their own signal, preventing hung network work after store teardown and clearing async metadata deterministically.
 >- Hardened `subscribeStore(...)` unsubscription semantics with an idempotent guard so duplicate unsubscribe calls detach exactly once, including when other subscribers keep the store listener set alive.
