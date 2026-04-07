@@ -101,6 +101,95 @@ test("createStoreForRequest persists async render-time writes into snapshot and 
   });
 });
 
+test("createStoreForRequest capture stays on owning request during concurrent foreign hydrate", async () => {
+  const requestA = createStoreForRequest((api) => {
+    api.create("session", { requestId: 1, revision: 0, logs: [] as string[] });
+  });
+  const requestB = createStoreForRequest((api) => {
+    api.create("session", { requestId: 2, revision: 0, logs: [] as string[] });
+  });
+
+  let releaseA: (() => void) | null = null;
+  const aReady = new Promise<void>((resolve) => {
+    releaseA = resolve;
+  });
+  let continueA: (() => void) | null = null;
+  const aContinue = new Promise<void>((resolve) => {
+    continueA = resolve;
+  });
+
+  let capturedFromAInsideB:
+    | {
+      snapshot: { session?: { requestId: number; revision: number; logs: string[] } };
+      options: Record<string, unknown>;
+    }
+    | null = null;
+
+  await Promise.all([
+    requestA.hydrate(async () => {
+      setStore("session", (draft: { revision: number; logs: string[] }) => {
+        draft.revision = 11;
+        draft.logs.push("A");
+      });
+      releaseA?.();
+      await aContinue;
+    }),
+    requestB.hydrate(async () => {
+      await aReady;
+      setStore("session", (draft: { revision: number; logs: string[] }) => {
+        draft.revision = 22;
+        draft.logs.push("B");
+      });
+      capturedFromAInsideB = requestA.capture() as {
+        snapshot: { session?: { requestId: number; revision: number; logs: string[] } };
+        options: Record<string, unknown>;
+      };
+      continueA?.();
+    }),
+  ]);
+
+  assert.deepStrictEqual(capturedFromAInsideB?.snapshot, {
+    session: { requestId: 1, revision: 11, logs: ["A"] },
+  });
+  assert.strictEqual(Object.getPrototypeOf(capturedFromAInsideB?.options), null);
+  assert.deepStrictEqual(capturedFromAInsideB?.options, Object.create(null));
+  assert.deepStrictEqual(requestA.snapshot(), {
+    session: { requestId: 1, revision: 11, logs: ["A"] },
+  });
+  assert.deepStrictEqual(requestB.snapshot(), {
+    session: { requestId: 2, revision: 22, logs: ["B"] },
+  });
+});
+
+test("createStoreForRequest capture reads active request state from non-ALS external callback", async () => {
+  const request = createStoreForRequest((api) => {
+    api.create("session", { requestId: 1, revision: 0, logs: [] as string[] });
+  });
+
+  const capturedFromTimer = new Promise<ReturnType<typeof request.capture>>((resolve, reject) => {
+    setTimeout(() => {
+      try {
+        resolve(request.capture());
+      } catch (error) {
+        reject(error);
+      }
+    }, 5);
+  });
+
+  await request.hydrate(async () => {
+    setStore("session", (draft: { revision: number; logs: string[] }) => {
+      draft.revision = 7;
+      draft.logs.push("hydrate");
+    });
+    const capture = await capturedFromTimer;
+    assert.deepStrictEqual(capture.snapshot, {
+      session: { requestId: 1, revision: 7, logs: ["hydrate"] },
+    });
+    assert.strictEqual(Object.getPrototypeOf(capture.options), null);
+    assert.deepStrictEqual(capture.options, Object.create(null));
+  });
+});
+
 test("createStoreForRequest bind reads live request state and persists bound callback writes", async () => {
   const ctx = createStoreForRequest((api) => {
     api.create("session", { requestId: 1, revision: 0, logs: [] as string[] });

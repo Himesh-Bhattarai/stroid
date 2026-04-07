@@ -246,7 +246,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
             options: bufferedOptions as RequestScopeOptions<StateMap>,
         }).snapshot,
         capture: () => {
-            const carrier = serverAsyncContext.getStore();
+            const carrier = memoizedCarrierByRegistry.get(registry) ?? null;
             if (carrier) {
                 return captureRequestScopeFromRegistry<StateMap>(registry, carrier);
             }
