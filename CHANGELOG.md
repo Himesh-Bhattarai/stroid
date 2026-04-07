@@ -75,6 +75,7 @@
 >- Fixed request-scope carrier fallback behavior so active registry reads do not incorrectly fall back to unrelated AsyncLocalStorage state, preventing render/action cross-context drift under concurrent SSR workloads.
 >- Fixed portable request-scope async lifecycle tracking so `createRequestScope(...).run(async ...)` keeps `scope.bind(...)` callbacks registry-bound until the run promise settles.
 >- Fixed request-bound callback safety so `createStoreForRequest(...).bind(...)` and `createRequestScope(...).bind(...)` no longer silently execute against the global registry outside active request lifecycles; they now fail fast with explicit lifecycle-bound errors and include regression coverage.
+>- Fixed `createStoreForRequest(...).bind(...)` carrier routing so bound callbacks now use the registry-owned active carrier instead of ambient AsyncLocalStorage fallback, preventing cross-request callback corruption and detached stale-carrier writes under concurrent SSR overlap.
 >- Fixed SSR gap probe flakiness by introducing per-request probe barriers before hydrate completion, removing lost-probe races at high concurrency sizes.
 >
 >### Docs

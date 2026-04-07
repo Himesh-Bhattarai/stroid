@@ -152,6 +152,104 @@ test("createStoreForRequest bind throws outside request lifecycle and preserves 
   });
 });
 
+test("createStoreForRequest bind stays on bound request during concurrent foreign hydrate", async () => {
+  const requestA = createStoreForRequest((api) => {
+    api.create("session", { requestId: 1, revision: 0, logs: [] as string[] });
+  });
+  const requestB = createStoreForRequest((api) => {
+    api.create("session", { requestId: 2, revision: 0, logs: [] as string[] });
+  });
+
+  let releaseA: (() => void) | null = null;
+  const aReady = new Promise<void>((resolve) => {
+    releaseA = resolve;
+  });
+  let continueA: (() => void) | null = null;
+  const aContinue = new Promise<void>((resolve) => {
+    continueA = resolve;
+  });
+
+  let seenRequestId = -1;
+  const boundA = requestA.bind(() => {
+    const current = getStore("session") as { requestId: number; revision: number; logs: string[] };
+    seenRequestId = current.requestId;
+    setStore("session", (draft: { revision: number; logs: string[] }) => {
+      draft.revision += 1;
+      draft.logs.push("bound-A");
+    });
+  });
+
+  await Promise.all([
+    requestA.hydrate(async () => {
+      setStore("session", (draft: { logs: string[] }) => {
+        draft.logs.push("A-start");
+      });
+      releaseA?.();
+      await aContinue;
+      setStore("session", (draft: { logs: string[] }) => {
+        draft.logs.push("A-end");
+      });
+    }),
+    requestB.hydrate(async () => {
+      await aReady;
+      setStore("session", (draft: { revision: number; logs: string[] }) => {
+        draft.revision = 10;
+        draft.logs.push("B-run");
+      });
+      boundA();
+      continueA?.();
+    }),
+  ]);
+
+  assert.strictEqual(seenRequestId, 1);
+  assert.deepStrictEqual(requestA.snapshot(), {
+    session: { requestId: 1, revision: 1, logs: ["A-start", "bound-A", "A-end"] },
+  });
+  assert.deepStrictEqual(requestB.snapshot(), {
+    session: { requestId: 2, revision: 10, logs: ["B-run"] },
+  });
+});
+
+test("createStoreForRequest bind uses active request carrier for non-ALS external callback", async () => {
+  const request = createStoreForRequest((api) => {
+    api.create("session", { requestId: 1, revision: 0, logs: [] as string[] });
+  });
+
+  let seenRevision = -1;
+  const bound = request.bind(() => {
+    const current = getStore("session") as { revision: number; logs: string[] };
+    seenRevision = current.revision;
+    setStore("session", (draft: { revision: number; logs: string[] }) => {
+      draft.revision += 1;
+      draft.logs.push("bound");
+    });
+  });
+
+  const externalTimer = new Promise<void>((resolve, reject) => {
+    setTimeout(() => {
+      try {
+        bound();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    }, 5);
+  });
+
+  await request.hydrate(async () => {
+    setStore("session", (draft: { revision: number; logs: string[] }) => {
+      draft.revision = 7;
+      draft.logs.push("hydrate");
+    });
+    await externalTimer;
+  });
+
+  assert.strictEqual(seenRevision, 7);
+  assert.deepStrictEqual(request.snapshot(), {
+    session: { requestId: 1, revision: 8, logs: ["hydrate", "bound"] },
+  });
+});
+
 test("createStoreForRequest snapshots include chunked subscriber side effects before hydrate returns", () => {
   const ctx = createStoreForRequest();
 
