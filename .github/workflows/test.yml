@@ -85,6 +85,16 @@ jobs:
       - name: Fail if benchmark regresses >20%
         run: npm run bench:stress:check
 
+      - name: Run SSR ALS audit ladder gate
+        run: |
+          mkdir -p scripts/benchmark-results/ssr
+          STROID_ALS_AUDIT_SEED=20260407 node --expose-gc --import tsx scripts/ssr/ssr-als-audit-ladder-benchmark.ts > scripts/benchmark-results/ssr/ssr-als-audit-ci.json
+
+      - name: Run SSR gap coverage gate
+        run: |
+          mkdir -p scripts/benchmark-results/ssr
+          STROID_SSR_GAP_SEED=20260407 STROID_SSR_GAP_SIZES=16,32,64,128 node --expose-gc --import tsx scripts/ssr/ssr-gap-benchmark.ts > scripts/benchmark-results/ssr/ssr-gap-ci.json
+
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -91,6 +91,9 @@ This document explains every workflow in `.github/workflows`, what each one does
   - `unit-integration`: Node matrix (`18`, `20`) + `npm test` + `npm run test:stress`
   - `fuzz`: fixed-seed fuzz run (`STROID_FUZZ_SEED=20260403`)
   - `benchmarks`: `npm run bench:stress` + `npm run bench:stress:check`
+  - `benchmarks` also runs SSR regression gates with fixed seeds:
+    - `scripts/ssr/ssr-als-audit-ladder-benchmark.ts`
+    - `scripts/ssr/ssr-gap-benchmark.ts`
   - `coverage` (PR only): stress coverage + PR comment update via marker `<!-- stroid-stress-coverage -->`
 
 **Trigger**
@@ -103,6 +106,7 @@ This document explains every workflow in `.github/workflows`, what each one does
 
 **Artifacts**
 - `benchmark-results` from `scripts/benchmark-results/`
+- `benchmark-results/ssr/ssr-als-audit-ci.json` and `benchmark-results/ssr/ssr-gap-ci.json` are included in that artifact when the benchmark job runs
 - `coverage-summary` from `coverage/stress/coverage-summary.json` (if generated)
 
 **When to use**
@@ -111,6 +115,7 @@ This document explains every workflow in `.github/workflows`, what each one does
 
 **Common failures**
 - Benchmark regression gate (`bench:stress:check`) dropping below threshold.
+- SSR isolation gate failures (ALS ladder or SSR gap benchmark) reporting non-zero isolation failures.
 - Fuzz edge-case breakage from nondeterministic behavior.
 - Coverage comment missing due to upstream test failure.
 

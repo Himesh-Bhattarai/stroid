@@ -19,9 +19,11 @@
 >- Added manual hydration boot-window control through `HydrationResult.bootWindow`, including `bootWindow: { mode: "manual" }`, optional `fallbackMs`, and runtime metrics that expose whether manual close is available.
 >- Added `stroid/runtime-tools` hydration observability helpers: `getHydrationConsistency()`, `getHydrationDriftEvents()`, and `getHydrationDriftMetrics()`.
 >- Added `stroid/server/portable` for explicit request-scope hand-off across serverless and framework boundaries, including `createRequestScope(...)`, capture/resume coverage, and a local provider-model certification for AWS Lambda, Vercel render-to-action hand-off, and Cloudflare Workers-style isolates.
+>- Added request-bound callback helpers for server runtimes: `createStoreForRequest(...).bind(...)` and `createRequestScope(...).bind(...)`, so pre-bound async callbacks can re-enter captured request registry/carrier context deterministically.
 >- Added React 18 concurrency certification for `useStore(...)`, including no-tearing regression coverage under `useTransition` and `useDeferredValue`, plus a dedicated `benchmark:react-concurrency` script that validates the existing `useSyncExternalStore` hook path.
 >- Added a concrete Next.js App Router render-to-server-action hand-off example, regression coverage, and `benchmark:next-server-actions`, so request-scoped state capture and resume is now documented and locally certified instead of only described as a manual boundary.
 >- Added a dedicated `stroid/query` entrypoint for `reactQueryKey` and `swrKey`, so cache-key helpers can be imported without pulling the heavier async query fetcher surface.
+>- Added SSR async-context benchmark commands `benchmark:ssr-als-audit` and `benchmark:ssr-gaps`, plus seeded report outputs under `scripts/benchmark-results/ssr/` for replayable audit runs.
 >
 >### Change
 >
@@ -70,6 +72,9 @@
 >- Fixed `getAsyncMetrics(...)` public typings so `getAsyncMetrics()` remains non-null while `getAsyncMetrics(name)` is correctly typed as nullable per-store lookup.
 >- Fixed SSR isolation benchmark request stability by retrying transient loopback `fetch` failures in the React streaming HTTP certification phase.
 >- Fixed integration/regression harness imports to follow the new benchmark shared-helper locations after script folder reorganization.
+>- Fixed request-scope carrier fallback behavior so active registry reads do not incorrectly fall back to unrelated AsyncLocalStorage state, preventing render/action cross-context drift under concurrent SSR workloads.
+>- Fixed portable request-scope async lifecycle tracking so `createRequestScope(...).run(async ...)` keeps `scope.bind(...)` callbacks registry-bound until the run promise settles.
+>- Fixed SSR gap probe flakiness by introducing per-request probe barriers before hydrate completion, removing lost-probe races at high concurrency sizes.
 >
 >### Docs
 >
@@ -78,6 +83,7 @@
 >- Documented runtime caveats for validated store names, direct-Promise async fetches, BroadcastChannel startup/BFCache limits, and Safari/WebKit storage eviction in the README and guides.
 >- Added `STATUS.md` so the commit and issue-close workflow referenced by `CONTRIBUTING.md` is now present in the repository.
 >- Documented async metrics per-store reads and reset clone-mode controls in README and guide docs.
+>- Added seeded SSR ladder/gap benchmark report notes to `docs/STROID/BENCHMARK.md` and documented SSR benchmark regression-gate coverage in `docs/STROID/GITHUB_ACTION.md`.
 ></details>
 
 

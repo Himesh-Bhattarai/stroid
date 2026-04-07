@@ -31,6 +31,11 @@ const createStoreUntyped = createStore as (
 const getStoreUntyped = getStore as (name: string) => unknown;
 const setStoreUntyped = setStore as (name: string, update: unknown) => unknown;
 
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
+    value !== null
+    && (typeof value === "object" || typeof value === "function")
+    && typeof (value as { then?: unknown }).then === "function";
+
 export type RequestScopeApi<StateMap extends StoreStateMap = StoreStateMap> = {
     create: <Name extends RequestStoreName<StateMap>>(
         name: Name,
@@ -46,6 +51,9 @@ export type RequestScopeApi<StateMap extends StoreStateMap = StoreStateMap> = {
     ) => RequestStoreValue<StateMap, Name> | null;
     snapshot: () => RequestSnapshot<StateMap>;
     capture: () => RequestScopeCapture<StateMap>;
+    bind: <Args extends unknown[], Result>(
+        callback: (...args: Args) => Result
+    ) => (...args: Args) => Result;
 };
 
 export type RequestScopeContext<StateMap extends StoreStateMap = StoreStateMap> =
@@ -58,6 +66,7 @@ export const createRequestScope = <StateMap extends StoreStateMap = StoreStateMa
     initial?: RequestScopeCapture<StateMap>
 ): RequestScopeContext<StateMap> => {
     const registry = createStoreRegistry("request");
+    let activeRunDepth = 0;
 
     if (initial) {
         const seeded = cloneRequestScopeCapture(initial);
@@ -94,12 +103,35 @@ export const createRequestScope = <StateMap extends StoreStateMap = StoreStateMa
             ),
         snapshot: () => capture().snapshot,
         capture,
+        bind: <Args extends unknown[], Result>(
+            callback: (...args: Args) => Result
+        ): ((...args: Args) => Result) =>
+            (...args: Args): Result =>
+                activeRunDepth > 0
+                    ? runWithRegistry(registry, () => callback(...args))
+                    : callback(...args),
     };
 
     return {
         registry,
         ...api,
-        run: <T>(fn: (scope: RequestScopeApi<StateMap>) => T): T => fn(api),
+        run: <T>(fn: (scope: RequestScopeApi<StateMap>) => T): T => {
+            activeRunDepth += 1;
+            let result: T;
+            try {
+                result = runWithRegistry(registry, () => fn(api));
+            } catch (error) {
+                activeRunDepth -= 1;
+                throw error;
+            }
+            if (isPromiseLike(result)) {
+                return Promise.resolve(result).finally(() => {
+                    activeRunDepth -= 1;
+                }) as T;
+            }
+            activeRunDepth -= 1;
+            return result;
+        },
     };
 };
 

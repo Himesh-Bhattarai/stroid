@@ -123,6 +123,41 @@ Source: `scripts/guarantee-benchmark-suite-output.json` (dedicated certification
 | Next.js server actions boundary | 48 render/action pairs, stateMismatchCount=0, crossCaptureBleedCount=0 |
 | React 18 concurrency | `useTransition` + `useDeferredValue`, invariantViolations=0 in both scenarios |
 
+### SSR ALS Ladder + Gap Coverage (Seeded Replay)
+**Run date:** 2026-04-07  
+**Node/platform:** v22.14.0 / win32 x64  
+**Commands:**
+- `STROID_ALS_AUDIT_SEED=20260407 node --expose-gc --import tsx scripts/ssr/ssr-als-audit-ladder-benchmark.ts`
+- `STROID_SSR_GAP_SEED=20260407 STROID_SSR_GAP_SIZES=16,32,64,128 node --expose-gc --import tsx scripts/ssr/ssr-gap-benchmark.ts`
+
+Artifacts:
+- `scripts/benchmark-results/ssr/ssr-als-audit-ladder-2026-04-07.json`
+- `scripts/benchmark-results/ssr/ssr-gap-benchmark-2026-04-07.json`
+
+ALS ladder summary:
+
+| Stage | Checks | Failures |
+|---|---:|---:|
+| Native ALS Baseline | 160 | 0 |
+| Stroid In-Scope Boundary Matrix | 160 | 0 |
+| Stroid Pre-Bound Callback Matrix | 64 | 0 |
+| Stroid Post-Scope Leak Check | 96 | 0 |
+| Stroid Concurrent Cross-Request Check | 128 | 0 |
+
+Gap coverage summary:
+
+| Suite | Sizes | Isolation failures | Notes |
+|---|---|---:|---|
+| Pre-bound ALS | 16,32,64,128 | 0 | Includes per-emission probe token diagnostics |
+| Pre-bound Portable | 16,32,64,128 | 0 | Allows null context but blocks cross-request bleed |
+| Mid-stream Action Overlap | 16,24,24,24 | 0 | Streaming/action overlap with chaos and backpressure |
+| Worker Post-lifecycle | 32,64,96,96 | 0 | Late cleanup checks after jitter and injected errors |
+
+Heap guardrails:
+- `heapDeltaMb`: **3.141 MB** (limit `12 MB`)
+- `heapSpikeMb`: **3.414 MB** (limit `12 MB`)
+- `retainedReleaseMb`: **0.273 MB**
+
 ### Hydration Large Payload
 | Payload | Clone median (ms) | Immediate median (ms) | Queued median (ms) | Retained growth (MB) | Mismatches |
 |---|---:|---:|---:|---:|---:|

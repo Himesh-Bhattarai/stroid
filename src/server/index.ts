@@ -87,8 +87,10 @@ injectCarrierRunner({
     get: () => {
         const registry = serverRegistryContext.getStore();
         if (registry) {
-            const memoized = memoizedCarrierByRegistry.get(registry);
-            if (memoized) return memoized;
+            if (memoizedCarrierByRegistry.has(registry)) {
+                return memoizedCarrierByRegistry.get(registry) ?? null;
+            }
+            return null;
         }
         return serverAsyncContext.getStore() || null;
     },
@@ -177,6 +179,9 @@ type RequestStoreContext<StateMap extends StoreStateMap> = {
     snapshot: () => RequestSnapshot<StateMap>;
     capture: () => RequestScopeCapture<StateMap>;
     hydrate: <T>(renderFn: () => T, options?: RequestHydrateOptions<StateMap>) => T;
+    bind: <Args extends unknown[], Result>(
+        callback: (...args: Args) => Result
+    ) => (...args: Args) => Result;
 };
 
 export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStateMap>(
@@ -185,6 +190,7 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
     const registry = createStoreRegistry("request");
     const buffer: RequestSnapshot<StateMap> = {};
     const bufferedOptions: RequestScopeOptionsInternal = Object.create(null);
+    let activeHydrateDepth = 0;
     const syncCapture = (capture: RequestScopeCapture<StateMap>): void => {
         Object.keys(buffer).forEach((name) => {
             delete buffer[name as RequestStoreName<StateMap>];
@@ -213,6 +219,24 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
         bufferedOptions,
     });
     if (typeof initializer === "function") initializer(api);
+    const bind = <Args extends unknown[], Result>(
+        callback: (...args: Args) => Result,
+    ): ((...args: Args) => Result) => {
+        const capturedCarrier = serverAsyncContext.getStore();
+        const fallbackCarrier = capturedCarrier ?? deepClone(buffer) as CarrierContext;
+        return (...args: Args): Result => {
+            if (activeHydrateDepth <= 0) {
+                return callback(...args);
+            }
+            return serverRegistryContext.run(registry, () =>
+                withCarrierMemo(
+                    registry,
+                    fallbackCarrier,
+                    () => serverAsyncContext.run(fallbackCarrier, () => callback(...args)),
+                ),
+            );
+        };
+    };
     return {
         registry,
         snapshot: () => cloneRequestScopeCapture({
@@ -250,31 +274,59 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
 
             return serverRegistryContext.run(registry, () =>
                 serverAsyncContext.run(deepClone(buffer), () => {
-                    hydrateStores(
-                        buffer,
-                        merged as Parameters<typeof hydrateStores>[1],
-                        { allowTrusted: true }
-                    );
+                    activeHydrateDepth += 1;
                     const carrier = serverAsyncContext.getStore();
-                    if (!carrier) return renderFn();
-
-                    try {
-                        const rendered = renderFn();
-                        if (isPromiseLike(rendered)) {
-                            return Promise.resolve(rendered)
-                                .finally(async () => {
-                                    await finalizeHydrateAsync(registry, carrier, syncBufferFromCarrier);
-                                }) as T;
+                    if (!carrier) {
+                        try {
+                            hydrateStores(
+                                buffer,
+                                merged as Parameters<typeof hydrateStores>[1],
+                                { allowTrusted: true }
+                            );
+                            return renderFn();
+                        } finally {
+                            activeHydrateDepth -= 1;
                         }
-                        finalizeHydrateSync(registry, carrier, syncBufferFromCarrier);
-                        return rendered;
-                    } catch (err) {
-                        finalizeHydrateSync(registry, carrier, syncBufferFromCarrier);
-                        throw err;
                     }
+
+                    return withCarrierMemo(registry, carrier, () => {
+                        hydrateStores(
+                            buffer,
+                            merged as Parameters<typeof hydrateStores>[1],
+                            { allowTrusted: true }
+                        );
+
+                        try {
+                            const rendered = renderFn();
+                            if (isPromiseLike(rendered)) {
+                                return Promise.resolve(rendered)
+                                    .finally(async () => {
+                                        try {
+                                            await finalizeHydrateAsync(registry, carrier, syncBufferFromCarrier);
+                                        } finally {
+                                            activeHydrateDepth -= 1;
+                                        }
+                                    }) as T;
+                            }
+                            try {
+                                finalizeHydrateSync(registry, carrier, syncBufferFromCarrier);
+                                return rendered;
+                            } finally {
+                                activeHydrateDepth -= 1;
+                            }
+                        } catch (err) {
+                            try {
+                                finalizeHydrateSync(registry, carrier, syncBufferFromCarrier);
+                                throw err;
+                            } finally {
+                                activeHydrateDepth -= 1;
+                            }
+                        }
+                    });
                 })
             );
         },
+        bind,
     };
 };
 

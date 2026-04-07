@@ -160,6 +160,8 @@
     "benchmark:ssr-warm": "node --expose-gc --import tsx scripts/ssr/ssr-warm-container-benchmark.ts",
     "benchmark:serverless-provider": "node --expose-gc --import tsx scripts/ssr/serverless-provider-certification.ts",
     "benchmark:next-server-actions": "node --expose-gc --import tsx scripts/ssr/next-server-actions-benchmark.ts",
+    "benchmark:ssr-gaps": "node --expose-gc --import tsx scripts/ssr/ssr-gap-benchmark.ts",
+    "benchmark:ssr-als-audit": "node --expose-gc --import tsx scripts/ssr/ssr-als-audit-ladder-benchmark.ts",
     "benchmark:react-concurrency": "node --expose-gc --import tsx scripts/react/react-concurrency-benchmark.ts",
     "benchmark:websocket-stream": "node --expose-gc --import tsx scripts/hydration/websocket-hydration-stream-benchmark.ts",
     "benchmark:ssr-fair-compare": "node --expose-gc --import tsx scripts/ssr/ssr-fair-compare.ts",
