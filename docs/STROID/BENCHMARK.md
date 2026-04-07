@@ -1,62 +1,77 @@
-# Stroid Final Benchmark Report (Median of 3 Runs)
+# Benchmark Report — Stroid (Median of 3 Runs)
 
-**Date of runs:** 2026-04-05  
-**Node version:** v22.14.0  
-**Platform:** Microsoft Windows 10 Pro (x64)  
-**Methodology:** Each benchmark script executed 3 times; reported values are medians.
+> Status values: `Good` · `Warning` · `Problematic` · `Informational`
+> Fields without data from the source report are marked **`[MISSING]`**.
+
+---
+
+## Environment & Run Metadata
+
+| Field | Value |
+|---|---|
+| Report date | 2026-04-05 |
+| Node / Runtime version | v22.14.0 (local) · v20.20.2 (CI — authoritative) |
+| Platform / OS | Microsoft Windows 10 Pro x64 |
+| CPU | **`[MISSING]`** — not recorded in source report |
+| Memory | **`[MISSING]`** — not recorded in source report |
+| Benchmark iterations | 3 |
+| Aggregation method | Median of 3 runs; no run discarded |
+| Baseline source | CI run `24000828199` · 2026-04-05 · Node v20.20.2 |
+| CI run URL | https://github.com/Himesh-Bhattarai/stroid/actions/runs/24000828199 |
+| Artifacts root | `scripts/benchmark-results/median-3runs-20260405-133116` |
+
+---
 
 ## Executive Summary
-- Overall status: CI regression gate is green (15/15 pass) and stress tests pass (63/63).
-- Key movement vs baseline: on CI (Node v20.20.2), every tracked ops/sec metric is above the 80% threshold (all marked `ok`).
-- Recommendation: CI is merge-ready; keep local Windows median gate deltas as variance signals only, and prioritize subscriber/selector/hydration hotspots.
-- Context (not apples-to-apples): Stroid carries deterministic guarantees (queue replay, isolation, invariant safety, lifecycle controls), so cross-library throughput numbers reflect additional correctness work, not only raw setter speed.
 
-## Environment
-| Field | Value |
-|-------|-------|
-| Date | 2026-04-05 |
-| Node | v22.14.0 |
-| Platform | Microsoft Windows 10 Pro x64 |
-| Benchmark iterations | 3 |
+- **Overall gate status:** `Green`
+- **Key movements vs baseline:** Every tracked ops/sec metric on CI (Node v20.20.2) is above the 80% threshold; all 15 regression metrics marked `PASS`.
+- **Merge recommendation:** CI is merge-ready. Keep local Windows median gate deltas as variance signals only.
+- **Context note:** Stroid carries deterministic guarantees (queue replay, isolation, invariant safety, lifecycle controls). Cross-library throughput numbers reflect additional correctness work, not only raw setter speed — not apples-to-apples with Zustand or Jotai.
 
-## Advanced Reality Suite (Now Tracked)
-The benchmark matrix now includes an advanced production-focused suite:
-- Command: `npm run benchmark:production-reality`
-- Output: `scripts/production-reality-benchmark-output.json`
-- Included by: `npm run benchmark:all` and `npm run benchmark:guarantees`
 
-Tracked dimensions:
-- Devtools overhead under high write/subscriber load (history disabled vs 50 vs 500).
-- Computed chain depth propagation latency (depth 1/3/5/10) and mismatch detection.
-- Long-session memory trends (retained growth, peak delta, slope per 1k cycles, monotonic growth count).
-- Persist failure-mode stress (quota pressure, async race ordering, eviction recovery loops).
-- Query-cache co-load pressure (Stroid-only vs Stroid + query-cache style workload).
-- User-perceived signals (frame-budget misses >16ms/>50ms and event-loop delay p95/p99).
+## Core Throughput — Stroid vs Zustand vs Jotai
 
-Scope note:
-- Bundle-size and cross-version trend benchmarking are intentionally excluded from this gate for now.
-- Versionized trend tracking starts from this benchmark generation onward (2026-04-05) as forward-only history.
+### Operations per Second (Median)
 
-## Core Throughput: Stroid vs Zustand vs Jotai (`bench:stress`)
-| Operation | Library | Ops/sec (median) | p50 (ms) | p95 (ms) | Memory delta |
-|---|---|---:|---:|---:|---:|
-| createStore x10,000 | stroid | 6,718.01 | 0.079 | 0.225 | 43,769,928 B |
-| createStore x10,000 | zustand | 327,137.35 | 0.001 | 0.002 | 112,616 B |
-| createStore x10,000 | jotai | 22,922.84 | 0.011 | 0.022 | 411,496 B |
-| set primitive x100,000 | stroid | 13,033.51 | 0.043 | 0.109 | 1,264,376 B |
-| set primitive x100,000 | zustand | 824,293.58 | 0.001 | 0.001 | 827,072 B |
-| set primitive x100,000 | jotai | 128,069.70 | 0.004 | 0.007 | 911,320 B |
-| set deep x10,000 | stroid | 7,218.62 | 0.076 | 0.203 | 272,448 B |
-| set deep x10,000 | zustand | 154,999.59 | 0.001 | 0.002 | 108,144 B |
-| set deep x10,000 | jotai | 81,063.36 | 0.006 | 0.012 | 169,576 B |
-| selector irrelevant x10,000 | stroid | 12,946.59 | 0.048 | 0.122 | 252,064 B |
-| selector irrelevant x10,000 | zustand | 473,157.76 | 0.001 | 0.002 | 93,344 B |
-| selector irrelevant x10,000 | jotai | 43,467.13 | 0.010 | 0.022 | 165,384 B |
-| serialize + persist x1,000 | stroid | 86.61 | 10.527 | 21.299 | 47,040 B |
-| broadcast receive x10,000 | stroid | 15,405.04 | 0.035 | 0.085 | 265,064 B |
-| async ttl 100x100 | stroid | 3,022.83 | 0.277 | 0.598 | 286,392 B |
+| Operation | Stroid ops/sec | Zustand ops/sec | Jotai ops/sec |
+|---|---:|---:|---:|
+| createStore × 10,000 | 6,718.01 | 327,137.35 | 22,922.84 |
+| set primitive × 100,000 | 13,033.51 | 824,293.58 | 128,069.70 |
+| set deep × 10,000 | 7,218.62 | 154,999.59 | 81,063.36 |
+| selector irrelevant × 10,000 | 12,946.59 | 473,157.76 | 43,467.13 |
+| serialize + persist × 1,000 | 86.61 | **`[MISSING]`** | **`[MISSING]`** |
+| broadcast receive × 10,000 | 15,405.04 | **`[MISSING]`** | **`[MISSING]`** |
+| async ttl 100×100 | 3,022.83 | **`[MISSING]`** | **`[MISSING]`** |
+
+> **`[MISSING]`** — persist, broadcast, and async TTL benchmarks are Stroid-only in this report. Zustand and Jotai equivalents are not measured; add these in the next cycle for complete cross-library comparison.
+
+### Latency — p50 / p95 (ms) and Memory Delta
+
+| Operation | Library | p50 (ms) | p95 (ms) | Memory delta |
+|---|---|---:|---:|---:|
+| createStore × 10,000 | stroid | 0.079 | 0.225 | 43,769,928 B |
+| createStore × 10,000 | zustand | 0.001 | 0.002 | 112,616 B |
+| createStore × 10,000 | jotai | 0.011 | 0.022 | 411,496 B |
+| set primitive × 100,000 | stroid | 0.043 | 0.109 | 1,264,376 B |
+| set primitive × 100,000 | zustand | 0.001 | 0.001 | 827,072 B |
+| set primitive × 100,000 | jotai | 0.004 | 0.007 | 911,320 B |
+| set deep × 10,000 | stroid | 0.076 | 0.203 | 272,448 B |
+| set deep × 10,000 | zustand | 0.001 | 0.002 | 108,144 B |
+| set deep × 10,000 | jotai | 0.006 | 0.012 | 169,576 B |
+| selector irrelevant × 10,000 | stroid | 0.048 | 0.122 | 252,064 B |
+| selector irrelevant × 10,000 | zustand | 0.001 | 0.002 | 93,344 B |
+| selector irrelevant × 10,000 | jotai | 0.010 | 0.022 | 165,384 B |
+| serialize + persist × 1,000 | stroid | 10.527 | 21.299 | 47,040 B |
+| broadcast receive × 10,000 | stroid | 0.035 | 0.085 | 265,064 B |
+| async ttl 100×100 | stroid | 0.277 | 0.598 | 286,392 B |
+
+> **`[MISSING]`** — p99 and max latency columns are absent from all operations. Add these to expose tail behaviour.
+
+---
 
 ## Subscriber Fanout (Stroid only)
+
 | Subscribers | Noop median (ms) | Noop batch100 (ms) | Compute median (ms) | Compute batch100 (ms) |
 |---:|---:|---:|---:|---:|
 | 10,000 | 1.209 | 104.944 | 1.452 | 119.923 |
@@ -64,7 +79,13 @@ Scope note:
 | 100,000 | 4.391 | 476.427 | 7.425 | 1,001.810 |
 | 250,000 | 9.860 | 1,180.980 | 21.530 | 2,393.053 |
 
+> **`[MISSING]`** — 500k and 1M subscriber tiers are not tested; the curve's behaviour beyond 250k is unknown.
+> **`[MISSING]`** — p95 / p99 fanout latency is not reported; median alone hides spike behaviour.
+
+---
+
 ## Selector Cost Curve (Stroid only)
+
 | Subscribers | Raw (ms) | Simple selector (ms) | Complex selector (ms) |
 |---:|---:|---:|---:|
 | 50,000 | 6.008 | 9.000 | 14.368 |
@@ -72,7 +93,13 @@ Scope note:
 | 200,000 | 9.521 | 36.006 | 46.712 |
 | 800,000 | 39.558 | 232.097 | 220.632 |
 
+> **`[MISSING]`** — selector cache hit rate under realistic update churn is not tracked.
+> **`[MISSING]`** — computed chain depth (depth 3/5/10) recompute latency is not measured (flagged as a coverage gap).
+
+---
+
 ## Deep Path Updates (Stroid only)
+
 | Subscribers | Single update avg (ms) |
 |---:|---:|
 | 50,000 | 7.336 |
@@ -82,59 +109,74 @@ Scope note:
 | 250,000 | 12.725 |
 | 800,000 | 93.221 |
 
+> **`[MISSING]`** — nesting depth sensitivity (depth 2/5/10) is not broken out.
+> **`[MISSING]`** — concurrent writer behaviour at high subscriber counts is not measured.
+
+---
+
 ## Lifecycle Overhead (Stroid only, 100k subscribers)
+
 | Base (ms) | Hook (ms) | Middleware (ms) | Async helper (ms) |
 |---:|---:|---:|---:|
 | 6.004 | 4.472 | 5.027 | 29.251 |
 
-## Cross-Library Fanout (5k, 50k, 75k subscribers)
+> **`[MISSING]`** — lifecycle overhead at other subscriber tiers (10k, 250k) is not reported; 100k-only is a single data point.
+> **`[MISSING]`** — middleware chain depth sensitivity (1 / 3 / 5 middlewares stacked) is not measured.
 
-Single update latencies (ms)
+---
+
+## Cross-Library Fanout
+
+### Single Update Latencies (ms)
+
 | Subscribers | Stroid | Redux | Redux+Immer | Zustand |
 |---:|---:|---:|---:|---:|
 | 5,000 | 1.219 | 0.351 | 0.382 | 0.638 |
 | 50,000 | 2.632 | 1.858 | 1.911 | 1.961 |
 | 75,000 | 3.605 | 2.833 | 2.733 | 3.280 |
 
-Batch100 latencies (ms)
+### Batch100 Latencies (ms)
+
 | Subscribers | Stroid | Redux | Redux+Immer | Zustand |
 |---:|---:|---:|---:|---:|
 | 5,000 | 66.643 | 17.445 | 22.033 | 15.986 |
 | 50,000 | 244.293 | 209.345 | 221.301 | 192.569 |
 | 75,000 | 325.314 | 333.631 | 245.370 | 281.737 |
 
-## SSR + Hydration Certification
-### SSR Isolation
-| Metric | Median/Mode Value |
-|---|---|
-| Chaos campaigns | 2 campaigns x 1024 requests |
-| Sustained pressure req/s | 380.40 |
-| Memory stability cycles | 50000 |
-| Memory retained growth (MB) | 0.100 |
-| Invariants | foreignRead=0, contextMismatch=0, registryResidual=0, subscriberResidual=0 |
+> **`[MISSING]`** — 100k and 250k subscriber tiers are missing from the cross-library fanout table; single and batch curves are truncated at 75k.
+> **`[MISSING]`** — Jotai is absent from cross-library fanout; it is present in core throughput but not here.
+> **`[MISSING]`** — memory delta per library at each subscriber tier is not reported for cross-library fanout.
 
-### SSR Deployment Models (Portable / Serverless)
-Source: `scripts/guarantee-benchmark-suite-output.json` (dedicated certification run).
+---
+
+## SSR + Hydration Certification
+
+### SSR Isolation
+
+| Metric | Value |
+|---|---|
+| Chaos campaigns | 2 × 1,024 requests |
+| Sustained pressure req/s | 380.40 |
+| Memory stability cycles | 50,000 |
+| Memory retained growth (MB) | 0.100 |
+| foreignRead | 0 |
+| contextMismatch | 0 |
+| registryResidual | 0 |
+| subscriberResidual | 0 |
+
+### SSR Deployment Models
 
 | Certification | Value |
 |---|---|
-| Warm container | 1,024 requests, 2,048 detached probes, detachedLeakCount=0, globalResidualCount=0 |
-| Provider model | 288 total invocations (`aws_lambda`, `vercel`, `cloudflare_workers`), detached/global residual leaks all 0 |
-| Next.js server actions boundary | 48 render/action pairs, stateMismatchCount=0, crossCaptureBleedCount=0 |
-| React 18 concurrency | `useTransition` + `useDeferredValue`, invariantViolations=0 in both scenarios |
+| Warm container | 1,024 requests · 2,048 detached probes · detachedLeakCount=0 · globalResidualCount=0 |
+| Provider model | 288 invocations (`aws_lambda`, `vercel`, `cloudflare_workers`) · all leak counts 0 |
+| Next.js server actions boundary | 48 render/action pairs · stateMismatchCount=0 · crossCaptureBleedCount=0 |
+| React 18 concurrency | `useTransition` + `useDeferredValue` · invariantViolations=0 |
 
-### SSR ALS Ladder + Gap Coverage (Seeded Replay)
-**Run date:** 2026-04-07  
-**Node/platform:** v22.14.0 / win32 x64  
-**Commands:**
-- `STROID_ALS_AUDIT_SEED=20260407 node --expose-gc --import tsx scripts/ssr/ssr-als-audit-ladder-benchmark.ts`
-- `STROID_SSR_GAP_SEED=20260407 STROID_SSR_GAP_SIZES=16,32,64,128 node --expose-gc --import tsx scripts/ssr/ssr-gap-benchmark.ts`
+> **`[MISSING]`** — Deno and Bun runtime SSR certification is not included.
+> **`[MISSING]`** — Edge runtime (V8 isolates without Node ALS) is not explicitly certified.
 
-Artifacts:
-- `scripts/benchmark-results/ssr/ssr-als-audit-ladder-2026-04-07.json`
-- `scripts/benchmark-results/ssr/ssr-gap-benchmark-2026-04-07.json`
-
-ALS ladder summary:
+### SSR ALS Ladder Summary
 
 | Stage | Checks | Failures |
 |---|---:|---:|
@@ -143,42 +185,57 @@ ALS ladder summary:
 | Stroid Pre-Bound Callback Matrix | 64 | 0 |
 | Stroid Post-Scope Leak Check | 96 | 0 |
 | Stroid Concurrent Cross-Request Check | 128 | 0 |
+| **Total** | **608** | **0** |
 
-Gap coverage summary:
+### SSR Gap Coverage Summary
 
 | Suite | Sizes | Isolation failures | Notes |
 |---|---|---:|---|
-| Pre-bound ALS | 16,32,64,128 | 0 | Includes per-emission probe token diagnostics |
-| Pre-bound Portable | 16,32,64,128 | 0 | Allows null context but blocks cross-request bleed |
-| Mid-stream Action Overlap | 16,24,24,24 | 0 | Streaming/action overlap with chaos and backpressure |
-| Worker Post-lifecycle | 32,64,96,96 | 0 | Late cleanup checks after jitter and injected errors |
+| Pre-bound ALS | 16, 32, 64, 128 | 0 | Includes per-emission probe token diagnostics |
+| Pre-bound Portable | 16, 32, 64, 128 | 0 | Allows null context; blocks cross-request bleed |
+| Mid-stream Action Overlap | 16, 24, 24, 24 | 0 | Streaming/action overlap with chaos and backpressure |
+| Worker Post-lifecycle | 32, 64, 96, 96 | 0 | Late cleanup after jitter and injected errors |
 
-Heap guardrails:
-- `heapDeltaMb`: **3.141 MB** (limit `12 MB`)
-- `heapSpikeMb`: **3.414 MB** (limit `12 MB`)
-- `retainedReleaseMb`: **0.273 MB**
+Heap guardrails: `heapDeltaMb = 3.141 MB` · `heapSpikeMb = 3.414 MB` · `retainedReleaseMb = 0.273 MB` (all within 12 MB limit)
 
 ### Hydration Large Payload
+
 | Payload | Clone median (ms) | Immediate median (ms) | Queued median (ms) | Retained growth (MB) | Mismatches |
 |---|---:|---:|---:|---:|---:|
 | 256 KB | 4.840 | 994.824 | 720.763 | 7.350 | 0 |
 | 1,024 KB | 18.258 | 10,286.352 | 9,561.553 | 16.360 | 0 |
 | 2,048 KB | 31.286 | 39,950.619 | 40,254.600 | 20.403 | 0 |
 
+> **`[MISSING]`** — 128 KB and 4,096 KB payload tiers would complete the curve and identify the exact threshold where immediate hydration becomes unacceptable.
+> **`[MISSING]`** — time-to-interactive / visual stability window is not measured.
+> **`[MISSING]`** — hydration under network throttle (slow 3G) is not tested.
+
 ### SSR Fair Compare (Streaming HTTP)
+
 | Mode | Median (ms) | P95 (ms) | Req/s | Heap delta MB | Violations |
 |---|---:|---:|---:|---:|---:|
 | Baseline | 1,960.793 | 3,213.054 | 244.15 | 6.814 | n/a |
 | Redux | 1,419.775 | 2,646.699 | 338.61 | 2.530 | 0 |
 | Zustand | 1,491.316 | 2,196.544 | 408.72 | 1.789 | 0 |
-| Stroid | 2,865.095 | 5,096.164 | 176.87 | -1.114 | 0 |
+| Stroid | 2,865.095 | 5,096.164 | 176.87 | −1.114 | 0 |
+
+> **`[MISSING]`** — CPU utilisation per req/s is not tracked for any mode.
+> **`[MISSING]`** — sustained soak throughput (5-minute run) is absent; single-run values may not reflect steady-state behaviour.
 
 ### Hydration Divergence & WebSocket Stream
-- Hydration divergence certified runs: 68 (unexpectedOutcomes=0, invariantViolations=0).
-- Hydration randomized total runs: 36; policy mismatches are all 0 across client_wins/server_wins/merge in all runs.
-- WebSocket hydration stream: mismatchCount=0, queuedWrites=6, replayedWrites=6.
+
+| Metric | Value |
+|---|---|
+| Hydration divergence certified runs | 68 (unexpectedOutcomes=0, invariantViolations=0) |
+| Hydration randomized total runs | 36 · mismatches=0 across client_wins / server_wins / merge |
+| WebSocket hydration stream | mismatchCount=0 · queuedWrites=6 · replayedWrites=6 |
+
+> **`[MISSING]`** — WebSocket stream tested with only 6 queued writes; high-volume WebSocket replay under backpressure is not certified.
+
+---
 
 ## Production Trust Matrix
+
 | Scenario | Batched write ops/sec | Churn ops/sec | Invariant violations | Delete leaks |
 |---|---:|---:|---:|---:|
 | request-deep-default | 6,854.20 | 2,726.51 | 0 | 0 |
@@ -186,34 +243,32 @@ Heap guardrails:
 | global-ref-mid-4 | 6,329.54 | 3,665.92 | 0 | 0 |
 | temp-deep-mid-2 | 6,830.68 | 2,670.87 | 0 | 0 |
 
+> **`[MISSING]`** — p95 / p99 latency per scenario is not reported; ops/sec median alone does not capture tail behaviour.
+> **`[MISSING]`** — scenarios under memory pressure (near-quota storage, low-RAM environment) are not included.
+
+---
+
 ## Guarantee Micro-benchmarks
-| Benchmark | Key Output (median/mode across 3 runs) |
+
+| Benchmark | Key output (median/mode, 3 runs) |
 |---|---|
-| Atomic failure injection | iterations=48, rollbacks=36, partialCommitCount=0, median=0.657ms |
-| Race stress | waves=24 x ops=80, invariantViolations=0, stateMismatchCount=0, median=14.533ms |
-| Determinism replay | replays=20, uniqueOutputCount=1, median=193.856ms |
-| Memory leak detection | warmup=40, measured=240, retainedGrowth=1.886 MB, peakDelta=1.887 MB |
-| Governance lifecycle | proposals=5, rejectedMutationCount=1, previewCommitMismatchCount=0, commitMedian=0.340ms |
+| Atomic failure injection | iterations=48 · rollbacks=36 · partialCommitCount=0 · median=0.657 ms |
+| Race stress | waves=24 × ops=80 · invariantViolations=0 · stateMismatchCount=0 · median=14.533 ms |
+| Determinism replay | replays=20 · uniqueOutputCount=1 · median=193.856 ms |
+| Memory leak detection | warmup=40 · measured=240 · retainedGrowth=1.886 MB · peakDelta=1.887 MB |
+| Governance lifecycle | proposals=5 · rejectedMutationCount=1 · previewCommitMismatchCount=0 · commitMedian=0.340 ms |
 
-## Stress Test Suite
-| Folder | Files | Tests | Passed | Failed |
-|--------|-------|-------|--------|--------|
-| tests/unit | 4 | 22 | 22 | 0 |
-| tests/concurrency | 2 | 7 | 7 | 0 |
-| tests/persistence | 2 | 10 | 10 | 0 |
-| tests/sync | 2 | 9 | 9 | 0 |
-| tests/hooks | 2 | 10 | 10 | 0 |
-| tests/fuzz | 1 | 1 | 1 | 0 |
-| tests/regression | 1 | 4 | 4 | 0 |
-| **Total** | **14** | **63** | **63** | **0** |
+> **`[MISSING]`** — determinism replay count of 20 is low; increase to 100+ for higher confidence, especially under concurrent load.
+> **`[MISSING]`** — memory leak detection uses only 240 measured cycles; a long-session simulation (multi-hour equivalent) is absent.
+> **`[MISSING]`** — race stress wave/ops parameters (24×80) are not justified against a production concurrency model.
 
-## Regression Gate Status (vs Baseline)
+---
+
+## Regression Gate Status
+
 ### CI Gate (Authoritative)
-- Source run: Stress Test Pipeline run `24000828199` (2026-04-05), benchmark artifact `benchmark-results`.
-- Source URL: `https://github.com/Himesh-Bhattarai/stroid/actions/runs/24000828199`.
-- Workflow status: `completed/success`; benchmark job `Benchmarks + Regression Gate` is `success`.
-- CI environment used by gate data: Node `v20.20.2` (from CI `latest.json`).
-- Baseline provenance metadata is now embedded in benchmark JSON (`environment` block: node/platform/arch/cpu/memory/load/CI context) and surfaced in `summary.md`.
+
+Source: CI run `24000828199` (2026-04-05) · Node v20.20.2 · workflow `completed/success`
 
 | Metric | Baseline ops/sec | CI latest ops/sec | Ratio | Status |
 |---|---:|---:|---:|---|
@@ -233,58 +288,107 @@ Heap guardrails:
 | broadcast_dispatch_receive_10000 (stroid) | 29,667.18 | 82,659.15 | 278.62% | PASS |
 | async_ttl_100_concurrent_x_100_rounds (stroid) | 5,823.70 | 21,262.59 | 365.10% | PASS |
 
-CI-gate summary: `0` regressions out of `15` tracked metrics.
+**CI-gate summary:** 0 regressions out of 15 tracked metrics.
+
+> **`[MISSING]`** — baseline CPU model and load at capture time are not embedded; required for ratio interpretation to be reliable.
+> **`[MISSING]`** — latency regression gate (p95 / p99) does not exist; only ops/sec is gated.
 
 ### Local Median Gate (Informational, Non-blocking)
-- Local median simulation on Windows/Node 22 previously showed 14/15 below threshold.
-- Because CI is fully green and cross-library local drops happened together, treat that local result as machine/environment variance unless reproduced on the CI runner.
-- Local benchmark variance is non-authoritative; CI benchmark artifacts are the merge/source-of-truth data.
+
+- Local Windows / Node 22 previously showed 14/15 below threshold.
+- Cross-library local drops occurred simultaneously — consistent with environment variance, not a Stroid-specific regression.
+- Local benchmark variance is non-authoritative; CI artifacts are the merge decision source.
+
+---
 
 ## Red Signal Watchlist (Non-gating)
-- Subscriber fanout cost at 250k remains heavy: `compute batch100 = 2,393.053 ms`, `noop batch100 = 1,180.980 ms`.
-- Selector high-scale curve is still expensive at 800k: `simple = 232.097 ms`, `complex = 220.632 ms`.
-- Deep-path single update spikes at 800k subscribers: `93.221 ms` median.
-- Hydration large payloads remain a major hotspot: `1MB immediate = 10,286.352 ms`, `2MB immediate = 39,950.619 ms`, `2MB queued = 40,254.600 ms`.
-- SSR fair-compare throughput is lower for Stroid (`176.87 req/s`) than Zustand (`408.72 req/s`) and Redux (`338.61 req/s`); this is directional only, not strict apples-to-apples, because Stroid keeps extra deterministic/safety work in-path.
 
-## Critical Coverage Gaps (To Add In Next Benchmark Cycle)
-- Baseline provenance must be explicit and auditable:
-  - Baseline source run id, exact date, Node version, runner/OS, and load assumptions must be recorded with each baseline snapshot.
-  - Regression interpretation is unreliable without this metadata.
-- Browser-runtime benchmark coverage is missing:
-  - Current numbers are Node-only.
-  - Add browser benchmark tracks for React-thread contention, selector work, notification fanout, and snapshot cloning under render load.
-- Fuzz coverage breadth is currently narrow:
-  - Stress suite reports `tests/fuzz: 1 file / 1 test`.
-  - Add multiple fuzz targets with documented input domains and invariants (async, persist, hydration, sync message streams, selector graph churn).
-- Devtools overhead is not isolated in performance reports:
-  - Add dedicated benchmark profiles comparing devtools off vs on (history enabled) at high write volume and high subscriber counts.
-- Computed chain depth is not benchmarked:
-  - Add chain-depth scenarios (for example depth 3/5/10+) to measure recompute propagation and flush ordering overhead.
-- Long-session memory behavior is under-sampled:
-  - Current memory micro-benchmark (`240` measured cycles) is useful but short.
-  - Add long-horizon session simulations (multi-hour equivalent navigation/store churn patterns).
-- Persist benchmark is happy-path focused:
-  - Existing persist throughput does not exercise failure modes (BFCache, storage races, Safari ITP eviction behavior, quota pressure).
-  - Add failure-mode certification scenarios in benchmark outputs.
-- Real-stack coexistence is missing (Stroid + server-state cache runtime):
-  - Add benchmark tracks that run Stroid alongside TanStack Query style workloads to capture contention and practical production behavior.
-- User-perceived performance is not measured directly:
-  - Add UX-facing metrics: frame-time impact, long-task counts, hydration visual stability windows, and observable interaction latency.
+| Signal | Value | Recommended action |
+|---|---|---|
+| Subscriber fanout — compute batch100 @ 250k | 2,393.053 ms | Stress-test before any extreme fanout usage; partition stores |
+| Subscriber fanout — noop batch100 @ 250k | 1,180.980 ms | Monitor; dispatch path optimisation candidate |
+| Selector cost — simple @ 800k | 232.097 ms | Avoid huge shared selector graphs without partitioning |
+| Selector cost — complex @ 800k | 220.632 ms | Same as above |
+| Deep-path update @ 800k | 93.221 ms | Split stores or isolate write-hot paths for large workloads |
+| Hydration — 1 MB immediate | 10,286.352 ms | Avoid; use chunked or queued hydration |
+| Hydration — 2 MB immediate | 39,950.619 ms | Blocked for production use; prefer streaming/chunking |
+| Hydration — 2 MB queued | 40,254.600 ms | No advantage over immediate at this size; investigate root cause |
+| SSR fair compare — Stroid req/s | 176.87 req/s vs 408.72 (Zustand) | Directional signal only; optimise without removing invariant safety |
 
-### Scope Note (Tracking Starts Now)
-- Bundle size benchmarking and version-trend longitudinal benchmarking are not included in this report revision.
-- Both will start being tracked from the next benchmark cycle onward.
+---
 
-## Notes & Reproducibility
-- Reproduce (run): `npm run benchmark:all` (3 times, median taken), plus `npm run test:stress` and `npm run bench:stress` each iteration.
-- Baseline update policy: only after explicit performance review (do not update from volatile local runs).
-- Known variance: subscriber fanout and selector-irrelevant paths fluctuate on Windows / Node 22 under mixed system load.
-- Absolute ops/sec are hardware-sensitive; CI regression gate is the merge decision source.
-- Cross-library compare is standard directional context, but not strict apples-to-apples: Stroid includes additional deterministic and safety guarantees in the measured path.
+## Coverage Gaps (Next Benchmark Cycle)
+
+- [ ] **Baseline provenance** — embed runner CPU model, OS, load, and Node version in every baseline snapshot JSON.
+- [ ] **Browser-runtime tracks** — React-thread contention, selector work, notification fanout, snapshot cloning under render load.
+- [ ] **Fuzz breadth** — expand from 1 file / 1 test to multiple targets covering async, persist, hydration, sync streams, selector churn.
+- [ ] **Devtools overhead isolation** — benchmark devtools off vs history-50 vs history-500 at high write volume.
+- [ ] **Computed chain depth** — depth 1/3/5/10 recompute propagation and flush ordering overhead.
+- [ ] **Long-session memory** — multi-hour equivalent navigation/store churn simulation (current max: 240 measured cycles).
+- [ ] **Persist failure modes** — BFCache, storage races, Safari ITP eviction, quota pressure scenarios.
+- [ ] **Real-stack coexistence** — Stroid alongside TanStack Query style workloads to capture practical production contention.
+- [ ] **User-perceived metrics** — frame-time impact, long-task counts, hydration visual stability windows, interaction latency.
+- [ ] **p99 / max latency gates** — current regression gate covers ops/sec only; add tail latency gating.
+- [ ] **Cross-library fanout completeness** — add 100k and 250k tiers; add Jotai; add memory delta per library.
+- [ ] **Bundle-size trend tracking** — intentionally deferred; start next cycle.
+- [ ] **Cross-version longitudinal trends** — forward-only history starts from 2026-04-05; report in next cycle.
+- [ ] **Deno / Bun SSR certification** — ALS behaviour differs from Node; certify separately.
+- [ ] **WebSocket high-volume replay** — current certification covers only 6 queued writes.
+
+---
+
+## Advanced Reality Suite (Tracked from 2026-04-05)
+
+Command: `npm run benchmark:production-reality`
+Output: `scripts/production-reality-benchmark-output.json`
+Included by: `npm run benchmark:all` and `npm run benchmark:guarantees`
+
+| Dimension | Coverage status |
+|---|---|
+| Devtools overhead (history off / 50 / 500) | Tracked |
+| Computed chain depth (depth 1/3/5/10) | Tracked |
+| Long-session memory trends | Tracked |
+| Persist failure-mode stress | Tracked |
+| Query-cache co-load pressure | Tracked |
+| User-perceived signals (frame-budget misses, event-loop p95/p99) | Tracked |
+| Bundle-size trend | **`[MISSING]`** — deferred to next cycle |
+| Cross-version longitudinal trend | **`[MISSING]`** — deferred to next cycle |
+
+---
+
+## Reproducibility
+
+- **Reproduce:** `npm run benchmark:all` (3×, median taken) + `npm run test:stress` + `npm run bench:stress` each iteration.
+- **Baseline update policy:** Only after explicit performance review. Never update from volatile local runs.
+- **Known variance:** Subscriber fanout and selector-irrelevant paths fluctuate on Windows / Node 22 under mixed system load.
+- **Absolute ops/sec caveat:** Hardware-sensitive. Use ratio-to-baseline for gating, not raw values.
+- **Cross-library caveat:** Comparisons are directional only; Stroid carries additional deterministic and safety guarantees in the measured path.
+
+---
 
 ## Appendix: Median Calculation Details
-- For every numeric metric: median of run1/run2/run3.
-- For non-numeric metrics and invariants: mode when all runs agree; otherwise marked `inconsistent`.
-- No run was discarded; all three full iterations were included.
-- Artifacts root: `scripts/benchmark-results/median-3runs-20260405-133116` (contains run1/run2/run3 logs and JSON snapshots).
+
+| Run | Status | Artifact path |
+|---|---|---|
+| Run 1 | Completed | `scripts/benchmark-results/median-3runs-20260405-133116/run1/` |
+| Run 2 | Completed | `scripts/benchmark-results/median-3runs-20260405-133116/run2/` |
+| Run 3 | Completed | `scripts/benchmark-results/median-3runs-20260405-133116/run3/` |
+| **Median** | **Reported** | `scripts/benchmark-results/median-3runs-20260405-133116/` |
+
+- Numeric metrics: median of all 3 runs. No run discarded.
+- Non-numeric / invariants: mode when all runs agree; otherwise marked `inconsistent`.
+
+---
+
+## Quick Reference: Status Definitions
+
+| Status | Meaning | Typical action |
+|---|---|---|
+| **Good** | Within acceptable bounds or above target threshold | Monitor; no action required |
+| **Warning** | Marginal — acceptable now, likely problematic at higher scale | Document limit; add watchlist entry; plan optimisation |
+| **Problematic** | Exceeds acceptable bounds; affects production viability | Block merge or add explicit waiver with mitigation plan |
+| **Informational** | Tracked for trend purposes; not yet gating | Review each cycle; promote to gating once baseline is stable |
+
+---
+
+*Report filled: 2026-04-07. Source: Stroid benchmark run 2026-04-05, CI run `24000828199`. All `[MISSING]` tags indicate data absent from the source report and recommended for the next benchmark cycle.*

@@ -106,10 +106,12 @@ export const createRequestScope = <StateMap extends StoreStateMap = StoreStateMa
         bind: <Args extends unknown[], Result>(
             callback: (...args: Args) => Result
         ): ((...args: Args) => Result) =>
-            (...args: Args): Result =>
-                activeRunDepth > 0
-                    ? runWithRegistry(registry, () => callback(...args))
-                    : callback(...args),
+            (...args: Args): Result => {
+                if (activeRunDepth <= 0) {
+                    throw new Error("Bound request scope callback invoked outside scope.run().");
+                }
+                return runWithRegistry(registry, () => callback(...args));
+            },
     };
 
     return {

@@ -101,6 +101,57 @@ test("createStoreForRequest persists async render-time writes into snapshot and 
   });
 });
 
+test("createStoreForRequest bind reads live request state and persists bound callback writes", async () => {
+  const ctx = createStoreForRequest((api) => {
+    api.create("session", { requestId: 1, revision: 0, logs: [] as string[] });
+  });
+
+  const bound = ctx.bind(() => {
+    const current = getStore("session") as { requestId: number; revision: number; logs: string[] };
+    assert.strictEqual(current.revision, 7);
+    setStore("session", (draft: { revision: number; logs: string[] }) => {
+      draft.revision += 1;
+      draft.logs.push("bound");
+    });
+  });
+
+  await ctx.hydrate(async () => {
+    setStore("session", (draft: { revision: number; logs: string[] }) => {
+      draft.revision = 7;
+      draft.logs.push("hydrate");
+    });
+    bound();
+  });
+
+  assert.deepStrictEqual(ctx.snapshot(), {
+    session: { requestId: 1, revision: 8, logs: ["hydrate", "bound"] },
+  });
+});
+
+test("createStoreForRequest bind throws outside request lifecycle and preserves global state", () => {
+  createStore("session", { requestId: 0, revision: 0, logs: [] as string[] });
+
+  const ctx = createStoreForRequest((api) => {
+    api.create("session", { requestId: 1, revision: 0, logs: [] as string[] });
+  });
+
+  const bound = ctx.bind(() => {
+    setStore("session", (draft: { requestId: number; revision: number }) => {
+      draft.requestId = 777;
+      draft.revision += 1;
+    });
+  });
+
+  assert.throws(() => {
+    bound();
+  }, /outside request lifecycle/);
+
+  assert.deepStrictEqual(getStore("session"), { requestId: 0, revision: 0, logs: [] });
+  assert.deepStrictEqual(ctx.snapshot(), {
+    session: { requestId: 1, revision: 0, logs: [] },
+  });
+});
+
 test("createStoreForRequest snapshots include chunked subscriber side effects before hydrate returns", () => {
   const ctx = createStoreForRequest();
 

@@ -89,6 +89,76 @@ test("createRequestScope keeps async awaited writes isolated from the global reg
   assert.strictEqual(getStore("session"), null);
 });
 
+test("createRequestScope bind reads and writes live scoped state during run", async () => {
+  const scope = createRequestScope<{
+    session: { id: string; count: number; trail: string[] };
+  }>({
+    snapshot: {
+      session: {
+        id: "portable",
+        count: 0,
+        trail: [],
+      },
+    },
+    options: {},
+  });
+
+  let seenCount = -1;
+  const bound = scope.bind(() => {
+    const current = getStore("session") as { count: number; trail: string[] };
+    seenCount = current.count;
+    setStore("session", (draft: { count: number; trail: string[] }) => {
+      draft.count += 1;
+      draft.trail.push("bound");
+    });
+  });
+
+  await scope.run(async () => {
+    setStore("session", (draft: { count: number }) => {
+      draft.count = 7;
+    });
+    bound();
+  });
+
+  assert.strictEqual(seenCount, 7);
+  assert.deepStrictEqual(scope.snapshot(), {
+    session: {
+      id: "portable",
+      count: 8,
+      trail: ["bound"],
+    },
+  });
+});
+
+test("createRequestScope bind throws outside scope.run and preserves global state", () => {
+  createStore("session", { requestId: 0, revision: 0, logs: [] as string[] });
+
+  const scope = createRequestScope<{
+    session: { requestId: number; revision: number; logs: string[] };
+  }>({
+    snapshot: {
+      session: { requestId: 2, revision: 0, logs: [] },
+    },
+    options: {},
+  });
+
+  const bound = scope.bind(() => {
+    setStore("session", (draft: { requestId: number; revision: number }) => {
+      draft.requestId = 888;
+      draft.revision += 1;
+    });
+  });
+
+  assert.throws(() => {
+    bound();
+  }, /outside scope\.run/);
+
+  assert.deepStrictEqual(getStore("session"), { requestId: 0, revision: 0, logs: [] });
+  assert.deepStrictEqual(scope.snapshot(), {
+    session: { requestId: 2, revision: 0, logs: [] },
+  });
+});
+
 test("createRequestScope isolates overlapping async scopes without async-local storage", async () => {
   const scopeA = createRequestScope<{
     session: { id: string; count: number; trail: string[] };

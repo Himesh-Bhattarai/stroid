@@ -222,19 +222,19 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
     const bind = <Args extends unknown[], Result>(
         callback: (...args: Args) => Result,
     ): ((...args: Args) => Result) => {
-        const capturedCarrier = serverAsyncContext.getStore();
-        const fallbackCarrier = capturedCarrier ?? deepClone(buffer) as CarrierContext;
+        const boundCarrier = serverAsyncContext.getStore() ?? deepClone(buffer) as CarrierContext;
         return (...args: Args): Result => {
             if (activeHydrateDepth <= 0) {
-                return callback(...args);
+                throw new Error("Bound request callback invoked outside request lifecycle.");
             }
-            return serverRegistryContext.run(registry, () =>
-                withCarrierMemo(
+            return serverRegistryContext.run(registry, () => {
+                const activeCarrier = serverAsyncContext.getStore() ?? boundCarrier;
+                return withCarrierMemo(
                     registry,
-                    fallbackCarrier,
-                    () => serverAsyncContext.run(fallbackCarrier, () => callback(...args)),
-                ),
-            );
+                    activeCarrier,
+                    () => serverAsyncContext.run(activeCarrier, () => callback(...args)),
+                );
+            });
         };
     };
     return {
