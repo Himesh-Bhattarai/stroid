@@ -25,6 +25,7 @@ import {
     type HydrationDriftEvent,
     type HydrationSnapshotMetadata,
 } from "../core/hydration-consistency.js";
+import { cloneInspectable } from "../utils/inspectable-clone.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
 
@@ -58,7 +59,7 @@ export type HydrationDriftMetrics = HydrationConsistencyMetrics & {
     manualCloseAvailable: boolean;
 };
 
-const toReport = (entry: ReturnType<typeof getHydrationStoreStates>[number]): HydrationConsistencyReport => ({
+const toReport = (entry: ReturnType<typeof getHydrationStoreStates>[number]): HydrationConsistencyReport => cloneInspectable({
     store: entry.store,
     authority: entry.authority,
     policy: entry.policy,
@@ -94,7 +95,7 @@ export const getHydrationConsistency = (name?: string): HydrationConsistencyRepo
 };
 
 export const getHydrationDriftEvents = (limit?: number): HydrationDriftEvent[] =>
-    readHydrationDriftEvents(getRegistry(), limit);
+    cloneInspectable(readHydrationDriftEvents(getRegistry(), limit));
 
 export const getHydrationDriftMetrics = (): HydrationDriftMetrics =>
-    readHydrationMetrics(getRegistry());
+    cloneInspectable(readHydrationMetrics(getRegistry()));

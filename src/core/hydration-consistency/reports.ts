@@ -6,7 +6,7 @@
  *
  * Consumers: runtime-tools.
  */
-import { deepClone } from "../../utils.js";
+import { cloneInspectable } from "../../utils/inspectable-clone.js";
 import type { StoreRegistry } from "../store-registry.js";
 import type {
     HydrationBootWindowMode,
@@ -21,18 +21,14 @@ export const getHydrationStoreState = (
 ): HydrationConsistencyStoreState | null => {
     const entry = registry.hydration.stores[store];
     if (!entry) return null;
-    return {
-        ...entry,
-        baseline: deepClone(entry.baseline),
-    };
+    return cloneInspectable(entry);
 };
 
 export const getHydrationStoreStates = (
     registry: StoreRegistry
-): HydrationConsistencyStoreState[] => Object.values(registry.hydration.stores).map((entry) => ({
-    ...entry,
-    baseline: deepClone(entry.baseline),
-}));
+): HydrationConsistencyStoreState[] => Object
+    .values(registry.hydration.stores)
+    .map((entry) => cloneInspectable(entry));
 
 export const getHydrationDriftEvents = (
     registry: StoreRegistry,
@@ -42,13 +38,7 @@ export const getHydrationDriftEvents = (
     const slice = typeof limit === "number" && limit >= 0
         ? events.slice(Math.max(0, events.length - limit))
         : events;
-    return slice.map((event) => ({
-        ...event,
-        metadata: { ...event.metadata },
-        baseline: deepClone(event.baseline),
-        live: deepClone(event.live),
-        resolved: deepClone(event.resolved),
-    }));
+    return slice.map((event) => cloneInspectable(event));
 };
 
 export const getHydrationMetrics = (
@@ -59,7 +49,7 @@ export const getHydrationMetrics = (
     bootWindowMode: HydrationBootWindowMode | null;
     bootWindowEndsAtMs: number | null;
     manualCloseAvailable: boolean;
-} => ({
+} => cloneInspectable({
     ...registry.hydration.metrics,
     pendingWrites: registry.hydration.queue.length,
     bootWindowActive: registry.hydration.bootWindowActive,

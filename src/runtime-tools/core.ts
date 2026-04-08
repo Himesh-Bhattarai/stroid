@@ -7,6 +7,7 @@
  * Consumers: runtime-tools index and public API.
  */
 import { deepClone } from "../utils/clone.js";
+import { cloneInspectable } from "../utils/inspectable-clone.js";
 import { suggestStoreName } from "../internals/diagnostics.js";
 import {
     getStoreRegistry,
@@ -18,58 +19,6 @@ import { subscribers } from "../core/store-lifecycle/registry.js";
 import type { StoreFeatureMeta } from "../features/feature-registry.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
-
-const cloneInspectable = <T>(value: T, seen = new WeakMap<object, unknown>()): T => {
-    if (value === null || typeof value !== "object") return value;
-    if (seen.has(value as object)) return seen.get(value as object) as T;
-
-    if (value instanceof Date) {
-        const clone = new Date(value.getTime()) as T;
-        seen.set(value as object, clone as unknown);
-        return clone;
-    }
-
-    if (value instanceof Map) {
-        const clone = new Map();
-        seen.set(value as object, clone);
-        value.forEach((entryValue, key) => {
-            clone.set(
-                cloneInspectable(key, seen),
-                cloneInspectable(entryValue, seen)
-            );
-        });
-        return clone as T;
-    }
-
-    if (value instanceof Set) {
-        const clone = new Set();
-        seen.set(value as object, clone);
-        value.forEach((entryValue) => {
-            clone.add(cloneInspectable(entryValue, seen));
-        });
-        return clone as T;
-    }
-
-    if (Array.isArray(value)) {
-        const clone: unknown[] = [];
-        seen.set(value as object, clone);
-        value.forEach((entryValue, index) => {
-            clone[index] = cloneInspectable(entryValue, seen);
-        });
-        return clone as T;
-    }
-
-    const source = value as Record<string, unknown>;
-    const clone = Object.create(Object.getPrototypeOf(source)) as Record<string, unknown>;
-    seen.set(source, clone);
-    const descriptors = Object.getOwnPropertyDescriptors(source);
-    Object.entries(descriptors).forEach(([key, descriptor]) => {
-        if (!descriptor.enumerable) return;
-        if ("get" in descriptor || "set" in descriptor) return;
-        clone[key] = cloneInspectable(descriptor.value, seen);
-    });
-    return clone as T;
-};
 
 const exists = (name: string): boolean => {
     const registry = getRegistry();
@@ -104,7 +53,7 @@ export const getInitialState = (): Record<string, unknown> =>
 export const getMetrics = (name: string): StoreFeatureMeta["metrics"] | null => {
     const meta = getRegistry().metaEntries[name];
     if (!meta?.metrics) return null;
-    return { ...meta.metrics };
+    return cloneInspectable(meta.metrics);
 };
 
 export const getSubscriberCount = (name: string): number => {
@@ -129,7 +78,7 @@ export const findColdStores = (options: {
 } = {}): ColdStoreReport[] => {
     const threshold = options.unreadThresholdMs ?? 60_000;
     const now = Date.now();
-    return listStores().map((name) => {
+    return cloneInspectable(listStores().map((name) => {
         const meta = getRegistry().metaEntries[name];
         const createdAtMs = meta?.createdAt ? new Date(meta.createdAt).getTime() : now;
         const lastReadMs = meta?.lastReadAtMs ?? null;
@@ -160,7 +109,7 @@ export const findColdStores = (options: {
         report.verdict === "cold"
         || report.verdict === "stale"
         || (options.includeWriteOnly && report.verdict === "write-only")
-    );
+    ));
 };
 
 export { exists as runtimeToolStoreExists };

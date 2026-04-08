@@ -11,7 +11,12 @@ import assert from "node:assert";
 import { createStore, getStore, hydrateStores, setStore } from "../../src/store.js";
 import { installPersist } from "../../src/persist.js";
 import { resetAllStoresForTest } from "../../src/helpers/testing.js";
-import { getHydrationConsistency, getStoreMeta } from "../../src/runtime-tools/index.js";
+import {
+  getHydrationConsistency,
+  getHydrationDriftEvents,
+  getMetrics,
+  getStoreMeta,
+} from "../../src/runtime-tools/index.js";
 
 const wait = async (ms = 0): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -105,3 +110,123 @@ test("getStoreMeta returns isolated nested option objects", async () => {
   assert.notStrictEqual(nextSetItem, tamperedSetItem);
 });
 
+test("getHydrationConsistency isolates nested metadata in named and list projections", () => {
+  resetAllStoresForTest();
+  createStore("runtime.hydration.metadata", { value: "server" });
+
+  const marker = { stamp: { version: 1 } };
+  hydrateStores(
+    { "runtime.hydration.metadata": { value: "server" } },
+    {},
+    { allowTrusted: true },
+    {
+      contract: {
+        snapshotVersion: marker as unknown as string,
+      },
+      policyMap: { "runtime.hydration.metadata": "server_wins" },
+    },
+  );
+
+  const namedReport = getHydrationConsistency("runtime.hydration.metadata");
+  assert.ok(namedReport && !Array.isArray(namedReport));
+  ((namedReport.snapshotVersion as { stamp: { version: number } }).stamp).version = 999;
+
+  const listReport = (getHydrationConsistency() as Array<{ store: string; snapshotVersion?: unknown }>)
+    .find((entry) => entry.store === "runtime.hydration.metadata");
+  assert.ok(listReport);
+  ((listReport!.snapshotVersion as { stamp: { version: number } }).stamp).version = 888;
+
+  const freshNamed = getHydrationConsistency("runtime.hydration.metadata");
+  assert.ok(freshNamed && !Array.isArray(freshNamed));
+  assert.deepStrictEqual(freshNamed.snapshotVersion, { stamp: { version: 1 } });
+
+  const freshList = (getHydrationConsistency() as Array<{ store: string; snapshotVersion?: unknown }>)
+    .find((entry) => entry.store === "runtime.hydration.metadata");
+  assert.ok(freshList);
+  assert.deepStrictEqual(freshList!.snapshotVersion, { stamp: { version: 1 } });
+});
+
+test("getHydrationDriftEvents returns isolated nested metadata and payload snapshots", () => {
+  resetAllStoresForTest();
+  createStore("runtime.hydration.events", { profile: { name: "server" } });
+
+  hydrateStores(
+    { "runtime.hydration.events": { profile: { name: "server" } } },
+    {},
+    { allowTrusted: true },
+    {
+      contract: {
+        snapshotVersion: { marker: { id: "release-1" } } as unknown as string,
+      },
+      policyMap: { "runtime.hydration.events": "server_wins" },
+    },
+  );
+
+  setStore("runtime.hydration.events", { profile: { name: "client" } });
+
+  const [event] = getHydrationDriftEvents(1);
+  assert.ok(event);
+
+  ((event.metadata.snapshotVersion as { marker: { id: string } }).marker).id = "tampered";
+  (((event.baseline as { profile: { name: string } }).profile)).name = "tampered-baseline";
+  (((event.live as { profile: { name: string } }).profile)).name = "tampered-live";
+  (((event.resolved as { profile: { name: string } }).profile)).name = "tampered-resolved";
+
+  const [fresh] = getHydrationDriftEvents(1);
+  assert.ok(fresh);
+  assert.deepStrictEqual(fresh.metadata.snapshotVersion, { marker: { id: "release-1" } });
+  assert.deepStrictEqual(fresh.baseline, { profile: { name: "server" } });
+  assert.deepStrictEqual(fresh.live, { profile: { name: "client" } });
+  assert.deepStrictEqual(fresh.resolved, { profile: { name: "server" } });
+});
+
+test("getStoreMeta and getMetrics isolate collection-shaped projections", () => {
+  resetAllStoresForTest();
+  createStore(
+    "runtime.meta.collections",
+    { value: 1 },
+    {
+      features: {
+        inspect: {
+          labels: new Set(["stable"]),
+          counters: new Map([["one", { value: 1 }]]),
+        },
+      },
+    },
+  );
+
+  const metrics = getMetrics("runtime.meta.collections");
+  assert.ok(metrics);
+  metrics.notifyCount = 999;
+
+  const metricsFresh = getMetrics("runtime.meta.collections");
+  assert.ok(metricsFresh);
+  assert.notStrictEqual(metricsFresh.notifyCount, 999);
+
+  const meta = getStoreMeta("runtime.meta.collections");
+  assert.ok(meta?.options.features && typeof meta.options.features === "object");
+  const inspect = (meta.options.features as {
+    inspect?: {
+      labels?: Set<string>;
+      counters?: Map<string, { value: number }>;
+    };
+  }).inspect;
+  assert.ok(inspect?.labels instanceof Set);
+  assert.ok(inspect?.counters instanceof Map);
+
+  inspect?.labels?.add("tampered");
+  const mapped = inspect?.counters?.get("one");
+  if (mapped) mapped.value = 999;
+
+  const fresh = getStoreMeta("runtime.meta.collections");
+  assert.ok(fresh?.options.features && typeof fresh.options.features === "object");
+  const freshInspect = (fresh.options.features as {
+    inspect?: {
+      labels?: Set<string>;
+      counters?: Map<string, { value: number }>;
+    };
+  }).inspect;
+
+  assert.deepStrictEqual(Array.from(freshInspect?.labels ?? []), ["stable"]);
+  assert.deepStrictEqual(freshInspect?.counters?.get("one"), { value: 1 });
+});
