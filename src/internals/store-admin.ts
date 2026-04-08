@@ -130,8 +130,23 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
 
         getRegisteredFeatureNames().forEach((featureName) => {
             const runtime = featureRuntimes.get(featureName);
-            if (phase === "before") runtime?.beforeStoreDelete?.(beforeDeleteContext);
-            else runtime?.afterStoreDelete?.(afterDeleteContext);
+            const hook = phase === "before"
+                ? runtime?.beforeStoreDelete
+                : runtime?.afterStoreDelete;
+            if (!hook) return;
+            try {
+                hook(phase === "before" ? beforeDeleteContext : afterDeleteContext);
+            } catch (err) {
+                reportIssue(
+                    `Feature "${String(featureName)}" ${phase}StoreDelete for "${name}" failed: ` +
+                    `${(err as { message?: string })?.message ?? err}`,
+                    {
+                        onError: options.onError,
+                        severity: "warn",
+                        visibility: "always",
+                    }
+                );
+            }
         });
     };
 

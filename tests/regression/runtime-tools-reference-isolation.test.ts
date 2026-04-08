@@ -230,3 +230,75 @@ test("getStoreMeta and getMetrics isolate collection-shaped projections", () => 
   assert.deepStrictEqual(Array.from(freshInspect?.labels ?? []), ["stable"]);
   assert.deepStrictEqual(freshInspect?.counters?.get("one"), { value: 1 });
 });
+
+test("getStoreMeta returns valid typed-array and DataView clones", () => {
+  resetAllStoresForTest();
+
+  const sourceBuffer = new ArrayBuffer(4);
+  new Uint8Array(sourceBuffer).set([7, 8, 9, 10]);
+
+  createStore("runtime.meta.typed-arrays", { value: 1 }, {
+    features: {
+      binary: {
+        bytes: new Uint8Array([1, 2, 3]),
+        view: new DataView(sourceBuffer),
+      },
+    },
+  });
+
+  const meta = getStoreMeta("runtime.meta.typed-arrays");
+  assert.ok(meta?.options.features && typeof meta.options.features === "object");
+
+  const binary = (meta.options.features as {
+    binary?: {
+      bytes?: Uint8Array;
+      view?: DataView;
+    };
+  }).binary;
+
+  assert.ok(binary?.bytes instanceof Uint8Array);
+  assert.ok(binary?.view instanceof DataView);
+  assert.strictEqual(Object.getPrototypeOf(binary?.bytes), Uint8Array.prototype);
+  assert.strictEqual(Object.getPrototypeOf(binary?.view), DataView.prototype);
+  assert.strictEqual(ArrayBuffer.isView(binary?.bytes), true);
+  assert.strictEqual(ArrayBuffer.isView(binary?.view), true);
+  assert.strictEqual(binary?.bytes?.length, 3);
+  assert.strictEqual(binary?.view?.byteLength, 4);
+  assert.deepStrictEqual(Array.from(binary?.bytes ?? []), [1, 2, 3]);
+  assert.strictEqual(binary?.bytes?.[0], 1);
+  assert.strictEqual(binary?.bytes?.[2], 3);
+  assert.deepStrictEqual([
+    binary?.view?.getUint8(0),
+    binary?.view?.getUint8(1),
+    binary?.view?.getUint8(2),
+    binary?.view?.getUint8(3),
+  ], [7, 8, 9, 10]);
+
+  if (binary?.bytes) binary.bytes[0] = 99;
+  if (binary?.view) binary.view.setUint8(0, 77);
+
+  const fresh = getStoreMeta("runtime.meta.typed-arrays");
+  assert.ok(fresh?.options.features && typeof fresh.options.features === "object");
+  const freshBinary = (fresh.options.features as {
+    binary?: {
+      bytes?: Uint8Array;
+      view?: DataView;
+    };
+  }).binary;
+
+  assert.ok(freshBinary?.bytes instanceof Uint8Array);
+  assert.ok(freshBinary?.view instanceof DataView);
+  assert.strictEqual(Object.getPrototypeOf(freshBinary?.bytes), Uint8Array.prototype);
+  assert.strictEqual(Object.getPrototypeOf(freshBinary?.view), DataView.prototype);
+  assert.strictEqual(ArrayBuffer.isView(freshBinary?.bytes), true);
+  assert.strictEqual(ArrayBuffer.isView(freshBinary?.view), true);
+  assert.deepStrictEqual(Array.from(freshBinary?.bytes ?? []), [1, 2, 3]);
+  assert.strictEqual(freshBinary?.bytes?.[0], 1);
+  assert.strictEqual(freshBinary?.bytes?.[2], 3);
+  assert.deepStrictEqual([
+    freshBinary?.view?.getUint8(0),
+    freshBinary?.view?.getUint8(1),
+    freshBinary?.view?.getUint8(2),
+    freshBinary?.view?.getUint8(3),
+  ], [7, 8, 9, 10]);
+});

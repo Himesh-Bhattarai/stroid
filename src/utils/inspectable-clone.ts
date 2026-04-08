@@ -12,6 +12,38 @@ export const cloneInspectable = <T>(value: T, seen = new WeakMap<object, unknown
     if (value === null || typeof value !== "object") return value;
     if (seen.has(value as object)) return seen.get(value as object) as T;
 
+    if (value instanceof ArrayBuffer) {
+        const clone = value.slice(0) as T;
+        seen.set(value as object, clone as unknown);
+        return clone;
+    }
+
+    const sharedArrayBufferCtor = (globalThis as { SharedArrayBuffer?: { new(length: number): object } }).SharedArrayBuffer;
+    if (sharedArrayBufferCtor && value instanceof sharedArrayBufferCtor) {
+        const source = value as unknown as ArrayBufferLike;
+        const cloneBuffer = new sharedArrayBufferCtor(source.byteLength) as unknown as ArrayBufferLike;
+        new Uint8Array(cloneBuffer).set(new Uint8Array(source));
+        const clone = cloneBuffer as T;
+        seen.set(value as object, clone as unknown);
+        return clone;
+    }
+
+    if (ArrayBuffer.isView(value)) {
+        if (value instanceof DataView) {
+            const view = value;
+            const buffer = new ArrayBuffer(view.byteLength);
+            new Uint8Array(buffer).set(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
+            const clone = new DataView(buffer) as T;
+            seen.set(value as object, clone as unknown);
+            return clone;
+        }
+
+        const typedArray = value as unknown as { constructor: { new(input: ArrayLike<number>): unknown } };
+        const clone = new typedArray.constructor(value as unknown as ArrayLike<number>) as T;
+        seen.set(value as object, clone as unknown);
+        return clone;
+    }
+
     if (value instanceof Date) {
         const clone = new Date(value.getTime()) as T;
         seen.set(value as object, clone as unknown);
