@@ -229,20 +229,42 @@ export const setupSync = ({
                 const localUpdated = resolveMetaUpdatedAtMs(getMeta(name));
                 const incomingUpdated = typeof msg.updatedAt === "number" ? msg.updatedAt : Date.now();
                 if (resolver) {
-                    const resolved = resolver({
-                        local: getStoreValue(name),
-                        incoming: msg.data,
-                        localUpdated,
-                        incomingUpdated,
-                    });
+                    let resolved: StoreValue | void;
+                    try {
+                        resolved = resolver({
+                            local: getStoreValue(name),
+                            incoming: msg.data,
+                            localUpdated,
+                            incomingUpdated,
+                        });
+                    } catch (err) {
+                        reportStoreError(
+                            name,
+                            `Sync conflictResolver for "${name}" failed: ${(err as { message?: string })?.message ?? err}`,
+                        );
+                        return;
+                    }
                     if (resolved !== undefined) {
                         const normalizedResolved = normalizeIncomingState(name, resolved);
                         if (normalizedResolved === null) return;
                         const prev = getStoreValue(name);
                         const resolveUpdatedAt = typeof syncOption === "object" ? syncOption.resolveUpdatedAt : null;
-                        const resolvedUpdatedAt = resolveUpdatedAt
-                            ? resolveUpdatedAt({ localUpdated, incomingUpdated, now: Date.now() })
-                            : Math.max(Date.now(), localUpdated, incomingUpdated);
+                        let resolvedUpdatedAt = Math.max(Date.now(), localUpdated, incomingUpdated);
+                        if (resolveUpdatedAt) {
+                            try {
+                                resolvedUpdatedAt = resolveUpdatedAt({
+                                    localUpdated,
+                                    incomingUpdated,
+                                    now: Date.now(),
+                                });
+                            } catch (err) {
+                                reportStoreError(
+                                    name,
+                                    `Sync resolveUpdatedAt for "${name}" failed: ${(err as { message?: string })?.message ?? err}`,
+                                );
+                                return;
+                            }
+                        }
                         const appliedValue = applyIncomingState(name, normalizedResolved, resolvedUpdatedAt);
                         resolveSyncVersion(name, resolvedUpdatedAt, typeof msg.clock === "number" ? msg.clock : 0);
                         runFeatureWriteHooksExcept(name, "sync", prev, appliedValue, () => notify(name), ["sync"]);

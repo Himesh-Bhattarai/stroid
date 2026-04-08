@@ -568,6 +568,101 @@ test("sync core (serial)", async (t) => {
     }
   });
 
+  await t.test("sync conflictResolver throw is isolated and reported", async () => {
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
+
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncConflictThrow", { value: "local" }, {
+        sync: {
+          conflictResolver: () => {
+            throw new Error("resolver boom");
+          },
+        },
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      setStore("syncConflictThrow", { value: "local2" });
+      await wait();
+
+      const peer = new MockBroadcastChannel("stroid_sync_syncConflictThrow");
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncConflictThrow",
+        clock: -1,
+        source: "peer",
+        data: { value: "incoming" },
+        updatedAt: Date.now(),
+        checksum: hashState({ value: "incoming" }),
+      });
+
+      await wait();
+
+      assert.deepStrictEqual(getStore("syncConflictThrow"), { value: "local2" });
+      assert.ok(errors.some((msg) => msg.includes("conflictResolver") && msg.includes("resolver boom")));
+    } finally {
+      deleteStore("syncConflictThrow");
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
+  await t.test("sync resolveUpdatedAt throw is isolated and reported", async () => {
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
+
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncResolveUpdatedAtThrow", { value: "local" }, {
+        sync: {
+          conflictResolver: () => ({ value: "resolved" }),
+          resolveUpdatedAt: () => {
+            throw new Error("updatedAt boom");
+          },
+        },
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      setStore("syncResolveUpdatedAtThrow", { value: "local2" });
+      await wait();
+
+      const peer = new MockBroadcastChannel("stroid_sync_syncResolveUpdatedAtThrow");
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncResolveUpdatedAtThrow",
+        clock: -1,
+        source: "peer",
+        data: { value: "incoming" },
+        updatedAt: Date.now(),
+        checksum: hashState({ value: "incoming" }),
+      });
+
+      await wait();
+
+      assert.deepStrictEqual(getStore("syncResolveUpdatedAtThrow"), { value: "local2" });
+      assert.ok(errors.some((msg) => msg.includes("resolveUpdatedAt") && msg.includes("updatedAt boom")));
+    } finally {
+      deleteStore("syncResolveUpdatedAtThrow");
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
   await t.test("sync loopGuard suppresses immediate rebroadcasts", async () => {
     const originalWindow = g.window;
     const originalBroadcastChannel = g.BroadcastChannel;
