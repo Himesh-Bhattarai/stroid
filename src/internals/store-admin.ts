@@ -135,6 +135,16 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
         });
     };
 
+    const clearHydrationStateForStore = (name: string): void => {
+        const hydrationState = registry.hydration;
+        delete hydrationState.stores[name];
+        for (let index = hydrationState.queue.length - 1; index >= 0; index -= 1) {
+            if (hydrationState.queue[index]?.store === name) {
+                hydrationState.queue.splice(index, 1);
+            }
+        }
+    };
+
     const deleteExistingStore = (name: string): void => {
         if (!hasStoreEntry(registry, name)) return;
 
@@ -186,6 +196,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             delete initialFactories[name];
             delete metaEntries[name];
             delete snapshotCache[name];
+            clearHydrationStateForStore(name);
             notifyState.pendingNotifications.delete(name);
             for (let index = notifyState.pendingBuffer.length - 1; index >= 0; index -= 1) {
                 if (notifyState.pendingBuffer[index] === name) {

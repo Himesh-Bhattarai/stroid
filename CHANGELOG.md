@@ -48,6 +48,8 @@
 >
 >### Fix
 >
+>- Fixed `runtime-admin.clearAllStores()` so it now honors the same `setStoreBatch` transaction guard as the core admin path, preventing destructive clears and cache resets from executing inside active batches.
+>- Fixed store delete/clear teardown so hydration consistency metadata and deferred hydration writes are purged per deleted store, preventing stale post-clear replay against recreated stores.
 >- Hardened `hydrateStores(..., trust.validate)` so Promise-returning async validators are rejected explicitly instead of being coerced to truthy values, preventing silent untrusted hydration.
 >- Replaced flaky/false-positive regressions with deterministic assertions (`computed-cycle`, `selector-cache-growth`, `async-flush-ordering`, and concurrent batch ordering), and added targeted coverage for URL-string `fetchStore(...)` resolution after `deleteStore(...)` plus concurrent same-key `hydrateStores(...)` races.
 >- Hardened structural-sharing coverage to certify large non-Immer path writes keep untouched branch references stable while updating only the targeted branch.

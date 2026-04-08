@@ -9,9 +9,15 @@
 import { resetAsyncState } from "../async/cache.js";
 import { getStoreAdmin } from "../core/store-lifecycle/registry.js";
 import { clearPathValidationCache } from "../core/store-lifecycle/validation.js";
+import { clearAllStores as clearAllStoresGuarded } from "../core/store-admin.js";
+import { isTransactionActive } from "../core/store-transaction.js";
 
 export const clearAllStores = (): void => {
-    getStoreAdmin().clearAllStores();
+    if (isTransactionActive()) {
+        clearAllStoresGuarded();
+        return;
+    }
+    clearAllStoresGuarded();
     resetAsyncState();
     clearPathValidationCache();
 };
