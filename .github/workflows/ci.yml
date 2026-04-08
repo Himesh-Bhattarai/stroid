@@ -23,4 +23,5 @@ jobs:
       - run: npm test
       - run: npm run test:types
       - run: npm run typecheck
+      - run: npm run typecheck:layers
       - run: npm run build
