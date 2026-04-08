@@ -14,7 +14,7 @@ This document explains every workflow in `.github/workflows`, what each one does
 
 | Workflow File | Workflow Name | Main Purpose | Trigger |
 |---|---|---|---|
-| `.github/workflows/ci.yml` | `CI` | Fast quality gate (tests, types, build) | push/PR to `main` or `dev`, manual |
+| `.github/workflows/ci.yml` | `CI` | Fast quality gate (tests, types, layered type boundaries, build) | push/PR to `main` or `dev`, manual |
 | `.github/workflows/test.yml` | `Stress Test Pipeline` | Heavy validation: stress, fuzz, benchmarks, coverage PR comment | push/PR (`main`,`dev`) |
 | `.github/workflows/publish.yml` | `Publish` | Verify package and publish to npm (manual on `main`) | PR to `main`, manual |
 | `.github/workflows/release-please.yml` | `release-please` | Automated release PR and tag/release management | push to `main`, manual |
@@ -62,6 +62,7 @@ This document explains every workflow in `.github/workflows`, what each one does
   - `npm test`
   - `npm run test:types`
   - `npm run typecheck`
+  - `npm run typecheck:layers`
   - `npm run build`
 
 **Trigger**
@@ -78,7 +79,7 @@ This document explains every workflow in `.github/workflows`, what each one does
 - Pass/fail is the signal.
 
 **Common failures**
-- Type drift (`test:types`, `typecheck`)
+- Type drift (`test:types`, `typecheck`, `typecheck:layers`)
 - Build output breaks (`npm run build`)
 - Runtime test regressions (`npm test`)
 
@@ -90,10 +91,13 @@ This document explains every workflow in `.github/workflows`, what each one does
 - Multi-job heavyweight pipeline:
   - `unit-integration`: Node matrix (`18`, `20`) + `npm test` + `npm run test:stress`
   - `fuzz`: fixed-seed fuzz run (`STROID_FUZZ_SEED=20260403`)
-  - `benchmarks`: `npm run bench:stress` + `npm run bench:stress:check`
-  - `benchmarks` also runs SSR regression gates with fixed seeds:
-    - `scripts/ssr/ssr-als-audit-ladder-benchmark.ts`
-    - `scripts/ssr/ssr-gap-benchmark.ts`
+  - `benchmarks`: full CI gate for types + benchmark regressions:
+    - `npm run typecheck`
+    - `npm run typecheck:layers`
+    - `npm run test:types`
+    - `npm run bench:stress:ci`
+    - `npm run benchmark:ssr-als-audit` (fixed seed in workflow env, artifacted)
+    - `npm run benchmark:ssr-gaps` (fixed seed/sizes in workflow env, artifacted)
   - `coverage` (PR only): stress coverage + PR comment update via marker `<!-- stroid-stress-coverage -->`
 
 **Trigger**
@@ -103,6 +107,7 @@ This document explains every workflow in `.github/workflows`, what each one does
 **Important behavior**
 - `fuzz` and `benchmarks` use `if: always()` with `needs: unit-integration`, so they still run and report even if core tests fail.
 - `coverage` runs only for PR events.
+- The `benchmarks` job is the push-time source-of-truth gate for benchmark and advanced type checks.
 
 **Artifacts**
 - `benchmark-results` from `scripts/benchmark-results/`
@@ -114,7 +119,8 @@ This document explains every workflow in `.github/workflows`, what each one does
 - Required when touching async/sync/persist/computed/SSR critical paths.
 
 **Common failures**
-- Benchmark regression gate (`bench:stress:check`) dropping below threshold.
+- Type/declaration regressions in `typecheck`, `typecheck:layers`, or `test:types`.
+- Benchmark regression gate (`bench:stress:ci`) dropping below threshold.
 - SSR isolation gate failures (ALS ladder or SSR gap benchmark) reporting non-zero isolation failures.
 - Fuzz edge-case breakage from nondeterministic behavior.
 - Coverage comment missing due to upstream test failure.
@@ -124,7 +130,7 @@ This document explains every workflow in `.github/workflows`, what each one does
 ## 3) `publish.yml` (`Publish`)
 
 **What it does**
-- `verify` job (always for this workflow): installs, tests, types, typecheck, build.
+- `verify` job (always for this workflow): installs, tests, types, layered type boundaries, build.
 - `publish` job:
   - Runs only when:
     - Event is `workflow_dispatch`
@@ -322,6 +328,39 @@ This document explains every workflow in `.github/workflows`, what each one does
 
 ---
 
+## CI Gate Coverage Snapshot
+
+This section documents which scripts are explicitly used by push/PR gates so workflow steps and npm scripts stay aligned.
+
+**Primary push/PR gates**
+- `CI` (`ci.yml`):
+  - `npm test`
+  - `npm run test:types`
+  - `npm run typecheck`
+  - `npm run typecheck:layers`
+  - `npm run build`
+- `Stress Test Pipeline` (`test.yml`):
+  - `npm test`
+  - `npm run test:stress`
+  - `npm run test:stress:fuzz`
+  - `npm run typecheck`
+  - `npm run typecheck:layers`
+  - `npm run test:types`
+  - `npm run bench:stress:ci`
+  - `npm run benchmark:ssr-als-audit`
+  - `npm run benchmark:ssr-gaps`
+  - `npm run test:stress:coverage` (PR only)
+
+**Scripts intentionally outside default push gate**
+- Manual/local or dedicated release workflows:
+  - `benchmark:all`, `benchmark:guarantees`, `benchmark:compare`, `benchmark:trust-matrix`
+  - `benchmark:*` deep scenario scripts used for profiling/certification runs
+  - `bench:stress:update-baseline`
+  - `test:performance`, `test:full`, `test:all`
+- These are intentionally omitted from every push to keep CI duration bounded and deterministic.
+
+---
+
 ## Operational Playbook
 
 ## PR Validation Path (recommended)
@@ -329,6 +368,7 @@ This document explains every workflow in `.github/workflows`, what each one does
 2. Check `CI` for baseline correctness.
 3. Check `Stress Test Pipeline`:
    - Unit/integration + stress
+   - Type/declaration gates
    - Benchmark regression gate
    - Fuzz
 4. If dependencies changed, ensure `Dependency Review` passes.
