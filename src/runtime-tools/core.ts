@@ -7,7 +7,6 @@
  * Consumers: runtime-tools index and public API.
  */
 import { deepClone } from "../utils/clone.js";
-import { shallowClone } from "../utils/clone.js";
 import { suggestStoreName } from "../internals/diagnostics.js";
 import {
     getStoreRegistry,
@@ -19,6 +18,58 @@ import { subscribers } from "../core/store-lifecycle/registry.js";
 import type { StoreFeatureMeta } from "../features/feature-registry.js";
 
 const getRegistry = () => getActiveStoreRegistry(getStoreRegistry(defaultRegistryScope));
+
+const cloneInspectable = <T>(value: T, seen = new WeakMap<object, unknown>()): T => {
+    if (value === null || typeof value !== "object") return value;
+    if (seen.has(value as object)) return seen.get(value as object) as T;
+
+    if (value instanceof Date) {
+        const clone = new Date(value.getTime()) as T;
+        seen.set(value as object, clone as unknown);
+        return clone;
+    }
+
+    if (value instanceof Map) {
+        const clone = new Map();
+        seen.set(value as object, clone);
+        value.forEach((entryValue, key) => {
+            clone.set(
+                cloneInspectable(key, seen),
+                cloneInspectable(entryValue, seen)
+            );
+        });
+        return clone as T;
+    }
+
+    if (value instanceof Set) {
+        const clone = new Set();
+        seen.set(value as object, clone);
+        value.forEach((entryValue) => {
+            clone.add(cloneInspectable(entryValue, seen));
+        });
+        return clone as T;
+    }
+
+    if (Array.isArray(value)) {
+        const clone: unknown[] = [];
+        seen.set(value as object, clone);
+        value.forEach((entryValue, index) => {
+            clone[index] = cloneInspectable(entryValue, seen);
+        });
+        return clone as T;
+    }
+
+    const source = value as Record<string, unknown>;
+    const clone = Object.create(Object.getPrototypeOf(source)) as Record<string, unknown>;
+    seen.set(source, clone);
+    const descriptors = Object.getOwnPropertyDescriptors(source);
+    Object.entries(descriptors).forEach(([key, descriptor]) => {
+        if (!descriptor.enumerable) return;
+        if ("get" in descriptor || "set" in descriptor) return;
+        clone[key] = cloneInspectable(descriptor.value, seen);
+    });
+    return clone as T;
+};
 
 const exists = (name: string): boolean => {
     const registry = getRegistry();
@@ -44,24 +95,7 @@ export const listStores = (pattern?: string): string[] => {
 export const getStoreMeta = (name: string): StoreFeatureMeta | null => {
     if (!exists(name)) return null;
     const meta = getRegistry().metaEntries[name];
-    const cloned = shallowClone(meta);
-    cloned.metrics = shallowClone(meta.metrics);
-    const optionsClone = shallowClone(meta.options);
-
-    if (optionsClone.persist && typeof optionsClone.persist === "object") {
-        optionsClone.persist = shallowClone(optionsClone.persist);
-    }
-    if (optionsClone.sync && typeof optionsClone.sync === "object") {
-        optionsClone.sync = shallowClone(optionsClone.sync);
-    }
-    if (optionsClone.features && typeof optionsClone.features === "object") {
-        optionsClone.features = shallowClone(optionsClone.features);
-    }
-    if (Array.isArray(optionsClone.middleware)) {
-        optionsClone.middleware = [...optionsClone.middleware];
-    }
-    cloned.options = optionsClone;
-    return cloned;
+    return cloneInspectable(meta);
 };
 
 export const getInitialState = (): Record<string, unknown> =>

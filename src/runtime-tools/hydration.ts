@@ -88,10 +88,7 @@ export const getHydrationConsistency = (name?: string): HydrationConsistencyRepo
     if (typeof name === "string") {
         const entry = getHydrationStoreState(getRegistry(), name);
         if (!entry) return null;
-        return toReport({
-            ...entry,
-            baseline: entry.baseline,
-        });
+        return toReport(entry);
     }
     return getHydrationStoreStates(getRegistry()).map(toReport);
 };

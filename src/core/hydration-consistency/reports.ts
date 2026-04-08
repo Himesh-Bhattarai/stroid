@@ -18,7 +18,14 @@ import type {
 export const getHydrationStoreState = (
     registry: StoreRegistry,
     store: string
-): HydrationConsistencyStoreState | null => registry.hydration.stores[store] ?? null;
+): HydrationConsistencyStoreState | null => {
+    const entry = registry.hydration.stores[store];
+    if (!entry) return null;
+    return {
+        ...entry,
+        baseline: deepClone(entry.baseline),
+    };
+};
 
 export const getHydrationStoreStates = (
     registry: StoreRegistry
