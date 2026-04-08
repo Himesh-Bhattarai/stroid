@@ -43,44 +43,69 @@ const wait = async (ms = 0): Promise<void> =>
 export const estimateBytes = (value: unknown): number =>
   Buffer.byteLength(JSON.stringify(value), "utf8");
 
+const ESTIMATED_BLOCK_OVERHEAD_BYTES = 1;
+
+const createPayloadBlock = (index: number): LargePayloadBlock => ({
+  id: `block-${index}`,
+  text: `chunk-${index}-${"x".repeat(448)}`,
+  metrics: [index, index + 1, index + 2, index + 3],
+  flags: {
+    hot: index % 2 === 0,
+    cold: index % 3 === 0,
+  },
+});
+
+const createPayloadStateShell = (targetKb: number, blocks: LargePayloadBlock[]): LargePayloadState => ({
+  meta: {
+    label: `payload-${targetKb}kb`,
+    revision: 0,
+    blockCount: blocks.length,
+    approxBytes: 0,
+  },
+  blocks,
+  summary: {
+    touched: [],
+    lastWriteSource: "hydrate",
+  },
+});
+
+const appendBlocks = (blocks: LargePayloadBlock[], count: number): void => {
+  for (let index = 0; index < count; index += 1) {
+    blocks.push(createPayloadBlock(blocks.length));
+  }
+};
+
 export const createLargePayloadState = (targetKb: number): LargePayloadState => {
   const targetBytes = targetKb * 1024;
   const blocks: LargePayloadBlock[] = [];
-  let state: LargePayloadState = {
-    meta: {
-      label: `payload-${targetKb}kb`,
-      revision: 0,
-      blockCount: 0,
-      approxBytes: 0,
-    },
-    blocks,
-    summary: {
-      touched: [],
-      lastWriteSource: "hydrate",
-    },
-  };
-
-  while (estimateBytes(state) < targetBytes) {
-    const index = blocks.length;
-    blocks.push({
-      id: `block-${index}`,
-      text: `chunk-${index}-${"x".repeat(448)}`,
-      metrics: [index, index + 1, index + 2, index + 3],
-      flags: {
-        hot: index % 2 === 0,
-        cold: index % 3 === 0,
-      },
-    });
-    state = {
-      ...state,
-      meta: {
-        ...state.meta,
-        blockCount: blocks.length,
-      },
-    };
+  const emptyState = createPayloadStateShell(targetKb, blocks);
+  const emptyStateBytes = estimateBytes(emptyState);
+  if (targetBytes <= emptyStateBytes) {
+    emptyState.meta.approxBytes = emptyStateBytes;
+    return emptyState;
   }
 
-  state.meta.approxBytes = estimateBytes(state);
+  const sampleBlockBytes = Math.max(1, estimateBytes(createPayloadBlock(0)));
+  const estimatedPerBlockBytes = sampleBlockBytes + ESTIMATED_BLOCK_OVERHEAD_BYTES;
+  const initialBlockCount = Math.max(
+    1,
+    Math.ceil((targetBytes - emptyStateBytes) / estimatedPerBlockBytes),
+  );
+
+  appendBlocks(blocks, initialBlockCount);
+
+  let state = createPayloadStateShell(targetKb, blocks);
+  let measuredBytes = estimateBytes(state);
+
+  while (measuredBytes < targetBytes) {
+    const remainingBytes = targetBytes - measuredBytes;
+    const extraBlocks = Math.max(1, Math.ceil(remainingBytes / estimatedPerBlockBytes));
+    appendBlocks(blocks, extraBlocks);
+    state = createPayloadStateShell(targetKb, blocks);
+    measuredBytes = estimateBytes(state);
+  }
+
+  state.meta.approxBytes = measuredBytes;
   return state;
 };
 
@@ -126,10 +151,12 @@ const settleAfterClose = async (): Promise<void> => {
 export const runLargePayloadScenario = async (args: {
   targetKb: number;
   queued: boolean;
+  baseline?: LargePayloadState;
 }): Promise<LargePayloadScenarioResult> => {
   resetAllStoresForTest();
-  const baseline = createLargePayloadState(args.targetKb);
-  createStore("largePayload", baseline);
+  const baseline = args.baseline ?? createLargePayloadState(args.targetKb);
+  const initialState = deepClone(baseline);
+  createStore("largePayload", initialState);
 
   const hydration = hydrateStores(
     { largePayload: deepClone(baseline) },

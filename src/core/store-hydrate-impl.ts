@@ -58,8 +58,127 @@ export type HydrationTrust<Snapshot extends object> =
     | (HydrationTrustBase<Snapshot> & { allowUntrusted: true })
     | (HydrationTrustBase<Snapshot> & { validate: (snapshot: Snapshot) => boolean });
 
+const estimateUtf8LengthBounded = (value: string, limit: number): number => {
+    let bytes = 0;
+    for (let index = 0; index < value.length; index += 1) {
+        const code = value.charCodeAt(index);
+        if (code <= 0x7F) {
+            bytes += 1;
+        } else if (code <= 0x7FF) {
+            bytes += 2;
+        } else if (code >= 0xD800 && code <= 0xDBFF && index + 1 < value.length) {
+            const next = value.charCodeAt(index + 1);
+            if (next >= 0xDC00 && next <= 0xDFFF) {
+                bytes += 4;
+                index += 1;
+            } else {
+                bytes += 3;
+            }
+        } else {
+            bytes += 3;
+        }
+        if (bytes >= limit) {
+            return limit;
+        }
+    }
+    return bytes;
+};
+
+const estimateRoughJsonBytesBounded = (
+    value: unknown,
+    limit: number,
+    stack = new WeakSet<object>(),
+    inArray = false
+): number => {
+    if (limit <= 0) return 0;
+    if (value === null) return Math.min(4, limit);
+
+    const valueType = typeof value;
+    if (valueType === "string") {
+        return Math.min(limit, estimateUtf8LengthBounded(value as string, limit) + 2);
+    }
+    if (valueType === "number") {
+        if (!Number.isFinite(value as number)) return Math.min(4, limit);
+        return Math.min(String(value).length, limit);
+    }
+    if (valueType === "boolean") return Math.min((value as boolean) ? 4 : 5, limit);
+    if (valueType === "bigint") return limit;
+    if (valueType === "undefined" || valueType === "function" || valueType === "symbol") {
+        return inArray ? Math.min(4, limit) : 0;
+    }
+    if (valueType !== "object") return 0;
+
+    const objectValue = value as object;
+    if (stack.has(objectValue)) return limit;
+    if (objectValue instanceof Date) {
+        return Math.min(Number.isNaN(objectValue.getTime()) ? 4 : 26, limit);
+    }
+    if (ArrayBuffer.isView(objectValue)) {
+        return Math.min((objectValue as ArrayBufferView).byteLength + 16, limit);
+    }
+    if (objectValue instanceof ArrayBuffer) {
+        return Math.min(objectValue.byteLength + 16, limit);
+    }
+    if (objectValue instanceof Map || objectValue instanceof Set) {
+        return Math.min(2, limit);
+    }
+
+    let descriptors: Record<string, PropertyDescriptor>;
+    try {
+        descriptors = Object.getOwnPropertyDescriptors(objectValue as Record<string, unknown>);
+    } catch {
+        return limit;
+    }
+
+    stack.add(objectValue);
+    try {
+        if (Array.isArray(objectValue)) {
+            const arrayValue = objectValue as unknown[];
+            let total = 2;
+            for (let index = 0; index < arrayValue.length; index += 1) {
+                if (index > 0) {
+                    total += 1;
+                    if (total >= limit) return limit;
+                }
+                const hasIndex = Object.prototype.hasOwnProperty.call(arrayValue, index);
+                const nextValue = hasIndex ? arrayValue[index] : null;
+                const valueBytes = estimateRoughJsonBytesBounded(nextValue, limit - total, stack, true);
+                total += valueBytes;
+                if (total >= limit) return limit;
+            }
+            return total;
+        }
+
+        let total = 2;
+        let firstProperty = true;
+        for (const [key, descriptor] of Object.entries(descriptors)) {
+            if (!descriptor.enumerable) continue;
+            if ("get" in descriptor || "set" in descriptor) {
+                return limit;
+            }
+            const descriptorValue = "value" in descriptor ? descriptor.value : undefined;
+            const valueBytes = estimateRoughJsonBytesBounded(descriptorValue, limit - total, stack, false);
+            if (valueBytes === 0) continue;
+            const keyBytes = estimateUtf8LengthBounded(key, limit - total);
+            const propertyPrefix = (firstProperty ? 0 : 1) + keyBytes + 3;
+            total += propertyPrefix;
+            if (total >= limit) return limit;
+            total += valueBytes;
+            if (total >= limit) return limit;
+            firstProperty = false;
+        }
+        return total;
+    } finally {
+        stack.delete(objectValue);
+    }
+};
+
 const estimateHydrationEntryBytes = (value: unknown): number => {
     if (typeof value === "string") return value.length;
+    const roughBytes = estimateRoughJsonBytesBounded(value, AUTO_QUEUE_HYDRATION_THRESHOLD_BYTES);
+    if (roughBytes >= AUTO_QUEUE_HYDRATION_THRESHOLD_BYTES) {
+        return AUTO_QUEUE_HYDRATION_THRESHOLD_BYTES;
+    }
     try {
         const serialized = JSON.stringify(value);
         return typeof serialized === "string" ? serialized.length : 0;
@@ -68,6 +187,9 @@ const estimateHydrationEntryBytes = (value: unknown): number => {
         return AUTO_QUEUE_HYDRATION_THRESHOLD_BYTES;
     }
 };
+
+export const estimateHydrationEntryBytesForTests = (value: unknown): number =>
+    estimateHydrationEntryBytes(value);
 
 const shouldAutoQueueLargeHydration = <Snapshot extends object>(
     snapshot: Snapshot,

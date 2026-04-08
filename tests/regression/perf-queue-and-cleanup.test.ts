@@ -16,6 +16,7 @@ import { deepClone } from "../../src/utils.js";
 import { createStore, deleteStore, getStore, hydrateStores, setStore, subscribeStore } from "../../src/store.js";
 import { getRegistry } from "../../src/core/store-lifecycle/registry.js";
 import { _getFeatureContextCountForTests } from "../../src/core/store-lifecycle/hooks.js";
+import { estimateHydrationEntryBytesForTests } from "../../src/core/store-hydrate-impl.js";
 
 const wait = async (ms = 0): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -56,6 +57,47 @@ test("large hydrate snapshot auto-enables short queue window when consistency bo
   const metrics = getHydrationDriftMetrics();
   assert.ok(metrics.queuedWrites >= 1);
   assert.ok(metrics.replayedWrites >= 1);
+});
+
+test("small hydrate snapshot does not auto-enable queue window", () => {
+  resetAllStoresForTest();
+  createStore("autoQueueHydrationSmall", { value: "ok" });
+
+  const hydration = hydrateStores(
+    { autoQueueHydrationSmall: { value: "ok" } },
+    {},
+    { allowTrusted: true },
+    {
+      policyMap: {
+        autoQueueHydrationSmall: "client_wins",
+      },
+    },
+  );
+
+  assert.strictEqual(hydration.bootWindow, undefined);
+});
+
+test("large hydration size estimator short-circuits before JSON serialization", () => {
+  const originalStringify = JSON.stringify;
+  let stringifyCalls = 0;
+  JSON.stringify = ((...args: Parameters<typeof JSON.stringify>) => {
+    stringifyCalls += 1;
+    return originalStringify(...args);
+  }) as typeof JSON.stringify;
+
+  try {
+    const estimateLarge = estimateHydrationEntryBytesForTests({
+      payload: "x".repeat(400 * 1024),
+    });
+    assert.strictEqual(estimateLarge, 256 * 1024);
+    assert.strictEqual(stringifyCalls, 0);
+
+    const estimateSmall = estimateHydrationEntryBytesForTests({ payload: "ok" });
+    assert.ok(estimateSmall > 0);
+    assert.ok(stringifyCalls >= 1);
+  } finally {
+    JSON.stringify = originalStringify;
+  }
 });
 
 test("deleteStore fully clears subscriber and feature-hook context state for destroyed stores", () => {

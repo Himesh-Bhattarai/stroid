@@ -18,6 +18,7 @@ import { deepClone } from "../../src/utils.js";
 type PayloadSizeResult = {
   targetKb: number;
   approximateBytes: number;
+  payloadBuildTiming: ReturnType<typeof summarizeSamples>;
   cloneTiming: ReturnType<typeof summarizeSamples>;
   immediateTiming: ReturnType<typeof summarizeSamples>;
   queuedTiming: ReturnType<typeof summarizeSamples>;
@@ -51,6 +52,7 @@ export const runHydrationLargePayloadBenchmark = async (): Promise<BenchmarkResu
   const sizes: PayloadSizeResult[] = [];
 
   for (const targetKb of TARGET_SIZES_KB) {
+    const payloadBuildDurations: number[] = [];
     const cloneDurations: number[] = [];
     const immediateDurations: number[] = [];
     const queuedDurations: number[] = [];
@@ -65,8 +67,10 @@ export const runHydrationLargePayloadBenchmark = async (): Promise<BenchmarkResu
     const heapBeforeMb = heapMb();
 
     for (let sample = 0; sample < SAMPLES_PER_SIZE; sample += 1) {
+      const payloadBuildStartedAt = performance.now();
       const baseline = createLargePayloadState(targetKb);
-      approximateBytes = estimateBytes(baseline);
+      payloadBuildDurations.push(round(performance.now() - payloadBuildStartedAt));
+      approximateBytes = baseline.meta.approxBytes || estimateBytes(baseline);
 
       const cloneStartedAt = performance.now();
       void deepClone(baseline);
@@ -76,6 +80,7 @@ export const runHydrationLargePayloadBenchmark = async (): Promise<BenchmarkResu
       const immediate = await runLargePayloadScenario({
         targetKb,
         queued: false,
+        baseline,
       });
       immediateDurations.push(round(performance.now() - immediateStartedAt));
 
@@ -83,6 +88,7 @@ export const runHydrationLargePayloadBenchmark = async (): Promise<BenchmarkResu
       const queued = await runLargePayloadScenario({
         targetKb,
         queued: true,
+        baseline,
       });
       queuedDurations.push(round(performance.now() - queuedStartedAt));
 
@@ -109,6 +115,7 @@ export const runHydrationLargePayloadBenchmark = async (): Promise<BenchmarkResu
     sizes.push({
       targetKb,
       approximateBytes,
+      payloadBuildTiming: summarizeSamples(payloadBuildDurations),
       cloneTiming: summarizeSamples(cloneDurations),
       immediateTiming: summarizeSamples(immediateDurations),
       queuedTiming: summarizeSamples(queuedDurations),
