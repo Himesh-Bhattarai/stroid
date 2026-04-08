@@ -319,7 +319,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-2.d.ts",
+          "fileUrlPath": "dist/types-internal-3.d.ts",
           "releaseTag": "Public",
           "name": "ComputedClassification",
           "typeTokenRange": {
@@ -1556,7 +1556,7 @@
               "text": "> "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "typeParameters": [
             {
@@ -1879,7 +1879,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "FeatureOptions",
           "typeTokenRange": {
@@ -1897,7 +1897,7 @@
               "text": "interface FeatureOptionsMap "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "FeatureOptionsMap",
           "preserveMemberOrder": false,
@@ -3270,7 +3270,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationBootWindowControl",
           "typeTokenRange": {
@@ -3296,7 +3296,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationBootWindowMode",
           "typeTokenRange": {
@@ -3336,7 +3336,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationBootWindowOptions",
           "typeTokenRange": {
@@ -3362,7 +3362,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyAuthority",
           "typeTokenRange": {
@@ -3441,7 +3441,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyContract",
           "typeParameters": [
@@ -3555,7 +3555,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyOptions",
           "typeParameters": [
@@ -3594,7 +3594,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyPolicy",
           "typeTokenRange": {
@@ -3620,7 +3620,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyResolution",
           "typeTokenRange": {
@@ -3646,7 +3646,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencySource",
           "typeTokenRange": {
@@ -3686,7 +3686,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyStoreContract",
           "typeTokenRange": {
@@ -3752,7 +3752,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationConsistencyStorePolicy",
           "typeParameters": [
@@ -3857,7 +3857,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationDriftEvent",
           "typeParameters": [
@@ -3974,7 +3974,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationInvalidateArgs",
           "typeParameters": [
@@ -4030,7 +4030,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationMergeArgs",
           "typeParameters": [
@@ -4122,7 +4122,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal.d.ts",
+          "fileUrlPath": "dist/types-internal-2.d.ts",
           "releaseTag": "Public",
           "name": "HydrationSnapshotMetadata",
           "typeTokenRange": {
@@ -4435,7 +4435,7 @@
               "text": "> "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "typeParameters": [
             {
@@ -4677,7 +4677,7 @@
               "text": "interface MiddlewareCtx "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "MiddlewareCtx",
           "preserveMemberOrder": false,
@@ -5084,7 +5084,7 @@
               "text": "interface NormalizedOptions "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "NormalizedOptions",
           "preserveMemberOrder": false,
@@ -5914,7 +5914,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "OptionStoreValue",
           "typeTokenRange": {
@@ -6307,7 +6307,7 @@
               "text": "interface PersistConfig "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "PersistConfig",
           "preserveMemberOrder": false,
@@ -6722,7 +6722,7 @@
               "text": "interface PersistDriver "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "PersistDriver",
           "preserveMemberOrder": false,
@@ -6901,7 +6901,7 @@
               "text": "> "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "typeParameters": [
             {
@@ -7528,7 +7528,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "ResetCloneMode",
           "typeTokenRange": {
@@ -7814,7 +7814,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "SchemaValidateOption",
           "typeTokenRange": {
@@ -8099,7 +8099,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "SnapshotMode",
           "typeTokenRange": {
@@ -9042,7 +9042,7 @@
               "text": "> "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "typeParameters": [
             {
@@ -9630,7 +9630,7 @@
             {
               "kind": "PropertySignature",
               "canonicalReference": "stroid!StoreOptions#snapshot:member",
-              "docComment": "/**\n * Snapshot cloning strategy used by subscriptions and selector snapshots.\n *\n * - \"deep\" (default): deep clone and dev-freeze snapshot values. - \"shallow\": shallow clone (top-level) only; nested references are shared. - \"ref\": return the live store reference (dev-freeze by default).\n */\n",
+              "docComment": "/**\n * Snapshot cloning strategy used by subscriptions and selector snapshots.\n *\n * - \"deep\" (default): deep clone and dev-freeze snapshot values. - \"shallow\": shallow clone (top-level) only, then shallow-freeze the snapshot envelope. - \"ref\": return the live store reference with a shallow-frozen snapshot envelope.\n */\n",
               "excerptTokens": [
                 {
                   "kind": "Content",
@@ -9658,7 +9658,7 @@
             {
               "kind": "PropertySignature",
               "canonicalReference": "stroid!StoreOptions#snapshotSafety:member",
-              "docComment": "/**\n * Safety policy for snapshot deliveries when using \"ref\" or \"shallow\" modes. - \"warn\": (default) log a warning in dev when mutation is detected. - \"throw\": throw an error in dev when mutation is detected. - \"auto-clone\": in dev, if a subscriber mutates a frozen snapshot, deliver a cloned snapshot to that subscriber so the mutation does not affect other subscribers or the store.\n */\n",
+              "docComment": "/**\n * Safety policy for snapshot deliveries when using \"ref\" or \"shallow\" modes. - \"warn\": (default) log a warning when mutation is detected. - \"throw\": throw an error when mutation is detected. - \"auto-clone\": if a subscriber mutates a frozen snapshot, deliver a cloned snapshot to that subscriber so the mutation does not affect other subscribers or the store.\n */\n",
               "excerptTokens": [
                 {
                   "kind": "Content",
@@ -10090,7 +10090,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "StoreScope",
           "typeTokenRange": {
@@ -10647,7 +10647,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "SyncMessage",
           "typeTokenRange": {
@@ -10665,7 +10665,7 @@
               "text": "interface SyncOptions "
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "SyncOptions",
           "preserveMemberOrder": false,
@@ -11077,7 +11077,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "ValidateFn",
           "typeParameters": [
@@ -11135,7 +11135,7 @@
               "text": ";"
             }
           ],
-          "fileUrlPath": "dist/types-internal-3.d.ts",
+          "fileUrlPath": "dist/types-internal.d.ts",
           "releaseTag": "Public",
           "name": "ValidateOption",
           "typeParameters": [
