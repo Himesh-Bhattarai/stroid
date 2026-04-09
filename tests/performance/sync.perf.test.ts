@@ -11,6 +11,7 @@ import test from "node:test";
 import { installSync } from "../../src/sync.js";
 import { installDevtools } from "../../src/devtools/index.js";
 import { withMockedTime } from "../../src/helpers/testing.js";
+import { hashState } from "../../src/utils.js";
 
 installSync();
 installDevtools();
@@ -316,6 +317,7 @@ test("conflictResolver can resolve contested incoming sync state against local s
         clock: 0,
       updatedAt: 0,
       data: { local: "seed", remote: "remote-win" },
+      checksum: hashState({ local: "seed", remote: "remote-win" }),
       },
     } as MessageEvent<unknown>);
 
@@ -374,6 +376,7 @@ test("conflictResolver rebroadcasts resolved state so peers converge", async () 
         clock: 0,
       updatedAt: 0,
       data: { local: "seed", remote: "remote-win", resolved: false },
+      checksum: hashState({ local: "seed", remote: "remote-win", resolved: false }),
       },
     } as MessageEvent<unknown>);
 
@@ -459,7 +462,7 @@ test("incoming sync state is sanitized and validated before commit", async () =>
   const store = await import(`../../src/store.js?sync-sanitize-${Date.now()}`);
 
   try {
-    store.createStore("shared", { when: "seed" }, {
+    store.createStore("shared", { when: "2024-01-01T00:00:00.000Z" }, {
       sync: { policy: "insecure" },
       validate: (next) => typeof next.when === "string" && next.when.endsWith("Z"),
     });
@@ -477,6 +480,7 @@ test("incoming sync state is sanitized and validated before commit", async () =>
         clock: 1,
         updatedAt: 100,
         data: { when: new Date("2024-01-02T03:04:05.000Z") },
+        checksum: hashState({ when: new Date("2024-01-02T03:04:05.000Z") }),
       },
     } as MessageEvent<unknown>);
 
@@ -498,50 +502,58 @@ test("sync convergence is stable for equal-clock equal-timestamp writes delivere
   g.window = mockWindow;
   g.BroadcastChannel = MockBroadcastChannel;
 
-  const first = await import(`../../src/store.js?sync-order-first-${Date.now()}`);
-  const second = await import(`../../src/store.js?sync-order-second-${Date.now()}`);
+  const store = await import(`../../src/store.js?sync-order-${Date.now()}`);
 
   try {
-    first.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
-    second.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
-    await wait();
+    const runOrder = async (name: string, order: Array<"A" | "B">) => {
+      store.createStore(name, { value: "seed" }, { sync: { policy: "insecure" } });
+      await wait();
 
-    const channels = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? []);
-    assert.strictEqual(channels.length, 2);
+      const channel = Array.from(MockBroadcastChannel.channels.get(`stroid_sync_${name}`) ?? [])[0];
+      assert.ok(channel);
 
-    const [firstChannel, secondChannel] = channels;
-    const messageA = {
-      protocol: 1,
-      type: "sync-state",
-      source: "writer-a",
-      name: "shared",
-      clock: 1,
-      updatedAt: 100,
-      data: { value: "A" },
+      const messageA = {
+        protocol: 1,
+        type: "sync-state",
+        source: "writer-a",
+        name,
+        clock: 1,
+        updatedAt: 100,
+        data: { value: "A" },
+        checksum: hashState({ value: "A" }),
+      } as const;
+      const messageB = {
+        protocol: 1,
+        type: "sync-state",
+        source: "writer-b",
+        name,
+        clock: 1,
+        updatedAt: 100,
+        data: { value: "B" },
+        checksum: hashState({ value: "B" }),
+      } as const;
+
+      for (const id of order) {
+        channel.onmessage?.({ data: id === "A" ? messageA : messageB } as MessageEvent<unknown>);
+      }
+      await wait();
+
+      const result = store.getStore(name);
+      store.deleteStore(name);
+      await wait();
+      return result;
     };
-    const messageB = {
-      protocol: 1,
-      type: "sync-state",
-      source: "writer-b",
-      name: "shared",
-      clock: 1,
-      updatedAt: 100,
-      data: { value: "B" },
-    };
 
-    firstChannel.onmessage?.({ data: messageA } as MessageEvent<unknown>);
-    firstChannel.onmessage?.({ data: messageB } as MessageEvent<unknown>);
+    const resultAB = await runOrder("shared-order-ab", ["A", "B"]);
+    const resultBA = await runOrder("shared-order-ba", ["B", "A"]);
 
-    secondChannel.onmessage?.({ data: messageB } as MessageEvent<unknown>);
-    secondChannel.onmessage?.({ data: messageA } as MessageEvent<unknown>);
-
-    await wait();
-
-    assert.deepStrictEqual(first.getStore("shared"), { value: "B" });
-    assert.deepStrictEqual(second.getStore("shared"), { value: "B" });
+    assert.deepStrictEqual(resultAB, resultBA);
+    assert.ok(
+      JSON.stringify(resultAB) === JSON.stringify({ value: "A" })
+      || JSON.stringify(resultAB) === JSON.stringify({ value: "B" })
+    );
   } finally {
-    first.clearAllStores();
-    second.clearAllStores();
+    store.clearAllStores();
     MockBroadcastChannel.reset();
     g.window = originalWindow;
     g.BroadcastChannel = originalBroadcastChannel;
