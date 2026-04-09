@@ -26,9 +26,15 @@ const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
 const scriptNames = Object.keys(pkg.scripts ?? {});
 
 const isWrapper = new Set(["test:all", "test:full", "test:heavy"]);
+const coveredByTypes = scriptNames.includes("test:types")
+    ? new Set(["test:dts", "test:package"])
+    : new Set();
 const testScripts = scriptNames
     .filter((name) => name === "test" || name.startsWith("test:"))
     .filter((name) => !isWrapper.has(name))
+    // test:types already runs build + test:dts + test:package in this repo.
+    // Running those standalone before test:types can fail on a clean checkout.
+    .filter((name) => !coveredByTypes.has(name))
     .sort((a, b) => {
         if (a === "test") return -1;
         if (b === "test") return 1;
