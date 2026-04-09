@@ -27,37 +27,52 @@ export const runSchemaValidation = (schema: unknown, value: unknown): { ok: bool
     if (!schema) return { ok: true };
     try {
         if (typeof (schema as { safeParse?: unknown }).safeParse === "function") {
-            const res = (schema as any).safeParse(value);
+            const res = (schema as { safeParse: (value: unknown) => { success: boolean; data?: unknown; error?: unknown } }).safeParse(value);
             return res.success ? { ok: true, data: res.data } : { ok: false, error: res.error };
         }
         if (typeof (schema as { parse?: unknown }).parse === "function") {
-            (schema as any).parse(value);
+            (schema as { parse: (value: unknown) => unknown }).parse(value);
             return { ok: true, data: value };
         }
         if (typeof (schema as { validateSync?: unknown }).validateSync === "function") {
-            (schema as any).validateSync(value);
+            (schema as { validateSync: (value: unknown) => unknown }).validateSync(value);
             return { ok: true, data: value };
         }
         if (typeof (schema as { isValidSync?: unknown }).isValidSync === "function") {
-            const valid = (schema as any).isValidSync(value);
+            const valid = (schema as { isValidSync: (value: unknown) => boolean }).isValidSync(value);
             return valid ? { ok: true, data: value } : { ok: false, error: "Schema validation failed" };
         }
         if (typeof (schema as { validate?: unknown }).validate === "function") {
-            const res = (schema as any).validate(value);
+            const res = (schema as { validate: (value: unknown) => unknown }).validate(value);
             if (res === true) return { ok: true, data: value };
-            if (res === false) return { ok: false, error: (schema as any).errors || "Schema validation failed" };
+            if (res === false) {
+                const errors = (schema as { errors?: unknown }).errors;
+                return { ok: false, error: errors ?? "Schema validation failed" };
+            }
             if (res && typeof res === "object") {
-                const joiError = (res as any).error;
+                const joiError = (res as { error?: unknown }).error;
                 const message =
-                    joiError?.details?.[0]?.message ||
-                    joiError?.message ||
-                    (res as any).message ||
-                    (schema as any).errors;
+                    (() => {
+                        if (!joiError || typeof joiError !== "object") return null;
+                        const details = (joiError as { details?: unknown }).details;
+                        if (Array.isArray(details) && details.length > 0) {
+                            const first = details[0] as { message?: unknown } | null | undefined;
+                            if (typeof first?.message === "string") return first.message;
+                        }
+                        const joiMessage = (joiError as { message?: unknown }).message;
+                        return typeof joiMessage === "string" ? joiMessage : null;
+                    })()
+                    ?? (typeof (res as { message?: unknown }).message === "string"
+                        ? (res as { message: string }).message
+                        : null)
+                    ?? (typeof (schema as { errors?: unknown }).errors === "string"
+                        ? (schema as { errors: string }).errors
+                        : null);
                 if (message) return { ok: false, error: message };
                 if (joiError) return { ok: false, error: joiError };
             }
-            const errMsg = (schema as any).errors || "Schema validation failed";
-            return { ok: false, error: errMsg };
+            const errors = (schema as { errors?: unknown }).errors;
+            return { ok: false, error: errors ?? "Schema validation failed" };
         }
         if (typeof schema === "function") {
             const res = (schema as (v: unknown) => unknown | boolean)(value);
@@ -93,8 +108,11 @@ export const getType = (value: unknown): SupportedType => {
 
 const getNonSerializableType = (value: unknown): string | null => {
     if (!value || typeof value !== "object") return null;
-    const WeakRefCtor = (globalThis as any)?.WeakRef as (new (...args: any[]) => any) | undefined;
-    if (WeakRefCtor && value instanceof WeakRefCtor) return "WeakRef";
+    const WeakRefCtor = Reflect.get(globalThis as object, "WeakRef") as unknown;
+    if (typeof WeakRefCtor === "function") {
+        const WeakRefAny = WeakRefCtor as new (...args: unknown[]) => object;
+        if (value instanceof WeakRefAny) return "WeakRef";
+    }
     if (typeof WeakMap !== "undefined" && value instanceof WeakMap) return "WeakMap";
     if (typeof WeakSet !== "undefined" && value instanceof WeakSet) return "WeakSet";
     if (typeof EventTarget !== "undefined" && value instanceof EventTarget) return "EventTarget";
@@ -272,5 +290,3 @@ export const isValidStoreName = (name: string): boolean => {
     }
     return true;
 };
-
-

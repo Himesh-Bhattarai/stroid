@@ -6,6 +6,9 @@ No `console` calls. Just practical code and plain words.
 Think of one app while reading:
 A **food delivery app** with cart, user profile, checkout, and order sync.
 
+If bundle size matters, prefer the narrowest public entrypoint that solves the job:
+`stroid/core` for CRUD, `stroid/query` for cache keys, direct feature modules for installers, and `stroid/runtime-tools` for observability.
+
 ---
 
 ## 1) Core from `stroid`
@@ -22,7 +25,7 @@ createStore("cart", {
 });
 ```
 
-Real meaning: you created a “cart box” where cart data lives.
+Real meaning: you created a â€œcart boxâ€ where cart data lives.
 
 ### `setStore`
 Use this to update state.
@@ -302,10 +305,16 @@ Real meaning: read snapshot directly in component context.
 ### `useAsyncStore`
 
 ```tsx
+import { useEffect } from "react";
+import { fetchStore } from "stroid/async";
 import { useAsyncStore } from "stroid/react";
 
 function Menu() {
-  const asyncState = useAsyncStore("menu", "https://api.example.com/menu");
+  useEffect(() => {
+    void fetchStore("menu", "https://api.example.com/menu", { autoCreate: true });
+  }, []);
+
+  const asyncState = useAsyncStore("menu");
   if (asyncState?.loading) return <p>Loading menu...</p>;
   if (asyncState?.error) return <p>Failed to load</p>;
   return <p>Menu ready</p>;
@@ -318,8 +327,8 @@ function Menu() {
 import { useFormStore } from "stroid/react";
 
 function LoginForm() {
-  const form = useFormStore("loginForm", { email: "", password: "" });
-  return <button disabled={!form}>Sign in</button>;
+  const { value: email, onChange: onEmailChange } = useFormStore("loginForm", "email");
+  return <input value={email ?? ""} onChange={onEmailChange} />;
 }
 ```
 
@@ -329,7 +338,11 @@ function LoginForm() {
 import { useAsyncStoreSuspense } from "stroid/react";
 
 function MenuSuspense() {
-  const data = useAsyncStoreSuspense("menu", "https://api.example.com/menu");
+  const data = useAsyncStoreSuspense(
+    "menu",
+    "https://api.example.com/menu",
+    { autoCreate: true }
+  );
   return <p>{data ? "Loaded with suspense" : ""}</p>;
 }
 ```
@@ -446,7 +459,31 @@ const isComputed = isComputedStore("deliveryFee");
 
 ---
 
-## 7) Feature install (call once at app entry)
+## 7) Query keys from `stroid/query`
+
+Use this when you need stable TanStack Query or SWR keys without importing the heavier fetcher helpers.
+
+### `reactQueryKey`
+
+```ts
+import { reactQueryKey } from "stroid/query";
+
+const key = reactQueryKey("cart");
+```
+
+### `swrKey`
+
+```ts
+import { swrKey } from "stroid/query";
+
+const key = swrKey("cart", "summary");
+```
+
+Real meaning: query libraries can share the same cache key shape without dragging in async runtime code.
+
+---
+
+## 8) Feature install (call once at app entry)
 
 ```ts
 import { installPersist } from "stroid/persist";
@@ -467,7 +504,7 @@ Real meaning: enable optional capabilities one time during app startup.
 
 ---
 
-## 8) Server / SSR from `stroid/server`
+## 9) Server / SSR from `stroid/server`
 
 ```ts
 import { createStoreForRequest } from "stroid/server";
@@ -483,7 +520,7 @@ Real meaning: each request gets isolated store state.
 
 ---
 
-## 9) Helpers from `stroid/helpers`
+## 10) Helpers from `stroid/helpers`
 
 ### `createEntityStore`
 
@@ -514,7 +551,7 @@ itemCount.inc();
 
 ---
 
-## 10) Testing from `stroid/testing`
+## 11) Testing from `stroid/testing`
 
 ### `createMockStore`
 
@@ -546,14 +583,17 @@ withMockedTime(1700000000000, () => {
 ### `benchmarkStoreSet`
 
 ```ts
+import { store } from "stroid";
 import { benchmarkStoreSet } from "stroid/testing";
 
-const result = benchmarkStoreSet({ name: "cart" } as any, 300);
+const result = benchmarkStoreSet(store("cart"), 300);
 ```
 
 ---
 
-## 11) Runtime observability from `stroid/runtime-tools`
+## 12) Runtime observability from `stroid/runtime-tools`
+
+Import only the helpers you use. The internal runtime-tools helpers are grouped by concern, but the published multi-entry build still shares runtime chunks, so current bundle wins here are limited.
 
 ### `listStores`
 
@@ -629,7 +669,7 @@ const pendingPersist = getPersistQueueDepth("cart");
 
 ---
 
-## 12) Runtime admin from `stroid/runtime-admin`
+## 13) Runtime admin from `stroid/runtime-admin`
 
 ### `clearAllStores`
 
@@ -649,7 +689,7 @@ clearStores("cart*");
 
 ---
 
-## 13) Devtools API from `stroid/devtools`
+## 14) Devtools API from `stroid/devtools`
 
 ### `getHistory`
 
@@ -669,7 +709,7 @@ clearHistory("cart");
 
 ---
 
-## 14) Config
+## 15) Config
 
 ### `configureStroid` from `stroid`
 
@@ -687,7 +727,7 @@ Real meaning: set global runtime behavior once at startup.
 
 ---
 
-## 15) Feature plugin API from `stroid/feature`
+## 16) Feature plugin API from `stroid/feature`
 
 ### `registerStoreFeature`
 

@@ -28,7 +28,9 @@ import {
   type RuntimeGraphNode,
   type RuntimePatch,
 } from "stroid/psr";
+import { reactQueryKey, swrKey } from "stroid/query";
 import { useStore } from "stroid/react";
+import { createRequestScope } from "stroid/server/portable";
 
 const handle = createStoreStrict("dtsSmoke", { value: 1 });
 setStore(handle, { value: 2 });
@@ -39,6 +41,8 @@ const health = getStoreHealth("dtsSmoke");
 const core = createCoreStore("dtsSmokeCore", { value: 1 });
 const coreHandle = core ?? store("dtsSmokeCore");
 const hook = useStore(coreHandle);
+const queryKey = reactQueryKey(handle);
+const swrCacheKey = swrKey(coreHandle, "smoke");
 const psrSnapshot = getPsrStoreSnapshot(handle);
 const timingContract = getTimingContract(handle);
 const governanceMode: GovernanceMode = "full-governor";
@@ -85,6 +89,14 @@ const psrPatchResult = applyStorePatch(runtimePatch);
 const psrBatchResult = applyStorePatchesAtomic([runtimePatch]);
 const explicitPatchResult: PatchApplyResult = psrBatchResult;
 const evaluatedComputed = evaluateComputed("dtsSmokeComputed", { dtsSmoke: { value: 2 } });
+const requestScope = createRequestScope({
+  snapshot: {
+    dtsSmokeRequest: {
+      value: 1,
+    },
+  },
+  options: {},
+});
 configureStroid({ defaultSnapshotMode: "deep" });
 
 void value;
@@ -92,6 +104,8 @@ void metrics;
 void asyncMetrics;
 void health;
 void hook;
+void queryKey;
+void swrCacheKey;
 void psrSnapshot;
 void timingContract;
 void governanceMode;
@@ -106,3 +120,4 @@ void psrPatchResult;
 void psrBatchResult;
 void explicitPatchResult;
 void evaluatedComputed;
+void requestScope;

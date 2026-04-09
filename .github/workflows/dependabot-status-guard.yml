@@ -1,0 +1,47 @@
+name: Dependabot STATUS Guard
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  enforce-status-format:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Dependabot PR title and commit subjects
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const statusPattern = /^status\((?:\d{3}|infinity)\)(?:\((?:deps|deps-dev)\))?:\s.+/i;
+            const pr = context.payload.pull_request;
+            const title = pr.title || "";
+            const errors = [];
+
+            if (!statusPattern.test(title)) {
+              errors.push(`PR title must match STATUS.md format. Received: "${title}"`);
+            }
+
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            for (const commit of commits) {
+              const subject = (commit.commit.message || "").split("\n")[0];
+              if (!statusPattern.test(subject)) {
+                errors.push(`Commit ${commit.sha.slice(0, 7)} subject must match STATUS.md format. Received: "${subject}"`);
+              }
+            }
+
+            if (errors.length > 0) {
+              core.setFailed(errors.join("\n"));
+            } else {
+              core.info("Dependabot PR title and commit subjects match STATUS.md format.");
+            }

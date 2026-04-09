@@ -6,7 +6,7 @@
  *
  * Consumers: store-admin.
  */
-import { warn, deepClone } from "../utils.js";
+import { warn, deepClone, shallowClone } from "../utils.js";
 import { getRegistry, getStoreAdmin, getStoreValueRef } from "./store-lifecycle/registry.js";
 import { invalidatePathCache, materializeInitial } from "./store-lifecycle/validation.js";
 import { nameOf, exists, reportStoreWarning } from "./store-lifecycle/identity.js";
@@ -26,6 +26,10 @@ import {
 } from "./store-transaction.js";
 import { createRootSetRuntimePatch } from "./runtime-patch.js";
 import { stageOrCommitUpdate, clearSlowMutatorWarnings, forgetSlowMutatorWarning } from "./store-write-shared.js";
+import {
+    enqueueHydrationWrite,
+    shouldQueueHydrationWrite,
+} from "./hydration-consistency.js";
 
 export function deleteStore<Name extends string, State>(name: StoreDefinition<Name, State>): void;
 export function deleteStore<Name extends string, State>(name: StoreKey<Name, State>): void;
@@ -54,9 +58,22 @@ export function resetStore<Name extends string, State>(name: StoreDefinition<Nam
 export function resetStore<Name extends string, State>(name: StoreKey<Name, State>): WriteResult;
 export function resetStore<Name extends StoreName>(name: Name): WriteResult;
 export function resetStore(nameInput: string | StoreDefinition<string, StoreValue>): WriteResult {
+    return resetStoreInternal(nameInput);
+}
+
+const resetStoreInternal = (
+    nameInput: string | StoreDefinition<string, StoreValue>,
+    deferOptions: { bypassHydrationQueue?: boolean } = {}
+): WriteResult => {
     const name = nameOf(nameInput);
     if (!exists(name)) return { ok: false, reason: "not-found" };
     const registry = getRegistry();
+    if (!deferOptions.bypassHydrationQueue && shouldQueueHydrationWrite(registry, name, "effect")) {
+        enqueueHydrationWrite(registry, name, "effect", () => {
+            resetStoreInternal(nameInput, { bypassHydrationQueue: true });
+        });
+        return { ok: true };
+    }
     const lazyPending = registry.metaEntries[name]?.options?.lazy === true && !!registry.initialFactories[name];
     if (lazyPending) {
         const message =
@@ -77,12 +94,22 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
         if (isTransactionActive()) {
             markTransactionFailed(message);
         }
-        return { ok: false, reason: "not-found" };
+        return { ok: false, reason: "no-initial-state" };
     }
+    const cloneMode = registry.metaEntries[name]?.options?.resetClone ?? "deep";
+    const cloneResetValue = (value: StoreValue): StoreValue => {
+        if (cloneMode === "none") return value;
+        if (cloneMode === "shallow") {
+            return (value && typeof value === "object")
+                ? shallowClone(value as Record<string, unknown>) as StoreValue
+                : value;
+        }
+        return deepClone(value);
+    };
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(name, registry);
     const start = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-    const resetValue = deepClone(registry.initialStates[name]);
+    const resetValue = cloneResetValue(registry.initialStates[name]);
     const elapsed = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) - start;
 
     stageOrCommitUpdate(registry, {
@@ -102,9 +129,10 @@ export function resetStore(nameInput: string | StoreDefinition<string, StoreValu
                 source: "resetStore",
             }),
         ],
+        normalizeHydrationCandidate: (candidate) => ({ ok: true, value: candidate as StoreValue }),
     });
     return { ok: true };
-}
+};
 
 export const clearAllStores = (): void => {
     if (isTransactionActive()) {

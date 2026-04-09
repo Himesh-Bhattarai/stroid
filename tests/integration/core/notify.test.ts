@@ -38,13 +38,14 @@ test("store-notify chunk scheduling and priority queues", async () => {
   unsub();
   assert.ok(threw);
 
-  const originalQueueMicrotask = (globalThis as any).queueMicrotask;
+  const globalWithQueueMicrotask = globalThis as typeof globalThis & { queueMicrotask?: typeof queueMicrotask };
+  const originalQueueMicrotask = globalWithQueueMicrotask.queueMicrotask;
   try {
-    (globalThis as any).queueMicrotask = undefined;
+    globalWithQueueMicrotask.queueMicrotask = undefined;
     notify("prioStore");
     await new Promise((resolve) => setTimeout(resolve, 10));
   } finally {
-    (globalThis as any).queueMicrotask = originalQueueMicrotask;
+    globalWithQueueMicrotask.queueMicrotask = originalQueueMicrotask;
   }
 });
 

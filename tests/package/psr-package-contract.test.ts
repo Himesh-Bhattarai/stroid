@@ -1,19 +1,37 @@
+/**
+ * @module tests/package/psr-package-contract.test
+ *
+ * LAYER: Tests
+ * OWNS:  Integration tests for the Public Store Runtime (PSR) contract against built artifacts.
+ *
+ * This test suite ensures that the exported APIs from the 'dist' folder maintain 
+ * behavioral parity with the source implementation, specifically focusing on 
+ * store resolution, patch application, and computed graph integrity.
+ */
+
 import test from "node:test";
 import assert from "node:assert";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+type MainEntry = typeof import("../../src/index.js");
+type PsrEntry = typeof import("../../src/psr/index.js");
+type QueryEntry = typeof import("../../src/query.js");
+type RuntimeAdminEntry = typeof import("../../src/runtime-admin/index.js");
+type InstallEntry = typeof import("../../src/install.js");
+
 const distImport = async <T>(relativePath: string): Promise<T> =>
   import(pathToFileURL(path.resolve(process.cwd(), "dist", relativePath)).href) as Promise<T>;
 
 const loadBuiltPackage = async () => {
-  const [main, psr, runtimeAdmin, install] = await Promise.all([
-    distImport<any>("index.js"),
-    distImport<any>("psr.js"),
-    distImport<any>("runtime-admin.js"),
-    distImport<any>("install.js"),
+  const [main, psr, query, runtimeAdmin, install] = await Promise.all([
+    distImport<MainEntry>("index.js"),
+    distImport<PsrEntry>("psr.js"),
+    distImport<QueryEntry>("query.js"),
+    distImport<RuntimeAdminEntry>("runtime-admin.js"),
+    distImport<InstallEntry>("install.js"),
   ]);
-  return { main, psr, runtimeAdmin, install };
+  return { main, psr, query, runtimeAdmin, install };
 };
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,6 +41,12 @@ const flushBuiltRuntime = async (ticks = 4): Promise<void> => {
     await wait();
   }
 };
+
+const isValueBox = (snapshot: unknown): snapshot is { value: number } =>
+  typeof snapshot === "object"
+  && snapshot !== null
+  && "value" in snapshot
+  && typeof (snapshot as Record<string, unknown>).value === "number";
 
 test("built package PSR APIs resolve string, definition, and key targets for main-entry stores", () => {
   return loadBuiltPackage().then(({ main, psr, runtimeAdmin }) => {
@@ -181,14 +205,32 @@ test("built package PSR patch parity supports nested merge, delete, insert, and 
   });
 });
 
+test("built package query entry exposes standalone cache-key helpers", async () => {
+  const { main, query, runtimeAdmin } = await loadBuiltPackage();
+  runtimeAdmin.clearAllStores();
+
+  const definition = main.createStore("letterQueryCart", {
+    items: [{ sku: "starter", qty: 1 }],
+    total: 1,
+  });
+  assert.ok(definition);
+
+  const key = main.store("letterQueryCart");
+
+  assert.deepStrictEqual(query.reactQueryKey("letterQueryCart"), ["stroid", "letterQueryCart"]);
+  assert.deepStrictEqual(query.reactQueryKey(definition, "v1"), ["stroid", "letterQueryCart", "v1"]);
+  assert.deepStrictEqual(query.swrKey(key, 7), ["stroid", "letterQueryCart", 7]);
+});
+
 test("built package runtime graph and descriptors expose deterministic computed stores", async () => {
   const { main, psr, runtimeAdmin } = await loadBuiltPackage();
   runtimeAdmin.clearAllStores();
 
   try {
-    main.createStore("letterProbeBase", { value: 2 });
-    main.createComputed("letterProbeSummary", ["letterProbeBase"], (base: any) => (
-      (base?.value ?? 0) * 2
+    const base = main.createStore("letterProbeBase", { value: 2 });
+    assert.ok(base);
+    main.createComputed("letterProbeSummary", [base], (baseValue) => (
+      (baseValue?.value ?? 0) * 2
     ), {
       classification: "deterministic",
     });
@@ -202,16 +244,16 @@ test("built package runtime graph and descriptors expose deterministic computed 
 
     const graph = psr.getRuntimeGraph();
     assert.strictEqual(graph.granularity, "store");
-    assert.ok(graph.nodes.some((node: any) =>
+    assert.ok(graph.nodes.some((node) =>
       node.id === descriptor.id
       && node.storeId === "letterProbeSummary"
       && node.type === "computed"
     ));
-    assert.ok(graph.nodes.some((node: any) =>
+    assert.ok(graph.nodes.some((node) =>
       node.storeId === "letterProbeBase"
       && node.type === "leaf"
     ));
-    assert.ok(graph.edges.some((edge: any) =>
+    assert.ok(graph.edges.some((edge) =>
       edge.from === descriptor.dependencies[0]
       && edge.to === descriptor.id
       && edge.type === "leaf-input"
@@ -226,9 +268,10 @@ test("built package deterministic PSR evaluation matches the committed computed 
   runtimeAdmin.clearAllStores();
 
   try {
-    main.createStore("letterPreviewBase", { value: 2 });
-    main.createComputed("letterPreviewDouble", ["letterPreviewBase"], (base: any) => (
-      (base?.value ?? 0) * 2
+    const base = main.createStore("letterPreviewBase", { value: 2 });
+    assert.ok(base);
+    main.createComputed("letterPreviewDouble", [base], (baseValue) => (
+      (baseValue?.value ?? 0) * 2
     ), {
       classification: "deterministic",
     });
@@ -264,14 +307,15 @@ test("built package PSR evaluation rejects opaque and async-boundary computed no
   runtimeAdmin.clearAllStores();
 
   try {
-    main.createStore("letterPreviewContractSource", { value: 2 });
+    const contractSource = main.createStore("letterPreviewContractSource", { value: 2 });
+    assert.ok(contractSource);
 
     let externalOffset = 5;
-    main.createComputed("letterPreviewOpaque", ["letterPreviewContractSource"], (base: any) => (
-      (base?.value ?? 0) + externalOffset
+    main.createComputed("letterPreviewOpaque", [contractSource], (baseValue) => (
+      (baseValue?.value ?? 0) + externalOffset
     ));
-    main.createComputed("letterPreviewBoundary", ["letterPreviewContractSource"], (base: any) => ({
-      value: base?.value ?? 0,
+    main.createComputed("letterPreviewBoundary", [contractSource], (baseValue) => ({
+      value: baseValue?.value ?? 0,
     }), {
       classification: "asyncBoundary",
     });
@@ -305,8 +349,8 @@ test("built package PSR subscriptions observe committed main-entry batched write
   main.createStore("letterBatch", { value: 0 });
 
   const seen: number[] = [];
-  const off = psr.subscribeStore("letterBatch", (snapshot: any) => {
-    seen.push(snapshot?.value ?? -1);
+  const off = psr.subscribeStore("letterBatch", (snapshot) => {
+    seen.push(isValueBox(snapshot) ? snapshot.value : -1);
   });
 
   try {
@@ -334,15 +378,16 @@ test("built package PSR computed subscriptions notify only after dependency writ
   runtimeAdmin.clearAllStores();
 
   try {
-    main.createStore("letterComputedSource", { value: 1 });
-    main.createComputed("letterComputedTotal", ["letterComputedSource"], (source: any) => (
-      (source?.value ?? 0) * 2
+    const source = main.createStore("letterComputedSource", { value: 1 });
+    assert.ok(source);
+    main.createComputed("letterComputedTotal", [source], (sourceValue) => (
+      (sourceValue?.value ?? 0) * 2
     ), {
       classification: "deterministic",
     });
 
     const seen: number[] = [];
-    const off = psr.subscribeStore("letterComputedTotal", (snapshot: any) => {
+    const off = psr.subscribeStore("letterComputedTotal", (snapshot) => {
       seen.push(typeof snapshot === "number" ? snapshot : -1);
     });
 
@@ -384,7 +429,7 @@ test("built package PSR timing contracts expose downgrade reasons for async and 
       },
     });
     main.createStore("letterTimingSource", { value: 1 });
-    main.createComputed("letterTimingBoundary", ["letterTimingSource"], (value: any) => value, {
+    main.createComputed("letterTimingBoundary", ["letterTimingSource"], (value) => value, {
       classification: "asyncBoundary",
     });
 
@@ -457,11 +502,11 @@ test("built package PSR atomic patch failures roll back without leaking partial 
 
   const seenA: number[] = [];
   const seenB: number[] = [];
-  const offA = psr.subscribeStore("letterAtomicA", (snapshot: any) => {
-    seenA.push(snapshot?.value ?? -1);
+  const offA = psr.subscribeStore("letterAtomicA", (snapshot) => {
+    seenA.push(isValueBox(snapshot) ? snapshot.value : -1);
   });
-  const offB = psr.subscribeStore("letterAtomicB", (snapshot: any) => {
-    seenB.push(snapshot?.value ?? -1);
+  const offB = psr.subscribeStore("letterAtomicB", (snapshot) => {
+    seenB.push(isValueBox(snapshot) ? snapshot.value : -1);
   });
 
   try {

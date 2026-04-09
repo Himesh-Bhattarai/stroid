@@ -90,20 +90,21 @@ test("benchmarkStoreSet falls back to Date.now when performance is missing", () 
     if (descriptor) {
       Object.defineProperty(globalThis, "performance", descriptor);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (globalThis as any).performance;
+      delete (globalThis as unknown as { performance?: unknown }).performance;
     }
   }
 });
 
 test("createEntityStore generates ids from id fields and randomUUID when available", () => {
   clearAllStores();
-  const entities = createEntityStore("entityStore");
-  entities.upsert({ _id: "custom" } as any);
+  type Entity = { id?: string; _id?: string; name?: string };
+  const entities = createEntityStore<Entity>("entityStore");
+  entities.upsert({ _id: "custom" });
   assert.strictEqual(entities.all().length, 1);
 
-  if ((globalThis as any).crypto && typeof (globalThis as any).crypto.randomUUID === "function") {
-    entities.upsert({ name: "Ada" } as any);
+  const cryptoObj = (globalThis as unknown as { crypto?: { randomUUID?: unknown } }).crypto;
+  if (cryptoObj && typeof cryptoObj.randomUUID === "function") {
+    entities.upsert({ name: "Ada" });
     assert.ok(entities.all().length >= 2);
   }
 });

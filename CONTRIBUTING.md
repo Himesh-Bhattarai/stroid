@@ -51,6 +51,10 @@ npm run test:performance
 # Run type tests (requires a build)
 npm run test:types
 
+# Package surface checks (also run as part of test:types)
+npm run check:publint
+npm run check:attw
+
 # Run everything
 npm run test:full
 ```
@@ -89,7 +93,7 @@ npx eslint src/
 
 ## Commit Messages
 
-Follow [STATUS.md](./STATUS.md) conventions. Short, descriptive imperative sentences. Reference issue numbers where applicable.
+Follow [STATUS.MD](./STATUS.MD) conventions. Short, descriptive imperative sentences. Reference issue numbers where applicable.
 
 ---
 
@@ -105,6 +109,11 @@ Follow [STATUS.md](./STATUS.md) conventions. Short, descriptive imperative sente
 ## Publishing
 
 Publishing is automated via `.github/workflows/publish.yml`. Only maintainers push release tags. The version in `package.json` is the single source of truth.
+
+Version bumps, CHANGELOG updates, and GitHub releases are automated via Release Please (`.github/workflows/release-please.yml`).
+
+- Maintainers should set the `RELEASE_PLEASE_TOKEN` secret (PAT) so Release Please PRs/tags can trigger CI workflows.
+- The release PR title pattern is `status(204): release ${version}` so squash-merging the release PR keeps the STATUS commit convention.
 
 ---
 

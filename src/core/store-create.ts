@@ -42,7 +42,7 @@ import { isTransactionActive, markTransactionFailed } from "./store-transaction.
 import { registerTestResetHook } from "../internals/test-reset.js";
 import { safeInvoke } from "../internals/reporting.js";
 
-type LazyDisallow<T> = T extends { lazy: true } ? never : T;
+export type LazyDisallow<T> = T extends { lazy: true } ? never : T;
 
 const ssrGlobalAllowWarned = new Set<string>();
 export const clearSsrGlobalAllowWarned = (name?: string): void => {
@@ -103,9 +103,15 @@ export function createStore<Name extends string, State>(
         warn(message);
     });
 
+    const runtimeConfig = getConfig();
     const normalizedOptions = resolveFeatureAvailability(
         name,
-        normalizeStoreOptions(option, name, getConfig().defaultSnapshotMode)
+        normalizeStoreOptions(
+            option,
+            name,
+            runtimeConfig.defaultSnapshotMode,
+            runtimeConfig.resetCloneMode
+        )
     );
 
     if (normalizedOptions.scope === "temp" && option.persist) {

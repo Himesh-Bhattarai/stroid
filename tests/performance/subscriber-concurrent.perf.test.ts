@@ -16,7 +16,7 @@ const now = (): number =>
     ? performance.now()
     : Date.now();
 
-const createUniqueNoop = (seed: number) => (state: any) => {
+const createUniqueNoop = (seed: number) => (state: unknown) => {
   void seed;
   void state;
 };
@@ -48,7 +48,7 @@ test("concurrent multi-store subscriber fanout stays under threshold", { timeout
   });
 
   const offs = storeNames.map((name) =>
-    _subscribe(name, (snapshot: any) => {
+    _subscribe(name, (snapshot: { value?: number } | null) => {
       if (!pending.has(name)) return;
       if (snapshot?.value !== expectedValueByStore.get(name)) return;
       pending.delete(name);

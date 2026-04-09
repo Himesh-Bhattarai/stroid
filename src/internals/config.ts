@@ -6,7 +6,7 @@
  *
  * Consumers: Internal imports and public API.
  */
-import type { SnapshotMode, MiddlewareCtx, StoreValue } from "../adapters/options.js";
+import type { SnapshotMode, MiddlewareCtx, ResetCloneMode, StoreValue } from "../adapters/options.js";
 import { registerTestResetHook } from "./test-reset.js";
 import { warnAlways } from "./diagnostics.js";
 import { getActiveStoreRegistry, getDefaultStoreRegistry, type StoreRegistry } from "../core/store-registry.js";
@@ -42,6 +42,13 @@ export type StroidConfig = {
     strictMutatorReturns?: boolean;
     asyncAutoCreate?: boolean;
     asyncCloneResult?: AsyncCloneMode;
+    /**
+     * Clone mode used by resetStore when restoring initial state.
+     * - "deep" (default): safest, isolates initial snapshots.
+     * - "shallow": clone top-level container only.
+     * - "none": reuse the initial snapshot reference.
+     */
+    resetCloneMode?: ResetCloneMode;
     /**
      * Automatically generate correlation IDs for async fetch writes.
      * Default: false.
@@ -103,6 +110,7 @@ type ResolvedConfig = {
     strictMutatorReturns: boolean;
     asyncAutoCreate: boolean;
     asyncCloneResult: AsyncCloneMode;
+    resetCloneMode: ResetCloneMode;
     autoCorrelationIds: boolean;
     acknowledgeLooseTypes: boolean;
     pathCacheSize: number;
@@ -153,6 +161,7 @@ const defaultConfig: ResolvedConfig = {
     strictMutatorReturns: true,
     asyncAutoCreate: false,
     asyncCloneResult: "none",
+    resetCloneMode: "deep",
     autoCorrelationIds: false,
     acknowledgeLooseTypes: false,
     pathCacheSize: 500,
@@ -174,6 +183,7 @@ const cloneConfig = (base: ResolvedConfig): ResolvedConfig => ({
     strictMutatorReturns: base.strictMutatorReturns,
     asyncAutoCreate: base.asyncAutoCreate,
     asyncCloneResult: base.asyncCloneResult,
+    resetCloneMode: base.resetCloneMode,
     autoCorrelationIds: base.autoCorrelationIds,
     acknowledgeLooseTypes: base.acknowledgeLooseTypes,
     pathCacheSize: base.pathCacheSize,
@@ -331,6 +341,12 @@ export const configureStroid = (next?: StroidConfig): void => {
         config = {
             ...config,
             asyncCloneResult: next.asyncCloneResult,
+        };
+    }
+    if (next.resetCloneMode === "none" || next.resetCloneMode === "shallow" || next.resetCloneMode === "deep") {
+        config = {
+            ...config,
+            resetCloneMode: next.resetCloneMode,
         };
     }
     if (typeof next.acknowledgeLooseTypes === "boolean") {

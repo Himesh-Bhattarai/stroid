@@ -6,7 +6,13 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { getActiveAsyncRegistry, getRateCountRegistry, getRateWindowStartRegistry } from "./cache.js";
+import {
+    getActiveAsyncRegistry,
+    getRateCountRegistry,
+    getRateWindowStartRegistry,
+    releaseAsyncSlotIfOrphaned,
+    trackAsyncSlot,
+} from "./cache.js";
 import type { AsyncRegistry } from "./registry.js";
 
 export const RATE_WINDOW_MS = 1000;
@@ -19,6 +25,7 @@ const pruneRateCountersForRegistry = (registry: AsyncRegistry, nowTs: number): v
         if (nowTs - (registry.rateWindowStart[key] ?? 0) > RATE_WINDOW_MS) {
             delete registry.rateWindowStart[key];
             delete registry.rateCount[key];
+            releaseAsyncSlotIfOrphaned(key);
         }
     });
 };
@@ -37,7 +44,8 @@ export const scheduleRatePrune = (delayMs = RATE_WINDOW_MS): void => {
     }, delayMs);
 };
 
-export const registerRateHit = (cacheSlot: string, nowTs: number): boolean => {
+export const registerRateHit = (cacheSlot: string, nowTs: number, storeName?: string): boolean => {
+    if (storeName) trackAsyncSlot(storeName, cacheSlot);
     const rateWindowStart = getRateWindowStartRegistry();
     const rateCount = getRateCountRegistry();
     const windowStart = rateWindowStart[cacheSlot];

@@ -9,15 +9,41 @@
 import { getActiveAsyncRegistry } from "../core/store-core.js";
 export { getActiveAsyncRegistry } from "../core/store-core.js";
 import { registerHook } from "../core/lifecycle-hooks.js";
-import type { FetchOptions, WarnCategory, StoreCleanupKind, StoreCleanupBucket } from "./registry.js";
+import { FORBIDDEN_OBJECT_KEYS } from "../utils/validation.js";
+import type {
+    AsyncMetricsSnapshot,
+    FetchOptions,
+    WarnCategory,
+    StoreCleanupKind,
+    StoreCleanupBucket,
+} from "./registry.js";
 import { resetAsyncRegistry } from "./registry.js";
-export type { FetchOptions, AsyncStateSnapshot, AsyncStateAdapter, StoreCleanupKind } from "./registry.js";
+export type { FetchOptions, AsyncStateSnapshot, AsyncStateAdapter, StoreCleanupKind, AsyncMetricsSnapshot } from "./registry.js";
 
 export type FetchInput = string | Promise<unknown> | (() => string | Promise<unknown>);
 
 export const MAX_CACHE_SLOTS_PER_STORE = 100;
 export const MAX_INFLIGHT_SLOTS_PER_STORE = 100;
 export const MAX_WARNED_ENTRIES = 1000;
+export const CACHE_PRUNE_INTERVAL_WRITES = 32;
+
+const isForbiddenObjectKey = (key: string): boolean => FORBIDDEN_OBJECT_KEYS.has(key);
+
+const safeDeleteKey = (obj: Record<string, unknown>, key: string): void => {
+    if (isForbiddenObjectKey(key)) return;
+    delete obj[key];
+};
+
+const safeGetKey = <T>(obj: Record<string, T>, key: string): T | undefined => {
+    if (isForbiddenObjectKey(key)) return undefined;
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) return undefined;
+    return obj[key];
+};
+
+const safeHasKey = <T>(obj: Record<string, T>, key: string): boolean => {
+    if (isForbiddenObjectKey(key)) return false;
+    return Object.prototype.hasOwnProperty.call(obj, key);
+};
 
 export const getFetchRegistry = (): ReturnType<typeof getActiveAsyncRegistry>["fetchRegistry"] =>
     getActiveAsyncRegistry().fetchRegistry;
@@ -41,10 +67,148 @@ export const getStoreCleanups = (): ReturnType<typeof getActiveAsyncRegistry>["s
     getActiveAsyncRegistry().storeCleanups;
 export const getWarnedOnce = (): ReturnType<typeof getActiveAsyncRegistry>["warnedOnce"] =>
     getActiveAsyncRegistry().warnedOnce;
+export const getAsyncUsageErrorEmissions = (): ReturnType<typeof getActiveAsyncRegistry>["usageErrorEmissions"] =>
+    getActiveAsyncRegistry().usageErrorEmissions;
 export const getRevalidateKeys = (): ReturnType<typeof getActiveAsyncRegistry>["revalidateKeys"] =>
     getActiveAsyncRegistry().revalidateKeys;
 export const getAsyncMetrics = (): ReturnType<typeof getActiveAsyncRegistry>["asyncMetrics"] =>
     getActiveAsyncRegistry().asyncMetrics;
+export const getAsyncMetricsByStore = (): ReturnType<typeof getActiveAsyncRegistry>["asyncMetricsByStore"] =>
+    getActiveAsyncRegistry().asyncMetricsByStore;
+export const getAsyncSlotOwners = (): ReturnType<typeof getActiveAsyncRegistry>["slotOwners"] =>
+    getActiveAsyncRegistry().slotOwners;
+export const getAsyncSlotsByStore = (): ReturnType<typeof getActiveAsyncRegistry>["slotsByStore"] =>
+    getActiveAsyncRegistry().slotsByStore;
+export const getAsyncCachePruneCounters = (): ReturnType<typeof getActiveAsyncRegistry>["cachePruneCounters"] =>
+    getActiveAsyncRegistry().cachePruneCounters;
+
+const createMetricsSnapshot = (): AsyncMetricsSnapshot => ({
+    cacheHits: 0,
+    cacheMisses: 0,
+    dedupes: 0,
+    requests: 0,
+    failures: 0,
+    avgMs: 0,
+    lastMs: 0,
+});
+
+export const getOrCreateAsyncStoreMetrics = (name: string): AsyncMetricsSnapshot => {
+    const buckets = getAsyncMetricsByStore();
+    let bucket = buckets.get(name);
+    if (!bucket) {
+        bucket = createMetricsSnapshot();
+        buckets.set(name, bucket);
+    }
+    return bucket;
+};
+
+const removeTrackedAsyncSlot = (name: string, cacheSlot: string): void => {
+    const slotsByStore = getAsyncSlotsByStore();
+    const slots = slotsByStore.get(name);
+    if (slots) {
+        slots.delete(cacheSlot);
+        if (slots.size === 0) slotsByStore.delete(name);
+    }
+    getAsyncSlotOwners().delete(cacheSlot);
+};
+
+const hasSlotReferences = (cacheSlot: string): boolean => {
+    const inflight = getInflightRegistry();
+    const requestVersion = getRequestVersionRegistry();
+    const requestSequence = getRequestSequenceRegistry();
+    const cacheMeta = getCacheMeta();
+    const rateWindowStart = getRateWindowStartRegistry();
+    const rateCount = getRateCountRegistry();
+    return safeHasKey(inflight as Record<string, unknown>, cacheSlot)
+        || safeHasKey(requestVersion, cacheSlot)
+        || safeHasKey(requestSequence, cacheSlot)
+        || safeHasKey(cacheMeta, cacheSlot)
+        || safeHasKey(rateWindowStart, cacheSlot)
+        || safeHasKey(rateCount, cacheSlot);
+};
+
+export const trackAsyncSlot = (name: string, cacheSlot: string): void => {
+    const owners = getAsyncSlotOwners();
+    const previousOwner = owners.get(cacheSlot);
+    if (previousOwner && previousOwner !== name) {
+        removeTrackedAsyncSlot(previousOwner, cacheSlot);
+    }
+    owners.set(cacheSlot, name);
+    const slotsByStore = getAsyncSlotsByStore();
+    let slots = slotsByStore.get(name);
+    if (!slots) {
+        slots = new Set<string>();
+        slotsByStore.set(name, slots);
+    }
+    slots.add(cacheSlot);
+};
+
+export const releaseAsyncSlotIfOrphaned = (cacheSlot: string): void => {
+    if (hasSlotReferences(cacheSlot)) return;
+    const owner = getAsyncSlotOwners().get(cacheSlot);
+    if (!owner) return;
+    removeTrackedAsyncSlot(owner, cacheSlot);
+};
+
+const isStoreSlot = (name: string, key: string): boolean =>
+    key === name || key.startsWith(`${name}:`);
+
+const collectStoreSlotsByScan = (name: string): Set<string> => {
+    const slots = new Set<string>();
+    const owners = getAsyncSlotOwners();
+    const inflight = getInflightRegistry();
+    const requestVersion = getRequestVersionRegistry();
+    const requestSequence = getRequestSequenceRegistry();
+    const cacheMeta = getCacheMeta();
+    const rateWindowStart = getRateWindowStartRegistry();
+    const rateCount = getRateCountRegistry();
+
+    owners.forEach((owner, slot) => {
+        if (owner === name) slots.add(slot);
+    });
+
+    const collectLegacySlots = (keys: string[]): void => {
+        keys.forEach((key) => {
+            const owner = owners.get(key);
+            if (owner !== undefined) {
+                if (owner === name) slots.add(key);
+                return;
+            }
+            if (isStoreSlot(name, key)) slots.add(key);
+        });
+    };
+
+    collectLegacySlots(Object.keys(inflight));
+    collectLegacySlots(Object.keys(requestVersion));
+    collectLegacySlots(Object.keys(requestSequence));
+    collectLegacySlots(Object.keys(cacheMeta));
+    collectLegacySlots(Object.keys(rateWindowStart));
+    collectLegacySlots(Object.keys(rateCount));
+
+    const collectBaseSlot = (record: Record<string, unknown>): void => {
+        if (safeHasKey(record, name)) slots.add(name);
+    };
+
+    collectBaseSlot(inflight as Record<string, unknown>);
+    collectBaseSlot(requestVersion as Record<string, unknown>);
+    collectBaseSlot(requestSequence as Record<string, unknown>);
+    collectBaseSlot(cacheMeta as Record<string, unknown>);
+    collectBaseSlot(rateWindowStart as Record<string, unknown>);
+    collectBaseSlot(rateCount as Record<string, unknown>);
+    return slots;
+};
+
+export const noteAsyncCacheWrite = (name: string): boolean => {
+    const counters = getAsyncCachePruneCounters();
+    const next = (counters.get(name) ?? 0) + 1;
+    counters.set(name, next);
+    const slotCount = getAsyncSlotsByStore().get(name)?.size ?? 0;
+    return slotCount > MAX_CACHE_SLOTS_PER_STORE || next >= CACHE_PRUNE_INTERVAL_WRITES;
+};
+
+const resetAsyncPruneCounter = (name: string): void => {
+    getAsyncCachePruneCounters().delete(name);
+};
 
 const getWarnedSet = (category: WarnCategory): Set<string> => {
     const warnedOnce = getWarnedOnce();
@@ -72,6 +236,7 @@ export const warnOnce = (category: WarnCategory, key: string, onWarn: () => void
 };
 
 let deleteHookCleanup: (() => void) | null = null;
+let deleteCleanupPhaseHookCleanup: (() => void) | null = null;
 
 const runCleanupSet = (set?: Set<() => void>): void => {
     if (!set) return;
@@ -82,55 +247,79 @@ const runCleanupSet = (set?: Set<() => void>): void => {
 
 const ensureCleanupBucket = (name: string): StoreCleanupBucket => {
     const storeCleanups = getStoreCleanups();
-    let bucket = storeCleanups[name];
+    let bucket = storeCleanups.get(name);
     if (!bucket) {
         bucket = Object.create(null) as StoreCleanupBucket;
-        storeCleanups[name] = bucket;
+        storeCleanups.set(name, bucket);
     }
     return bucket;
 };
 
+const normalizeCleanupKind = (kind: unknown): StoreCleanupKind =>
+    kind === "revalidate" ? "revalidate" : "store";
+
+const getCleanupSetByKind = (bucket: StoreCleanupBucket, kind: StoreCleanupKind): Set<() => void> | undefined =>
+    kind === "revalidate" ? bucket.revalidate : bucket.store;
+
+const setCleanupSetByKind = (bucket: StoreCleanupBucket, kind: StoreCleanupKind, set: Set<() => void>): void => {
+    if (kind === "revalidate") bucket.revalidate = set;
+    else bucket.store = set;
+};
+
+const deleteCleanupSetByKind = (bucket: StoreCleanupBucket, kind: StoreCleanupKind): void => {
+    if (kind === "revalidate") bucket.revalidate = undefined;
+    else bucket.store = undefined;
+};
+
 const pruneCleanupBucket = (name: string, bucket: StoreCleanupBucket): void => {
-    if (Object.keys(bucket).length === 0) {
-        delete getStoreCleanups()[name];
+    if (!bucket.store && !bucket.revalidate) {
+        getStoreCleanups().delete(name);
     }
 };
 
 const runCleanupBucket = (bucket: StoreCleanupBucket, kind?: StoreCleanupKind): void => {
     if (kind) {
-        runCleanupSet(bucket[kind]);
-        delete bucket[kind];
+        runCleanupSet(getCleanupSetByKind(bucket, kind));
+        deleteCleanupSetByKind(bucket, kind);
         return;
     }
-    (Object.keys(bucket) as StoreCleanupKind[]).forEach((key) => {
-        runCleanupSet(bucket[key]);
-        delete bucket[key];
-    });
+    runCleanupSet(bucket.store);
+    runCleanupSet(bucket.revalidate);
+    bucket.store = undefined;
+    bucket.revalidate = undefined;
 };
 
 const runStoreCleanups = (name: string): void => {
     const storeCleanups = getStoreCleanups();
-    const bucket = storeCleanups[name];
+    const bucket = storeCleanups.get(name);
     if (!bucket) return;
     runCleanupBucket(bucket);
-    delete storeCleanups[name];
+    storeCleanups.delete(name);
 };
 
 export const cleanupStoreCleanupsByKind = (kind: StoreCleanupKind): void => {
     const storeCleanups = getStoreCleanups();
-    Object.entries(storeCleanups).forEach(([name, bucket]) => {
-        if (!bucket[kind]) return;
+    for (const [name, bucket] of storeCleanups) {
+        const set = getCleanupSetByKind(bucket, kind);
+        if (!set) continue;
         runCleanupBucket(bucket, kind);
         pruneCleanupBucket(name, bucket);
-    });
+    }
 };
 
 const ensureDeleteHook = (): void => {
-    if (deleteHookCleanup) return;
-    deleteHookCleanup = registerHook("afterStoreDelete", (name) => {
+    if (deleteHookCleanup && deleteCleanupPhaseHookCleanup) return;
+    const runDeleteCleanup = (name: string): void => {
         runStoreCleanups(name);
         clearAsyncMeta(name);
-    });
+    };
+    if (!deleteCleanupPhaseHookCleanup) {
+        deleteCleanupPhaseHookCleanup = registerHook("storeDeleteCleanup", runDeleteCleanup);
+    }
+    if (!deleteHookCleanup) {
+        // Backward-compatible fallback for any delete paths that still emit only afterStoreDelete.
+        deleteHookCleanup = registerHook("afterStoreDelete", runDeleteCleanup);
+    }
 };
 
 export const resetAsyncState = (): void => {
@@ -140,10 +329,11 @@ export const resetAsyncState = (): void => {
 export const shouldUseCache = (cacheSlot: string, ttl?: number): boolean => {
     if (!ttl) return false;
     const cacheMeta = getCacheMeta();
-    const meta = cacheMeta[cacheSlot];
+    const meta = safeGetKey(cacheMeta, cacheSlot);
     if (!meta) return false;
     if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
-        delete cacheMeta[cacheSlot];
+        safeDeleteKey(cacheMeta, cacheSlot);
+        releaseAsyncSlotIfOrphaned(cacheSlot);
         return false;
     }
     return Date.now() - meta.timestamp < ttl;
@@ -158,53 +348,89 @@ export const clearAsyncMeta = (name: string): void => {
     const rateWindowStart = getRateWindowStartRegistry();
     const rateCount = getRateCountRegistry();
     const warnedOnce = getWarnedOnce();
-    delete fetchRegistry[name];
+    safeDeleteKey(fetchRegistry, name);
     warnedOnce.get("noSignal")?.delete(name);
     warnedOnce.get("shape")?.delete(name);
     warnedOnce.get("autoCreate")?.delete(name);
     warnedOnce.get("mutableResult")?.delete(name);
+    const slots = new Set<string>(getAsyncSlotsByStore().get(name) ?? []);
+    if (slots.size === 0) {
+        collectStoreSlotsByScan(name).forEach((slot) => slots.add(slot));
+    }
+    slots.add(name);
 
-    const startsWithName = (key: string) => key === name || key.startsWith(`${name}:`);
+    slots.forEach((slot) => {
+        safeDeleteKey(inflight as Record<string, unknown>, slot);
+        safeDeleteKey(requestVersion, slot);
+        safeDeleteKey(requestSequence, slot);
+        safeDeleteKey(cacheMeta, slot);
+        safeDeleteKey(rateWindowStart, slot);
+        safeDeleteKey(rateCount, slot);
+        removeTrackedAsyncSlot(name, slot);
+    });
 
-    Object.keys(inflight).forEach((k) => { if (startsWithName(k)) delete inflight[k]; });
-    Object.keys(requestVersion).forEach((k) => { if (startsWithName(k)) delete requestVersion[k]; });
-    Object.keys(requestSequence).forEach((k) => { if (startsWithName(k)) delete requestSequence[k]; });
-    Object.keys(cacheMeta).forEach((k) => { if (startsWithName(k)) delete cacheMeta[k]; });
-    Object.keys(rateWindowStart).forEach((k) => { if (startsWithName(k)) delete rateWindowStart[k]; });
-    Object.keys(rateCount).forEach((k) => { if (startsWithName(k)) delete rateCount[k]; });
+    getAsyncSlotsByStore().delete(name);
+    getAsyncMetricsByStore().delete(name);
+    resetAsyncPruneCounter(name);
 };
 
 export const pruneAsyncCache = (name: string): void => {
-    const prefix = `${name}:`;
     const cacheMeta = getCacheMeta();
     const requestVersion = getRequestVersionRegistry();
     const requestSequence = getRequestSequenceRegistry();
-    const slots = Object.entries(cacheMeta)
-        .filter(([key, meta]) => {
-            if (key !== name && !key.startsWith(prefix)) return false;
-            if (meta.expiresAt !== null && meta.expiresAt <= Date.now()) {
-                delete cacheMeta[key];
-                return false;
-            }
-            return true;
-        })
-        .sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const trackedSlots = getAsyncSlotsByStore().get(name) ?? collectStoreSlotsByScan(name);
+    const now = Date.now();
+    const slots: Array<[string, (typeof cacheMeta)[string]]> = [];
 
-    if (slots.length <= MAX_CACHE_SLOTS_PER_STORE) return;
+    trackedSlots.forEach((slot) => {
+        const meta = safeGetKey(cacheMeta, slot);
+        if (!meta) return;
+        if (meta.expiresAt !== null && meta.expiresAt <= now) {
+            safeDeleteKey(cacheMeta, slot);
+            safeDeleteKey(requestVersion, slot);
+            safeDeleteKey(requestSequence, slot);
+            releaseAsyncSlotIfOrphaned(slot);
+            return;
+        }
+        slots.push([slot, meta]);
+    });
+
+    if (slots.length <= MAX_CACHE_SLOTS_PER_STORE) {
+        resetAsyncPruneCounter(name);
+        return;
+    }
+
+    slots.sort((a, b) => a[1].timestamp - b[1].timestamp);
     const overflow = slots.length - MAX_CACHE_SLOTS_PER_STORE;
     slots.slice(0, overflow).forEach(([key]) => {
-        delete cacheMeta[key];
-        delete requestVersion[key];
-        delete requestSequence[key];
+        safeDeleteKey(cacheMeta, key);
+        safeDeleteKey(requestVersion, key);
+        safeDeleteKey(requestSequence, key);
+        releaseAsyncSlotIfOrphaned(key);
     });
+    resetAsyncPruneCounter(name);
 };
 
 export const countInflightSlots = (name: string): number => {
-    const prefix = `${name}:`;
     const inflight = getInflightRegistry();
+    const owners = getAsyncSlotOwners();
+    const trackedSlots = getAsyncSlotsByStore().get(name);
+    if (trackedSlots && trackedSlots.size > 0) {
+        let indexedCount = 0;
+        trackedSlots.forEach((slot) => {
+            if (safeHasKey(inflight as Record<string, unknown>, slot)) indexedCount += 1;
+        });
+        return indexedCount;
+    }
+
     let count = 0;
     Object.keys(inflight).forEach((key) => {
-        if (key === name || key.startsWith(prefix)) count += 1;
+        const owner = owners.get(key);
+        if (owner !== undefined) {
+            if (owner === name) count += 1;
+            return;
+        }
+        if (isStoreSlot(name, key)) count += 1;
     });
     return count;
 };
@@ -212,28 +438,30 @@ export const countInflightSlots = (name: string): number => {
 export const registerStoreCleanup = (name: string, fn: () => void, kind: StoreCleanupKind = "store"): void => {
     ensureDeleteHook();
     const bucket = ensureCleanupBucket(name);
-    let set = bucket[kind];
+    const resolvedKind = normalizeCleanupKind(kind);
+    let set = getCleanupSetByKind(bucket, resolvedKind);
     if (!set) {
         set = new Set();
-        bucket[kind] = set;
+        setCleanupSetByKind(bucket, resolvedKind, set);
     }
     set.add(fn);
 };
 
 export const unregisterStoreCleanup = (name: string, fn: () => void, kind?: StoreCleanupKind): void => {
     const storeCleanups = getStoreCleanups();
-    const bucket = storeCleanups[name];
+    const bucket = storeCleanups.get(name);
     if (!bucket) return;
     const removeFromKind = (key: StoreCleanupKind): void => {
-        const set = bucket[key];
+        const set = getCleanupSetByKind(bucket, key);
         if (!set) return;
         set.delete(fn);
-        if (set.size === 0) delete bucket[key];
+        if (set.size === 0) deleteCleanupSetByKind(bucket, key);
     };
     if (kind) {
-        removeFromKind(kind);
+        removeFromKind(normalizeCleanupKind(kind));
     } else {
-        (Object.keys(bucket) as StoreCleanupKind[]).forEach(removeFromKind);
+        removeFromKind("store");
+        removeFromKind("revalidate");
     }
     pruneCleanupBucket(name, bucket);
 };

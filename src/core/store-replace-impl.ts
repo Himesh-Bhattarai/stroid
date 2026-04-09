@@ -31,6 +31,10 @@ import {
     markTransactionFailed,
 } from "./store-transaction.js";
 import { resolveWriteContext, stageOrCommitUpdate, type CommitAction } from "./store-write-shared.js";
+import {
+    enqueueHydrationWrite,
+    shouldQueueHydrationWrite,
+} from "./hydration-consistency.js";
 
 export function replaceStore<Name extends string, State>(name: StoreDefinition<Name, State>, value: State): WriteResult;
 export function replaceStore<Name extends string, State>(name: StoreKey<Name, State>, value: State): WriteResult;
@@ -54,7 +58,8 @@ export const replaceStoreState = (
     name: string,
     data: unknown,
     action: CommitAction = "hydrate",
-    context?: WriteContext | null
+    context?: WriteContext | null,
+    deferOptions: { bypassHydrationQueue?: boolean } = {}
 ): { ok: boolean; reason?: string } => {
     const fail = (reason: string, message?: string): { ok: false; reason: string } => {
         if (isTransactionActive()) {
@@ -64,6 +69,17 @@ export const replaceStoreState = (
     };
     if (!exists(name)) {
         return fail("not-found", `replaceStore("${name}") called before createStore().`);
+    }
+    const sourceHint = context?.sourceHint ?? (action === "hydrate" ? "hydrate" : "effect");
+    if (
+        action !== "hydrate"
+        && !deferOptions.bypassHydrationQueue
+        && shouldQueueHydrationWrite(registry, name, sourceHint)
+    ) {
+        enqueueHydrationWrite(registry, name, sourceHint, () => {
+            replaceStoreState(registry, name, data, action, context, { bypassHydrationQueue: true });
+        });
+        return { ok: true };
     }
     const stagedPrev = isTransactionActive() ? getStagedTransactionValue(name) : { has: false, value: undefined };
     const prev = stagedPrev.has ? stagedPrev.value : getStoreValueRef(name, registry);
@@ -106,6 +122,8 @@ export const replaceStoreState = (
                 context: writeContext,
             }),
         ],
+        normalizeHydrationCandidate: (candidate) =>
+            normalizeCommittedState(name, candidate, validateRule),
     });
     return { ok: true };
 };

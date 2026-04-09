@@ -102,7 +102,10 @@ export const subscribeStore = (name: string, fn: Subscriber): (() => void) => {
     const registrySubs = registry.subscribers;
     if (!registrySubs[name]) registrySubs[name] = new Set();
     registrySubs[name].add(fn);
+    let unsubscribed = false;
     return () => {
+        if (unsubscribed) return;
+        unsubscribed = true;
         registrySubs[name]?.delete(fn); // O(1)
         if (registrySubs[name]?.size === 0) delete registrySubs[name];
     };
@@ -133,7 +136,7 @@ const readStoreSnapshot = (
     if (!options.committedOnly && isTransactionActive()) {
         const txCache = registry.transaction.snapshotCache;
         const source = getStoreValueRef(name);
-        if (source === undefined) return null;
+        if (source === undefined && registry.initialFactories[name]) return null;
         const cached = txCache.get(name);
         if (cached && cached.source === source && cached.mode === snapshotMode) {
             const snap = cached.snapshot;
@@ -150,6 +153,7 @@ const readStoreSnapshot = (
     const source = options.committedOnly
         ? getCommittedStoreValueRef(name, registry)
         : getStoreValueRef(name, registry);
+    if (source === undefined && registry.initialFactories[name]) return null;
     const cached = registry.snapshotCache[name];
     if (cached && cached.source === source && cached.mode === snapshotMode) {
         const snap = cached.snapshot;

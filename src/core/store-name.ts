@@ -9,7 +9,7 @@
 import type { StoreKey, StoreValue } from "./store-lifecycle/types.js";
 import type { StoreOptions } from "../adapters/options.js";
 import { createStore, createStoreStrict } from "./store-create.js";
-import { setStore, deleteStore, resetStore } from "./store-write.js";
+import { setStoreWithContext, deleteStore, resetStore } from "./store-write.js";
 import { getStore } from "./store-read.js";
 import type { NonFunction } from "../types/utility.js";
 
@@ -26,8 +26,22 @@ export const store = <Name extends string, State = StoreValue>(name: Name): Stor
 export const namespace = (ns: string) => {
     const prefix = `${ns}::`;
     const qualify = (name: string) => (name.includes("::") ? name : `${prefix}${name}`);
-    const adaptName = (name: any) =>
-        typeof name === "string" ? store(qualify(name)) : { ...(name as any), name: qualify((name as any).name) };
+
+    type NamespaceHandle = StoreKey<string, Record<string, unknown>>;
+
+    const adaptName = (nameInput: string | StoreKey<string, StoreValue>): NamespaceHandle =>
+        typeof nameInput === "string"
+            ? store<string, Record<string, unknown>>(qualify(nameInput))
+            : ({ ...nameInput, name: qualify(nameInput.name) } as NamespaceHandle);
+
+    const escapePathSegment = (segment: string): string =>
+        segment.replace(/\\/g, "\\\\").replace(/\./g, "\\.");
+
+    const normalizePath = (path: string | readonly string[]): string =>
+        typeof path === "string"
+            ? path
+            : path.map((segment) => escapePathSegment(String(segment))).join(".");
+
     return {
         store: <Name extends string, State = StoreValue>(name: Name): StoreKey<Name, State> =>
             ({ name: qualify(name) } as StoreKey<Name, State>),
@@ -35,17 +49,20 @@ export const namespace = (ns: string) => {
             createStore(qualify(name), data, options),
         createStrict: <Name extends string, State>(name: Name, data: NonFunction<State>, options?: StoreOptions<State>) =>
             createStoreStrict(qualify(name), data, options),
-        set: (name: any, ...rest: any[]) => {
-            const restParams = rest as [any?, ...any[]];
-            return (setStore as any)(adaptName(name), ...restParams);
+        set: (name: string | StoreKey<string, StoreValue>, ...rest: unknown[]) => {
+            if (rest.length === 1) {
+                return setStoreWithContext(adaptName(name), rest[0], undefined, null);
+            }
+            if (rest.length === 2) {
+                return setStoreWithContext(adaptName(name), rest[0], rest[1], null);
+            }
+            return { ok: false, reason: "invalid-args" } as const;
         },
-        get: (name: any, ...rest: any[]) => {
-            const restParams = rest as [any?, ...any[]];
-            return (getStore as any)(adaptName(name), ...restParams);
-        },
+        get: (name: string | StoreKey<string, StoreValue>, path?: string | readonly string[]) =>
+            path === undefined
+                ? getStore(adaptName(name))
+                : getStore(adaptName(name), normalizePath(path)),
         delete: (name: string) => deleteStore(adaptName(name)),
         reset: (name: string) => resetStore(adaptName(name)),
     };
 };
-
-

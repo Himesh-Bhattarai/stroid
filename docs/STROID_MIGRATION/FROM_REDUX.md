@@ -242,17 +242,18 @@ function UserProfile() {
 ### Stroid (After)
 
 ```ts
+import { useEffect } from "react"
 import { fetchStore } from "stroid/async"
 import { useAsyncStore } from "stroid/react"
 
 function UserProfile() {
-  // Single call handles loading, error, data states
-  const { data, isLoading, error } = useAsyncStore(
-    "user",
-    fetchStore("https://api.example.com/users/1")
-  )
+  const { data, loading, error } = useAsyncStore("user")
 
-  if (isLoading) return <Spinner />
+  useEffect(() => {
+    void fetchStore("user", "https://api.example.com/users/1", { autoCreate: true })
+  }, [])
+
+  if (loading) return <Spinner />
   if (error) return <Error error={error} />
   return <h1>{data.name}</h1>
 }
@@ -385,10 +386,11 @@ function App() {
 
 function Content() {
   const user = useStore("user")
-  const { data: posts } = useAsyncStore(
-    "posts",
-    fetchStore("/api/posts")
-  )
+  const { data: posts } = useAsyncStore("posts")
+
+  useEffect(() => {
+    void fetchStore("posts", "/api/posts", { autoCreate: true })
+  }, [])
 
   return (
     <>

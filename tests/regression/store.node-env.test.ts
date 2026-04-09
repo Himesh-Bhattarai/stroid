@@ -331,6 +331,53 @@ test("hydrateStores onValidationError can allow hydration in production", () => 
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
+test("production hydration drift events are hash-only and omit payload snapshots", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const runtimePath = path.join(repoRoot, "src", "runtime-tools", "index.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const runtime = await import(pathToFileURL(${JSON.stringify(runtimePath)}).href);
+
+    globalThis.window = {};
+
+    store.createStore("prodHydration", { profile: { name: "server" } });
+    store.hydrateStores(
+      { prodHydration: { profile: { name: "server" } } },
+      {},
+      { allowTrusted: true },
+      { policyMap: { prodHydration: "server_wins" } }
+    );
+
+    store.setStore("prodHydration", "profile.name", "client");
+
+    const [event] = runtime.getHydrationDriftEvents(1);
+    assert.ok(event);
+    assert.strictEqual(event.policy, "server_wins");
+    assert.strictEqual(event.resolution, "server_reverted");
+    assert.strictEqual(event.baseline, null);
+    assert.strictEqual(event.live, null);
+    assert.strictEqual(event.resolved, null);
+    assert.strictEqual(typeof event.baselineHash, "number");
+    assert.strictEqual(typeof event.liveHash, "number");
+    assert.strictEqual(typeof event.resolvedHash, "number");
+    assert.deepStrictEqual(store.getStore("prodHydration"), { profile: { name: "server" } });
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
 test("unknown Node env falls back to production mode", () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
   const utilsPath = path.join(repoRoot, "src", "utils.ts");
@@ -378,6 +425,58 @@ test("history snapshots stay immutable in production", () => {
 
     assert.deepStrictEqual(devtools.getHistory("user")[1].next, { profile: { color: "green" } });
     assert.deepStrictEqual(store.getStore("user"), { profile: { color: "green" } });
+  `;
+
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+    },
+  });
+
+  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+});
+
+test("ref snapshot mutation safety is enforced in production deliveries", () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+  const storePath = path.join(repoRoot, "src", "store.ts");
+  const configPath = path.join(repoRoot, "src", "config.ts");
+  const script = `
+    const assert = (await import("node:assert")).default;
+    const { pathToFileURL } = await import("node:url");
+    const store = await import(pathToFileURL(${JSON.stringify(storePath)}).href);
+    const config = await import(pathToFileURL(${JSON.stringify(configPath)}).href);
+
+    const warnings = [];
+    config.configureStroid({ logSink: { warn: (msg) => warnings.push(msg) } });
+
+    store.createStore("prodRefSafe", { count: 0 }, {
+      allowSSRGlobalStore: true,
+      snapshot: "ref",
+      snapshotSafety: "warn",
+    });
+
+    let seen = null;
+    store.subscribeStore("prodRefSafe", (snap) => {
+      if (!snap) return;
+      snap.count = 99;
+    });
+    store.subscribeStore("prodRefSafe", (snap) => {
+      if (!snap) return;
+      seen = snap.count;
+    });
+
+    store.setStore("prodRefSafe", { count: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.strictEqual(store.getStore("prodRefSafe").count, 1);
+    assert.strictEqual(seen, 1);
+    assert.ok(
+      warnings.some((msg) => msg.includes("Snapshot mutation detected")),
+      "expected snapshot mutation warning in production"
+    );
   `;
 
   const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {

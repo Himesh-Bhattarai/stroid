@@ -13,10 +13,14 @@ import { act, render } from "@testing-library/react";
 import { fetchStore } from "../../src/async.js";
 import { getAsyncMetrics } from "../../src/async/cache.js";
 import { RegistryScope, useAsyncStore, useAsyncStoreSuspense, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/react/index.js";
-import { clearAllStores, createStore, getStore, setStore } from "../../src/store.js";
+import { clearAllStores, createStore, getStore, setStore, store } from "../../src/store.js";
 import { createStoreRegistry, runWithRegistry } from "../../src/core/store-registry.js";
 import { resetAllStoresForTest } from "../../src/helpers/testing.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
+import {
+  runDeferredScenario,
+  runTransitionScenario,
+} from "../../scripts/react/react-concurrency-shared.js";
 
 test("useStore inline primitive selector stays stable through unrelated updates", async () => {
   clearAllStores();
@@ -27,13 +31,14 @@ test("useStore inline primitive selector stays stable through unrelated updates"
 
   let renderCount = 0;
   const seen: Array<string | null> = [];
+  const reactUser = store<"reactUser", { profile: { name: string }; other: number }>("reactUser");
 
   const App = () => {
     renderCount += 1;
     if (renderCount > 10) {
       throw new Error("useStore inline primitive selector entered a render loop");
     }
-    const name = useStore<any, string>("reactUser", (state) => state.profile.name);
+    const name = useStore(reactUser, (state) => state.profile.name);
     seen.push(name);
     return React.createElement("span", null, name);
   };
@@ -68,6 +73,7 @@ test("useStore inline primitive selector stays stable through unrelated updates"
 test("RegistryScope isolates store access between React trees", async () => {
   const registryA = createStoreRegistry();
   const registryB = createStoreRegistry();
+  const scopedUser = store<"scopedUser", { name: string }>("scopedUser");
 
   runWithRegistry(registryA, () => {
     createStore("scopedUser", { name: "A" });
@@ -77,7 +83,7 @@ test("RegistryScope isolates store access between React trees", async () => {
   });
 
   const App = ({ label }: { label: string }) => {
-    const name = useStore<any, string>("scopedUser", "name");
+    const name = useStore(scopedUser, "name");
     return React.createElement("span", { "data-testid": label }, name ?? "");
   };
 
@@ -191,9 +197,10 @@ test("useStore warns once for broad subscriptions without a selector", async () 
   });
 
   createStore("broadWarn", { value: 1 });
+  const broadWarn = store<"broadWarn", { value: number }>("broadWarn");
 
   const App = () => {
-    const state = useStore<any>("broadWarn");
+    const state = useStore(broadWarn);
     return React.createElement("span", null, String(state?.value ?? ""));
   };
 
@@ -231,10 +238,11 @@ test("selector recreation warnings describe selector churn without claiming repe
   createStore("selectorWarnStore", {
     profile: { name: "Alex" },
   });
+  const selectorWarnStore = store<"selectorWarnStore", { profile: { name: string } }>("selectorWarnStore");
 
   const App = ({ tick }: { tick: number }) => {
-    const nameFromUseStore = useStore<any, string>("selectorWarnStore", (state) => state.profile.name);
-    const nameFromUseSelector = useSelector<any, string>("selectorWarnStore", (state) => state.profile.name, Object.is);
+    const nameFromUseStore = useStore(selectorWarnStore, (state) => state.profile.name);
+    const nameFromUseSelector = useSelector(selectorWarnStore, (state) => state.profile.name, Object.is);
     return React.createElement("span", null, `${tick}:${nameFromUseStore ?? ""}:${nameFromUseSelector ?? ""}`);
   };
 
@@ -273,14 +281,15 @@ test("useStore inline object selector with custom equality does not loop or rere
 
   let renderCount = 0;
   const seen: string[] = [];
+  const reactPrefs = store<"reactPrefs", { profile: { name: string }; other: number }>("reactPrefs");
 
   const App = () => {
     renderCount += 1;
     if (renderCount > 10) {
       throw new Error("useStore inline object selector entered a render loop");
     }
-    const selected = useStore<any, { name: string }>(
-      "reactPrefs",
+    const selected = useStore(
+      reactPrefs,
       (state) => ({ name: state.profile.name }),
       (a, b) => a?.name === b?.name
     );
@@ -362,10 +371,11 @@ test("useSelector applies default shallow equality to object selections", async 
 
   let renderCount = 0;
   const seen: string[] = [];
+  const selectorHookStore = store<"selectorHookStore", { profile: { name: string }; other: number }>("selectorHookStore");
 
   const App = () => {
     renderCount += 1;
-    const selected = useSelector<any, { name: string }>("selectorHookStore", (state) => ({
+    const selected = useSelector(selectorHookStore, (state) => ({
       name: state.profile.name,
     }));
     seen.push(selected?.name ?? "null");
@@ -397,10 +407,11 @@ test("selector hooks can mount before createStore and update when the store appe
   clearAllStores();
   const seenUseStore: Array<string | null> = [];
   const seenUseSelector: Array<string | null> = [];
+  const lateHookStore = store<"lateHookStore", { profile: { name: string } }>("lateHookStore");
 
   const App = () => {
-    const nameFromUseStore = useStore<any, string>("lateHookStore", (state) => state.profile.name);
-    const nameFromUseSelector = useSelector<any, string>("lateHookStore", (state) => state.profile.name, Object.is);
+    const nameFromUseStore = useStore(lateHookStore, (state) => state.profile.name);
+    const nameFromUseSelector = useSelector(lateHookStore, (state) => state.profile.name, Object.is);
     seenUseStore.push(nameFromUseStore);
     seenUseSelector.push(nameFromUseSelector);
     return React.createElement("span", null, nameFromUseStore ?? "");
@@ -531,7 +542,7 @@ test("useAsyncStore reflects fetchStore loading and success state", async () => 
         headers: { get: () => "application/json" },
         json: async () => value,
         text: async () => JSON.stringify(value),
-      } as any);
+      } as unknown as Response);
     };
   })) as typeof fetch;
 
@@ -695,4 +706,26 @@ test("useFormStore uses checked for checkbox inputs", async () => {
   });
 });
 
+test("useStore stays coherent across useTransition updates without tearing", async () => {
+  const result = await runTransitionScenario({ updates: 18 });
 
+  assert.deepStrictEqual(result.invariantViolations, []);
+  assert.deepStrictEqual(result.finalState, {
+    value: 18,
+    parity: "even",
+    label: "count:18",
+  });
+  assert.ok(result.renders >= result.updates);
+});
+
+test("useStore stays coherent with useDeferredValue snapshots", async () => {
+  const result = await runDeferredScenario({ updates: 18 });
+
+  assert.deepStrictEqual(result.invariantViolations, []);
+  assert.deepStrictEqual(result.finalState, {
+    value: 18,
+    parity: "even",
+    label: "count:18",
+  });
+  assert.ok(result.renders >= result.updates);
+});

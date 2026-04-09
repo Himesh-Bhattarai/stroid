@@ -18,6 +18,10 @@ import {
   hydrateStores,
   type StoreDefinition,
   type HydrateSnapshotFor,
+  type HydrationBootWindowControl,
+  type HydrationBootWindowOptions,
+  type HydrationConsistencyOptions,
+  type HydrationDriftEvent,
   type HydrationResult,
   type StoreStateMap,
   store,
@@ -26,6 +30,7 @@ import { createCounterStore, createListStore, createEntityStore } from "../../sr
 import { createSelector } from "../../src/selectors/index.js";
 import { createStoreForRequest } from "../../src/server/index.js";
 import type { StoreRegistry } from "../../src/server/index.js";
+import { createRequestScope } from "../../src/server/portable.js";
 import { useAsyncStore, useFormStore, useSelector, useStore, useStoreField, useStoreStatic } from "../../src/react/index.js";
 import type { AsyncStoreState } from "../../src/react/hooks-async.js";
 import { fetchStore, getAsyncMetrics } from "../../src/async.js";
@@ -137,7 +142,7 @@ type UseStoreStaticSig = (name: typeof typedUserHandle) => Readonly<UserState> |
 type UseSelectorSig = (name: typeof typedUserHandle, selector: UserSelector) => string | null;
 type UseFormStoreSig = (name: typeof typedFormHandle, field: "profile.name") => {
   value: string | null;
-  onChange: (eOrValue: any) => void;
+  onChange: (eOrValue: unknown) => void;
 };
 type UseAsyncStoreSig = (name: typeof typedAsyncHandle) => {
   status: "idle" | "loading" | "success" | "error" | "aborted";
@@ -189,12 +194,23 @@ const requestStores = createStoreForRequest<RequestMap>((api) => {
 const requestSnapshot = requestStores.snapshot();
 type RequestSnapshotReturn = Expect<Equal<typeof requestSnapshot, Partial<RequestMap>>>;
 type RequestRegistryReturn = Expect<Equal<typeof requestStores.registry, StoreRegistry>>;
+const requestCapture = requestStores.capture();
+type RequestCaptureReturn = Expect<Equal<typeof requestCapture.snapshot, Partial<RequestMap>>>;
 
 type RequestHydrateSnapshot = HydrateSnapshotFor<RequestMap>;
 const requestHydrateInput: RequestHydrateSnapshot = {
   requestUser: { id: "1", name: "Ava" },
   flags: { beta: false },
 };
+
+const portableRequestScope = createRequestScope<RequestMap>({
+  snapshot: requestHydrateInput,
+  options: {},
+});
+const portableRequestSnapshot = portableRequestScope.snapshot();
+type PortableRequestSnapshotReturn = Expect<Equal<typeof portableRequestSnapshot, Partial<RequestMap>>>;
+const portableRequestUser = portableRequestScope.run((api) => api.get("requestUser"));
+type PortableRequestUserReturn = Expect<Equal<typeof portableRequestUser, { id: string; name: string } | null>>;
 // @ts-expect-error hydrateStores requires explicit trust
 hydrateStores<RequestHydrateSnapshot>(requestHydrateInput);
 hydrateStores<RequestHydrateSnapshot>(requestHydrateInput, {}, { allowTrusted: true });
@@ -242,6 +258,16 @@ type AsyncMetricsReturn = Expect<Equal<typeof asyncMetrics, {
   avgMs: number;
   lastMs: number;
 }>>;
+const asyncMetricsByStore = getAsyncMetrics("typedUser");
+type AsyncMetricsByStoreReturn = Expect<Equal<typeof asyncMetricsByStore, {
+  cacheHits: number;
+  cacheMisses: number;
+  dedupes: number;
+  requests: number;
+  failures: number;
+  avgMs: number;
+  lastMs: number;
+} | null>>;
 
 const mock = createMockStore("typedMock", { value: 1 });
 mock.set({ value: 2 });
@@ -267,8 +293,48 @@ const hydratedLoose = hydrateStores(
   { allowTrusted: true }
 );
 type HydratedLooseReturn = Expect<Equal<typeof hydratedLoose, HydrationResult>>;
+const manualBootWindow: HydrationBootWindowOptions = {
+  mode: "manual",
+  fallbackMs: 100,
+};
+const typedConsistency: HydrationConsistencyOptions<RequestHydrateSnapshot> = {
+  contract: {
+    snapshotVersion: 1,
+    authority: "server-authoritative",
+    stores: {
+      requestUser: {
+        schemaSignature: "request-user@1",
+      },
+    },
+  },
+  policyMap: {
+    requestUser: {
+      policy: "merge",
+      merge: ({ baseline, live }) => live ?? baseline,
+    },
+    flags: "client_wins",
+  },
+  onDrift: (event: HydrationDriftEvent<RequestHydrateSnapshot>) => {
+    void event.policy;
+    void event.source;
+  },
+  bootWindow: manualBootWindow,
+};
+const hydratedConsistent = hydrateStores<RequestHydrateSnapshot>(
+  requestHydrateInput,
+  {},
+  { allowTrusted: true },
+  typedConsistency
+);
+type HydratedConsistentReturn = Expect<Equal<typeof hydratedConsistent, HydrationResult>>;
+const maybeBootWindow: HydrationBootWindowControl | undefined = hydratedConsistent.bootWindow;
+void maybeBootWindow?.close();
+const maybeBootWindowMode = maybeBootWindow?.mode;
+type ManualBootWindowMode = Expect<Equal<typeof maybeBootWindowMode, "timer" | "manual" | undefined>>;
 // @ts-expect-error options should only accept keys from the snapshot
 hydrateStores({ hydrateLoose: { value: 1 } }, { missing: { persist: true } }, { allowTrusted: true });
+// @ts-expect-error consistency policy map should only accept keys from the snapshot
+hydrateStores(requestHydrateInput, {}, { allowTrusted: true }, { policyMap: { missing: "server_wins" } });
 
 createStore("legacyTyped", { count: 1 }, {
   historyLimit: 10,
@@ -287,5 +353,3 @@ createStore("legacyTyped", { count: 1 }, {
 createStore("badScope", { value: 1 }, { scope: "scoped" });
 // @ts-expect-error invalid sync maxPayloadBytes type should be rejected
 createStore("badSync", { value: 1 }, { sync: { maxPayloadBytes: "big" } });
-
-

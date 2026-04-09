@@ -21,6 +21,23 @@ export type HistoryEntry = {
 
 let _registered = false;
 
+type ReduxDevtoolsConnection = {
+    init: (state: unknown) => void;
+    send: (action: { type: string }, state: unknown) => void;
+};
+
+type ReduxDevtoolsExtension = {
+    connect: (options: { name: string }) => ReduxDevtoolsConnection;
+};
+
+const getReduxDevtoolsExtension = (): ReduxDevtoolsExtension | null => {
+    if (typeof window === "undefined") return null;
+    const ext = Reflect.get(window as object, "__REDUX_DEVTOOLS_EXTENSION__") as unknown;
+    if (!ext || typeof ext !== "object") return null;
+    if (typeof (ext as { connect?: unknown }).connect !== "function") return null;
+    return ext as ReduxDevtoolsExtension;
+};
+
 const cloneValue = <T,>(value: T): T => {
     try {
         if (typeof structuredClone === "function") return structuredClone(value);
@@ -39,14 +56,13 @@ export const initDevtools = ({
 }: {
     name: string;
     useDevtools: boolean;
-    existingDevtools: any;
+    existingDevtools: ReduxDevtoolsConnection | undefined;
     stores: Record<string, StoreValue>;
     warn: (message: string) => void;
-}): any => {
+}): ReduxDevtoolsConnection | undefined => {
     if (!useDevtools) return existingDevtools;
-    if (typeof window === "undefined") return existingDevtools;
-    const ext = (window as any).__REDUX_DEVTOOLS_EXTENSION__ || (window as any).__REDUX_DEVTOOLS_EXTENSION__;
-    if (!ext || typeof ext.connect !== "function") {
+    const ext = getReduxDevtoolsExtension();
+    if (!ext) {
         warn(`DevTools requested for "${name}" but Redux DevTools extension not found.`);
         return existingDevtools;
     }
@@ -137,7 +153,7 @@ export const sendDevtools = ({
     name: string;
     action: string;
     force?: boolean;
-    devtools: any;
+    devtools: ReduxDevtoolsConnection | undefined;
     enabled: boolean;
     stores: Record<string, StoreValue>;
     applyRedactor: (value: StoreValue) => StoreValue;
@@ -153,7 +169,7 @@ export const sendDevtools = ({
 
 export const createDevtoolsFeatureRuntime = (): StoreFeatureRuntime => {
     const history: Record<string, HistoryEntry[]> = Object.create(null);
-    let devtools: any;
+    let devtools: ReduxDevtoolsConnection | undefined;
 
     return {
         onStoreCreate(ctx) {
@@ -264,4 +280,6 @@ export const registerDevtoolsFeature = (): void => {
     registerStoreFeature("devtools", createDevtoolsFeatureRuntime);
 };
 
-
+export const installDevtools = (): void => {
+    registerDevtoolsFeature();
+};

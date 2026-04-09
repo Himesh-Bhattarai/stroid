@@ -75,12 +75,27 @@ export const normalizeRuntimePatchPath = (
 ): RuntimePatchPath => {
     if (!path) return [];
     if (Array.isArray(path)) {
-        return path.map((segment) =>
-            typeof segment === "number" ? segment : String(segment)
-        );
+        let canReuse = true;
+        for (let i = 0; i < path.length; i += 1) {
+            const segment = path[i];
+            if (typeof segment !== "string" && typeof segment !== "number") {
+                canReuse = false;
+                break;
+            }
+        }
+        if (canReuse) {
+            return path as RuntimePatchPath;
+        }
+        const normalized: Array<string | number> = new Array(path.length);
+        for (let i = 0; i < path.length; i += 1) {
+            const segment = path[i];
+            normalized[i] = typeof segment === "number" ? segment : String(segment);
+        }
+        return normalized;
     }
     return parsePath(path as PathInput);
 };
+
 
 export const createRuntimePatch = (options: {
     store: string;
@@ -94,20 +109,22 @@ export const createRuntimePatch = (options: {
     asyncBoundary?: boolean;
 }): RuntimePatch => {
     const timestamp = options.timestamp ?? Date.now();
-    return {
+    const patch: RuntimePatch = {
         id: nextRuntimePatchId(options.source, timestamp),
         store: options.store,
         path: normalizeRuntimePatchPath(options.path),
         op: options.op,
-        ...(options.value !== undefined ? { value: options.value } : {}),
         meta: {
             timestamp,
             source: options.source,
-            causedBy: resolveCausedBy(options.context),
-            ...(options.isUnsafe === true ? { isUnsafe: true } : {}),
-            ...(options.asyncBoundary === true ? { asyncBoundary: true } : {}),
         },
     };
+    if (options.value !== undefined) patch.value = options.value;
+    const causedBy = resolveCausedBy(options.context);
+    if (causedBy) patch.meta.causedBy = causedBy;
+    if (options.isUnsafe === true) patch.meta.isUnsafe = true;
+    if (options.asyncBoundary === true) patch.meta.asyncBoundary = true;
+    return patch;
 };
 
 export const createRootSetRuntimePatch = (options: {

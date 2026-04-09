@@ -24,6 +24,7 @@ import {
 import { clearAllStores } from "../../src/runtime-admin/index.js";
 import { subscribeWithSelector } from "../../src/selectors/index.js";
 import { createComputed } from "../../src/computed/index.js";
+import { getRegistry } from "../../src/core/store-lifecycle/registry.js";
 
 test("core create, set, get, merge, reset, delete flow works", async () => {
   clearAllStores();
@@ -66,6 +67,36 @@ test("subscribers are notified and can unsubscribe", async () => {
 
   assert.deepStrictEqual(getStore("counter"), { value: 2 });
   assert.ok(seen.some((entry) => entry && entry.value === 1));
+});
+
+test("unsubscribe is idempotent while sibling subscribers remain attached", () => {
+  clearAllStores();
+  createStore("idempotentOff", { value: 0 });
+
+  const target = () => undefined;
+  const offTarget = _subscribe("idempotentOff", target);
+  const offSibling = _subscribe("idempotentOff", () => undefined);
+
+  const set = getRegistry().subscribers.idempotentOff as Set<unknown>;
+  assert.ok(set);
+
+  const trackedSet = set as Set<unknown> & { delete: (value: unknown) => boolean };
+  const originalDelete = trackedSet.delete.bind(trackedSet);
+  let targetDeleteCalls = 0;
+  trackedSet.delete = ((value: unknown) => {
+    if (value === target) targetDeleteCalls += 1;
+    return originalDelete(value);
+  }) as (value: unknown) => boolean;
+
+  try {
+    offTarget();
+    offTarget();
+  } finally {
+    trackedSet.delete = originalDelete as (value: unknown) => boolean;
+    offSibling();
+  }
+
+  assert.strictEqual(targetDeleteCalls, 1);
 });
 
 test("subscribeWithSelector skips unrelated updates", async () => {
@@ -113,16 +144,16 @@ test("createStore and hydrateStores reject forbidden store names", () => {
   assert.strictEqual(ctorFail?.reason, "invalid-name");
   assert.deepStrictEqual(result.created, ["valid"]);
   assert.strictEqual(hasStore("valid"), true);
-  assert.strictEqual(({} as any).polluted, undefined);
+  assert.strictEqual(({} as { polluted?: unknown }).polluted, undefined);
 });
 
 test("mutator return values are rejected in strict mode", () => {
   clearAllStores();
   createStore("mutatorReturn", { count: 1 });
 
-  const result = setStore("mutatorReturn", (draft: any) => {
+  const result = setStore("mutatorReturn", (draft: { count: number }) => {
     draft.count = 2;
-    return { count: 5 };
+    return { count: 5 } as unknown as never;
   });
 
   assert.deepStrictEqual(result, { ok: false, reason: "validate" });
@@ -133,8 +164,8 @@ test("mutator draft becomes the committed value", () => {
   clearAllStores();
   createStore("draftReuse", { count: 0 });
 
-  let draftRef: any = null;
-  setStore("draftReuse", (draft: any) => {
+  let draftRef: { count: number } | null = null;
+  setStore("draftReuse", (draft: { count: number }) => {
     draftRef = draft;
     draft.count = 1;
   });
@@ -146,7 +177,7 @@ test("ref snapshots are shallowly frozen in dev", () => {
   clearAllStores();
   createStore("refStore", { profile: { name: "Alex" } }, { snapshot: "ref" });
 
-  const snapshot = _getSnapshot("refStore") as any;
+  const snapshot = _getSnapshot("refStore") as { profile: { name: string } };
   assert.ok(Object.isFrozen(snapshot));
   assert.strictEqual(Object.isFrozen(snapshot.profile), false);
 
@@ -197,5 +228,4 @@ test("createComputed derives and updates from dependencies", async () => {
 
   assert.strictEqual(getStore("fullName"), "Jordan Stone");
 });
-
 

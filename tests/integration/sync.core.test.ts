@@ -19,11 +19,40 @@ installPersist();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
+type MinimalWindow = {
+  addEventListener: (...args: unknown[]) => void;
+  removeEventListener: (...args: unknown[]) => void;
+};
+
+type GlobalTestEnv = typeof globalThis & {
+  window?: Window | MinimalWindow;
+  BroadcastChannel?: unknown;
+};
+
+const g = globalThis as GlobalTestEnv;
+
+const mockWindow: MinimalWindow = {
+  addEventListener: (..._args: unknown[]) => {},
+  removeEventListener: (..._args: unknown[]) => {},
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const readNumberValue = (state: unknown): number => {
+  if (!isRecord(state)) return 0;
+  const value = state["value"];
+  return typeof value === "number" ? value : 0;
+};
+
+const isSyncStateMessage = (value: unknown): value is Record<string, unknown> & { type: "sync-state" } =>
+  isRecord(value) && value["type"] === "sync-state";
+
 class MockBroadcastChannel {
   static channels = new Map<string, Set<MockBroadcastChannel>>();
 
   readonly name: string;
-  onmessage: ((event: MessageEvent) => void) | null = null;
+  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
   closed = false;
 
   constructor(name: string) {
@@ -33,7 +62,7 @@ class MockBroadcastChannel {
     MockBroadcastChannel.channels.set(name, peers);
   }
 
-  postMessage(data: any) {
+  postMessage(data: unknown) {
     if (this.closed) {
       throw new Error("BroadcastChannel is closed");
     }
@@ -41,7 +70,7 @@ class MockBroadcastChannel {
     peers.forEach((peer) => {
       if (peer === this) return;
       queueMicrotask(() => {
-        peer.onmessage?.({ data } as MessageEvent);
+        peer.onmessage?.({ data } as MessageEvent<unknown>);
       });
     });
   }
@@ -61,9 +90,9 @@ class MockBroadcastChannel {
 }
 
 class DataCloneBroadcastChannel extends MockBroadcastChannel {
-  postMessage(_data: any) {
+  postMessage(_data: unknown) {
     const err = new Error("DataCloneError");
-    (err as any).name = "DataCloneError";
+    err.name = "DataCloneError";
     throw err;
   }
 }
@@ -93,14 +122,11 @@ test("sync core (serial)", async (t) => {
   });
 
   await t.test("sync warns when unauthenticated", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-    (globalThis as any).window = {
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
     const warnings: string[] = [];
     configureStroid({
@@ -121,21 +147,18 @@ test("sync core (serial)", async (t) => {
     } finally {
       deleteStore("syncInsecure");
       resetConfig();
-      (globalThis as any).window = originalWindow;
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync strict policy blocks unauthenticated sync", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-    (globalThis as any).window = {
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
     const errors: string[] = [];
 
@@ -153,28 +176,25 @@ test("sync core (serial)", async (t) => {
       assert.strictEqual(!!(channels && channels.size > 0), false);
     } finally {
       deleteStore("syncStrict");
-      (globalThis as any).window = originalWindow;
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync sign rejects promise-returning signers", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-    (globalThis as any).window = {
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
     const errors: string[] = [];
 
     try {
       createStore("syncSignPromise", { value: 1 }, {
         sync: {
-          sign: () => Promise.resolve("token") as any,
+          sign: () => Promise.resolve("token"),
         },
         onError: (msg) => { errors.push(msg); },
       });
@@ -186,21 +206,18 @@ test("sync core (serial)", async (t) => {
       assert.ok(errors.some((msg) => msg.includes("signer") && msg.includes("Promise")));
     } finally {
       deleteStore("syncSignPromise");
-      (globalThis as any).window = originalWindow;
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync reports failures when BroadcastChannel is closed", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-    (globalThis as any).window = {
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
     const errors: string[] = [];
 
@@ -220,15 +237,15 @@ test("sync core (serial)", async (t) => {
       assert.ok(errors.some((msg) => msg.includes("Failed to broadcast sync")));
     } finally {
       deleteStore("syncClosed");
-      (globalThis as any).window = originalWindow;
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync-applied remote state triggers persist writes", async () => {
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    const originalBroadcastChannel = g.BroadcastChannel;
+    g.BroadcastChannel = MockBroadcastChannel;
 
     let stored: string | null = null;
     let setCalls = 0;
@@ -282,14 +299,14 @@ test("sync core (serial)", async (t) => {
       assert.strictEqual(stored !== null, true);
     } finally {
       deleteStore("syncPersisted");
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync conflict-resolver writes also trigger persist hooks", async () => {
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    const originalBroadcastChannel = g.BroadcastChannel;
+    g.BroadcastChannel = MockBroadcastChannel;
 
     let stored: string | null = null;
     let setCalls = 0;
@@ -309,7 +326,7 @@ test("sync core (serial)", async (t) => {
         sync: {
           policy: "insecure",
           conflictResolver: ({ local, incoming }) => ({
-            value: Math.max((local as any)?.value ?? 0, (incoming as any)?.value ?? 0) + 1,
+            value: Math.max(readNumberValue(local), readNumberValue(incoming)) + 1,
           }),
         },
         persist: {
@@ -349,20 +366,17 @@ test("sync core (serial)", async (t) => {
       assert.strictEqual(stored !== null, true);
     } finally {
       deleteStore("syncConflictPersist");
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync reports DataCloneError with store context", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-    (globalThis as any).window = {
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    (globalThis as any).BroadcastChannel = DataCloneBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = DataCloneBroadcastChannel;
 
     const errors: string[] = [];
 
@@ -378,21 +392,18 @@ test("sync core (serial)", async (t) => {
       assert.ok(errors.some((msg) => msg.includes("DataCloneError") && msg.includes("syncClone")));
     } finally {
       deleteStore("syncClone");
-      (globalThis as any).window = originalWindow;
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync authToken rejects mismatched tokens and accepts matching tokens", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-    (globalThis as any).window = {
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
     const errors: string[] = [];
 
@@ -440,21 +451,18 @@ test("sync core (serial)", async (t) => {
       assert.deepStrictEqual(getStore("syncToken"), { value: "ok" });
     } finally {
       deleteStore("syncToken");
-      (globalThis as any).window = originalWindow;
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync verify rejects spoofed messages even with a valid token", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-    (globalThis as any).window = {
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
     const errors: string[] = [];
 
@@ -507,73 +515,162 @@ test("sync core (serial)", async (t) => {
       assert.deepStrictEqual(getStore("syncVerify"), { value: "ok" });
     } finally {
       deleteStore("syncVerify");
-      (globalThis as any).window = originalWindow;
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync conflictResolver runs on older incoming versions", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
-  const calls: Array<{ local: unknown; incoming: unknown }> = [];
+    const calls: Array<{ local: unknown; incoming: unknown }> = [];
 
-  try {
-    createStore("syncConflict", { value: "local" }, {
-      sync: {
-        conflictResolver: ({ local, incoming }) => {
-          calls.push({ local, incoming });
-          return { value: "resolved" };
+    try {
+      createStore("syncConflict", { value: "local" }, {
+        sync: {
+          conflictResolver: ({ local, incoming }) => {
+            calls.push({ local, incoming });
+            return { value: "resolved" };
+          },
         },
-      },
-    });
+      });
 
-    setStore("syncConflict", { value: "local2" });
-    await wait();
+      setStore("syncConflict", { value: "local2" });
+      await wait();
 
-    const peer = new MockBroadcastChannel("stroid_sync_syncConflict");
-    peer.postMessage({
-      v: 1,
-      protocol: 1,
-      type: "sync-state",
-      name: "syncConflict",
-      clock: -1,
-      source: "peer",
-      data: { value: "incoming" },
-      updatedAt: Date.now(),
-      checksum: hashState({ value: "incoming" }),
-    });
+      const peer = new MockBroadcastChannel("stroid_sync_syncConflict");
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncConflict",
+        clock: -1,
+        source: "peer",
+        data: { value: "incoming" },
+        updatedAt: Date.now(),
+        checksum: hashState({ value: "incoming" }),
+      });
 
-    await wait();
+      await wait();
 
-    assert.strictEqual(calls.length, 1);
-    assert.deepStrictEqual(getStore("syncConflict"), { value: "resolved" });
-  } finally {
-    deleteStore("syncConflict");
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
-    MockBroadcastChannel.reset();
-  }
+      assert.strictEqual(calls.length, 1);
+      assert.deepStrictEqual(getStore("syncConflict"), { value: "resolved" });
+    } finally {
+      deleteStore("syncConflict");
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
+  await t.test("sync conflictResolver throw is isolated and reported", async () => {
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
+
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncConflictThrow", { value: "local" }, {
+        sync: {
+          conflictResolver: () => {
+            throw new Error("resolver boom");
+          },
+        },
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      setStore("syncConflictThrow", { value: "local2" });
+      await wait();
+
+      const peer = new MockBroadcastChannel("stroid_sync_syncConflictThrow");
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncConflictThrow",
+        clock: -1,
+        source: "peer",
+        data: { value: "incoming" },
+        updatedAt: Date.now(),
+        checksum: hashState({ value: "incoming" }),
+      });
+
+      await wait();
+
+      assert.deepStrictEqual(getStore("syncConflictThrow"), { value: "local2" });
+      assert.ok(errors.some((msg) => msg.includes("conflictResolver") && msg.includes("resolver boom")));
+    } finally {
+      deleteStore("syncConflictThrow");
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
+  });
+
+  await t.test("sync resolveUpdatedAt throw is isolated and reported", async () => {
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
+
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
+
+    const errors: string[] = [];
+
+    try {
+      createStore("syncResolveUpdatedAtThrow", { value: "local" }, {
+        sync: {
+          conflictResolver: () => ({ value: "resolved" }),
+          resolveUpdatedAt: () => {
+            throw new Error("updatedAt boom");
+          },
+        },
+        onError: (msg) => { errors.push(msg); },
+      });
+
+      setStore("syncResolveUpdatedAtThrow", { value: "local2" });
+      await wait();
+
+      const peer = new MockBroadcastChannel("stroid_sync_syncResolveUpdatedAtThrow");
+      peer.postMessage({
+        v: 1,
+        protocol: 1,
+        type: "sync-state",
+        name: "syncResolveUpdatedAtThrow",
+        clock: -1,
+        source: "peer",
+        data: { value: "incoming" },
+        updatedAt: Date.now(),
+        checksum: hashState({ value: "incoming" }),
+      });
+
+      await wait();
+
+      assert.deepStrictEqual(getStore("syncResolveUpdatedAtThrow"), { value: "local2" });
+      assert.ok(errors.some((msg) => msg.includes("resolveUpdatedAt") && msg.includes("updatedAt boom")));
+    } finally {
+      deleteStore("syncResolveUpdatedAtThrow");
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
   });
 
   await t.test("sync loopGuard suppresses immediate rebroadcasts", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-    (globalThis as any).window = {
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
-    const received: any[] = [];
+    const received: unknown[] = [];
 
     try {
       createStore("syncLoop", { value: 0 }, {
@@ -581,8 +678,8 @@ test("sync core (serial)", async (t) => {
       });
 
       const peer = new MockBroadcastChannel("stroid_sync_syncLoop");
-      peer.onmessage = (event: MessageEvent) => {
-        if (event.data?.type !== "sync-state") return;
+      peer.onmessage = (event: MessageEvent<unknown>) => {
+        if (!isSyncStateMessage(event.data)) return;
         received.push(event.data);
       };
 
@@ -612,30 +709,27 @@ test("sync core (serial)", async (t) => {
       assert.ok(received.length >= 1);
     } finally {
       deleteStore("syncLoop");
-      (globalThis as any).window = originalWindow;
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync loopGuard defaults on and can be disabled", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-    (globalThis as any).window = {
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    };
-    (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
-    const receivedDefault: any[] = [];
-    const receivedDisabled: any[] = [];
+    const receivedDefault: unknown[] = [];
+    const receivedDisabled: unknown[] = [];
 
     try {
       createStore("syncLoopDefault", { value: 0 }, { sync: true });
       const peerDefault = new MockBroadcastChannel("stroid_sync_syncLoopDefault");
-      peerDefault.onmessage = (event: MessageEvent) => {
-        if (event.data?.type === "sync-state") receivedDefault.push(event.data);
+      peerDefault.onmessage = (event: MessageEvent<unknown>) => {
+        if (isSyncStateMessage(event.data)) receivedDefault.push(event.data);
       };
 
       peerDefault.postMessage({
@@ -658,8 +752,8 @@ test("sync core (serial)", async (t) => {
 
       createStore("syncLoopDisabled", { value: 0 }, { sync: { loopGuard: false } });
       const peerDisabled = new MockBroadcastChannel("stroid_sync_syncLoopDisabled");
-      peerDisabled.onmessage = (event: MessageEvent) => {
-        if (event.data?.type === "sync-state") receivedDisabled.push(event.data);
+      peerDisabled.onmessage = (event: MessageEvent<unknown>) => {
+        if (isSyncStateMessage(event.data)) receivedDisabled.push(event.data);
       };
 
       peerDisabled.postMessage({
@@ -682,54 +776,49 @@ test("sync core (serial)", async (t) => {
     } finally {
       deleteStore("syncLoopDefault");
       deleteStore("syncLoopDisabled");
-      (globalThis as any).window = originalWindow;
-      (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
       MockBroadcastChannel.reset();
     }
   });
 
   await t.test("sync rejects protocol mismatches and leaves state unchanged", async () => {
-    const originalWindow = (globalThis as any).window;
-    const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+    const originalWindow = g.window;
+    const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+    g.window = mockWindow;
+    g.BroadcastChannel = MockBroadcastChannel;
 
-  const errors: string[] = [];
+    const errors: string[] = [];
 
-  try {
-    createStore("syncProtocolMismatch", { value: "local" }, {
-      sync: true,
-      onError: (msg) => { errors.push(msg); },
-    });
+    try {
+      createStore("syncProtocolMismatch", { value: "local" }, {
+        sync: true,
+        onError: (msg) => { errors.push(msg); },
+      });
 
-    const peer = new MockBroadcastChannel("stroid_sync_syncProtocolMismatch");
-    peer.postMessage({
-      v: 999,
-      protocol: 999,
-      type: "sync-state",
-      name: "syncProtocolMismatch",
-      clock: 1,
-      source: "peer",
-      data: { value: "incoming" },
-      updatedAt: Date.now(),
-      checksum: hashState({ value: "incoming" }),
-    });
+      const peer = new MockBroadcastChannel("stroid_sync_syncProtocolMismatch");
+      peer.postMessage({
+        v: 999,
+        protocol: 999,
+        type: "sync-state",
+        name: "syncProtocolMismatch",
+        clock: 1,
+        source: "peer",
+        data: { value: "incoming" },
+        updatedAt: Date.now(),
+        checksum: hashState({ value: "incoming" }),
+      });
 
-    await wait();
+      await wait();
 
-    assert.deepStrictEqual(getStore("syncProtocolMismatch"), { value: "local" });
-    assert.ok(errors.some((msg) => msg.includes("Sync protocol mismatch")));
-  } finally {
-    deleteStore("syncProtocolMismatch");
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
-    MockBroadcastChannel.reset();
-  }
+      assert.deepStrictEqual(getStore("syncProtocolMismatch"), { value: "local" });
+      assert.ok(errors.some((msg) => msg.includes("Sync protocol mismatch")));
+    } finally {
+      deleteStore("syncProtocolMismatch");
+      g.window = originalWindow;
+      g.BroadcastChannel = originalBroadcastChannel;
+      MockBroadcastChannel.reset();
+    }
   });
 });
-
-

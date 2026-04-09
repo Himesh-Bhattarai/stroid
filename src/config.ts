@@ -9,6 +9,7 @@
 export { configureStroid, resetConfig, registerMutatorProduce } from "./internals/config.js";
 export type {
     LogSink,
+    AsyncCloneMode,
     StroidConfig,
     FlushConfig,
     RevalidateOnFocusConfig,

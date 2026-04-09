@@ -1,0 +1,130 @@
+name: Gate Me (status 010)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate-check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.decide.outputs.should_run }}
+      reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      - name: Evaluate marker trigger
+        id: decide
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const marker = "status(010): gate me";
+            const event = context.eventName;
+            const reasons = [];
+            let shouldRun = false;
+
+            if (event === "workflow_dispatch") {
+              shouldRun = true;
+              reasons.push("manual dispatch");
+            }
+
+            if (event === "push") {
+              const message = (context.payload.head_commit?.message || "").toLowerCase();
+              if (message.includes(marker)) {
+                shouldRun = true;
+                reasons.push("push head commit contains marker");
+              }
+            }
+
+            if (event === "pull_request") {
+              const title = (context.payload.pull_request?.title || "").toLowerCase();
+              if (title.includes(marker)) {
+                shouldRun = true;
+                reasons.push("PR title contains marker");
+              }
+
+              const pullNumber = context.payload.pull_request?.number;
+              if (pullNumber) {
+                const commits = await github.paginate(github.rest.pulls.listCommits, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pullNumber,
+                  per_page: 100
+                });
+                const commitMatched = commits.some((item) =>
+                  (item.commit?.message || "").toLowerCase().includes(marker)
+                );
+                if (commitMatched) {
+                  shouldRun = true;
+                  reasons.push("PR commit message contains marker");
+                }
+              }
+            }
+
+            const reason = reasons.length > 0 ? reasons.join("; ") : "marker not found";
+            core.setOutput("should_run", shouldRun ? "true" : "false");
+            core.setOutput("reason", reason);
+            core.notice(`Gate Me trigger decision: should_run=${shouldRun} (${reason})`);
+
+  gate-me:
+    name: Gate Me Full Test + Benchmark
+    needs: gate-check
+    if: ${{ needs.gate-check.outputs.should_run == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Gate Me suite
+        run: node scripts/ci/run-gate-me-suite.mjs
+        env:
+          GATE_MARKER: "status(010): Gate me"
+          GATE_EVENT_NAME: ${{ github.event_name }}
+          GATE_REF: ${{ github.ref }}
+          GATE_SHA: ${{ github.sha }}
+          GATE_ACTOR: ${{ github.actor }}
+          GATE_TRIGGER_REASON: ${{ needs.gate-check.outputs.reason }}
+
+      - name: Publish Gate Me summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f scripts/benchmark-results/gate-me-report.md ]; then
+            cat scripts/benchmark-results/gate-me-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "gate-me-report.md not found" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload Gate Me artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: gate-me-report
+          path: |
+            scripts/benchmark-results/gate-me-report.md
+            scripts/benchmark-results/gate-me-report.json
+            scripts/benchmark-results/run-all-benchmarks-summary.md
+            scripts/benchmark-results/run-all-benchmarks-summary.json
+          if-no-files-found: warn
+
+  gate-me-skipped:
+    name: Gate Me Skipped
+    needs: gate-check
+    if: ${{ needs.gate-check.outputs.should_run != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain skip
+        run: |
+          echo "Gate Me skipped: ${{ needs.gate-check.outputs.reason }}"

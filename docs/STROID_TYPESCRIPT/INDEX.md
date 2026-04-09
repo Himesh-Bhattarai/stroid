@@ -300,6 +300,9 @@ if (!result.ok) {
     case "validate":
       // A validate rule rejected the value
       break
+    case "no-initial-state":
+      // resetStore() found the store, but its initial snapshot is missing
+      break
     case "path":
       // The path string was invalid or points at missing state
       break
@@ -328,6 +331,7 @@ if (!result.ok) {
 | Reason | Cause | Common fix |
 |---|---|---|
 | `not-found` | Store doesn't exist | Check store name / creation order |
+| `no-initial-state` | Store exists but no reset snapshot is available | Recreate the store or restore its initial value before resetting |
 | `validate` | Validate rule rejected the value | Inspect the validation config |
 | `path` | Path is invalid or missing in state | Use `Path<T>` to catch typos at compile time |
 | `middleware` | Middleware threw or returned an unsupported async result | Check middleware logic for the relevant action |

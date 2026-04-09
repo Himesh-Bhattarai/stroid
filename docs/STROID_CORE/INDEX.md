@@ -65,6 +65,9 @@ graph LR
 > [!TIP]
 > A store name is a **primary key**. Every subsystem — notifications, devtools, SSR, persistence — addresses the store by that name alone. Choose names that are stable, descriptive, and unique across your app.
 
+> [!NOTE]
+> Store names are validated at runtime. Avoid spaces and reserved keys like `__proto__`, `constructor`, and `prototype` or `createStore()` will reject the name.
+
 ---
 
 ## 🏗️ Creating a Store
@@ -669,6 +672,7 @@ if (result.ok) {
 | `result.reason` | What happened | How to fix |
 |-----------------|---------------|------------|
 | `"not-found"` | No store exists with that name | Call `createStore` first |
+| `"no-initial-state"` | The store exists, but its reset snapshot is missing | Recreate the store or materialise a valid initial state before resetting |
 | `"validate"` | Validator or schema rejected the value | Fix the value or the validator |
 | `"path"` | Intermediate path segment does not exist | Use `pathCreate: true` or ensure path exists |
 | `"middleware"` | A middleware threw or returned an unsupported async result | Inspect middleware logic |
@@ -687,14 +691,15 @@ flowchart TD
     OK -- "❌ false" --> REASON["result.reason"]
 
     REASON --> R1["'not-found'\nStore doesn't exist"]
-    REASON --> R2["'validate'\nSchema / fn rejected"]
-    REASON --> R3["'path'\nMissing intermediate key"]
-    REASON --> R4["'middleware'\nMiddleware failed"]
-    REASON --> R5["'invalid-args'\nBad argument types"]
-    REASON --> R6["'lazy-uninitialized'\nLazy store not yet read"]
-    REASON --> R7["'ssr'\nServer write guard blocked"]
-    REASON --> R8["'unsupported-op'\nUnsupported PSR patch op"]
-    REASON --> R9["'unsupported-path-shape'\nUnsupported PSR patch path"]
+    REASON --> R2["'no-initial-state'\nReset snapshot missing"]
+    REASON --> R3["'validate'\nSchema / fn rejected"]
+    REASON --> R4["'path'\nMissing intermediate key"]
+    REASON --> R5["'middleware'\nMiddleware failed"]
+    REASON --> R6["'invalid-args'\nBad argument types"]
+    REASON --> R7["'lazy-uninitialized'\nLazy store not yet read"]
+    REASON --> R8["'ssr'\nServer write guard blocked"]
+    REASON --> R9["'unsupported-op'\nUnsupported PSR patch op"]
+    REASON --> R10["'unsupported-path-shape'\nUnsupported PSR patch path"]
 
     style SUCCESS fill:#d1fae5,stroke:#10b981
     style R1 fill:#fca5a5,stroke:#ef4444
@@ -706,6 +711,7 @@ flowchart TD
     style R7 fill:#fca5a5,stroke:#ef4444
     style R8 fill:#fca5a5,stroke:#ef4444
     style R9 fill:#fca5a5,stroke:#ef4444
+    style R10 fill:#fca5a5,stroke:#ef4444
 ```
 
 <details>
@@ -718,6 +724,7 @@ type WriteResult =
       ok: false
       reason:
         | "not-found"
+        | "no-initial-state"
         | "validate"
         | "path"
         | "middleware"

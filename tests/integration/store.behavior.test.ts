@@ -41,6 +41,31 @@ installPersist();
 installSync();
 installDevtools();
 
+type GlobalTestEnv = typeof globalThis & {
+  window?: unknown;
+  document?: unknown;
+  structuredClone?: unknown;
+  crypto?: unknown;
+  __STROID_DEV__?: boolean;
+};
+
+const g = globalThis as GlobalTestEnv;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const readNumberProp = (value: unknown, key: string): number | undefined => {
+  if (!isRecord(value)) return undefined;
+  const prop = value[key];
+  return typeof prop === "number" ? prop : undefined;
+};
+
+const readStringProp = (value: unknown, key: string): string | undefined => {
+  if (!isRecord(value)) return undefined;
+  const prop = value[key];
+  return typeof prop === "string" ? prop : undefined;
+};
+
 test("createStore with object data", () => {
   clearAllStores();
   createStore("user", { name: "Alex", age: 25 });
@@ -93,7 +118,7 @@ test("createStore refuses to overwrite existing store", () => {
 test("setStore enforces schema on updates", () => {
   clearAllStores();
   let errorMsg: string | undefined;
-  const schema = (v: any) => (typeof v?.name === "string" ? v : false);
+  const schema = (v: unknown) => (isRecord(v) && typeof v.name === "string" ? (v as { name: string }) : false);
   createStore("user", { name: "Alex" }, { validate: schema, onError: (msg) => { errorMsg = msg; } });
   // bad type: name as number
   // @ts-expect-error runtime guard
@@ -105,7 +130,7 @@ test("setStore enforces schema on updates", () => {
 test("createStore blocks production server globals unless explicitly allowed", () => {
   const originalEnv = process.env.NODE_ENV;
   const originalConsoleError = console.error;
-  const originalWindow = (globalThis as any).window;
+  const originalWindow = g.window;
   const reported: string[] = [];
   process.env.NODE_ENV = "production";
   clearAllStores();
@@ -116,7 +141,7 @@ test("createStore blocks production server globals unless explicitly allowed", (
   }) as typeof console.error;
 
   try {
-    (globalThis as any).window = undefined;
+    g.window = undefined;
     const blocked = createStore("ssr", { value: 1 }, {
       onError: (msg) => { errors.push(msg); },
     });
@@ -131,7 +156,7 @@ test("createStore blocks production server globals unless explicitly allowed", (
     createStore("ssrScoped", { value: 3 }, { scope: "global" });
     assert.strictEqual(hasStore("ssrScoped"), true);
   } finally {
-    (globalThis as any).window = originalWindow;
+    g.window = originalWindow;
     console.error = originalConsoleError;
     process.env.NODE_ENV = originalEnv;
     clearAllStores();
@@ -254,7 +279,7 @@ test("setStore does not reshape primitive stores with object merges", () => {
   clearAllStores();
   createStore("count", 1);
 
-  setStore("count", { bad: true } as any);
+  setStore("count", { bad: true } as unknown);
   assert.strictEqual(getStore("count"), 1);
 });
 
@@ -275,7 +300,7 @@ test("validator exceptions are reported without throwing", () => {
 
   createStore("safeUser", { score: 0 }, {
     onError: (msg) => { errors.push(msg); },
-    validate: (next: any) => next.score <= 10,
+    validate: (next) => next.score <= 10,
   });
 
   assert.doesNotThrow(() => {
@@ -312,7 +337,7 @@ test("validator failures do not call the same onError handler twice", () => {
 
   createStore("validatorOnce", { value: 1 }, {
     onError,
-    validate: (next: any) => next.value < 2,
+    validate: (next) => next.value < 2,
   });
 
   setStore("validatorOnce", { value: 2 });
@@ -322,7 +347,7 @@ test("validator failures do not call the same onError handler twice", () => {
 
   const blocked = createStore("validatorInitOnce", { value: 2 }, {
     onError,
-    validate: (next: any) => next.value < 2,
+    validate: (next) => next.value < 2,
   });
 
   assert.strictEqual(blocked, undefined);
@@ -332,7 +357,7 @@ test("validator failures do not call the same onError handler twice", () => {
 test("sanitize errors are reported without throwing on circular input", () => {
   clearAllStores();
   const errors: string[] = [];
-  const circular: any = { value: 1 };
+  const circular: { value: number; self?: unknown } = { value: 1 };
   circular.self = circular;
 
   assert.doesNotThrow(() => {
@@ -346,7 +371,7 @@ test("sanitize errors are reported without throwing on circular input", () => {
     onError: (msg) => { errors.push(msg); },
   });
   assert.doesNotThrow(() => {
-    setStore("circularSet", { loop: circular } as any);
+    setStore("circularSet", { loop: circular } as unknown);
   });
   assert.deepStrictEqual(getStore("circularSet"), { value: 1 });
 
@@ -354,7 +379,7 @@ test("sanitize errors are reported without throwing on circular input", () => {
     onError: (msg) => { errors.push(msg); },
   });
   assert.doesNotThrow(() => {
-    setStore("circularMerge", { loop: circular } as any);
+    setStore("circularMerge", { loop: circular } as unknown);
   });
   assert.deepStrictEqual(getStore("circularMerge"), { value: 1 });
 
@@ -368,7 +393,7 @@ test("sanitize rejects non-JSON-safe values before they corrupt state", () => {
   const errors: string[] = [];
 
   assert.doesNotThrow(() => {
-    createStore("badBigInt", { id: 1n } as any, {
+    createStore("badBigInt", { id: 1n }, {
       onError: (msg) => { errors.push(msg); },
     });
   });
@@ -378,16 +403,16 @@ test("sanitize rejects non-JSON-safe values before they corrupt state", () => {
     onError: (msg) => { errors.push(msg); },
   });
   assert.doesNotThrow(() => {
-    setStore("safeNumbers", { total: Number.NaN } as any);
+    setStore("safeNumbers", { total: Number.NaN });
   });
   assert.deepStrictEqual(getStore("safeNumbers"), { total: 1 });
 
   createStore("safeMap", { value: 1 }, {
     onError: (msg) => { errors.push(msg); },
   });
-  const badMap = new Map<any, any>([[{ id: 1 }, "bad"]]);
+  const badMap = new Map<object, string>([[{ id: 1 }, "bad"]]);
   assert.doesNotThrow(() => {
-    setStore("safeMap", { data: badMap } as any);
+    setStore("safeMap", { data: badMap } as unknown);
   });
   assert.deepStrictEqual(getStore("safeMap"), { value: 1 });
 
@@ -402,7 +427,7 @@ test("sanitize rejects WeakRef and EventTarget values", () => {
 
   if (typeof WeakRef !== "undefined") {
     assert.doesNotThrow(() => {
-      createStore("weakRefStore", { value: new WeakRef({ ok: true }) } as any, {
+      createStore("weakRefStore", { value: new WeakRef({ ok: true }) } as unknown, {
         onError: (msg) => { errors.push(msg); },
       });
     });
@@ -411,7 +436,7 @@ test("sanitize rejects WeakRef and EventTarget values", () => {
 
   if (typeof EventTarget !== "undefined") {
     assert.doesNotThrow(() => {
-      createStore("eventTargetStore", { value: new EventTarget() } as any, {
+      createStore("eventTargetStore", { value: new EventTarget() } as unknown, {
         onError: (msg) => { errors.push(msg); },
       });
     });
@@ -442,7 +467,7 @@ test("sanitize ignores inherited props and rejects accessor properties", () => {
   });
 
   assert.doesNotThrow(() => {
-    createStore("accessor", accessorPayload as any, {
+    createStore("accessor", accessorPayload, {
       onError: (msg) => { errors.push(msg); },
     });
   });
@@ -458,7 +483,7 @@ test("sanitize strips prototype pollution keys before merging into state", () =>
   setStore("safeConfig", payload);
 
   assert.deepStrictEqual(getStore("safeConfig"), { enabled: true, safe: "ok" });
-  assert.strictEqual(({} as any).polluted, undefined);
+  assert.strictEqual(({} as Record<string, unknown>)["polluted"], undefined);
 });
 
 test("getStore returns null for missing store", () => {
@@ -470,12 +495,14 @@ test("getStore returns deep-cloned snapshots when snapshot mode is deep", () => 
   clearAllStores();
   createStore("user", { profile: { color: "blue" }, items: [{ id: 1 }] }, { snapshot: "deep" });
 
-  const snapshot = getStore("user") as any;
-  snapshot.profile.color = "red";
-  snapshot.items[0].id = 2;
+  const snapshot = getStore("user");
+  assert.ok(isRecord(snapshot));
+  (snapshot as { profile: { color: string }; items: Array<{ id: number }> }).profile.color = "red";
+  (snapshot as { profile: { color: string }; items: Array<{ id: number }> }).items[0].id = 2;
 
-  const pathSnapshot = getStore("user", "profile") as any;
-  pathSnapshot.color = "green";
+  const pathSnapshot = getStore("user", "profile");
+  assert.ok(isRecord(pathSnapshot));
+  (pathSnapshot as { color: string }).color = "green";
 
   assert.deepStrictEqual(getStore("user"), {
     profile: { color: "blue" },
@@ -484,11 +511,11 @@ test("getStore returns deep-cloned snapshots when snapshot mode is deep", () => 
 });
 
 test("deepClone fallback stays deep when structuredClone is unavailable", async () => {
-  const originalStructuredClone = (globalThis as any).structuredClone;
+  const originalStructuredClone = g.structuredClone;
   try {
-    delete (globalThis as any).structuredClone;
+    delete g.structuredClone;
     const utils = await import(`../../src/utils.js?deep-clone-fallback-${Date.now()}`);
-    const circular: any = { nested: { value: 1 } };
+    const circular: { nested: { value: number }; self?: unknown } = { nested: { value: 1 } };
     circular.self = circular;
 
     const clone = utils.deepClone(circular);
@@ -499,14 +526,14 @@ test("deepClone fallback stays deep when structuredClone is unavailable", async 
     assert.strictEqual(circular.nested.value, 1);
     assert.strictEqual(clone.self, clone);
   } finally {
-    (globalThis as any).structuredClone = originalStructuredClone;
+    g.structuredClone = originalStructuredClone;
   }
 });
 
 test("deepClone fallback drops inherited and non-enumerable object state", async () => {
-  const originalStructuredClone = (globalThis as any).structuredClone;
+  const originalStructuredClone = g.structuredClone;
   try {
-    delete (globalThis as any).structuredClone;
+    delete g.structuredClone;
     const utils = await import(`../../src/utils.js?deep-clone-fallback-shape-${Date.now()}`);
 
     const source = Object.create({ admin: true }) as Record<string, unknown>;
@@ -522,7 +549,7 @@ test("deepClone fallback drops inherited and non-enumerable object state", async
     assert.strictEqual("admin" in clone, false);
     assert.strictEqual(Object.prototype.hasOwnProperty.call(clone, "_secret"), false);
   } finally {
-    (globalThis as any).structuredClone = originalStructuredClone;
+    g.structuredClone = originalStructuredClone;
   }
 });
 
@@ -566,7 +593,7 @@ test("createEntityStore fallback ids stay unique under repeated timestamps", () 
     if (cryptoDescriptor) {
       Object.defineProperty(globalThis, "crypto", cryptoDescriptor);
     } else {
-      delete (globalThis as any).crypto;
+      delete g.crypto;
     }
   }
 });
@@ -633,17 +660,18 @@ test("_getSnapshot returns stable cloned snapshots", () => {
   clearAllStores();
   createStore("user", { profile: { color: "blue" } });
 
-  const first = _getSnapshot("user") as any;
-  const second = _getSnapshot("user") as any;
+  const first = _getSnapshot("user");
+  const second = _getSnapshot("user");
   assert.strictEqual(first, second);
+  assert.ok(isRecord(first));
 
   assert.throws(() => {
-    first.profile.color = "red";
+    (first as { profile: { color: string } }).profile.color = "red";
   });
   assert.deepStrictEqual(getStore("user"), { profile: { color: "blue" } });
 
   setStore("user", { profile: { color: "green" } });
-  const third = _getSnapshot("user") as any;
+  const third = _getSnapshot("user");
   assert.notStrictEqual(third, first);
   assert.deepStrictEqual(third, { profile: { color: "green" } });
 });
@@ -680,7 +708,7 @@ test("resetStore resets back to initial value", () => {
 test("hydrateStores skips invalid schema payloads and keeps reset state intact", () => {
   clearAllStores();
   const errors: string[] = [];
-  const schema = (v: any) => (typeof v?.name === "string" ? v : false);
+  const schema = (v: unknown) => (isRecord(v) && typeof v.name === "string" ? (v as { name: string }) : false);
 
   createStore("profile", { name: "Alex" }, {
     validate: schema,
@@ -767,14 +795,14 @@ test("createStoreForRequest hydrates buffered store options", () => {
   const errors: string[] = [];
   const scoped = createStoreForRequest(({ create }) => {
     create("scopedProfile", { value: 1 }, {
-      validate: (value: any) => (typeof value?.value === "number" ? value : false),
+      validate: (value: unknown) => (isRecord(value) && typeof value.value === "number" ? (value as { value: number }) : false),
       onError: (msg) => { errors.push(msg); },
     });
   });
 
   let snapshot: unknown = null;
   scoped.hydrate(() => {
-    setStore("scopedProfile", { value: "bad" as any });
+    setStore("scopedProfile", { value: "bad" } as unknown as { value: number });
     snapshot = getStore("scopedProfile");
     return undefined;
   });
@@ -889,7 +917,12 @@ test("historyLimit keeps only the latest entries at the configured boundary", ()
   const history = getHistory("historyLimitStore");
   assert.strictEqual(history.length, 2);
   assert.deepStrictEqual(history.map((entry) => entry.action), ["set", "set"]);
-  assert.deepStrictEqual(history.map((entry) => (entry.next as any).value), [2, 3]);
+  const nextValues = history.map((entry) => {
+    const value = readNumberProp(entry.next, "value");
+    assert.ok(typeof value === "number");
+    return value;
+  });
+  assert.deepStrictEqual(nextValues, [2, 3]);
 });
 
 test("getMetrics reflects notifications and survives reset operations", async () => {
@@ -930,14 +963,16 @@ test("getMetrics reflects notifications and survives reset operations", async ()
 
 test("middleware runs in declaration order and receives action, name, prev, next, and path metadata", () => {
   clearAllStores();
-  const calls: Array<{ label: string; action: string; name: string; prev: any; next: any; path: unknown }> = [];
+  const calls: Array<{ label: string; action: string; name: string; prev: unknown; next: unknown; path: unknown }> = [];
 
   createStore("orderedMiddleware", { value: 1 }, {
     lifecycle: {
       middleware: [
         (ctx) => {
           calls.push({ label: "mw1", action: ctx.action, name: ctx.name, prev: ctx.prev, next: ctx.next, path: ctx.path });
-          return { ...(ctx.next as Record<string, unknown>), value: (ctx.next as any).value + 1 };
+          const baseValue = readNumberProp(ctx.next, "value");
+          assert.ok(typeof baseValue === "number");
+          return { ...(ctx.next as Record<string, unknown>), value: baseValue + 1 };
         },
         (ctx) => {
           calls.push({ label: "mw2", action: ctx.action, name: ctx.name, prev: ctx.prev, next: ctx.next, path: ctx.path });
@@ -977,16 +1012,28 @@ test("lifecycle hooks fire in operation order with committed values", () => {
   createStore("hookOrder", { value: 1 }, {
     lifecycle: {
       onCreate: (initial) => {
-        events.push(`create:${(initial as any).value}`);
+        const value = readNumberProp(initial, "value");
+        assert.ok(typeof value === "number");
+        events.push(`create:${value}`);
       },
       onSet: (prev, next) => {
-        events.push(`set:${(prev as any).value}->${(next as any).value}`);
+        const prevValue = readNumberProp(prev, "value");
+        const nextValue = readNumberProp(next, "value");
+        assert.ok(typeof prevValue === "number");
+        assert.ok(typeof nextValue === "number");
+        events.push(`set:${prevValue}->${nextValue}`);
       },
       onReset: (prev, next) => {
-        events.push(`reset:${(prev as any).value}->${(next as any).value}`);
+        const prevValue = readNumberProp(prev, "value");
+        const nextValue = readNumberProp(next, "value");
+        assert.ok(typeof prevValue === "number");
+        assert.ok(typeof nextValue === "number");
+        events.push(`reset:${prevValue}->${nextValue}`);
       },
       onDelete: (prev) => {
-        events.push(`delete:${(prev as any).value}`);
+        const value = readNumberProp(prev, "value");
+        assert.ok(typeof value === "number");
+        events.push(`delete:${value}`);
       },
     },
   });
@@ -1009,7 +1056,7 @@ test("grouped options normalize lifecycle, devtools, and validate paths", () => 
   let sets = 0;
 
   createStore("grouped", { value: 1 }, {
-    validate: (next: any) => typeof next?.value === "number",
+    validate: (next) => typeof next.value === "number",
     devtools: { historyLimit: 2 },
     lifecycle: {
       middleware: [({ next }) => ({ ...(next as Record<string, number>), value: (next as Record<string, number>).value + 1 })],
@@ -1065,7 +1112,7 @@ test("promise-returning middleware is rejected before it can commit async state"
 
   createStore("asyncMiddleware", { value: 1 }, {
     onError: (msg) => { errors.push(msg); },
-    middleware: [() => Promise.resolve({ value: 99 }) as any],
+    middleware: [() => Promise.resolve({ value: 99 })],
   });
 
   setStore("asyncMiddleware", { value: 2 });
@@ -1079,7 +1126,7 @@ test("middleware mutations are revalidated before commit", () => {
   const errors: string[] = [];
 
   createStore("middlewareValidation", { count: 1 }, {
-    validate: (value: any) => (typeof value?.count === "number" ? value : false),
+    validate: (value: unknown) => (isRecord(value) && typeof value.count === "number" ? (value as { count: number }) : false),
     onError: (msg) => { errors.push(msg); },
     middleware: [({ next }) => {
       (next as { count: unknown }).count = "broken";
@@ -1143,8 +1190,10 @@ test("subscriber-triggered updates schedule a follow-up notification", async () 
 test("duplicate subscriber registration only notifies once for Set-based subscribers", async () => {
   clearAllStores();
   const seen: string[] = [];
-  const listener = (value: any) => {
-    seen.push(`dup:${value.value}`);
+  const listener = (value: unknown) => {
+    const nextValue = readNumberProp(value, "value");
+    if (typeof nextValue !== "number") return;
+    seen.push(`dup:${nextValue}`);
   };
 
   createStore("duplicateSubscribers", { value: 0 });
@@ -1160,8 +1209,10 @@ test("duplicate subscriber registration only notifies once for Set-based subscri
 test("duplicate subscriber unsubscriptions remove the single Set registration", async () => {
   clearAllStores();
   const seen: string[] = [];
-  const listener = (value: any) => {
-    seen.push(`dup:${value.value}`);
+  const listener = (value: unknown) => {
+    const nextValue = readNumberProp(value, "value");
+    if (typeof nextValue !== "number") return;
+    seen.push(`dup:${nextValue}`);
   };
 
   createStore("duplicateSubscriberOff", { value: 0 });
@@ -1315,8 +1366,8 @@ test("subscribeWithSelector can subscribe before createStore and activates when 
 });
 
 test("createSelector skips recomputation when tracked paths are unchanged", () => {
-  const originalDev = (globalThis as any).__STROID_DEV__;
-  (globalThis as any).__STROID_DEV__ = false;
+  const originalDev = g.__STROID_DEV__;
+  g.__STROID_DEV__ = false;
   try {
     clearAllStores();
     createStore("selectorMemo", {
@@ -1325,7 +1376,7 @@ test("createSelector skips recomputation when tracked paths are unchanged", () =
     });
 
     let runs = 0;
-    const selectName = createSelector("selectorMemo", (state: any) => {
+    const selectName = createSelector("selectorMemo", (state: { profile: { name: string }; other: number }) => {
       runs += 1;
       return state.profile.name;
     });
@@ -1341,7 +1392,7 @@ test("createSelector skips recomputation when tracked paths are unchanged", () =
     assert.strictEqual(selectName(), "Jordan");
     assert.strictEqual(runs, 2);
   } finally {
-    (globalThis as any).__STROID_DEV__ = originalDev;
+    g.__STROID_DEV__ = originalDev;
   }
 });
 
@@ -1372,7 +1423,7 @@ test("setStoreBatch warns and no-ops when passed a non-function", () => {
 
   try {
     assert.doesNotThrow(() => {
-      setStoreBatch(null as any);
+      setStoreBatch(null as unknown as () => unknown);
     });
   } finally {
     console.warn = originalWarn;
@@ -1573,22 +1624,25 @@ test("_getSnapshot returns immutable cached snapshots and clears cache entries o
   clearAllStores();
   createStore("snapshotCacheStore", { profile: { name: "Alex" } });
 
-  const first = _getSnapshot("snapshotCacheStore") as any;
-  const second = _getSnapshot("snapshotCacheStore") as any;
+  const first = _getSnapshot("snapshotCacheStore");
+  const second = _getSnapshot("snapshotCacheStore");
 
   assert.strictEqual(first, second);
+  assert.ok(isRecord(first));
 
   assert.throws(() => {
-    first.profile.name = "Jordan";
+    (first as { profile: { name: string } }).profile.name = "Jordan";
   });
 
-  const third = _getSnapshot("snapshotCacheStore") as any;
-  assert.strictEqual(third.profile.name, "Alex");
+  const third = _getSnapshot("snapshotCacheStore");
+  assert.ok(isRecord(third));
+  assert.strictEqual((third as { profile: { name: string } }).profile.name, "Alex");
 
   deleteStore("snapshotCacheStore");
 
   createStore("snapshotCacheStore", { profile: { name: "Recreated" } });
-  const recreated = _getSnapshot("snapshotCacheStore") as any;
+  const recreated = _getSnapshot("snapshotCacheStore");
+  assert.ok(isRecord(recreated));
   assert.deepStrictEqual(recreated, { profile: { name: "Recreated" } });
   assert.notStrictEqual(recreated, first);
 });
@@ -1610,6 +1664,3 @@ test("clearAllStores removes stores created during delete hooks", () => {
   assert.strictEqual(hasStore("late"), false);
   assert.deepStrictEqual(listStores(), []);
 });
-
-
-

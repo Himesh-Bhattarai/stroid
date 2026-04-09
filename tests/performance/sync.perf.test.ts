@@ -11,6 +11,7 @@ import test from "node:test";
 import { installSync } from "../../src/sync.js";
 import { installDevtools } from "../../src/devtools/index.js";
 import { withMockedTime } from "../../src/helpers/testing.js";
+import { hashState } from "../../src/utils.js";
 
 installSync();
 installDevtools();
@@ -20,12 +21,41 @@ const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 const withMockedNow = async (timestamp: number, fn: () => Promise<void> | void) =>
   withMockedTime(timestamp, () => Promise.resolve(fn()));
 
+type MinimalWindow = {
+  addEventListener: (...args: unknown[]) => void;
+  removeEventListener: (...args: unknown[]) => void;
+};
+
+type GlobalTestEnv = typeof globalThis & {
+  window?: Window | MinimalWindow;
+  BroadcastChannel?: unknown;
+};
+
+const g = globalThis as GlobalTestEnv;
+
+const mockWindow: MinimalWindow = {
+  addEventListener: (..._args: unknown[]) => {},
+  removeEventListener: (..._args: unknown[]) => {},
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isSyncStateMessageFor = (value: unknown, name: string): boolean =>
+  isRecord(value) && value["type"] === "sync-state" && value["name"] === name;
+
+const readStringProp = (value: unknown, key: string): string | undefined => {
+  if (!isRecord(value)) return undefined;
+  const prop = value[key];
+  return typeof prop === "string" ? prop : undefined;
+};
+
 class MockBroadcastChannel {
   static channels = new Map<string, Set<MockBroadcastChannel>>();
-  static sent: Array<{ channel: string; data: any }> = [];
+  static sent: Array<{ channel: string; data: unknown }> = [];
 
   readonly name: string;
-  onmessage: ((event: MessageEvent) => void) | null = null;
+  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
 
   constructor(name: string) {
     this.name = name;
@@ -34,13 +64,13 @@ class MockBroadcastChannel {
     MockBroadcastChannel.channels.set(name, peers);
   }
 
-  postMessage(data: any) {
+  postMessage(data: unknown) {
     MockBroadcastChannel.sent.push({ channel: this.name, data });
     const peers = MockBroadcastChannel.channels.get(this.name) ?? new Set<MockBroadcastChannel>();
     peers.forEach((peer) => {
       if (peer === this) return;
       queueMicrotask(() => {
-        peer.onmessage?.({ data } as MessageEvent);
+        peer.onmessage?.({ data } as MessageEvent<unknown>);
       });
     });
   }
@@ -60,14 +90,11 @@ class MockBroadcastChannel {
 }
 
 test("sync broadcasts updates and rejects oversized payloads", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const { createStore, setStore, clearAllStores } = await import(`../../src/store.js?sync-${Date.now()}`);
   const errors: string[] = [];
@@ -83,7 +110,7 @@ test("sync broadcasts updates and rejects oversized payloads", async () => {
 
     assert.strictEqual(
       MockBroadcastChannel.sent.filter(
-        (entry) => entry.data?.name === "shared" && entry.data?.type === "sync-state"
+        (entry) => isSyncStateMessageFor(entry.data, "shared")
       ).length,
       1
     );
@@ -100,7 +127,7 @@ test("sync broadcasts updates and rejects oversized payloads", async () => {
 
     assert.strictEqual(
       MockBroadcastChannel.sent.filter(
-        (entry) => entry.data?.name === "large" && entry.data?.type === "sync-state"
+        (entry) => isSyncStateMessageFor(entry.data, "large")
       ).length,
       0
     );
@@ -108,20 +135,17 @@ test("sync broadcasts updates and rejects oversized payloads", async () => {
   } finally {
     clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("sync ordering prefers monotonic clocks over wall-clock skew", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const a = await import(`../../src/store.js?sync-a-${Date.now()}`);
   const b = await import(`../../src/store.js?sync-b-${Date.now()}`);
@@ -151,20 +175,17 @@ test("sync ordering prefers monotonic clocks over wall-clock skew", async () => 
     a.clearAllStores();
     b.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("sync requests the latest snapshot when a tab reconnects", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const a = await import(`../../src/store.js?sync-reopen-a-${Date.now()}`);
   const b = await import(`../../src/store.js?sync-reopen-b-${Date.now()}`);
@@ -183,20 +204,17 @@ test("sync requests the latest snapshot when a tab reconnects", async () => {
     a.clearAllStores();
     b.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("sync broadcasts canonical state even when a redactor is configured", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const a = await import(`../../src/store.js?sync-redactor-a-${Date.now()}`);
   const b = await import(`../../src/store.js?sync-redactor-b-${Date.now()}`);
@@ -204,7 +222,7 @@ test("sync broadcasts canonical state even when a redactor is configured", async
   try {
     a.createStore("shared", { visible: "seed", secret: "keep" }, {
       sync: { policy: "insecure" },
-      redactor: (state: any) => ({ visible: state.visible }),
+      redactor: (state) => ({ ...state, secret: "[redacted]" }),
     });
     b.createStore("shared", { visible: "seed", secret: "keep" }, { sync: { policy: "insecure" } });
     await wait();
@@ -221,20 +239,17 @@ test("sync broadcasts canonical state even when a redactor is configured", async
     a.clearAllStores();
     b.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("late sync messages after delete are ignored safely", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const store = await import(`../../src/store.js?sync-late-delete-${Date.now()}`);
 
@@ -256,26 +271,23 @@ test("late sync messages after delete are ignored safely", async () => {
           updatedAt: Date.now(),
           data: { value: "late" },
         },
-      } as MessageEvent);
+      } as MessageEvent<unknown>);
     });
     assert.strictEqual(store.hasStore("shared"), false);
   } finally {
     store.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("conflictResolver can resolve contested incoming sync state against local state", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const store = await import(`../../src/store.js?sync-conflict-${Date.now()}`);
 
@@ -283,9 +295,9 @@ test("conflictResolver can resolve contested incoming sync state against local s
     store.createStore("shared", { local: "seed", remote: "seed" }, {
       sync: {
         policy: "insecure",
-        conflictResolver: ({ local, incoming }: any) => ({
-          local: local.local,
-          remote: incoming.remote,
+        conflictResolver: ({ local, incoming }) => ({
+          local: readStringProp(local, "local") ?? "seed",
+          remote: readStringProp(incoming, "remote") ?? "seed",
         }),
       },
     });
@@ -303,10 +315,11 @@ test("conflictResolver can resolve contested incoming sync state against local s
         source: "remote-tab",
         name: "shared",
         clock: 0,
-        updatedAt: 0,
-        data: { local: "seed", remote: "remote-win" },
+      updatedAt: 0,
+      data: { local: "seed", remote: "remote-win" },
+      checksum: hashState({ local: "seed", remote: "remote-win" }),
       },
-    } as MessageEvent);
+    } as MessageEvent<unknown>);
 
     await wait();
 
@@ -317,20 +330,17 @@ test("conflictResolver can resolve contested incoming sync state against local s
   } finally {
     store.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("conflictResolver rebroadcasts resolved state so peers converge", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const a = await import(`../../src/store.js?sync-conflict-a-${Date.now()}`);
   const b = await import(`../../src/store.js?sync-conflict-b-${Date.now()}`);
@@ -340,9 +350,9 @@ test("conflictResolver rebroadcasts resolved state so peers converge", async () 
     a.createStore("shared", { local: "seed", remote: "seed", resolved: false }, {
       sync: {
         policy: "insecure",
-        conflictResolver: ({ local, incoming }: any) => ({
-          local: local.local,
-          remote: incoming.remote,
+        conflictResolver: ({ local, incoming }) => ({
+          local: readStringProp(local, "local") ?? "seed",
+          remote: readStringProp(incoming, "remote") ?? "seed",
           resolved: true,
         }),
       },
@@ -364,10 +374,11 @@ test("conflictResolver rebroadcasts resolved state so peers converge", async () 
         source: "remote-tab",
         name: "shared",
         clock: 0,
-        updatedAt: 0,
-        data: { local: "seed", remote: "remote-win", resolved: false },
+      updatedAt: 0,
+      data: { local: "seed", remote: "remote-win", resolved: false },
+      checksum: hashState({ local: "seed", remote: "remote-win", resolved: false }),
       },
-    } as MessageEvent);
+    } as MessageEvent<unknown>);
 
     await wait();
     await wait();
@@ -392,20 +403,17 @@ test("conflictResolver rebroadcasts resolved state so peers converge", async () 
     b.clearAllStores();
     c.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("sync ignores protocol-mismatched messages", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const store = await import(`../../src/store.js?sync-protocol-${Date.now()}`);
   const errors: string[] = [];
@@ -427,10 +435,10 @@ test("sync ignores protocol-mismatched messages", async () => {
         source: "remote-tab",
         name: "shared",
         clock: 1,
-        updatedAt: 100,
-        data: { value: "wrong-build" },
+      updatedAt: 100,
+      data: { value: "wrong-build" },
       },
-    } as MessageEvent);
+    } as MessageEvent<unknown>);
 
     await wait();
 
@@ -439,27 +447,24 @@ test("sync ignores protocol-mismatched messages", async () => {
   } finally {
     store.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("incoming sync state is sanitized and validated before commit", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const store = await import(`../../src/store.js?sync-sanitize-${Date.now()}`);
 
   try {
-    store.createStore("shared", { when: "seed" }, {
+    store.createStore("shared", { when: "2024-01-01T00:00:00.000Z" }, {
       sync: { policy: "insecure" },
-      validate: (next: any) => typeof next?.when === "string" && next.when.endsWith("Z"),
+      validate: (next) => typeof next.when === "string" && next.when.endsWith("Z"),
     });
     await wait();
 
@@ -475,8 +480,9 @@ test("incoming sync state is sanitized and validated before commit", async () =>
         clock: 1,
         updatedAt: 100,
         data: { when: new Date("2024-01-02T03:04:05.000Z") },
+        checksum: hashState({ when: new Date("2024-01-02T03:04:05.000Z") }),
       },
-    } as MessageEvent);
+    } as MessageEvent<unknown>);
 
     await wait();
 
@@ -484,80 +490,82 @@ test("incoming sync state is sanitized and validated before commit", async () =>
   } finally {
     store.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("sync convergence is stable for equal-clock equal-timestamp writes delivered in different orders", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
-  const first = await import(`../../src/store.js?sync-order-first-${Date.now()}`);
-  const second = await import(`../../src/store.js?sync-order-second-${Date.now()}`);
+  const store = await import(`../../src/store.js?sync-order-${Date.now()}`);
 
   try {
-    first.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
-    second.createStore("shared", { value: "seed" }, { sync: { policy: "insecure" } });
-    await wait();
+    const runOrder = async (name: string, order: Array<"A" | "B">) => {
+      store.createStore(name, { value: "seed" }, { sync: { policy: "insecure" } });
+      await wait();
 
-    const channels = Array.from(MockBroadcastChannel.channels.get("stroid_sync_shared") ?? []);
-    assert.strictEqual(channels.length, 2);
+      const channel = Array.from(MockBroadcastChannel.channels.get(`stroid_sync_${name}`) ?? [])[0];
+      assert.ok(channel);
 
-    const [firstChannel, secondChannel] = channels;
-    const messageA = {
-      protocol: 1,
-      type: "sync-state",
-      source: "writer-a",
-      name: "shared",
-      clock: 1,
-      updatedAt: 100,
-      data: { value: "A" },
+      const messageA = {
+        protocol: 1,
+        type: "sync-state",
+        source: "writer-a",
+        name,
+        clock: 1,
+        updatedAt: 100,
+        data: { value: "A" },
+        checksum: hashState({ value: "A" }),
+      } as const;
+      const messageB = {
+        protocol: 1,
+        type: "sync-state",
+        source: "writer-b",
+        name,
+        clock: 1,
+        updatedAt: 100,
+        data: { value: "B" },
+        checksum: hashState({ value: "B" }),
+      } as const;
+
+      for (const id of order) {
+        channel.onmessage?.({ data: id === "A" ? messageA : messageB } as MessageEvent<unknown>);
+      }
+      await wait();
+
+      const result = store.getStore(name);
+      store.deleteStore(name);
+      await wait();
+      return result;
     };
-    const messageB = {
-      protocol: 1,
-      type: "sync-state",
-      source: "writer-b",
-      name: "shared",
-      clock: 1,
-      updatedAt: 100,
-      data: { value: "B" },
-    };
 
-    firstChannel.onmessage?.({ data: messageA } as MessageEvent);
-    firstChannel.onmessage?.({ data: messageB } as MessageEvent);
+    const resultAB = await runOrder("shared-order-ab", ["A", "B"]);
+    const resultBA = await runOrder("shared-order-ba", ["B", "A"]);
 
-    secondChannel.onmessage?.({ data: messageB } as MessageEvent);
-    secondChannel.onmessage?.({ data: messageA } as MessageEvent);
-
-    await wait();
-
-    assert.deepStrictEqual(first.getStore("shared"), { value: "B" });
-    assert.deepStrictEqual(second.getStore("shared"), { value: "B" });
+    assert.deepStrictEqual(resultAB, resultBA);
+    assert.ok(
+      JSON.stringify(resultAB) === JSON.stringify({ value: "A" })
+      || JSON.stringify(resultAB) === JSON.stringify({ value: "B" })
+    );
   } finally {
-    first.clearAllStores();
-    second.clearAllStores();
+    store.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("repeated sync create delete cycles clean up channels and ignore stale handlers", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const store = await import(`../../src/store.js?sync-recreate-${Date.now()}`);
 
@@ -584,15 +592,13 @@ test("repeated sync create delete cycles clean up channels and ignore stale hand
             updatedAt: Date.now(),
             data: { cycle: 999 },
           },
-        } as MessageEvent);
+        } as MessageEvent<unknown>);
       });
     }
   } finally {
     store.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
-
-

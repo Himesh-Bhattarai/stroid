@@ -14,6 +14,7 @@ import { resetAllStoresForTest } from "../../src/helpers/testing.js";
 import { createStoreForRequest } from "../../src/server/index.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 import { getRegistry } from "../../src/core/store-lifecycle.js";
+import { getRequestCarrier } from "../../src/core/store-registry.js";
 import {
     getWriteContext,
     injectWriteContextRunner,
@@ -74,7 +75,7 @@ test("SSR Carrier perfectly isolates concurrent requests", async () => {
     // or if the `buffer` was sent to `hydrateStores`, it might have initialized `initialStates` with UserA buffer.
     // It's still safe because it's just the shape, not the mutated data.
     
-    // We expect the global store to NOT contain 'ModifiedUserA' or any cross-polluted data.
+    // We expect the global store to NOT contain 'ModifiedUserA' or cross-polluted data.
     const globalState = getStore("session");
     assert.ok(
         globalState == null,
@@ -263,6 +264,39 @@ test("SSR notify orderedNames stays bounded under variable chunk sizes", async (
     }
 });
 
+test("request carrier is scrubbed after hydrate completes for detached async continuations", async () => {
+    resetAllStoresForTest();
+
+    const ctx = createStoreForRequest(({ create }) => {
+        create("session", { user: "UserA", count: 0 }, { lazy: false });
+    });
+
+    let detachedRead!: Promise<{
+        carrier: Record<string, unknown> | null;
+        snapshot: unknown;
+    }>;
+
+    await ctx.hydrate(async () => {
+        setStore("session", "count", 1);
+        detachedRead = (async () => {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            const carrier = getRequestCarrier();
+            return {
+                carrier,
+                snapshot: carrier === null ? null : getStore("session"),
+            };
+        })();
+    });
+
+    const detached = await detachedRead;
+
+    assert.deepStrictEqual(ctx.snapshot(), {
+        session: { user: "UserA", count: 1 },
+    });
+    assert.deepStrictEqual(detached.carrier ?? {}, {});
+    assert.ok(detached.snapshot === null || detached.snapshot === undefined);
+});
+
 test("SSR async registries isolate fetch registry and cache meta", async () => {
     resetAllStoresForTest();
 
@@ -367,5 +401,3 @@ test("concurrent setStoreBatch across request registries stays isolated", async 
     assert.ok(callsA.every((value) => value.startsWith("UserA")));
     assert.ok(callsB.every((value) => value.startsWith("UserB")));
 });
-
-

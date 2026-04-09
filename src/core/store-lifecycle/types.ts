@@ -6,9 +6,11 @@
  *
  * Consumers: Internal imports and public API.
  */
-type Primitive = string | number | boolean | bigint | symbol | null | undefined;
-type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-type PathInternal<T, Depth extends number> = Depth extends 0
+import type { HydrationBootWindowControl } from "../hydration-consistency.js";
+
+export type Primitive = string | number | boolean | bigint | symbol | null | undefined;
+export type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export type PathInternal<T, Depth extends number> = Depth extends 0
     ? never
     : T extends Primitive
         ? never
@@ -58,7 +60,13 @@ export type HydrationResult = {
     created: string[];
     failed: HydrationFailure[];
     blocked?: { reason: HydrationBlockReason; cause?: unknown };
+    /**
+     * Present when post-hydration consistency enabled an active boot window.
+     * Use it to inspect or close timer/manual deferral after `hydrateStores(...)`.
+     */
+    bootWindow?: HydrationBootWindowControl;
 };
+export type { HydrationBootWindowControl };
 
 // Ambient map users can augment to get typed string access to stores.
 // Example:
@@ -69,9 +77,9 @@ export interface StoreStateMap {}
 //   declare module "stroid" { interface StrictStoreMap { user: UserState } }
 //   declare module "stroid/core" { interface StrictStoreMap { user: UserState } }
 export interface StrictStoreMap {}
-type RegisteredStoreMap = StoreStateMap & StrictStoreMap;
+export type RegisteredStoreMap = StoreStateMap & StrictStoreMap;
 declare const storeNameBrand: unique symbol;
-type BrandedStoreName = string & { readonly [storeNameBrand]: true };
+export type BrandedStoreName = string & { readonly [storeNameBrand]: true };
 export type StoreName = (keyof RegisteredStoreMap & string) | BrandedStoreName;
 export type StateFor<Name extends string> =
     Name extends keyof RegisteredStoreMap ? RegisteredStoreMap[Name] : StoreValue;
@@ -93,6 +101,7 @@ export type WriteResult =
         ok: false;
         reason:
             | "not-found"
+            | "no-initial-state"
             | "validate"
             | "path"
             | "middleware"
@@ -104,5 +113,3 @@ export type WriteResult =
     };
 
 export type Subscriber = (value: StoreValue | null) => void;
-
-

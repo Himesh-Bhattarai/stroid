@@ -28,7 +28,7 @@ import {
   resetAllStoresForTest,
   withMockedTime,
   benchmarkStoreSet,
-} from "stroid/helpers"
+} from "stroid/testing"
 ```
 
 ---
@@ -52,7 +52,7 @@ Creates a temporary mock store for testing without polluting the global registry
 ### Basic Usage
 
 ```ts
-import { createMockStore } from "stroid/helpers"
+import { createMockStore } from "stroid/testing"
 
 test("user store updates", () => {
   const { set, use } = createMockStore("user", { name: "Alice", age: 30 })
@@ -68,7 +68,7 @@ test("user store updates", () => {
 
 ```ts
 import { renderHook, act } from "@testing-library/react"
-import { createMockStore } from "stroid/helpers"
+import { createMockStore } from "stroid/testing"
 import { useStore } from "stroid/react"
 
 test("renders with mock store", () => {
@@ -108,7 +108,7 @@ Clears all stores and async state — call in `beforeEach` or `afterEach`.
 ### Jest / Vitest Example
 
 ```ts
-import { resetAllStoresForTest } from "stroid/helpers"
+import { resetAllStoresForTest } from "stroid/testing"
 
 describe("Store Operations", () => {
   afterEach(() => {
@@ -122,7 +122,7 @@ describe("Store Operations", () => {
 
   test("next test starts fresh", () => {
     // No "user" store from previous test
-    expect(getStore("user")).toBeUndefined()
+    expect(getStore("user")).toBeNull()
   })
 })
 ```
@@ -149,7 +149,7 @@ Mock `Date.now()` for a given function — useful for testing time-dependent log
 ### Basic Usage
 
 ```ts
-import { withMockedTime } from "stroid/helpers"
+import { withMockedTime } from "stroid/testing"
 
 test("timestamp logic", () => {
   const result = withMockedTime(1000000, () => {
@@ -182,11 +182,14 @@ test("cache expires", () => {
 ### With fetchStore
 
 ```ts
+import { createStore } from "stroid"
 import { fetchStore } from "stroid/async"
 
 test("revalidate on focus", () => {
+  createStore("user", { data: null, loading: false, error: null, status: "idle" })
+
   withMockedTime(1000000, () => {
-    fetchStore("https://api.example.com/user", { ttl: 60000 })
+    void fetchStore("user", "https://api.example.com/user", { ttl: 60000 })
   })
 
   // Check if cache is still fresh
@@ -220,12 +223,13 @@ Measures the performance of repeated store writes.
 ### Basic Benchmark
 
 ```ts
-import { benchmarkStoreSet } from "stroid/helpers"
+import { store } from "stroid"
+import { benchmarkStoreSet } from "stroid/testing"
 
 test("store write performance", () => {
   createStore("data", { value: 0 })
 
-  const result = benchmarkStoreSet("data", 1000, (i) => ({ value: i }))
+  const result = benchmarkStoreSet(store("data"), 1000, (i) => ({ value: i }))
 
   console.log(`${result.iterations} writes in ${result.totalMs}ms`)
   console.log(`Average: ${result.avgMs}ms per write`)
@@ -237,7 +241,9 @@ test("store write performance", () => {
 ### Custom Update Generator
 
 ```ts
-const result = benchmarkStoreSet("user", 10000, (i) => ({
+import { store } from "stroid"
+
+const result = benchmarkStoreSet(store("user"), 10000, (i) => ({
   timestamp: Date.now(),
   count: i,
   nested: { deep: { value: i } }
@@ -250,6 +256,9 @@ console.log(result)
 ### Memory Pressure Test
 
 ```ts
+import { createStore, store } from "stroid"
+import { benchmarkStoreSet } from "stroid/testing"
+
 test("large object updates", () => {
   const largeArray = Array.from({ length: 1000 }, (_, i) => ({
     id: i,
@@ -259,7 +268,7 @@ test("large object updates", () => {
 
   createStore("bigData", largeArray)
 
-  const result = benchmarkStoreSet("bigData", 100, (i) => ({
+  const result = benchmarkStoreSet(store("bigData"), 100, (i) => ({
     0: { ...largeArray[0], updated: true }
   }))
 
@@ -275,7 +284,7 @@ test("large object updates", () => {
 
 ```ts
 import { renderHook } from "@testing-library/react"
-import { createMockStore } from "stroid/helpers"
+import { createMockStore } from "stroid/testing"
 import { useStore } from "stroid/react"
 
 test("useStore with mock", () => {
@@ -299,21 +308,20 @@ test("useStore with mock", () => {
 ### Async Store Testing
 
 ```ts
+import { createStore, getStore } from "stroid"
 import { fetchStore } from "stroid/async"
-import { resetAllStoresForTest } from "stroid/helpers"
+import { resetAllStoresForTest } from "stroid/testing"
 
 describe("Async Store", () => {
   beforeEach(() => {
     resetAllStoresForTest() // Resets async state too!
+    createStore("user", { data: null, loading: false, error: null, status: "idle" })
   })
 
   test("fetches data", async () => {
-    fetchStore("https://api.example.com/user", {
+    await fetchStore("user", "https://api.example.com/user", {
       onError: (err) => console.error(err)
     })
-
-    // Wait for completion
-    await new Promise(resolve => setTimeout(resolve, 100))
 
     const state = getStore("user")
     expect(state).toHaveProperty("data")
@@ -354,14 +362,14 @@ test("with manual reset", () => {
 
   resetStore("temp")
   // Try to get it again
-  expect(getStore("temp")).toBeUndefined()
+  expect(getStore("temp")).toBeNull()
 })
 ```
 
 ### Automatic Cleanup (Recommended)
 
 ```ts
-import { resetAllStoresForTest } from "stroid/helpers"
+import { resetAllStoresForTest } from "stroid/testing"
 
 describe("My Tests", () => {
   afterEach(() => {

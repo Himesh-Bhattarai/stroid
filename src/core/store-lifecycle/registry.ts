@@ -24,6 +24,7 @@ import {
     setLifecycleListener,
 } from "../store-registry.js";
 import { registerTestResetHook } from "../../internals/test-reset.js";
+import { warn } from "../../internals/diagnostics.js";
 import {
     getStoreFeatureFactory,
     getRegisteredFeatureNames,
@@ -35,6 +36,13 @@ import {
 import { createStoreAdmin } from "../../internals/store-admin.js";
 import type { StoreValue, Subscriber } from "./types.js";
 import { getStagedTransactionValue, isTransactionActive } from "../store-transaction.js";
+import {
+    enqueueHydrationWrite,
+    reconcileHydrationValue,
+    runHydrationInvalidationHandler,
+    shouldQueueHydrationWrite,
+    type HydrationConsistencySource,
+} from "../hydration-consistency.js";
 
 export { defaultRegistryScope } from "../store-registry.js";
 export type { StoreLifecycleEvent } from "../store-registry.js";
@@ -42,6 +50,8 @@ export type { StoreLifecycleEvent } from "../store-registry.js";
 let _scope = defaultRegistryScope;
 let _defaultRegistry = getStoreRegistry(_scope);
 var _invalidatePathCache: ((name: string) => void) | null = null;
+let _lastIsoTimestampMs = Number.NaN;
+let _lastIsoTimestamp = "";
 
 const getActiveRegistry = (): StoreRegistry => {
     const registry = getActiveStoreRegistry(_defaultRegistry);
@@ -56,6 +66,13 @@ export const setRegistryContext = (scope: string, registry: StoreRegistry): void
 };
 
 export const getRegistry = (): StoreRegistry => getActiveRegistry();
+
+export const formatIsoTimestamp = (ms: number): string => {
+    if (ms === _lastIsoTimestampMs) return _lastIsoTimestamp;
+    _lastIsoTimestampMs = ms;
+    _lastIsoTimestamp = new Date(ms).toISOString();
+    return _lastIsoTimestamp;
+};
 
 export const onStoreLifecycle = (fn: StoreLifecycleListener | null): (() => void) => {
     const registry = getActiveRegistry();
@@ -75,18 +92,13 @@ export function setPathCacheInvalidator(fn: (name: string) => void): void {
     _invalidatePathCache = fn;
 }
 
-const createRegistryObjectProxy = <T extends object>(getter: () => T): T =>
+const createRegistryObjectProxy = <T extends Record<PropertyKey, unknown>>(getter: () => T): T =>
+    // Proxy so imports can reference a stable object while SSR swaps the active registry per request.
     new Proxy(Object.create(null), {
-        get: (_target, prop) => (getter() as any)[prop],
-        set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
-            return true;
-        },
-        deleteProperty: (_target, prop) => {
-            delete (getter() as any)[prop];
-            return true;
-        },
-        has: (_target, prop) => prop in (getter() as any),
+        get: (_target, prop) => Reflect.get(getter(), prop) as unknown,
+        set: (_target, prop, value) => Reflect.set(getter(), prop, value),
+        deleteProperty: (_target, prop) => Reflect.deleteProperty(getter(), prop),
+        has: (_target, prop) => Reflect.has(getter(), prop),
         ownKeys: () => Reflect.ownKeys(getter()),
         getOwnPropertyDescriptor: (_target, prop) => {
             const desc = Object.getOwnPropertyDescriptor(getter(), prop);
@@ -95,17 +107,19 @@ const createRegistryObjectProxy = <T extends object>(getter: () => T): T =>
         },
     }) as T;
 
-const createRegistryMapProxy = <T extends Map<any, any>>(getter: () => T): T =>
+const createRegistryMapProxy = <T extends Map<unknown, unknown>>(getter: () => T): T =>
     new Proxy(new Map(), {
         get: (_target, prop) => {
-            const target = getter() as any;
+            const target = getter();
             if (prop === "size") return target.size;
             if (prop === Symbol.iterator) return target[Symbol.iterator].bind(target);
-            const value = target[prop];
-            return typeof value === "function" ? value.bind(target) : value;
+            const value = Reflect.get(target, prop) as unknown;
+            return typeof value === "function"
+                ? (value as (...args: unknown[]) => unknown).bind(target)
+                : value;
         },
         set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
+            Reflect.set(getter(), prop, value);
             return true;
         },
     }) as T;
@@ -113,12 +127,14 @@ const createRegistryMapProxy = <T extends Map<any, any>>(getter: () => T): T =>
 const createRegistryValueProxy = <T extends object>(getter: () => T): T =>
     new Proxy({} as T, {
         get: (_target, prop) => {
-            const target = getter() as any;
-            const value = target[prop];
-            return typeof value === "function" ? value.bind(target) : value;
+            const target = getter();
+            const value = Reflect.get(target, prop) as unknown;
+            return typeof value === "function"
+                ? (value as (...args: unknown[]) => unknown).bind(target)
+                : value;
         },
         set: (_target, prop, value) => {
-            (getter() as any)[prop] = value;
+            Reflect.set(getter(), prop, value);
             return true;
         },
     });
@@ -203,10 +219,38 @@ export const setStoreValueInternal = (name: string, value: StoreValue, registry:
     }
 };
 
-export const applyFeatureState = (name: string, value: StoreValue, updatedAtMs = Date.now()): void => {
-    setStoreValueInternal(name, value);
-    if (!meta[name]) return;
-    meta[name].updatedAt = new Date(updatedAtMs).toISOString();
+export const applyFeatureState = (
+    name: string,
+    value: StoreValue,
+    updatedAtMs = Date.now(),
+    options: {
+        source?: HydrationConsistencySource;
+        validate?: (candidate: StoreValue) => { ok: boolean; value?: StoreValue };
+        bypassHydrationQueue?: boolean;
+    } = {}
+): StoreValue => {
+    const registry = getActiveRegistry();
+    const source = options.source ?? "unknown";
+    if (!options.bypassHydrationQueue && shouldQueueHydrationWrite(registry, name, source)) {
+        enqueueHydrationWrite(registry, name, source, () => {
+            applyFeatureState(name, value, updatedAtMs, {
+                ...options,
+                bypassHydrationQueue: true,
+            });
+        });
+        return value;
+    }
+    const reconciled = reconcileHydrationValue({
+        registry,
+        store: name,
+        value,
+        source,
+        normalize: options.validate,
+    });
+    const nextValue = reconciled.value as StoreValue;
+    setStoreValueInternal(name, nextValue, registry);
+    if (!meta[name]) return nextValue;
+    meta[name].updatedAt = formatIsoTimestamp(updatedAtMs);
     meta[name].updatedAtMs = updatedAtMs;
     meta[name].lastCorrelationId = null;
     meta[name].lastCorrelationAt = null;
@@ -218,6 +262,23 @@ export const applyFeatureState = (name: string, value: StoreValue, updatedAtMs =
         meta[name].updateCount += 1;
     }
     _invalidatePathCache?.(name);
+    if (reconciled.invalidated) {
+        runHydrationInvalidationHandler(registry, name, reconciled.event?.live ?? value, source);
+        if (reconciled.needsRefetch && registry.async.fetchRegistry[name]) {
+            queueMicrotask(() => {
+                void import("../../async/fetch.js")
+                    .then(async ({ refetchStore }) => {
+                        await refetchStore({ name } as { name: string });
+                    })
+                    .catch((error) => {
+                        warn(
+                            `Post-hydration refetch for "${name}" failed: ${(error as { message?: string })?.message ?? error}`
+                        );
+                    });
+            });
+        }
+    }
+    return nextValue;
 };
 
 export const recordStoreRead = (name: string, registry: StoreRegistry = getActiveRegistry()): void => {
@@ -226,7 +287,7 @@ export const recordStoreRead = (name: string, registry: StoreRegistry = getActiv
     metaEntry.readCount = (metaEntry.readCount ?? 0) + 1;
     const now = Date.now();
     metaEntry.lastReadAtMs = now;
-    metaEntry.lastReadAt = new Date(now).toISOString();
+    metaEntry.lastReadAt = formatIsoTimestamp(now);
 };
 
 export const clearAllRegistries = (): void => {
@@ -261,5 +322,3 @@ export const resolveScope = (scopeOrRegistry?: string | ReturnType<typeof getSto
         : scopeOrRegistry ?? getStoreRegistry(_scope);
     return { scope: resolvedScope, registry };
 };
-
-

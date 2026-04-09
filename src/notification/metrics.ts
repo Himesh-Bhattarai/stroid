@@ -8,14 +8,17 @@
  */
 import type { FeatureMetrics, StoreFeatureMeta } from "../features/feature-registry.js";
 
-export const createMetrics = (metrics?: FeatureMetrics): FeatureMetrics => ({
-    notifyCount: metrics?.notifyCount ?? 0,
-    totalNotifyMs: metrics?.totalNotifyMs ?? 0,
-    lastNotifyMs: metrics?.lastNotifyMs ?? 0,
-    resetCount: metrics?.resetCount ?? 0,
-    totalResetMs: metrics?.totalResetMs ?? 0,
-    lastResetMs: metrics?.lastResetMs ?? 0,
+const createDefaultMetrics = (): FeatureMetrics => ({
+    notifyCount: 0,
+    totalNotifyMs: 0,
+    lastNotifyMs: 0,
+    resetCount: 0,
+    totalResetMs: 0,
+    lastResetMs: 0,
 });
+
+export const createMetrics = (metrics?: FeatureMetrics): FeatureMetrics =>
+    metrics ?? createDefaultMetrics();
 
 export const recordMetrics = (metrics: FeatureMetrics, elapsedMs: number): FeatureMetrics => {
     metrics.notifyCount += 1;
@@ -26,5 +29,7 @@ export const recordMetrics = (metrics: FeatureMetrics, elapsedMs: number): Featu
 
 export const commitMetrics = (metaEntry: StoreFeatureMeta | undefined, metrics: FeatureMetrics): void => {
     if (!metaEntry) return;
-    metaEntry.metrics = metrics;
+    if (metaEntry.metrics !== metrics) {
+        metaEntry.metrics = metrics;
+    }
 };

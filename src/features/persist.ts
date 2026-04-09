@@ -30,9 +30,13 @@ let _registered = false;
 const _envFromProcess = typeof process !== "undefined" && typeof process.env?.NODE_ENV === "string"
     ? process.env.NODE_ENV
     : undefined;
-const _envFromImportMeta = typeof import.meta !== "undefined" && (import.meta as any)?.env?.MODE
-    ? (import.meta as any).env.MODE
-    : undefined;
+const _envFromImportMeta = (() => {
+    if (typeof import.meta === "undefined") return undefined;
+    const env = Reflect.get(import.meta as object, "env") as unknown;
+    if (!env || typeof env !== "object") return undefined;
+    const mode = Reflect.get(env as object, "MODE") as unknown;
+    return typeof mode === "string" ? mode : undefined;
+})();
 const _resolvedEnv = _envFromProcess ?? _envFromImportMeta;
 const isProdEnv = (): boolean => _resolvedEnv === "production";
 
@@ -196,11 +200,25 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                 persistWindowFlushCleanup[ctx.name]?.();
                 const hostWindow = window;
                 let cleaned = false;
+                let pagehideRegistered = false;
+                let beforeunloadRegistered = false;
                 const cleanup = () => {
                     if (cleaned) return;
                     cleaned = true;
-                    hostWindow.removeEventListener("pagehide", flush);
-                    hostWindow.removeEventListener("beforeunload", flush);
+                    if (pagehideRegistered) {
+                        try {
+                            hostWindow.removeEventListener("pagehide", flush);
+                        } catch (_) {
+                            // ignore host window removeEventListener errors
+                        }
+                    }
+                    if (beforeunloadRegistered) {
+                        try {
+                            hostWindow.removeEventListener("beforeunload", flush);
+                        } catch (_) {
+                            // ignore host window removeEventListener errors
+                        }
+                    }
                     delete persistWindowFlushCleanup[ctx.name];
                 };
                 const flush = () => {
@@ -219,9 +237,22 @@ export const createPersistFeatureRuntime = (): StoreFeatureRuntime => {
                         hashState: ctx.hashState,
                     });
                 };
-                hostWindow.addEventListener("pagehide", flush, { once: true });
-                hostWindow.addEventListener("beforeunload", flush, { once: true });
-                persistWindowFlushCleanup[ctx.name] = cleanup;
+                try {
+                    hostWindow.addEventListener("pagehide", flush, { once: true });
+                    pagehideRegistered = true;
+                } catch (_) {
+                    // Some tests and non-browser hosts expose partial event APIs.
+                    // Ignore unsupported events; persistence still works without unload hooks.
+                }
+                try {
+                    hostWindow.addEventListener("beforeunload", flush, { once: true });
+                    beforeunloadRegistered = true;
+                } catch (_) {
+                    // Ignore unsupported events.
+                }
+                if (pagehideRegistered || beforeunloadRegistered) {
+                    persistWindowFlushCleanup[ctx.name] = cleanup;
+                }
             }
 
             setupPersistWatch({
@@ -310,3 +341,6 @@ export const registerPersistFeature = (): void => {
     registerStoreFeature("persist", createPersistFeatureRuntime);
 };
 
+export const installPersist = (): void => {
+    registerPersistFeature();
+};

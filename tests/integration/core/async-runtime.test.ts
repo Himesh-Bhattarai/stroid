@@ -10,7 +10,21 @@ import test from "node:test";
 import assert from "node:assert";
 import { clearAllStores, createStore } from "../../../src/store.js";
 import { fetchStore, enableRevalidateOnFocus } from "../../../src/async.js";
-import { shouldUseCache, pruneAsyncCache, getCacheMeta, getRequestVersionRegistry, getFetchRegistry } from "../../../src/async/cache.js";
+import {
+  clearAsyncMeta,
+  countInflightSlots,
+  getAsyncCachePruneCounters,
+  getAsyncMetricsByStore,
+  getCacheMeta,
+  getFetchRegistry,
+  getRateCountRegistry,
+  getRateWindowStartRegistry,
+  getRequestSequenceRegistry,
+  getRequestVersionRegistry,
+  pruneAsyncCache,
+  shouldUseCache,
+  trackAsyncSlot,
+} from "../../../src/async/cache.js";
 import { createAsyncRegistry, resetAsyncRegistry } from "../../../src/async/registry.js";
 import { delay, normalizeRetryOptions } from "../../../src/async/retry.js";
 import { reactQueryKey, createReactQueryFetcher, createSwrFetcher } from "../../../src/integrations/query.js";
@@ -34,14 +48,101 @@ test("async cache expiry and prune paths clear expired entries", () => {
   assert.ok(!("persist:old" in cacheMeta));
 });
 
+test("clearAsyncMeta removes tracked async bookkeeping in one pass", () => {
+  const cacheMeta = getCacheMeta();
+  const requestVersion = getRequestVersionRegistry();
+  const requestSequence = getRequestSequenceRegistry();
+  const rateWindowStart = getRateWindowStartRegistry();
+  const rateCount = getRateCountRegistry();
+  const fetchRegistry = getFetchRegistry();
+  const slot = "clearMetaStore:slot-a";
+
+  trackAsyncSlot("clearMetaStore", slot);
+  cacheMeta[slot] = { timestamp: Date.now(), expiresAt: Date.now() + 5000, data: { ok: true } };
+  requestVersion[slot] = 1;
+  requestSequence[slot] = 1;
+  rateWindowStart[slot] = Date.now();
+  rateCount[slot] = 1;
+  fetchRegistry.clearMetaStore = {
+    kind: "url",
+    url: "https://api.example.com/clear",
+    options: {},
+  };
+  getAsyncMetricsByStore().set("clearMetaStore", {
+    cacheHits: 1,
+    cacheMisses: 2,
+    dedupes: 0,
+    requests: 3,
+    failures: 0,
+    avgMs: 10,
+    lastMs: 5,
+  });
+  getAsyncCachePruneCounters().set("clearMetaStore", 9);
+
+  clearAsyncMeta("clearMetaStore");
+
+  assert.ok(!Object.prototype.hasOwnProperty.call(cacheMeta, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(requestVersion, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(requestSequence, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(rateWindowStart, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(rateCount, slot));
+  assert.ok(!Object.prototype.hasOwnProperty.call(fetchRegistry, "clearMetaStore"));
+  assert.strictEqual(getAsyncMetricsByStore().has("clearMetaStore"), false);
+  assert.strictEqual(getAsyncCachePruneCounters().has("clearMetaStore"), false);
+});
+
+test("clearAsyncMeta does not delete async slots owned by a namespaced child store", () => {
+  const cacheMeta = getCacheMeta();
+  const requestVersion = getRequestVersionRegistry();
+  const requestSequence = getRequestSequenceRegistry();
+  const rateWindowStart = getRateWindowStartRegistry();
+  const rateCount = getRateCountRegistry();
+  const slot = "ns::child:slot-a";
+  const now = Date.now();
+
+  trackAsyncSlot("ns::child", slot);
+  cacheMeta[slot] = { timestamp: now, expiresAt: now + 5000, data: { ok: true } };
+  requestVersion[slot] = 1;
+  requestSequence[slot] = 1;
+  rateWindowStart[slot] = now;
+  rateCount[slot] = 1;
+
+  clearAsyncMeta("ns");
+
+  assert.ok(Object.prototype.hasOwnProperty.call(cacheMeta, slot));
+  assert.ok(Object.prototype.hasOwnProperty.call(requestVersion, slot));
+  assert.ok(Object.prototype.hasOwnProperty.call(requestSequence, slot));
+  assert.ok(Object.prototype.hasOwnProperty.call(rateWindowStart, slot));
+  assert.ok(Object.prototype.hasOwnProperty.call(rateCount, slot));
+
+  clearAsyncMeta("ns::child");
+});
+
+test("countInflightSlots does not attribute a namespaced child slot to its parent store", () => {
+  const slot = "ns::child:slot-inflight";
+  const never = new Promise(() => {});
+
+  setInflightEntry(slot, {
+    promise: never,
+    raw: never,
+  }, "ns::child");
+
+  try {
+    assert.strictEqual(countInflightSlots("ns"), 0);
+    assert.strictEqual(countInflightSlots("ns::child"), 1);
+  } finally {
+    clearInflightEntry(slot);
+  }
+});
+
 test("resetAsyncRegistry cleans handlers and timers", () => {
   const registry = createAsyncRegistry();
   let calls = 0;
   registry.revalidateHandlers["one"] = () => { calls += 1; };
-  registry.storeCleanups["one"] = {
+  registry.storeCleanups.set("one", {
     store: new Set([() => { calls += 1; }]),
     revalidate: new Set([() => { calls += 1; }]),
-  };
+  });
   registry.ratePruneTimer = setTimeout(() => {}, 1000);
   resetAsyncRegistry(registry);
   assert.ok(calls >= 2);
@@ -252,7 +353,7 @@ test("tryDedupeRequest rejects callers that change the inflight request contract
 test("tryDedupeRequest rejects callers that change the inflight result contract", () => {
   const cacheSlot = "dedupe-result-mismatch";
   const errors: string[] = [];
-  const transform = (raw: any) => raw.value + 1;
+  const transform = (raw: { value: number }) => raw.value + 1;
   setInflightEntry(cacheSlot, {
     promise: Promise.resolve(2),
     raw: Promise.resolve({ value: 1 }),
@@ -287,13 +388,14 @@ test("tryDedupeRequest rejects callers that change the inflight result contract"
 });
 
 test("throwAsyncUsageError uses critical path when dev is disabled", () => {
-  const originalDev = (globalThis as any).__STROID_DEV__;
-  (globalThis as any).__STROID_DEV__ = false;
+  const globalWithDevFlag = globalThis as typeof globalThis & { __STROID_DEV__?: boolean };
+  const originalDev = globalWithDevFlag.__STROID_DEV__;
+  globalWithDevFlag.__STROID_DEV__ = false;
   try {
     assert.throws(() => {
       throwAsyncUsageError("usageError", "usage boom");
     }, /usage boom/);
   } finally {
-    (globalThis as any).__STROID_DEV__ = originalDev;
+    globalWithDevFlag.__STROID_DEV__ = originalDev;
   }
 });

@@ -15,5 +15,5 @@
     "resolveJsonModule": true,
     "lib": ["ES2020", "DOM"]
   },
-  "include": ["src/**/*", "docs/**/*", "tests/**/*", "index.d.ts"]
+  "include": ["src/**/*", "index.d.ts"]
 }

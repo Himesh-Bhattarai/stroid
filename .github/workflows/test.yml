@@ -1,0 +1,190 @@
+name: Stress Test Pipeline
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-integration:
+    name: Unit + Integration (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Existing test suite
+        run: npm test
+
+      - name: Stress suite
+        run: npm run test:stress
+
+  fuzz:
+    name: Seeded Fuzz
+    runs-on: ubuntu-latest
+    needs: unit-integration
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run fuzz tests with fixed seed
+        run: npm run test:stress:fuzz
+        env:
+          STROID_FUZZ_SEED: "20260403"
+
+  benchmarks:
+    name: Benchmarks + Regression Gate
+    runs-on: ubuntu-latest
+    needs: unit-integration
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck gate (runtime + layered boundaries)
+        run: |
+          npm run typecheck
+          npm run typecheck:layers
+
+      - name: Types gate (package + declarations + API report)
+        run: npm run test:types
+
+      - name: Run benchmark suite + regression check
+        run: npm run bench:stress:ci
+
+      - name: Run SSR ALS audit ladder gate
+        run: |
+          mkdir -p scripts/benchmark-results/ssr
+          STROID_ALS_AUDIT_SEED=20260407 npm run benchmark:ssr-als-audit > scripts/benchmark-results/ssr/ssr-als-audit-ci.json
+
+      - name: Run SSR gap coverage gate
+        run: |
+          mkdir -p scripts/benchmark-results/ssr
+          STROID_SSR_GAP_SEED=20260407 STROID_SSR_GAP_SIZES=16,32,64,128 npm run benchmark:ssr-gaps > scripts/benchmark-results/ssr/ssr-gap-ci.json
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: benchmark-results
+          path: scripts/benchmark-results/
+          if-no-files-found: error
+
+  coverage:
+    name: Coverage Summary
+    runs-on: ubuntu-latest
+    if: ${{ needs.unit-integration.result == 'success' && github.event_name == 'pull_request' }}
+    needs: unit-integration
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run coverage
+        id: coverage
+        run: npm run test:stress:coverage
+        continue-on-error: true
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-summary
+          path: coverage/stress/coverage-summary.json
+          if-no-files-found: ignore
+
+      - name: Comment coverage on PR
+        if: ${{ always() && github.event.pull_request.head.repo.fork == false }}
+        continue-on-error: true
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'coverage/stress/coverage-summary.json';
+            const marker = '<!-- stroid-stress-coverage -->';
+
+            let body = `${marker}\n## Stress Coverage\nCoverage report was not generated (tests may have failed before coverage output).`;
+            if (fs.existsSync(summaryPath)) {
+              const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+              const totals = summary.total;
+              body = `${marker}
+            ## Stress Coverage
+            - Lines: **${totals.lines.pct}%** (${totals.lines.covered}/${totals.lines.total})
+            - Statements: **${totals.statements.pct}%** (${totals.statements.covered}/${totals.statements.total})
+            - Functions: **${totals.functions.pct}%** (${totals.functions.covered}/${totals.functions.total})
+            - Branches: **${totals.branches.pct}%** (${totals.branches.covered}/${totals.branches.total})`;
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }

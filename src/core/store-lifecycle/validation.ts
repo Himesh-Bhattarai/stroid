@@ -114,15 +114,16 @@ const touchPathLru = (
 
 export const pathValidationCache = new Proxy(new Map(), {
     get: (_target, prop) => {
-        const target = getPathValidationCache(getRegistry()) as any;
+        const target = getPathValidationCache(getRegistry());
         if (prop === "size") return target.size;
         if (prop === Symbol.iterator) return target[Symbol.iterator].bind(target);
-        const value = target[prop];
-        return typeof value === "function" ? value.bind(target) : value;
+        const value = Reflect.get(target, prop) as unknown;
+        return typeof value === "function"
+            ? (value as (...args: unknown[]) => unknown).bind(target)
+            : value;
     },
     set: (_target, prop, value) => {
-        (getPathValidationCache(getRegistry()) as any)[prop] = value;
-        return true;
+        return Reflect.set(getPathValidationCache(getRegistry()), prop, value);
     },
 }) as Map<string, PathValidationCacheNode>;
 
@@ -389,5 +390,3 @@ export const materializeInitial = (name: string, registry = getRegistry()): bool
         return false;
     }
 };
-
-

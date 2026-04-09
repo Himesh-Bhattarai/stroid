@@ -14,11 +14,18 @@ installSync();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
+type GlobalTestEnv = typeof globalThis & {
+  window?: unknown;
+  BroadcastChannel?: unknown;
+};
+
+const g = globalThis as GlobalTestEnv;
+
 class MockBroadcastChannel {
   static channels = new Map<string, Set<MockBroadcastChannel>>();
 
   readonly name: string;
-  onmessage: ((event: MessageEvent) => void) | null = null;
+  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
 
   constructor(name: string) {
     this.name = name;
@@ -27,12 +34,12 @@ class MockBroadcastChannel {
     MockBroadcastChannel.channels.set(name, peers);
   }
 
-  postMessage(data: any) {
+  postMessage(data: unknown) {
     const peers = MockBroadcastChannel.channels.get(this.name) ?? new Set<MockBroadcastChannel>();
     peers.forEach((peer) => {
       if (peer === this) return;
       queueMicrotask(() => {
-        peer.onmessage?.({ data } as MessageEvent);
+        peer.onmessage?.({ data } as unknown as MessageEvent<unknown>);
       });
     });
   }
@@ -51,11 +58,11 @@ class MockBroadcastChannel {
 }
 
 test("heavy worker-like environment without window reports sync unavailable", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  delete (globalThis as any).window;
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  delete (globalThis as unknown as Record<string, unknown>).window;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const store = await import(`../../src/store.js?worker-heavy-${Date.now()}`);
   const errors: string[] = [];
@@ -73,23 +80,23 @@ test("heavy worker-like environment without window reports sync unavailable", as
     store.clearAllStores();
     MockBroadcastChannel.reset();
     if (originalWindow === undefined) {
-      delete (globalThis as any).window;
+      delete (globalThis as unknown as Record<string, unknown>).window;
     } else {
-      (globalThis as any).window = originalWindow;
+      g.window = originalWindow;
     }
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
 
 test("heavy repeated sync create delete cycles leave no open channels", async () => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
+  g.window = {
     addEventListener: () => {},
     removeEventListener: () => {},
   };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   const store = await import(`../../src/store.js?sync-heavy-${Date.now()}`);
 
@@ -106,9 +113,12 @@ test("heavy repeated sync create delete cycles leave no open channels", async ()
   } finally {
     store.clearAllStores();
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    if (originalWindow === undefined) {
+      delete (globalThis as unknown as Record<string, unknown>).window;
+    } else {
+      g.window = originalWindow;
+    }
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 });
-
 

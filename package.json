@@ -1,6 +1,6 @@
 {
   "name": "stroid",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Deterministic state engine for React and JavaScript with SSR-safe isolation, multi-store coordination, and decision-driven state workflows.",
   "keywords": [
     "state-management",
@@ -15,10 +15,12 @@
     "sync",
     "broadcastchannel",
     "devtools",
-    "ssr"
+    "ssr",
+    "tree-shakeable"
   ],
   "type": "module",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -31,6 +33,10 @@
     "./core": {
       "types": "./dist/core.d.ts",
       "import": "./dist/core.js"
+    },
+    "./query": {
+      "types": "./dist/query.d.ts",
+      "import": "./dist/query.js"
     },
     "./runtime-tools": {
       "types": "./dist/runtime-tools.d.ts",
@@ -55,6 +61,10 @@
     "./server": {
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js"
+    },
+    "./server/portable": {
+      "types": "./dist/server/portable.d.ts",
+      "import": "./dist/server/portable.js"
     },
     "./async": {
       "types": "./dist/async.d.ts",
@@ -101,7 +111,7 @@
     "LICENSE"
   ],
   "publishConfig": {
-    "tag": "beta"
+    "tag": "latest"
   },
   "repository": {
     "type": "git",
@@ -111,36 +121,70 @@
     "url": "https://github.com/Himesh-Bhattarai/stroid/issues"
   },
   "homepage": "https://github.com/Himesh-Bhattarai/stroid#readme",
-  "sideEffects": [
-    "./src/core/store-notify.ts"
-  ],
+  "stroid": {
+    "treeShakeable": true,
+    "recommendedEntrypoints": [
+      "./core",
+      "./query",
+      "./runtime-tools",
+      "./persist",
+      "./sync",
+      "./devtools",
+      "./async",
+      "./react"
+    ]
+  },
   "scripts": {
-    "test": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",
-    "test:coverage": "c8 node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test tests/unit/**/*.test.ts tests/unit/**/*.test.tsx tests/integration/**/*.test.ts tests/integration/**/*.test.tsx tests/regression/**/*.test.ts tests/ssr/**/*.test.ts tests/utils/**/*.test.ts",
-    "test:performance": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/performance/notify-flush.perf.test.ts tests/performance/snapshot-cache.perf.test.ts tests/performance/stress-memory.perf.test.ts tests/performance/subscriber-concurrent.perf.test.ts tests/performance/sync-lite.perf.test.ts --test-force-exit",
+    "test": "node scripts/run-node-tests.mjs main",
+    "test:coverage": "c8 node scripts/run-node-tests.mjs main",
+    "test:performance": "node scripts/run-node-tests.mjs performance",
     "test:heavy": "npm run test:performance",
-    "test:package": "node --import ./tests/preload.mjs --import tsx --import ./tests/setup.ts --test-concurrency=1 --test tests/package/**/*.test.ts",
+    "test:package": "node scripts/run-node-tests.mjs package",
     "check:react-types": "node scripts/check-react-types.mjs",
+    "check:publint": "node scripts/run-publint.mjs",
+    "check:attw": "node scripts/run-attw.mjs",
     "docs:api": "api-extractor run --local",
     "test:dts": "tsc -p tsconfig.dtscheck.json --noEmit",
-    "test:types": "npm run build && npm run test:package && npm run check:react-types && npm run docs:api && npm run test:dts && tsc -p tsconfig.typetests.json",
+    "test:types": "npm run build && npm run check:publint && npm run check:attw && npm run test:package && npm run check:react-types && npm run docs:api && npm run test:dts && tsc -p tsconfig.typetests.json",
     "typecheck": "tsc -p tsconfig.types.json",
     "typecheck:layers": "tsc -b tsconfig.layers.json",
     "build": "tsup && node scripts/normalize-dts.mjs",
-    "benchmark:compare": "node --expose-gc --import tsx scripts/compare-state-libraries.ts",
-    "benchmark:core-small": "node --expose-gc --import tsx scripts/core-small-benchmark.ts",
-    "benchmark:subscriber": "node --expose-gc --import tsx scripts/subscriber-benchmark.ts",
-    "benchmark:subscriber:concurrent": "node --expose-gc --import tsx scripts/subscriber-concurrent-benchmark.ts",
-    "benchmark:selector": "node --expose-gc --import tsx scripts/selector-benchmark.ts",
-    "benchmark:deep-update": "node --expose-gc --import tsx scripts/deep-update-benchmark.ts",
-    "benchmark:lifecycle": "node --expose-gc --import tsx scripts/lifecycle-benchmark.ts",
-    "benchmark:ssr-isolation": "node --expose-gc --import tsx scripts/ssr-isolation-benchmark.ts",
-    "benchmark:atomic-failure": "node --expose-gc --import tsx scripts/atomic-failure-benchmark.ts",
-    "benchmark:race": "node --expose-gc --import tsx scripts/race-condition-benchmark.ts",
-    "benchmark:determinism": "node --expose-gc --import tsx scripts/determinism-replay-benchmark.ts",
-    "benchmark:memory-leak": "node --expose-gc --import tsx scripts/memory-leak-benchmark.ts",
-    "benchmark:governance": "node --expose-gc --import tsx scripts/governance-lifecycle-benchmark.ts",
-    "benchmark:guarantees": "node --expose-gc --import tsx scripts/guarantee-benchmark-suite.ts",
+    "benchmark:compare": "node --expose-gc --import tsx scripts/comparison/compare-state-libraries.ts",
+    "benchmark:core-small": "node --expose-gc --import tsx scripts/core/core-small-benchmark.ts",
+    "benchmark:subscriber": "node --expose-gc --import tsx scripts/core/subscriber-benchmark.ts",
+    "benchmark:subscriber:concurrent": "node --expose-gc --import tsx scripts/core/subscriber-concurrent-benchmark.ts",
+    "benchmark:selector": "node --expose-gc --import tsx scripts/core/selector-benchmark.ts",
+    "benchmark:deep-update": "node --expose-gc --import tsx scripts/core/deep-update-benchmark.ts",
+    "benchmark:lifecycle": "node --expose-gc --import tsx scripts/core/lifecycle-benchmark.ts",
+    "benchmark:ssr-isolation": "node --expose-gc --import tsx scripts/ssr/ssr-isolation-benchmark.ts",
+    "benchmark:ssr-warm": "node --expose-gc --import tsx scripts/ssr/ssr-warm-container-benchmark.ts",
+    "benchmark:serverless-provider": "node --expose-gc --import tsx scripts/ssr/serverless-provider-certification.ts",
+    "benchmark:next-server-actions": "node --expose-gc --import tsx scripts/ssr/next-server-actions-benchmark.ts",
+    "benchmark:ssr-gaps": "node --expose-gc --import tsx scripts/ssr/ssr-gap-benchmark.ts",
+    "benchmark:ssr-als-audit": "node --expose-gc --import tsx scripts/ssr/ssr-als-audit-ladder-benchmark.ts",
+    "benchmark:react-concurrency": "node --expose-gc --import tsx scripts/react/react-concurrency-benchmark.ts",
+    "benchmark:websocket-stream": "node --expose-gc --import tsx scripts/hydration/websocket-hydration-stream-benchmark.ts",
+    "benchmark:ssr-fair-compare": "node --expose-gc --import tsx scripts/ssr/ssr-fair-compare.ts",
+    "benchmark:atomic-failure": "node --expose-gc --import tsx scripts/guarantees/atomic-failure-benchmark.ts",
+    "benchmark:race": "node --expose-gc --import tsx scripts/guarantees/race-condition-benchmark.ts",
+    "benchmark:hydration-divergence": "node --expose-gc --import tsx scripts/hydration/hydration-divergence-benchmark.ts",
+    "benchmark:hydration-randomized": "node --expose-gc --import tsx scripts/hydration/hydration-randomized-benchmark.ts",
+    "benchmark:hydration-large-payload": "node --expose-gc --import tsx scripts/hydration/hydration-large-payload-benchmark.ts",
+    "benchmark:determinism": "node --expose-gc --import tsx scripts/guarantees/determinism-replay-benchmark.ts",
+    "benchmark:memory-leak": "node --expose-gc --import tsx scripts/guarantees/memory-leak-benchmark.ts",
+    "benchmark:governance": "node --expose-gc --import tsx scripts/guarantees/governance-lifecycle-benchmark.ts",
+    "benchmark:production-reality": "node --expose-gc --import tsx scripts/guarantees/production-reality-benchmark.ts",
+    "benchmark:guarantees": "node --expose-gc --import tsx scripts/guarantees/guarantee-benchmark-suite.ts",
+    "benchmark:trust-matrix": "node --expose-gc --import tsx scripts/guarantees/production-trust-matrix-benchmark.ts",
+    "benchmark:all": "node --import tsx scripts/guarantees/run-all-benchmarks.ts",
+    "test:stress": "vitest run --config vitest.config.ts",
+    "test:stress:coverage": "vitest run --config vitest.config.ts --coverage",
+    "test:stress:fuzz": "vitest run --config vitest.config.ts tests/fuzz",
+    "bench:stress": "node --expose-gc --import tsx scripts/core/stress-benchmark-suite.bench.ts",
+    "bench:stress:check": "node --import tsx scripts/core/check-benchmark-regression.bench.ts",
+    "bench:stress:ci": "npm run bench:stress && npm run bench:stress:check",
+    "bench:stress:update-baseline": "node -e \"const fs=require('fs'); const path=require('path'); const dir=path.resolve('scripts/benchmark-results'); fs.mkdirSync(dir,{recursive:true}); fs.copyFileSync(path.join(dir,'latest.json'), path.join(dir,'baseline.json')); console.log('updated scripts/benchmark-results/baseline.json');\"",
+    "ci:gate-me": "node scripts/ci/run-gate-me-suite.mjs",
     "test:all": "npm test && npm run test:types",
     "test:full": "npm run test:coverage && npm run test:types"
   },
@@ -152,14 +196,20 @@
     "react": ">=18"
   },
   "overrides": {
-    "flatted": "^3.4.2"
+    "flatted": "^3.4.2",
+    "lodash": "4.18.1",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "9.0.9"
+    }
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
     "@microsoft/api-extractor": "^7.57.7",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
     "@types/node": "^22.9.0",
     "@types/react": "^18.2.46",
+    "@vitest/coverage-v8": "^3.2.4",
     "c8": "^10.1.2",
     "eslint": "^8.57.0",
     "eslint-config-standard-with-typescript": "^39.1.1",
@@ -167,13 +217,17 @@
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.1.1",
     "immer": "^11.1.4",
+    "jotai": "^2.12.4",
     "jsdom": "^25.0.1",
+    "publint": "^0.3.18",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "redux": "^5.0.1",
     "tsup": "^8.5.1",
     "tsx": "^4.7.0",
     "typescript": "^5.7.2",
+    "vite": "^6.4.1",
+    "vitest": "^3.2.4",
     "zustand": "^5.0.11"
   }
 }

@@ -19,6 +19,7 @@ import {
     getStoreValueRef,
     recordStoreRead,
     getRegistry,
+    isDeleting,
 } from "./store-lifecycle/registry.js";
 import { materializeInitial } from "./store-lifecycle/validation.js";
 import { nameOf, exists, getFeatureApi } from "./store-lifecycle/identity.js";
@@ -34,7 +35,7 @@ import type {
 import type { SnapshotMode } from "../adapters/options.js";
 import type { FeatureMetrics } from "../features/feature-registry.js";
 
-type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
+export type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
 
 const resolveSnapshotMode = (
     metaEntry: { options?: { snapshot?: SnapshotMode } } | undefined,
@@ -74,7 +75,8 @@ export function getStore(name: string | StoreDefinition<string, StoreValue>, pat
     return cloneSnapshot(value, snapshotMode);
 }
 
-export const hasStore = (name: string): boolean => hasStoreEntryInternal(name);
+export const hasStore = (name: string): boolean =>
+    hasStoreEntryInternal(name) && !isDeleting(name);
 
 export const isLazyStore = (name: string): boolean => {
     const registry = getRegistry();

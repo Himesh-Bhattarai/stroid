@@ -24,7 +24,7 @@ import {
 import { clearAllStores } from "../../src/runtime-admin/index.js";
 import { resetAllStoresForTest } from "../../src/helpers/testing.js";
 import { createSelector, subscribeWithSelector } from "../../src/selectors/index.js";
-import { namespace } from "../../src/core/store-name.js";
+import { namespace, store } from "../../src/core/store-name.js";
 import { createStoreCore, getActiveAsyncRegistry } from "../../src/core/store-core.js";
 import { createStoreRegistry, runWithRegistry } from "../../src/core/store-registry.js";
 import { notifyStore } from "../../src/core/store-shared/notify.js";
@@ -67,6 +67,9 @@ import { hashState, crc32 } from "../../src/utils/hash.js";
 import { MIDDLEWARE_ABORT } from "../../src/features/lifecycle.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 
+type NestedState = { nested: { value: number } };
+type ValueState = { value: number };
+
 test("createSelector caches primitive results and handles missing stores", () => {
   resetAllStoresForTest();
   createStore("sel", 1);
@@ -85,22 +88,27 @@ test("createSelector caches primitive results and handles missing stores", () =>
 test("subscribeWithSelector handles modes, late stores, and deletions", async () => {
   resetAllStoresForTest();
 
-  const noop = subscribeWithSelector("missing", null as any, Object.is, null as any);
+  const noop = subscribeWithSelector(
+    "missing",
+    null as unknown as (state: unknown) => unknown,
+    Object.is,
+    null as unknown as (next: unknown, prev: unknown | undefined) => void
+  );
   assert.strictEqual(typeof noop, "function");
   noop();
 
   createStore("snapRef", { nested: { value: 1 } }, { snapshot: "ref" });
-  let refInput: any = null;
-  const refCalls: Array<[number, number]> = [];
+  let refInput: NestedState | null = null;
+  const refCalls: Array<[number, number | undefined]> = [];
   subscribeWithSelector(
     "snapRef",
-    (state: any) => {
+    (state: NestedState) => {
       refInput = state;
       return state.nested.value;
     },
     Object.is,
     (next, prev) => {
-      refCalls.push([next as number, prev as number]);
+      refCalls.push([next, prev]);
     }
   );
   setStore("snapRef", "nested.value", 2);
@@ -111,10 +119,10 @@ test("subscribeWithSelector handles modes, late stores, and deletions", async ()
   assert.deepStrictEqual(refCalls[0], [2, 1]);
 
   createStore("snapShallow", { nested: { value: 1 } }, { snapshot: "shallow" });
-  let shallowInput: any = null;
+  let shallowInput: NestedState | null = null;
   subscribeWithSelector(
     "snapShallow",
-    (state: any) => {
+    (state: NestedState) => {
       shallowInput = state;
       return state.nested;
     },
@@ -124,19 +132,21 @@ test("subscribeWithSelector handles modes, late stores, and deletions", async ()
   setStore("snapShallow", "nested.value", 2);
   await Promise.resolve();
 
-  const shallowRaw = _getStoreValueRef("snapShallow") as any;
+  const shallowRaw = _getStoreValueRef("snapShallow");
+  assert.ok(shallowRaw);
+  assert.ok(shallowInput);
   assert.notStrictEqual(shallowInput, shallowRaw);
-  assert.strictEqual(shallowInput.nested, shallowRaw.nested);
+  assert.strictEqual(shallowInput.nested, (shallowRaw as NestedState).nested);
 
   let lateCalls = 0;
   const latePairs: Array<[number, number | undefined]> = [];
   subscribeWithSelector(
     "lateStore",
-    (state: any) => state.value as number,
+    (state: ValueState) => state.value,
     Object.is,
     (next, prev) => {
       lateCalls += 1;
-      latePairs.push([next as number, prev as number]);
+      latePairs.push([next, prev]);
     }
   );
   createStore("lateStore", { value: 1 });
@@ -156,10 +166,10 @@ test("subscribeWithSelector handles modes, late stores, and deletions", async ()
   const deleteCalls: Array<[number, number | undefined]> = [];
   subscribeWithSelector(
     "toDelete",
-    (state: any) => state.value as number,
+    (state: ValueState) => state.value,
     Object.is,
     (next, prev) => {
-      deleteCalls.push([next as number, prev as number]);
+      deleteCalls.push([next, prev]);
     }
   );
   createStore("toDelete", { value: 1 });
@@ -191,7 +201,7 @@ test("runtime-tools report store metadata, patterns, and queue depth", async () 
   assert.deepStrictEqual(getInitialState().alpha, { value: 1 });
 
   let calls = 0;
-  subscribeWithSelector("alpha", (state: any) => state.value, Object.is, () => { calls += 1; });
+  subscribeWithSelector<ValueState, number>("alpha", (state) => state.value, Object.is, () => { calls += 1; });
   setStore("alpha", "value", 2);
   await Promise.resolve();
 
@@ -226,8 +236,8 @@ test("store-core adapter scopes reads, writes, and subscriptions", async () => {
   const coreA = createStoreCore<{ value: number }>("coreStore");
   const coreB = createStoreCore<{ value: number }>("coreStore");
 
-  let seenA: any = null;
-  let seenB: any = null;
+  let seenA: ValueState | null = null;
+  let seenB: ValueState | null = null;
 
   const unsubA = runWithRegistry(registryA, () =>
     coreA.subscribe((snap) => { seenA = snap; })
@@ -333,7 +343,7 @@ test("store-name namespace helpers qualify and route operations", () => {
 test("hydrateStores enforces trust validation branches", () => {
   resetAllStoresForTest();
 
-  const untrusted = hydrateStores({ a: { value: 1 } }, {}, {} as any);
+  const untrusted = hydrateStores({ a: { value: 1 } }, {}, {} as unknown as { allowTrusted: true });
   assert.strictEqual(untrusted.blocked?.reason, "untrusted");
 
   const failed = hydrateStores(
@@ -352,7 +362,7 @@ test("hydrateStores enforces trust validation branches", () => {
   }, /trust\.validate threw/);
 
   const invalid = hydrateStores(
-    { "bad name": { value: 1 } } as any,
+    { "bad name": { value: 1 } },
     {},
     { allowUntrusted: true }
   );
@@ -363,7 +373,7 @@ test("hydrateStores enforces trust validation branches", () => {
 test("setStoreBatch guards invalid callbacks and transaction errors", async () => {
   resetAllStoresForTest();
 
-  setStoreBatch(null as any);
+  setStoreBatch(null as unknown as () => unknown);
   setStoreBatch(async () => {});
   setStoreBatch(() => Promise.resolve());
 
@@ -446,13 +456,13 @@ test("utils/path handles parsing, depth, and mutations", () => {
   assert.deepStrictEqual(parsePath(["a", "b"]), ["a", "b"]);
   assert.deepStrictEqual(parsePath("plain"), ["plain"]);
   assert.deepStrictEqual(parsePath("a\\.b.c"), ["a.b", "c"]);
-  assert.deepStrictEqual(parsePath(123 as any), ["123"]);
+  assert.deepStrictEqual(parsePath(123 as unknown as string), ["123"]);
 
   assert.strictEqual(validateDepth(Array.from({ length: 11 }, () => "x")), false);
   assert.strictEqual(validateDepth(["a", "b", "c", "d", "e", "f"]), true);
 
   assert.strictEqual(getByPath(null, "a"), undefined);
-  assert.strictEqual(getByPath(5 as any, "a"), undefined);
+  assert.strictEqual(getByPath(5, "a"), undefined);
   assert.strictEqual(getByPath({ a: { b: 1 } }, "a.b"), 1);
 
   const base = { a: { b: 1 }, arr: [{ v: 1 }] };
@@ -462,20 +472,21 @@ test("utils/path handles parsing, depth, and mutations", () => {
   const updatedArr = setByPath([{ v: 1 }], "0.v", 2);
   assert.deepStrictEqual(updatedArr, [{ v: 2 }]);
 
-  const created = setByPath({}, "x.0.y", 3) as any;
+  const createdBase: Record<string, unknown> = {};
+  const created = setByPath(createdBase, "x.0.y", 3);
   assert.deepStrictEqual(created, { x: [3] });
 
   const untouched = setByPath([1, 2], "x", 3);
   assert.deepStrictEqual(untouched, [1, 2]);
 
-  const forbidden = setByPath({ safe: 1 } as any, "__proto__", 9);
-  assert.strictEqual((forbidden as any).safe, 1);
+  const forbidden = setByPath({ safe: 1 }, "__proto__", 9);
+  assert.strictEqual(forbidden.safe, 1);
 
-  const forbiddenNested = setByPath({ safe: {} } as any, "safe.__proto__", 9);
+  const forbiddenNested = setByPath({ safe: {} }, "safe.__proto__", 9);
   assert.deepStrictEqual(forbiddenNested, { safe: {} });
 
-  const fallback = setByPath(5 as any, "a.b", 1);
-  assert.strictEqual(fallback as any, 5);
+  const fallback = setByPath(5 as unknown as Record<string, unknown>, "a.b", 1);
+  assert.strictEqual(fallback as unknown, 5);
 });
 
 test("utils/clone covers shallow and deep clone branches", () => {
@@ -499,13 +510,15 @@ test("utils/clone covers shallow and deep clone branches", () => {
     set: new Set([1, 2]),
     arr: [1, { v: 2 }],
   };
-  const complexClone = deepClone(complex) as any;
+  const complexClone = deepClone(complex);
   assert.strictEqual(complexClone.map instanceof Map, true);
   assert.strictEqual(complexClone.set instanceof Set, true);
   assert.deepStrictEqual(complexClone.arr, [1, { v: 2 }]);
 
-  if (typeof (globalThis as any).WeakRef === "function") {
-    const weak = new (globalThis as any).WeakRef({ ok: true });
+  const WeakRefCtor = (globalThis as unknown as Record<string, unknown>).WeakRef;
+  if (typeof WeakRefCtor === "function") {
+    const WeakRefTyped = WeakRefCtor as unknown as (new (value: object) => WeakRef<object>);
+    const weak = new WeakRefTyped({ ok: true });
     assert.throws(() => {
       deepClone({ weak });
     }, /WeakRef|structured-cloneable/i);
@@ -521,7 +534,7 @@ test("utils/clone covers shallow and deep clone branches", () => {
   });
   let proxyError: unknown = null;
   try {
-    deepClone(proxy as any);
+    deepClone(proxy);
   } catch (err) {
     proxyError = err;
   }
@@ -548,9 +561,10 @@ test("deepClone warns and falls back when structuredClone fails", () => {
       warn: (msg: string) => warnings.push(msg),
     },
   });
-  const originalClone = (globalThis as any).structuredClone;
+  const globalCtors = globalThis as unknown as Record<string, unknown>;
+  const originalClone = globalCtors.structuredClone;
   try {
-    (globalThis as any).structuredClone = () => {
+    globalCtors.structuredClone = () => {
       throw new Error("structuredClone boom");
     };
     const value = { nested: { value: 1 } };
@@ -558,7 +572,7 @@ test("deepClone warns and falls back when structuredClone fails", () => {
     assert.notStrictEqual(cloned, value);
     assert.ok(warnings.some((msg) => msg.includes("fell back to manual clone")));
   } finally {
-    (globalThis as any).structuredClone = originalClone;
+    globalCtors.structuredClone = originalClone;
     resetConfig();
   }
 });
@@ -582,16 +596,16 @@ test("store-write reset/delete branches for lazy stores and batching", async () 
     clearAllStoresInternal();
   });
 
-  let hydrateResult: any = null;
+  let hydrateResult: ReturnType<typeof hydrateStores> | null = null;
   setStoreBatch(() => {
-    hydrateResult = hydrateStores({ hydrated: { value: 1 } } as any, {}, { allowUntrusted: true });
+    hydrateResult = hydrateStores({ hydrated: { value: 1 } }, {}, { allowUntrusted: true });
   });
   assert.strictEqual(hydrateResult?.blocked?.reason, "transaction");
 
   createStore("missingInit", { value: 1 });
   delete (initialStates as Record<string, unknown>)["missingInit"];
   const resetMissing = resetStore("missingInit");
-  assert.strictEqual(resetMissing.ok, false);
+  assert.deepStrictEqual(resetMissing, { ok: false, reason: "no-initial-state" });
 });
 
 test("store-write guards fire inside manual transaction", () => {
@@ -603,7 +617,7 @@ test("store-write guards fire inside manual transaction", () => {
     assert.strictEqual(isTransactionActive(), true);
     deleteStore("txGuard");
     clearAllStoresInternal();
-    const hydrateResult = hydrateStores({ txHydrate: { value: 1 } } as any, {}, { allowUntrusted: true });
+    const hydrateResult = hydrateStores({ txHydrate: { value: 1 } }, {}, { allowUntrusted: true });
     assert.strictEqual(hydrateResult.blocked?.reason, "transaction");
   } finally {
     endTransaction();
@@ -632,7 +646,7 @@ test("store-write middleware, validation, and replace branches", () => {
   });
 
   createStore("validateFail", { value: 1 }, {
-    validate: (next: any) => (next?.value === 1 ? true : false),
+    validate: (next: ValueState) => next.value === 1,
   });
   setStoreBatch(() => {
     const result = setStore("validateFail", { value: 2 });
@@ -641,16 +655,16 @@ test("store-write middleware, validation, and replace branches", () => {
 
   createStore("replaceMw", { value: 1 }, {
     lifecycle: {
-      middleware: [() => MIDDLEWARE_ABORT as any],
+      middleware: [() => MIDDLEWARE_ABORT],
     },
   });
   const replaceMw = replaceStore("replaceMw", { value: 2 });
   assert.deepStrictEqual(replaceMw, { ok: false, reason: "middleware" });
 
-  const replaceMissing = replaceStore("missingReplace", { value: 1 } as any);
+  const replaceMissing = replaceStore(store("missingReplace"), { value: 1 });
   assert.deepStrictEqual(replaceMissing, { ok: false, reason: "not-found" });
 
-  const replaceInvalid = replaceStore("replaceMw", undefined as any);
+  const replaceInvalid = replaceStore(store("replaceMw"), undefined);
   assert.deepStrictEqual(replaceInvalid, { ok: false, reason: "validate" });
 });
 
@@ -660,7 +674,7 @@ test("resetStore reports missing initial state branch", () => {
   delete (initialStates as Record<string, unknown>)["missingInitBranch"];
 
   const result = resetStore("missingInitBranch");
-  assert.strictEqual(result.ok, false);
+  assert.deepStrictEqual(result, { ok: false, reason: "no-initial-state" });
 });
 
 test("hashState covers numeric and structural branches", () => {
@@ -698,6 +712,22 @@ test("hashState covers numeric and structural branches", () => {
   const hash = hashState(value);
   assert.strictEqual(typeof hash, "number");
   assert.strictEqual(hashState("string"), crc32(JSON.stringify("string")));
+});
+
+test("hashState plain-object fast path preserves accessor safety", () => {
+  let getterCalls = 0;
+  const value: Record<string, unknown> = { stable: 1 };
+  Object.defineProperty(value, "computed", {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      return "runtime";
+    },
+  });
+
+  const hash = hashState(value);
+  assert.strictEqual(typeof hash, "number");
+  assert.strictEqual(getterCalls, 0);
 });
 
 test("utils/validation covers schema, sanitize, and name helpers", () => {
@@ -755,16 +785,17 @@ test("utils/validation covers schema, sanitize, and name helpers", () => {
   assert.strictEqual(canReuseSanitized({ a: 1, b: [1, 2] }), true);
   assert.strictEqual(canReuseSanitized({ when: new Date() }), false);
 
-  const arrayWithKey: any[] = [];
+  type ArrayWithExtra = unknown[] & { extra?: number };
+  const arrayWithKey: ArrayWithExtra = [];
   arrayWithKey.extra = 1;
   assert.strictEqual(canReuseSanitized(arrayWithKey), false);
 
-  const withSymbol: any = { a: 1 };
+  const withSymbol: Record<string | symbol, unknown> = { a: 1 };
   withSymbol[Symbol("x")] = 2;
   assert.strictEqual(canReuseSanitized(withSymbol), false);
 
   assert.throws(() => {
-    const withAccessor: any = {};
+    const withAccessor: Record<string, unknown> = {};
     Object.defineProperty(withAccessor, "x", {
       get: () => 1,
       enumerable: true,
@@ -773,7 +804,7 @@ test("utils/validation covers schema, sanitize, and name helpers", () => {
   }, /Accessor/);
 
   assert.throws(() => {
-    const circular: any = {};
+    const circular: Record<string, unknown> = {};
     circular.self = circular;
     canReuseSanitized(circular);
   }, /Circular/);
@@ -801,10 +832,12 @@ test("computed guards invalid arguments and missing entries", async () => {
   resetAllStoresForTest();
   const { createComputed, invalidateComputed, deleteComputed } = await import("../../src/computed/index.js");
 
-  assert.strictEqual(createComputed("", ["a"], () => 1), undefined);
-  assert.strictEqual(createComputed("badDeps", [] as any, () => 1), undefined);
-  assert.strictEqual(createComputed("badCompute", ["a"], null as any), undefined);
-  assert.strictEqual(createComputed("badDepType", [123 as any], () => 1), undefined);
+  const dep = store("computedDep");
+
+  assert.strictEqual(createComputed("", [dep], () => 1), undefined);
+  assert.strictEqual(createComputed("badDeps", [], () => 1), undefined);
+  assert.strictEqual(createComputed("badCompute", [dep], null as unknown as () => number), undefined);
+  assert.strictEqual(createComputed("badDepType", [123 as unknown as typeof dep], () => 1), undefined);
 
   invalidateComputed("missingComputed");
   deleteComputed("missingComputed");

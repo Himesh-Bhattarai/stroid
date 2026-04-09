@@ -29,11 +29,12 @@
 | 5 | [Input Types](#-input-types) | URL string, Promise, factory function |
 | 6 | [Stale-While-Revalidate](#-stale-while-revalidate) | Background refresh, `revalidating` flag |
 | 7 | [Abort Control](#-abort-control) | `AbortController`, `signal`, abort state |
-| 8 | [`refetchStore`](#-refetchstore) | Force re-fetch, bypass TTL cache |
+| 8 | [`refetchStore`](#-refetchstore) | Replay last fetch recipe for a store |
 | 9 | [`enableRevalidateOnFocus`](#-enablerevalidateonfocus) | Focus / online revalidation, global config |
-| 10 | [Suspense Integration](#-suspense-integration-useasyncstoresuspense) | `useAsyncStoreSuspense`, promise reuse |
-| 11 | [Limits & Safeguards](#-limits--safeguards) | Slots, rate limiting, dedup, auto-create |
-| 12 | [Correlation IDs & Tracing](#-correlation-ids--tracing) | `autoCorrelationIds`, `getStoreHealth` |
+| 10 | [`getAsyncMetrics`](#-getasyncmetrics) | Global counters and per-store async metrics |
+| 11 | [Suspense Integration](#-suspense-integration-useasyncstoresuspense) | `useAsyncStoreSuspense`, promise reuse |
+| 12 | [Limits & Safeguards](#-limits--safeguards) | Slots, rate limiting, dedup, auto-create |
+| 13 | [Correlation IDs & Tracing](#-correlation-ids--tracing) | `autoCorrelationIds`, `getStoreHealth` |
 
 ---
 
@@ -151,7 +152,7 @@ function UserCard() {
 | `loading` | `boolean` | `true` while a request is in flight |
 | `error` | `string \| null` | Error message from last failed request |
 | `status` | `string` | `"idle"` · `"loading"` · `"success"` · `"error"` · `"aborted"` |
-| `isEmpty` | `boolean` | `true` when `data` is null, `[]`, or `{}` |
+| `isEmpty` | `boolean` | `true` when `data == null && !loading && !error` |
 | `revalidating` | `boolean` | `true` during background SWR re-fetch (data is still shown) |
 
 ---
@@ -276,6 +277,9 @@ flowchart LR
 > [!TIP]
 > Use the **factory form** when you need a fresh request on every call — for example, when the URL includes a timestamp, nonce, or user-specific parameter that changes between invocations.
 
+> [!WARNING]
+> Direct Promise inputs are awaited as-is. Because Stroid cannot recreate the Promise, retry settings do not apply and `refetchStore()` can only fall back to the most recent cached value. Use a URL string or factory when you need retries, backoff, or replayable refetches.
+
 ---
 
 ## 🔄 Stale-While-Revalidate
@@ -390,29 +394,26 @@ useEffect(() => {
 
 ## 🔁 `refetchStore`
 
-Forces a re-fetch for a store, **bypassing the TTL cache** entirely — even if the cached data is still fresh.
+Replays the last fetch recipe for a store (same URL/factory + options).
 
 ```ts
-import { refetchStore } from "stroid/async"
+import { fetchStore, refetchStore } from "stroid/async"
 
-// Simple re-fetch
+// Register a replayable recipe first.
+await fetchStore("user", "/api/user", { ttl: 30_000 })
+
+// Replay the last recipe.
 refetchStore("user")
-
-// Re-fetch with callbacks
-refetchStore("user", {
-  onSuccess: (data) => console.log("refreshed:", data),
-  onError:   (err)  => console.error("refresh failed:", err),
-})
 ```
 
 | | `fetchStore` | `refetchStore` |
 |---|---|---|
-| Respects TTL cache | ✅ Yes | ❌ Always bypasses |
-| Accepts full options | ✅ Yes | ⚠️ Callbacks only |
-| Use when… | Initial load or cache-aware fetch | Pull-to-refresh, post-mutation invalidation |
+| Respects TTL cache | ✅ Yes | ✅ Reuses original options (including `ttl`) |
+| Accepts full options | ✅ Yes | ❌ Replays the previous recipe; no new options |
+| Use when… | Initial load or cache-aware fetch | Repeat the same request later |
 
 > [!TIP]
-> Call `refetchStore` after a mutation (create, update, delete) to invalidate and refresh the relevant store — for example, after `POST /api/posts`, call `refetchStore("posts")` to re-sync the list.
+> If you need a guaranteed network hit after a mutation, call `fetchStore(..., { ttl: 0 })` or change the `cacheKey`.
 
 ---
 
@@ -421,11 +422,15 @@ refetchStore("user", {
 Automatically re-fetches a store when the page **regains focus** (tab switch back) or comes back **online** (network reconnect).
 
 ```ts
-import { enableRevalidateOnFocus } from "stroid/async"
+import { fetchStore, enableRevalidateOnFocus } from "stroid/async"
 
-enableRevalidateOnFocus("user", "/api/user", {
-  ttl:    30_000,
-  dedupe: true,
+// Register a replayable fetch recipe first.
+await fetchStore("user", "/api/user", { ttl: 30_000 })
+
+const stopAutoRefresh = enableRevalidateOnFocus("user", {
+  debounceMs: 500,
+  maxConcurrent: 5,
+  staggerMs: 100,
 })
 ```
 
@@ -465,6 +470,35 @@ flowchart LR
 
 ---
 
+## 📊 `getAsyncMetrics`
+
+Use `getAsyncMetrics()` to inspect async performance counters.
+
+```ts
+import { getAsyncMetrics } from "stroid/async"
+
+// Global counters across all async stores
+const global = getAsyncMetrics()
+
+// Optional per-store counters
+const user = getAsyncMetrics("user")
+```
+
+Returned fields:
+
+- `cacheHits`
+- `cacheMisses`
+- `dedupes`
+- `requests`
+- `failures`
+- `avgMs`
+- `lastMs`
+
+If a store has no async activity yet, `getAsyncMetrics("storeName")` returns `null`.
+Per-store metrics are removed automatically when that store is deleted.
+
+---
+
 ## ⏳ Suspense Integration — `useAsyncStoreSuspense`
 
 For React Suspense, `useAsyncStoreSuspense` **throws a promise** while loading and resolves directly to the `data` field when the fetch completes — no `loading` flag needed.
@@ -474,7 +508,10 @@ import { useAsyncStoreSuspense } from "stroid/react"
 
 // ✅ Must be wrapped in <React.Suspense>
 function UserProfile() {
-  const user = useAsyncStoreSuspense("user", "/api/user", { ttl: 30_000 })
+  const user = useAsyncStoreSuspense("user", "/api/user", {
+    ttl: 30_000,
+    autoCreate: true,
+  })
   //    ^^^^
   //    Directly typed as the data value — no null check needed here
   return <div>{user.name}</div>

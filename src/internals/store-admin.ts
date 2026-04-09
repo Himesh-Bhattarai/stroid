@@ -10,6 +10,7 @@ import { runStoreHook } from "../features/lifecycle.js";
 import { getRegisteredFeatureNames, type FeatureDeleteContext, type StoreFeatureMeta } from "../features/feature-registry.js";
 import { getRequestCarrier, hasStoreEntry, emitLifecycleEvent, type StoreRegistry } from "../core/store-registry.js";
 import { getCommittedStoreValueRef } from "../core/store-lifecycle/registry.js";
+import { dropFeatureContextForStore } from "../core/store-lifecycle/hooks.js";
 import { deepClone, hashState, sanitize } from "../utils.js";
 import { isDev, log, warn, warnAlways } from "./diagnostics.js";
 import { reportIssue } from "./reporting.js";
@@ -28,6 +29,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
     const snapshotCache = registry.snapshotCache as Record<string, { version: number; snapshot: unknown | null; source?: unknown | null; mode?: "deep" | "shallow" | "ref" }>;
     const featureRuntimes = registry.featureRuntimes;
     const deletingStores = registry.deletingStores;
+    const notifyState = registry.notify;
     const getAllCommittedStores = (): Record<string, unknown> =>
         Object.fromEntries(
             Object.keys(metaEntries).map((storeName) => [
@@ -128,9 +130,34 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
 
         getRegisteredFeatureNames().forEach((featureName) => {
             const runtime = featureRuntimes.get(featureName);
-            if (phase === "before") runtime?.beforeStoreDelete?.(beforeDeleteContext);
-            else runtime?.afterStoreDelete?.(afterDeleteContext);
+            const hook = phase === "before"
+                ? runtime?.beforeStoreDelete
+                : runtime?.afterStoreDelete;
+            if (!hook) return;
+            try {
+                hook(phase === "before" ? beforeDeleteContext : afterDeleteContext);
+            } catch (err) {
+                reportIssue(
+                    `Feature "${String(featureName)}" ${phase}StoreDelete for "${name}" failed: ` +
+                    `${(err as { message?: string })?.message ?? err}`,
+                    {
+                        onError: options.onError,
+                        severity: "warn",
+                        visibility: "always",
+                    }
+                );
+            }
         });
+    };
+
+    const clearHydrationStateForStore = (name: string): void => {
+        const hydrationState = registry.hydration;
+        delete hydrationState.stores[name];
+        for (let index = hydrationState.queue.length - 1; index >= 0; index -= 1) {
+            if (hydrationState.queue[index]?.store === name) {
+                hydrationState.queue.splice(index, 1);
+            }
+        }
     };
 
     const deleteExistingStore = (name: string): void => {
@@ -150,6 +177,7 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
                     warn(`Subscriber for "${name}" threw during delete: ${(err as { message?: string })?.message ?? err}`);
                 }
             });
+            subs?.clear();
 
             runStoreHook({
                 name,
@@ -183,6 +211,20 @@ export const createStoreAdmin = (registry: StoreRegistry) => {
             delete initialFactories[name];
             delete metaEntries[name];
             delete snapshotCache[name];
+            clearHydrationStateForStore(name);
+            notifyState.pendingNotifications.delete(name);
+            for (let index = notifyState.pendingBuffer.length - 1; index >= 0; index -= 1) {
+                if (notifyState.pendingBuffer[index] === name) {
+                    notifyState.pendingBuffer.splice(index, 1);
+                }
+            }
+            for (let index = notifyState.orderedNames.length - 1; index >= 0; index -= 1) {
+                if (notifyState.orderedNames[index] === name) {
+                    notifyState.orderedNames.splice(index, 1);
+                }
+            }
+            fireHook("storeDeleteCleanup", name, { type: "storeDeleteCleanup", prev });
+            dropFeatureContextForStore(name, registry);
 
             if (isComputed(name)) {
                 deleteComputed(name);

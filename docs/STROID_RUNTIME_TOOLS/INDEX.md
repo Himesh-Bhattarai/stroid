@@ -1,6 +1,6 @@
 # 📈 Runtime Tools
 
-> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-03-30 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
+> **Version:** 0.1.4 &nbsp;|&nbsp; **Last Updated:** 2026-04-01 &nbsp;|&nbsp; **Confidence:** ![HIGH](https://img.shields.io/badge/confidence-HIGH-brightgreen)
 >
 > *Derived from `src/runtime-tools/index.ts`*
 
@@ -21,6 +21,9 @@ import {
   getPersistQueueDepth,
   findColdStores,
   getStoreHealth,
+  getHydrationConsistency,
+  getHydrationDriftEvents,
+  getHydrationDriftMetrics,
   getComputedGraph,
   getRuntimeGraph,
   getComputedDeps,
@@ -30,6 +33,7 @@ import {
 ```
 
 These helpers read from the active registry context. Outside request scope they fall back to the default registry.
+Import only the helpers you use. Store inspection and computed graph helpers are grouped separately internally, but the published multi-entry build still shares runtime chunks, so the largest bundle wins are still elsewhere.
 
 ---
 
@@ -62,6 +66,35 @@ const health = getStoreHealth("cart")
 - `findColdStores({ unreadThresholdMs?, includeWriteOnly? })` returns stores classified as `cold`, `stale`, or optionally `write-only`.
 - `getStoreHealth(name)` returns a single-store health report.
 - `getStoreHealth()` returns an aggregate report for all stores plus async registry metrics.
+
+---
+
+## Hydration Drift
+
+- `getHydrationConsistency(name?)` returns one store report, all reports, or `null` when a named store was not hydrated under a consistency contract.
+- `getHydrationDriftEvents(limit?)` returns the most recent structured drift events.
+- `getHydrationDriftMetrics()` returns counters plus boot-window state (`pendingWrites`, `bootWindowActive`, `bootWindowMode`, `bootWindowEndsAtMs`, `manualCloseAvailable`).
+- Drift payload snapshots (`event.baseline`, `event.live`, `event.resolved`) are included in development, and omitted as `null` in production; hash fields remain available in both modes.
+
+```ts
+import {
+  getHydrationConsistency,
+  getHydrationDriftEvents,
+  getHydrationDriftMetrics,
+} from "stroid/runtime-tools"
+
+const session = getHydrationConsistency("session")
+const events = getHydrationDriftEvents(5)
+const metrics = getHydrationDriftMetrics()
+```
+
+These helpers are intended for post-SSR debugging:
+
+- which hydrated stores are `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`
+- when a store first diverged from the hydrated baseline
+- whether writes were queued during the boot window
+- whether the active gate is running in `timer` or `manual` mode
+- which source triggered drift (`effect`, `storage`, `network`, `sync`)
 
 ---
 

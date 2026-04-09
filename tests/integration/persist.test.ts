@@ -24,6 +24,36 @@ import { hashState } from "../../src/utils.js";
 installPersist();
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+const waitFor = async (predicate: () => boolean, timeoutMs = 500, intervalMs = 5): Promise<boolean> => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return true;
+    await wait(intervalMs);
+  }
+  return predicate();
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const readNumberProp = (value: unknown, key: string): number | undefined => {
+  if (!isRecord(value)) return undefined;
+  const prop = value[key];
+  return typeof prop === "number" ? prop : undefined;
+};
+
+type WindowLike = {
+  localStorage?: unknown;
+  sessionStorage?: unknown;
+  addEventListener?: (type: string, handler: (event?: unknown) => void) => void;
+  removeEventListener?: (type: string, handler: (event?: unknown) => void) => void;
+};
+
+type GlobalTestEnv = typeof globalThis & {
+  window?: WindowLike | Window;
+};
+
+const g = globalThis as GlobalTestEnv;
 
 test("persist setItem errors surface via onError without throwing", async () => {
   clearAllStores();
@@ -65,19 +95,19 @@ test("persist setItem errors surface via onError without throwing", async () => 
 test("persist true surfaces localStorage quota errors without throwing", async () => {
   clearAllStores();
   const errors: string[] = [];
-  const originalWindow = (globalThis as any).window;
+  const originalWindow = g.window;
 
   const throwingStorage = {
     getItem: () => null,
     setItem: () => {
-      const err = new Error("QuotaExceededError");
-      (err as any).name = "QuotaExceededError";
+      const err = new Error("QuotaExceededError") as Error & { name: string };
+      err.name = "QuotaExceededError";
       throw err;
     },
     removeItem: () => {},
   };
 
-  (globalThis as any).window = {
+  g.window = {
     localStorage: throwingStorage,
     sessionStorage: throwingStorage,
   };
@@ -95,7 +125,11 @@ test("persist true surfaces localStorage quota errors without throwing", async (
     assert.ok(errors.some((msg) => msg.includes("QuotaExceededError")));
   } finally {
     clearAllStores();
-    (globalThis as any).window = originalWindow;
+    if (originalWindow === undefined) {
+      delete (globalThis as unknown as Record<string, unknown>).window;
+    } else {
+      g.window = originalWindow;
+    }
   }
 });
 
@@ -189,15 +223,17 @@ test("persist supports async crypto and sha256 checksums", async () => {
 
   createStore("secureAsync", { value: 1 }, { persist });
   setStore("secureAsync", { value: 2 });
-  await wait(20);
+  const persisted = await waitFor(() => typeof stored === "string" && stored.startsWith("enc:"));
 
+  assert.ok(persisted);
   assert.ok(stored?.startsWith("enc:"));
 
   resetAllStoresForTest();
 
   createStore("secureAsync", { value: 0 }, { persist });
-  await wait(20);
+  const restored = await waitFor(() => readNumberProp(getStore("secureAsync"), "value") === 2);
 
+  assert.ok(restored);
   assert.deepStrictEqual(getStore("secureAsync"), { value: 2 });
 });
 
@@ -307,7 +343,7 @@ test("isIdentityCrypto ignores toString errors", () => {
   const throwing = ((value: string) => {
     throw new Error(`fail:${value}`);
   }) as (value: string) => string;
-  (throwing as any).toString = () => {
+  (throwing as unknown as { toString: () => string }).toString = () => {
     throw new Error("toString failed");
   };
 
@@ -484,12 +520,12 @@ test("persist onMigrationFail can recover data after a schema version change", (
     removeItem: () => {},
   };
 
-  createStore(
+  createStore<"profile", unknown>(
     "profile",
     { fullName: "Initial" },
     {
       version: 2,
-      validate: (value: any) => (typeof value?.fullName === "string" ? value : false),
+      validate: (value: unknown) => (isRecord(value) && typeof value.fullName === "string" ? value : false),
       persist: {
         driver,
         key: "profile-migration",
@@ -497,7 +533,10 @@ test("persist onMigrationFail can recover data after a schema version change", (
         deserialize: JSON.parse,
         encrypt: (v: string) => v,
         decrypt: (v: string) => v,
-        onMigrationFail: (oldState: any) => ({ fullName: oldState.name }),
+        onMigrationFail: (oldState: unknown) => {
+          if (isRecord(oldState) && typeof oldState.name === "string") return { fullName: oldState.name };
+          return { fullName: "Initial" };
+        },
       },
       onError: (msg) => errors.push(msg),
     }
@@ -523,9 +562,9 @@ test('persist onMigrationFail "keep" still validates partial migration results',
     removeItem: () => {},
   };
 
-  createStore("partialMigration", { fullName: "Initial" }, {
+  createStore<"partialMigration", unknown>("partialMigration", { fullName: "Initial" }, {
     version: 3,
-    validate: (value: any) => (typeof value?.fullName === "string" ? value : false),
+    validate: (value: unknown) => (isRecord(value) && typeof value.fullName === "string" ? value : false),
     persist: {
       driver,
       key: "partial-migration",
@@ -534,7 +573,10 @@ test('persist onMigrationFail "keep" still validates partial migration results',
       encrypt: (v: string) => v,
       decrypt: (v: string) => v,
       migrations: {
-        2: (state: any) => ({ legacyName: state.name }),
+        2: (state: unknown) => {
+          if (isRecord(state) && typeof state.name === "string") return { legacyName: state.name };
+          return { legacyName: null };
+        },
         3: () => {
           throw new Error("step boom");
         },
@@ -561,17 +603,20 @@ test("grouped persist options support nested version and migrations", () => {
     removeItem: () => {},
   };
 
-  createStore(
+  createStore<"profileGrouped", unknown>(
     "profileGrouped",
     { fullName: "Initial" },
     {
-      validate: (value: any) => (typeof value?.fullName === "string" ? value : false),
+      validate: (value: unknown) => (isRecord(value) && typeof value.fullName === "string" ? value : false),
       persist: {
         driver,
         key: "profile-grouped-migration",
         version: 2,
         migrations: {
-          2: (state: any) => ({ fullName: state.name }),
+          2: (state: unknown) => {
+            if (isRecord(state) && typeof state.name === "string") return { fullName: state.name };
+            return { fullName: "Initial" };
+          },
         },
         serialize: JSON.stringify,
         deserialize: JSON.parse,
@@ -589,18 +634,18 @@ test("grouped persist options support nested version and migrations", () => {
 test("persist onStorageCleared fires when a saved key disappears mid-session", async () => {
   clearAllStores();
   const events: Array<{ name: string; key: string; reason: string }> = [];
-  const listeners: Record<string, Set<(event?: any) => void>> = {
-    storage: new Set(),
-    focus: new Set(),
+  type Listener = (event?: unknown) => void;
+  const listeners = {
+    storage: new Set<Listener>(),
+    focus: new Set<Listener>(),
   };
   const store = new Map<string, string>();
-  const win: any = {
-    addEventListener: (type: string, handler: (event?: any) => void) => {
-      listeners[type] ??= new Set();
+  const win = {
+    addEventListener: (type: keyof typeof listeners, handler: Listener) => {
       listeners[type].add(handler);
     },
-    removeEventListener: (type: string, handler: (event?: any) => void) => {
-      listeners[type]?.delete(handler);
+    removeEventListener: (type: keyof typeof listeners, handler: Listener) => {
+      listeners[type].delete(handler);
     },
   };
   const driver = {
@@ -613,10 +658,8 @@ test("persist onStorageCleared fires when a saved key disappears mid-session", a
     },
   };
 
-  // @ts-ignore
-  const originalWindow = globalThis.window;
-  // @ts-ignore
-  globalThis.window = win;
+  const originalWindow = g.window;
+  g.window = win;
 
   try {
     createStore("prefs", { theme: "dark" }, {
@@ -642,8 +685,11 @@ test("persist onStorageCleared fires when a saved key disappears mid-session", a
     }]);
   } finally {
     clearAllStores();
-    // @ts-ignore
-    globalThis.window = originalWindow;
+    if (originalWindow === undefined) {
+      delete (globalThis as unknown as Record<string, unknown>).window;
+    } else {
+      g.window = originalWindow;
+    }
   }
 });
 
@@ -870,7 +916,7 @@ test("persisted loads restore updatedAt metadata from storage", () => {
 
 test("persist uses sessionStorage when configured with the session shorthand", async () => {
   clearAllStores();
-  const originalWindow = (globalThis as any).window;
+  const originalWindow = g.window;
   const sessionWrites: string[] = [];
   const localWrites: string[] = [];
   const storageFactory = (writes: string[]) => {
@@ -887,7 +933,7 @@ test("persist uses sessionStorage when configured with the session shorthand", a
     };
   };
 
-  (globalThis as any).window = {
+  g.window = {
     localStorage: storageFactory(localWrites),
     sessionStorage: storageFactory(sessionWrites),
   };
@@ -904,13 +950,17 @@ test("persist uses sessionStorage when configured with the session shorthand", a
     assert.deepStrictEqual(localWrites, []);
   } finally {
     clearAllStores();
-    (globalThis as any).window = originalWindow;
+    if (originalWindow === undefined) {
+      delete (globalThis as unknown as Record<string, unknown>).window;
+    } else {
+      g.window = originalWindow;
+    }
   }
 });
 
 test("persist true uses localStorage in browser-like environments", async () => {
   clearAllStores();
-  const originalWindow = (globalThis as any).window;
+  const originalWindow = g.window;
   const sessionWrites: string[] = [];
   const localWrites: string[] = [];
   const storageFactory = (writes: string[]) => {
@@ -927,7 +977,7 @@ test("persist true uses localStorage in browser-like environments", async () => 
     };
   };
 
-  (globalThis as any).window = {
+  g.window = {
     localStorage: storageFactory(localWrites),
     sessionStorage: storageFactory(sessionWrites),
   };
@@ -944,7 +994,11 @@ test("persist true uses localStorage in browser-like environments", async () => 
     assert.deepStrictEqual(sessionWrites, []);
   } finally {
     clearAllStores();
-    (globalThis as any).window = originalWindow;
+    if (originalWindow === undefined) {
+      delete (globalThis as unknown as Record<string, unknown>).window;
+    } else {
+      g.window = originalWindow;
+    }
   }
 });
 
@@ -969,7 +1023,7 @@ test("persist custom serialize deserialize encrypt and decrypt hooks round-trip 
     persist: {
       driver,
       key: "secure-prefs",
-      serialize: (value: any) => `SER:${JSON.stringify(value)}`,
+      serialize: (value: unknown) => `SER:${JSON.stringify(value)}`,
       deserialize: (value: string) => JSON.parse(value.slice(4)),
       encrypt: (value: string) => `ENC:${value}`,
       decrypt: (value: string) => value.slice(4),
@@ -988,7 +1042,7 @@ test("persist custom serialize deserialize encrypt and decrypt hooks round-trip 
     persist: {
       driver,
       key: "secure-prefs",
-      serialize: (value: any) => `SER:${JSON.stringify(value)}`,
+      serialize: (value: unknown) => `SER:${JSON.stringify(value)}`,
       deserialize: (value: string) => JSON.parse(value.slice(4)),
       encrypt: (value: string) => `ENC:${value}`,
       decrypt: (value: string) => value.slice(4),
@@ -1030,7 +1084,7 @@ test("persistSave uses a zero-argument exists callback", async () => {
     persistSequence: {},
     persistWatchState: {},
     plaintextWarningsIssued: new Set(),
-    exists: (...args: any[]) => {
+    exists: (...args: unknown[]) => {
       calls.push(args.length);
       return true;
     },
@@ -1043,6 +1097,3 @@ test("persistSave uses a zero-argument exists callback", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepStrictEqual(calls, [0]);
 });
-
-
-

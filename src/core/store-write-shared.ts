@@ -7,7 +7,7 @@
  * Consumers: store-set-impl, store-replace-impl, store-admin-impl.
  */
 import { warn, log, isDev } from "../utils.js";
-import { setStoreValueInternal } from "./store-lifecycle/registry.js";
+import { setStoreValueInternal, formatIsoTimestamp } from "./store-lifecycle/registry.js";
 import { runFeatureWriteHooks, runStoreHookSafe } from "./store-lifecycle/hooks.js";
 import { invalidatePathCache } from "./store-lifecycle/validation.js";
 import { notifyStore } from "./store-shared/notify.js";
@@ -22,7 +22,16 @@ import {
     stageTransactionPatches,
     registerTransactionCommit,
 } from "./store-transaction.js";
-import { setLastRuntimePatches, type RuntimePatch } from "./runtime-patch.js";
+import {
+    createRootSetRuntimePatch,
+    setLastRuntimePatches,
+    type RuntimePatch,
+} from "./runtime-patch.js";
+import {
+    reconcileHydrationValue,
+    runHydrationInvalidationHandler,
+    type HydrationConsistencySource,
+} from "./hydration-consistency.js";
 
 export type CommitAction = "set" | "reset" | "hydrate" | "replace";
 export type CommitHookLabel = "onSet" | "onReset";
@@ -39,6 +48,7 @@ export type CommitArgs = {
     context?: WriteContext | null;
     runtimePatches?: readonly RuntimePatch[];
     metricsUpdate?: CommitMetricsUpdate;
+    normalizeHydrationCandidate?: (candidate: StoreValue) => { ok: boolean; value?: StoreValue };
 };
 
 const SLOW_MUTATOR_WARN_MS = 32;
@@ -75,6 +85,22 @@ export const maybeWarnSlowMutator = (storeName: string, elapsedMs: number): void
 export const resolveWriteContext = (context?: WriteContext | null): WriteContext | null =>
     context ?? getWriteContext();
 
+const resolveHydrationSource = (
+    action: CommitAction,
+    context?: WriteContext | null
+): HydrationConsistencySource => {
+    if (context?.sourceHint) return context.sourceHint;
+    if (action === "hydrate") return "hydrate";
+    return "effect";
+};
+
+const resolvePatchSource = (action: CommitAction): "setStore" | "replaceStore" | "resetStore" | "hydrateStores" => {
+    if (action === "replace") return "replaceStore";
+    if (action === "reset") return "resetStore";
+    if (action === "hydrate") return "hydrateStores";
+    return "setStore";
+};
+
 const applyMetricsUpdate = (
     entry: StoreRegistry["metaEntries"][string] | undefined,
     update?: CommitMetricsUpdate
@@ -96,12 +122,13 @@ const commitStoreUpdate = (
     setStoreValueInternal(name, next, registry);
     invalidatePathCache(name);
     const updatedAtMs = Date.now();
-    registryMeta[name].updatedAt = new Date(updatedAtMs).toISOString();
+    const updatedAtIso = formatIsoTimestamp(updatedAtMs);
+    registryMeta[name].updatedAt = updatedAtIso;
     registryMeta[name].updatedAtMs = updatedAtMs;
     const resolvedContext = context ?? getWriteContext();
     if (resolvedContext && (resolvedContext.correlationId || resolvedContext.traceContext)) {
         registryMeta[name].lastCorrelationId = resolvedContext.correlationId ?? null;
-        registryMeta[name].lastCorrelationAt = new Date(updatedAtMs).toISOString();
+        registryMeta[name].lastCorrelationAt = updatedAtIso;
         registryMeta[name].lastCorrelationAtMs = updatedAtMs;
         registryMeta[name].lastTraceContext = (resolvedContext.traceContext ?? null) as TraceContext | null;
     } else {
@@ -120,14 +147,68 @@ const commitStoreUpdate = (
 
 export const stageOrCommitUpdate = (registry: StoreRegistry, args: CommitArgs): void => {
     const resolvedContext = args.context ?? getWriteContext();
+    const source = resolveHydrationSource(args.action, resolvedContext);
+    const reconciled = reconcileHydrationValue({
+        registry,
+        store: args.name,
+        value: args.next,
+        source,
+        normalize: args.normalizeHydrationCandidate,
+    });
+    const nextValue = reconciled.value as StoreValue;
+    const runtimePatches =
+        args.runtimePatches
+        && args.runtimePatches.length > 0
+        && Object.is(nextValue, args.next)
+            ? args.runtimePatches
+            : (args.runtimePatches && args.runtimePatches.length > 0
+                ? [
+                    createRootSetRuntimePatch({
+                        store: args.name,
+                        value: nextValue,
+                        source: resolvePatchSource(args.action),
+                        context: resolvedContext,
+                    }),
+                ]
+                : args.runtimePatches);
+    const afterCommit = (): void => {
+        if (!reconciled.invalidated) return;
+        runHydrationInvalidationHandler(registry, args.name, reconciled.event?.live ?? nextValue, source);
+        if (!reconciled.needsRefetch || !registry.async.fetchRegistry[args.name]) return;
+        queueMicrotask(() => {
+            void import("../async/fetch.js")
+                .then(async ({ refetchStore }) => {
+                    await refetchStore({ name: args.name } as { name: string });
+                })
+                .catch((error) => {
+                    warn(
+                        `Post-hydration refetch for "${args.name}" failed: ${(error as { message?: string })?.message ?? error}`
+                    );
+                });
+        });
+    };
     if (isTransactionActive()) {
-        stageTransactionValue(args.name, args.next);
-        stageTransactionPatches(args.runtimePatches ?? []);
-        registerTransactionCommit(() => commitStoreUpdate(registry, { ...args, context: resolvedContext }));
+        stageTransactionValue(args.name, nextValue);
+        stageTransactionPatches(runtimePatches ?? []);
+        registerTransactionCommit(() => {
+            commitStoreUpdate(registry, {
+                ...args,
+                next: nextValue,
+                context: resolvedContext,
+                runtimePatches,
+            });
+            afterCommit();
+        });
         return;
     }
-    commitStoreUpdate(registry, { ...args, context: resolvedContext });
-    if (args.runtimePatches && args.runtimePatches.length > 0) {
-        setLastRuntimePatches(args.runtimePatches, registry);
+    commitStoreUpdate(registry, {
+        ...args,
+        next: nextValue,
+        context: resolvedContext,
+        runtimePatches,
+    });
+    if (runtimePatches && runtimePatches.length > 0) {
+        setLastRuntimePatches(runtimePatches, registry);
     }
+    afterCommit();
 };

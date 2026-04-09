@@ -6,26 +6,15 @@
  *
  * Consumers: Internal imports and public API.
  */
-import { registerPersistFeature } from "./features/persist.js";
-import { registerSyncFeature } from "./features/sync.js";
-import { registerDevtoolsFeature } from "./features/devtools.js";
+import { installPersist } from "./features/persist.js";
+import { installSync } from "./features/sync.js";
+import { installDevtools } from "./features/devtools.js";
 
-export const installPersist = (): void => {
-    registerPersistFeature();
-};
-
-export const installSync = (): void => {
-    registerSyncFeature();
-};
-
-export const installDevtools = (): void => {
-    registerDevtoolsFeature();
-};
+export { installPersist, installSync, installDevtools };
 
 export const installAllFeatures = (): void => {
     installPersist();
     installSync();
     installDevtools();
 };
-
 

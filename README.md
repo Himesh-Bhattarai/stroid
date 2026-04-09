@@ -1,7 +1,7 @@
 ﻿<div align="center">
 
 <img src="https://img.shields.io/npm/v/stroid?color=7F77DD&label=stroid&style=flat-square" alt="npm version" />
-<img src="https://img.shields.io/bundlephobia/minzip/stroid?color=1D9E75&label=minzipped&style=flat-square" alt="bundle size" />
+<img src="https://img.shields.io/badge/tree--shakeable-subpaths-0F766E?style=flat-square" alt="tree-shakeable via subpaths" />
 <img src="https://img.shields.io/npm/types/stroid?color=4A90E2&style=flat-square" alt="types" />
 <img src="https://img.shields.io/npm/l/stroid?color=3B8BD4&style=flat-square" alt="license" />
 <img src="https://img.shields.io/github/actions/workflow/status/Himesh-Bhattarai/stroid/ci.yml?color=639922&label=tests&style=flat-square" alt="tests" />
@@ -12,18 +12,28 @@
 <img src="https://img.shields.io/github/stars/Himesh-Bhattarai/stroid?style=flat-square&label=stars" alt="stars" />
 <img src="https://img.shields.io/github/contributors/Himesh-Bhattarai/stroid?style=flat-square" alt="contributors" />
 <img src="https://img.shields.io/github/issues/Himesh-Bhattarai/stroid?style=flat-square" alt="issues" />
-<img src="https://img.shields.io/snyk/vulnerabilities/github/Himesh-Bhattarai/stroid?style=flat-square" alt="vulnerabilities" />
+
 <!-- <a href="https://your-demo-link.com">
   <img src="https://img.shields.io/badge/demo-live-ff69b4?style=flat-square" alt="live demo" />
 </a> -->
 <br /><br />
 
+**Stroid is the only state management library with a theoretical correctness argument, a matching implementation, and a certified benchmark suite proving it holds under production-grade concurrent SSR conditions.**
+<br /><br />
+
 # 🟣 Stroid - State Engine for TypeScript and React
 **Named-store state engine for TypeScript and React.**
 
-Every store has a name. Write to it from anywhere: hooks, utilities, server, tests. Optional layers add persistence, sync, async fetch, SSR isolation, and devtools without coupling to core logic.
+Every store has a name. Write to it from anywhere: hooks, utilities, server, tests. Optional layers add persistence, sync, async fetch, SSR isolation, post-hydration consistency controls, and devtools without coupling to core logic.
 <br />
 [**Get Started**](#30-second-quickstart) | [**Why Stroid**](#why-stroid) | [**API Reference**](#full-api-reference) | [**PSR**](#psr---write-governance) | [**DevTools**](#devtools) | [**Examples**](#real-world-examples)
+<br /><br />
+
+**Certified benchmark suite (latest rerun: `2026-04-02`)**
+<br />
+`0` SSR correctness violations across `2 x 1,024` burst requests, `8,192` sustained requests, and `256` concurrent React streaming SSR requests, plus `0` detached leaks in warm-container/provider-model runs and `0` React concurrency invariant violations under `useTransition` and `useDeferredValue`.
+<br />
+[**Benchmark Report**](./docs/STROID/BENCHMARK.md) | Run: `npm run benchmark:guarantees`
 
 </div>
 
@@ -78,6 +88,26 @@ Every store has a name. Write to it from anywhere: hooks, utilities, server, tes
 >```
 ---
 
+## Operational Notes
+
+- Store names are runtime-validated. Avoid spaces and reserved keys like `__proto__`, `constructor`, and `prototype`.
+- `useStore("name")` without a path or selector subscribes to the full store. Prefer `useSelector(...)` or path reads in hot React components.
+- Hook string names are only strongly typed after `StoreStateMap` augmentation. Without it, `useStore("name")` reads are intentionally loose and typically resolve to `unknown`.
+- Selector-heavy dev flows that read frozen state deep-clone by default for safe dependency tracking. If that overhead matters more than the extra safety, tune `selectorCloneFrozen`.
+- `fetchStore(name, promise, ...)` accepts a direct Promise, but direct Promise inputs cannot use retries or replayable `refetchStore()` semantics. Use a URL string or factory when you need retry/backoff behavior.
+- `asyncAutoCreate` is a development convenience, not a production safety feature. Leave it off in production to avoid typo-created phantom stores.
+- `stroid/sync` uses same-origin `BroadcastChannel` transport. Stroid requests a fresh snapshot on startup, focus, and reconnect, but listener registration can still race under load, `policy: "insecure"` is an explicit opt-out, and open channels may reduce BFCache restores.
+- `stroid/persist` relies on browser storage. `checksum: "hash"` is non-cryptographic, and Safari/WebKit can evict script-writable storage after roughly 7 days of inactivity, so persisted auth, carts, and drafts should have a server-backed recovery path.
+- `hydrateStores(snapshot, options, trust, consistency?)` can add a bounded post-hydration consistency window. Stroid can defer early client writes, emit structured drift events, and reconcile per store with `server_wins`, `client_wins`, `merge`, or `invalidate_and_refetch`.
+- React hooks are built on `useSyncExternalStore`; local concurrency certification now covers no-tearing invariants under `useTransition` and `useDeferredValue`.
+- `stroid/server` is Node-only today because it depends on `node:async_hooks`. Edge runtimes and Workers need a different adapter.
+- `stroid/server/portable` is the explicit request-scope boundary for serverless hand-offs, worker-style runtimes, and Server Actions. It does not rely on implicit async context; use the bound scope API it returns.
+- Local provider-model certification now covers warm AWS Lambda-style Node handlers, Vercel render-to-action hand-off, and Cloudflare Workers-style explicit scopes, but you should still validate against your deployed provider before claiming production certification.
+- Next.js Server Actions are a separate execution boundary. They do not inherit the original request carrier automatically; capture state on render and resume it with `stroid/server/portable`. The render-to-action hand-off is covered by `benchmark:next-server-actions` and [examples/next-app-router-server-actions.ts](./examples/next-app-router-server-actions.ts).
+- Stroid can only guarantee request isolation for state written through Stroid APIs. Third-party singleton stores remain outside that guarantee.
+
+---
+
 ### Stroid PSR
 
 Stroid ships a native PSR contract in `stroid/psr`.
@@ -95,12 +125,14 @@ stroid                    <- core public runtime
 |- stroid/core            <- minimal core surface
 |- stroid/psr             <- native PSR contract
 |- stroid/async           <- fetch/cache/revalidate
+|- stroid/query           <- reactQueryKey(), swrKey()
 |- stroid/selectors       <- selector helpers
 |- stroid/computed        <- computed stores
 |- stroid/persist         <- installPersist()
 |- stroid/sync            <- installSync()
 |- stroid/devtools        <- installDevtools(), history API
 |- stroid/server          <- SSR request-scoped registry
+|- stroid/server/portable <- explicit request-scope bridge for serverless / workers / server actions
 |- stroid/helpers         <- entity/list/counter helpers
 |- stroid/testing         <- test helpers
 |- stroid/runtime-tools   <- observability APIs
@@ -108,6 +140,9 @@ stroid                    <- core public runtime
 |- stroid/feature         <- feature plugin API
 |- stroid/install         <- installAllFeatures()
 ```
+
+Import note:
+- Prefer subpath imports and avoid defaulting to the full `stroid` root import unless you need its broader compatibility surface.
 
 ---
 
@@ -129,20 +164,19 @@ stroid                    <- core public runtime
 | Race resistance proof | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Determinism replay | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Ring-buffer event timeline | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Bundle size (core import closure) | 77.6kb raw / 25.1kb gzip | ~11kb | ~1kb | ~3kb | ~3kb |
 | TypeScript-first | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-NOTE: BUNDLE SIZE: 25.1 gzip include whole "Stroid". Stroid is treeshakable so, stroid size  will determine by your import.
 
 > ⚠️ = possible with extra setup · ❌ = not supported natively
 
 Stroid exposes governance-oriented write flows through `stroid/psr`, including committed snapshot reads, patch application APIs, runtime graph inspection, and timing contracts.
 Benchmark report: [docs/STROID/BENCHMARK.md](./docs/STROID/BENCHMARK.md).
+Benchmark script layout is categorized by domain under `scripts/core`, `scripts/ssr`, `scripts/hydration`, `scripts/react`, `scripts/guarantees`, and `scripts/comparison`.
 
 Stroid is a fit when you need these together:
 - Named global stores with direct writes
 - Optional feature installs instead of mandatory side effects
 - Strict hydration trust gate (`hydrateStores(..., ..., { allowTrusted: true })`)
+- Governed post-hydration drift handling with per-store consistency policies
 - Request-scoped SSR runtime (`createStoreForRequest`) with server guards
 - PSR-style patch application and runtime graph inspection (`stroid/psr`)
 
@@ -184,6 +218,7 @@ setStore("cart", (draft: any) => {
 });
 ```
 Updates existing store state by path, partial object merge, or mutator function.
+The public root API intentionally does not export `replaceStore`; explicit full-store replacement is kept on the internal runtime/PSR side to reduce accidental overwrite mistakes.
 
 ---
 
@@ -221,6 +256,11 @@ resetStore("cart");
 ```
 Resets a store back to its original initial state.
 
+Reset clone behavior is configurable:
+
+- Per store: `createStore("cart", initial, { resetClone: "deep" | "shallow" | "none" })`
+- Global default: `configureStroid({ resetCloneMode: "deep" | "shallow" | "none" })`
+
 ---
 
 ### `deleteStore`
@@ -255,16 +295,45 @@ Runs multiple synchronous writes in one transaction-style batch.
 ```ts
 import { hydrateStores } from "stroid";
 
-hydrateStores(
+const hydration = hydrateStores(
   {
     cart: { items: [{ id: "pizza", qty: 1 }], total: 499 },
     profile: { name: "Asha" },
   },
   {},
-  { allowTrusted: true }
+  { allowTrusted: true },
+  {
+    contract: {
+      snapshotVersion: 3,
+      timestamp: Date.now(),
+      stores: {
+        cart: { authority: "server-authoritative" },
+        profile: { authority: "client-authoritative" },
+      },
+    },
+    bootWindow: {
+      mode: "manual",
+      fallbackMs: 3000,
+    },
+    policyMap: {
+      cart: "server_wins",
+      profile: "client_wins",
+    },
+  }
 );
+
+hydration.bootWindow?.close();
 ```
-Hydrates many stores from a trusted snapshot payload.
+Hydrates many stores from a trusted snapshot payload. The optional fourth argument adds post-hydration drift controls, write deferral during the boot window, and structured drift diagnostics. Manual mode returns `hydration.bootWindow`, so your app can close the gate when its critical hydration boundary is ready.
+
+Recommended rollout defaults:
+- use `bootWindow: { mode: "manual", fallbackMs: 3000 }` when you need certification-grade control
+- keep `bootWindowMs` or `bootWindow: { mode: "timer", ms: ... }` only as a compatibility fallback when you cannot close manually yet
+- keep auth/session stores `server_wins`
+- keep drafts/forms `client_wins`
+- use `merge` for filters or preference bags and `invalidate_and_refetch` for replayable async caches
+
+The full adoption guide, policy defaults, and runtime-tools workflow live in [Post-Hydration Consistency](./docs/STROID_SERVER/POST_HYDRATION_CONSISTENCY.md).
 
 ---
 
@@ -282,7 +351,23 @@ configureStroid({
 Sets global runtime behavior such as async and snapshot defaults.
 
 ---
-
+>[!TIP]
+>
+>Stroid is NOT for:
+>- small apps
+>- simple UI state
+>- beginners learning React
+>
+>Stroid is for:
+>- complex apps
+>- SSR-heavy systems
+>- multi-source async data
+>- teams that need debugging + guarantees
+> *If Still want to learn, then:
+> - **Beginners:** If you are building a personal portfolio or a small app, you likely only need `createStore`, `getStore`, and the basic React hooks like `useStore`. I don't want you to read whole README.
+> - **Intermediate:** We recommend reading the full README to understand features like batching, persistence,SSR Isolation,Sync,and async fetching. Don't take overhead about PSR FOR NOW, THINK THAT NOT EXIST AT ALL. UNTIL, I MAKE PROPER EXPLANATION VIDEO.
+> - **Advanced:** Explore the `/docs` directory for deep dives into architecture, SSR isolation, and the PSR contract, DevTools.
+---
 ## ⚛️ React Hooks - `stroid/react`
 
 ### `useStore`
@@ -350,7 +435,7 @@ import { fetchStore } from "stroid/async";
 
 function Menu() {
   useEffect(() => {
-    void fetchStore("menu", "https://api.example.com/menu");
+    void fetchStore("menu", "https://api.example.com/menu", { autoCreate: true });
   }, []);
 
   const { loading, error, data } = useAsyncStore("menu");
@@ -372,7 +457,8 @@ import { useAsyncStoreSuspense } from "stroid/react";
 function MenuSuspense() {
   const menu = useAsyncStoreSuspense<Array<{ id: string; name: string }>>(
     "menu",
-    "https://api.example.com/menu"
+    "https://api.example.com/menu",
+    { autoCreate: true }
   );
 
   return <MenuList items={menu} />;
@@ -601,6 +687,7 @@ Provides ready-made entity, list, and counter store helpers.
 ## 🧪 Testing - `stroid/testing`
 
 ```ts
+import { store } from "stroid";
 import {
   createMockStore,
   resetAllStoresForTest,
@@ -615,7 +702,7 @@ withMockedTime(1700000000000, () => {
   // Date.now() is fixed in this callback
 });
 
-const result = benchmarkStoreSet({ name: "cart" } as any, 300);
+const result = benchmarkStoreSet(store("cart"), 300);
 const avgMs = result.avgMs;
 
 resetAllStoresForTest();
@@ -650,6 +737,20 @@ const deps = getComputedDeps("deliveryFee");
 const persistDepth = getPersistQueueDepth("cart");
 ```
 Exposes runtime diagnostics for stores, metrics, health, and computed graph state.
+Import only the functions you need. The internal helpers are grouped more narrowly now, but the published multi-entry build still shares runtime chunks, so the biggest remaining wins are still deeper than this surface split.
+
+---
+
+## 🗝️ Query Keys - `stroid/query`
+
+```ts
+import { reactQueryKey, swrKey } from "stroid/query";
+
+const tanstackKey = reactQueryKey("cart");
+const swrCacheKey = swrKey("cart", "summary");
+```
+Use `stroid/query` when you only need stable cache keys for TanStack Query or SWR.
+The root `queryIntegrations` namespace still exists for compatibility, but `stroid/query` is the leaner path.
 
 ---
 
@@ -859,7 +960,8 @@ import { useAsyncStoreSuspense } from "stroid/react";
 function MenuList() {
   const menu = useAsyncStoreSuspense<Array<{ id: string; name: string }>>(
     "menu",
-    "https://api.example.com/menu"
+    "https://api.example.com/menu",
+    { autoCreate: true }
   );
 
   return <ul>{menu.map((item) => <li key={item.id}>{item.name}</li>)}</ul>;
@@ -909,6 +1011,7 @@ Import from `stroid` for batching/hydration/computed plus runtime metrics and co
 - `stroid/core`: Minimal CRUD runtime (`createStore`, `setStore`, `getStore`, `hasStore`, `resetStore`, `deleteStore`).
 - `stroid/react`: React hooks (`useStore`, `useSelector`, `useStoreField`, `useStoreStatic`, `useAsyncStore`, `useFormStore`, `useAsyncStoreSuspense`) and `RegistryScope`.
 - `stroid/async`: Async APIs (`fetchStore`, `refetchStore`, `enableRevalidateOnFocus`, `getAsyncMetrics`).
+- `stroid/query`: cache-key helpers (`reactQueryKey`, `swrKey`) without the fetcher helpers.
 - `stroid/selectors`: `createSelector`, `subscribeWithSelector`.
 - `stroid/computed`: `createComputed`, `invalidateComputed`, `deleteComputed`, `isComputedStore`.
 - `stroid/persist`: `installPersist`.
@@ -917,7 +1020,7 @@ Import from `stroid` for batching/hydration/computed plus runtime metrics and co
 - `stroid/server`: `createStoreForRequest`.
 - `stroid/helpers`: `createEntityStore`, `createListStore`, `createCounterStore`.
 - `stroid/testing`: `createMockStore`, `resetAllStoresForTest`, `withMockedTime`, `benchmarkStoreSet`.
-- `stroid/runtime-tools`: Store/runtime observability APIs.
+- `stroid/runtime-tools`: Store/runtime observability APIs, including hydration drift reports and counters.
 - `stroid/runtime-admin`: `clearAllStores`, `clearStores`.
 - `stroid/feature`: Feature registration APIs.
 - `stroid/install`: `installPersist`, `installSync`, `installDevtools`, `installAllFeatures`.
@@ -938,11 +1041,12 @@ Import from `stroid` for batching/hydration/computed plus runtime metrics and co
 | `resetStore(name)` | Restore initial state. |
 | `hasStore(name)` | Check if store exists. |
 | `setStoreBatch(fn)` | Group synchronous writes into one transaction. |
-| `hydrateStores(snapshot, options?, trust)` | Hydrate trusted snapshot into runtime. |
+| `hydrateStores(snapshot, options?, trust, consistency?)` | Hydrate trusted snapshot into runtime, optionally governing post-hydration drift. |
 | `configureStroid(config)` | Configure global/runtime behavior. |
 | `useStore(name, selectorOrPath?)` | React subscription hook. |
 | `useSelector(name, fn, equality?)` | Fine-grained React selector hook. |
 | `fetchStore(name, input, options?)` | Fetch remote data into store. |
+| `getAsyncMetrics(name?)` | Read global or per-store async counters. |
 | `createComputed(name, deps, fn)` | Define computed store. |
 | `createStoreForRequest(fn)` | Build SSR request-scoped store runtime. |
 
@@ -978,7 +1082,7 @@ import {
   getTimingContract,
 } from "stroid/psr";
 
-// Minimal core (bundle-size-sensitive)
+// Minimal core (subpath import)
 import { createStore, setStore, getStore, hasStore, resetStore, deleteStore } from "stroid/core";
 
 // React
@@ -995,6 +1099,9 @@ import {
 
 // Async
 import { fetchStore, refetchStore, enableRevalidateOnFocus } from "stroid/async";
+
+// Query keys only
+import { reactQueryKey, swrKey } from "stroid/query";
 
 // Selectors & Computed
 import { createSelector, subscribeWithSelector } from "stroid/selectors";

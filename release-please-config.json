@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "include-v-in-tag": true,
+  "changelog-path": "CHANGELOG.md",
+  "changelog-type": "github",
+  "versioning-strategy": "always-bump-patch",
+  "pull-request-title-pattern": "status(204): release ${version}",
+  "packages": {
+    ".": {
+      "package-name": "stroid"
+    }
+  }
+}
+

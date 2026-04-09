@@ -11,6 +11,7 @@ import assert from "node:assert";
 import { clearAllStores, createStore } from "../../../src/store.js";
 import { installAllFeatures } from "../../../src/install.js";
 import { configureStroid } from "../../../src/config.js";
+import { normalizeStoreOptions } from "../../../src/adapters/options.js";
 import { registerStoreFeature, resetRegisteredStoreFeaturesForTests, setFeatureRegistrationHook } from "../../../src/features/feature-registry.js";
 import { featureRuntimes, initializeRegisteredFeatureRuntimes } from "../../../src/core/store-lifecycle/registry.js";
 import { runFeatureDeleteHooks, resolveFeatureAvailability } from "../../../src/core/store-lifecycle/hooks.js";
@@ -31,27 +32,22 @@ test("feature delete hooks and availability normalization", () => {
   createStore("featStore", { value: 1 });
   runFeatureDeleteHooks("featStore", { value: 1 }, () => undefined);
 
-  const normalized = resolveFeatureAvailability("featStore", {
-    persist: true,
-    sync: true,
-    devtools: true,
-    explicitPersist: true,
-    explicitSync: true,
-    explicitDevtools: true,
-    historyLimit: 10,
-    redactor: (s) => s,
-    scope: "request",
-    snapshot: "deep",
-    version: 1,
-    validate: undefined,
-    middleware: [],
-    onCreate: undefined,
-    onSet: undefined,
-    onReset: undefined,
-    onDelete: undefined,
-    onError: undefined,
-    lifecycle: {},
-  } as any);
+  const normalized = resolveFeatureAvailability(
+    "featStore",
+    normalizeStoreOptions(
+      {
+        persist: true,
+        sync: true,
+        devtools: true,
+        historyLimit: 10,
+        redactor: (s) => s,
+        scope: "request",
+        snapshot: "deep",
+        version: 1,
+      },
+      "featStore",
+    ),
+  );
   assert.strictEqual(normalized.persist, null);
   assert.strictEqual(normalized.sync, false);
   assert.strictEqual(normalized.devtools, false);
@@ -63,11 +59,12 @@ test("runMiddleware aborts on promises and warns on undefined results", () => {
   const issues: string[] = [];
   const warnings: string[] = [];
   const payload = { action: "set", prev: { value: 1 }, next: { value: 2 }, path: null };
+  const promiseMiddleware = (() => Promise.resolve()) as unknown as Parameters<typeof runMiddleware>[0]["middlewares"][number];
 
   const abort = runMiddleware({
     name: "mw",
     payload,
-    middlewares: [() => Promise.resolve() as unknown as any],
+    middlewares: [promiseMiddleware],
     reportIssue: (message) => issues.push(message),
     warn: (message) => warnings.push(message),
   });

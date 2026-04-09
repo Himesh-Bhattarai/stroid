@@ -7,10 +7,11 @@
  * Consumers: Internal imports and public API.
  */
 import { hydrateStores } from "../core/store-write.js";
-import { deepClone, produceClone } from "../utils.js";
+import { deepClone } from "../utils.js";
 import type { StoreOptions } from "../adapters/options.js";
 import type { StoreStateMap } from "../core/store-lifecycle/types.js";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { getConfig } from "../internals/config.js";
 import { injectWriteContextRunner, type WriteContext } from "../internals/write-context.js";
 import {
     createStoreRegistry,
@@ -21,15 +22,78 @@ import {
     type TransactionState,
 } from "../core/store-registry.js";
 import { injectTransactionRunner } from "../core/store-transaction.js";
+import { flushPendingNotificationsInline, waitForNotificationIdle } from "../notification/index.js";
+import {
+    captureRequestScopeFromRegistry,
+    cloneRequestScopeCapture,
+    createBufferedRequestStoreApi,
+    type RequestHydrateOptions,
+    type RequestScopeCapture,
+    type RequestScopeOptions,
+    type RequestScopeOptionsInternal,
+    type RequestSnapshot,
+    type RequestStoreApi,
+} from "./shared.js";
 
 const serverAsyncContext = new AsyncLocalStorage<CarrierContext>();
 const serverRegistryContext = new AsyncLocalStorage<ReturnType<typeof createStoreRegistry>>();
 const serverTransactionContext = new AsyncLocalStorage<TransactionState>();
 const serverWriteContext = new AsyncLocalStorage<WriteContext>();
+const memoizedCarrierByRegistry = new WeakMap<StoreRegistry, CarrierContext>();
+
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
+    value !== null
+    && (typeof value === "object" || typeof value === "function")
+    && typeof (value as { then?: unknown }).then === "function";
+
+const withCarrierMemo = <T>(
+    registry: StoreRegistry | null,
+    carrier: CarrierContext,
+    run: () => T
+): T => {
+    if (!registry) return run();
+
+    const hadPrevious = memoizedCarrierByRegistry.has(registry);
+    const previousCarrier = memoizedCarrierByRegistry.get(registry);
+    memoizedCarrierByRegistry.set(registry, carrier);
+
+    const restore = (): void => {
+        if (hadPrevious && previousCarrier) {
+            memoizedCarrierByRegistry.set(registry, previousCarrier);
+            return;
+        }
+        memoizedCarrierByRegistry.delete(registry);
+    };
+
+    try {
+        const result = run();
+        if (isPromiseLike(result)) {
+            return Promise.resolve(result).finally(restore) as T;
+        }
+        restore();
+        return result;
+    } catch (error) {
+        restore();
+        throw error;
+    }
+};
 
 injectCarrierRunner({
-    run: (carrier, fn) => serverAsyncContext.run(carrier, fn),
-    get: () => serverAsyncContext.getStore() || null,
+    run: (carrier, fn) => withCarrierMemo(
+        serverRegistryContext.getStore() ?? null,
+        carrier,
+        () => serverAsyncContext.run(carrier, fn),
+    ),
+    get: () => {
+        const registry = serverRegistryContext.getStore();
+        if (registry) {
+            if (memoizedCarrierByRegistry.has(registry)) {
+                return memoizedCarrierByRegistry.get(registry) ?? null;
+            }
+            return null;
+        }
+        return serverAsyncContext.getStore() || null;
+    },
 });
 
 injectRegistryRunner({
@@ -53,41 +117,71 @@ type RequestStoreName<StateMap> =
     keyof StateMap extends never ? string : keyof StateMap & string;
 type RequestStoreValue<StateMap, Name extends RequestStoreName<StateMap>> =
     Name extends keyof StateMap ? StateMap[Name] : unknown;
-type RequestSnapshot<StateMap> = Partial<{
-    [K in RequestStoreName<StateMap>]: RequestStoreValue<StateMap, K>;
-}>;
-type RequestHydrateOptions<StateMap> = Partial<{
-    [K in RequestStoreName<StateMap>]: StoreOptions<RequestStoreValue<StateMap, K>>;
-}> & { default?: StoreOptions };
-type RequestHydrateOptionsInternal = Record<string, StoreOptions<any> | undefined> & {
-    default?: StoreOptions<any>;
+type RequestHydrateOptionsInternal = RequestScopeOptionsInternal & {
+    default?: StoreOptions<unknown>;
 };
 
-const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
-    value !== null
-    && (typeof value === "object" || typeof value === "function")
-    && typeof (value as { then?: unknown }).then === "function";
+const clearCarrierBuffer = (carrier: CarrierContext): void => {
+    Object.keys(carrier).forEach((name) => {
+        delete carrier[name];
+    });
+};
 
-export type RequestStoreApi<StateMap extends StoreStateMap = StoreStateMap> = {
-    create: <Name extends RequestStoreName<StateMap>>(
-        name: Name,
-        data: RequestStoreValue<StateMap, Name>,
-        options?: StoreOptions<RequestStoreValue<StateMap, Name>>
-    ) => RequestStoreValue<StateMap, Name>;
-    set: <Name extends RequestStoreName<StateMap>>(
-        name: Name,
-        updater: RequestStoreValue<StateMap, Name> | ((draft: RequestStoreValue<StateMap, Name>) => void)
-    ) => RequestStoreValue<StateMap, Name>;
-    get: <Name extends RequestStoreName<StateMap>>(
-        name: Name
-    ) => RequestStoreValue<StateMap, Name> | undefined;
-    snapshot: () => RequestSnapshot<StateMap>;
+const scheduleCarrierCleanup = (registry: StoreRegistry, carrier: CarrierContext): void => {
+    const delayMs = getConfig().flush.chunkDelayMs;
+    const schedule = (fn: () => void): void => {
+        if (delayMs > 0 && typeof setTimeout === "function") {
+            setTimeout(fn, delayMs);
+            return;
+        }
+        if (typeof queueMicrotask === "function") {
+            queueMicrotask(fn);
+            return;
+        }
+        Promise.resolve().then(fn);
+    };
+
+    const attempt = (): void => {
+        const state = registry.notify;
+        if (!state.isFlushing && !state.notifyScheduled && state.pendingNotifications.size === 0) {
+            clearCarrierBuffer(carrier);
+            return;
+        }
+        schedule(attempt);
+    };
+
+    // Defer the first attempt so already-queued flush microtasks can run first.
+    schedule(attempt);
+};
+
+const finalizeHydrateSync = (
+    registry: StoreRegistry,
+    carrier: CarrierContext,
+    syncBufferFromCarrier: (carrier: CarrierContext) => void
+): void => {
+    flushPendingNotificationsInline(registry);
+    syncBufferFromCarrier(carrier);
+    scheduleCarrierCleanup(registry, carrier);
+};
+
+const finalizeHydrateAsync = async (
+    registry: StoreRegistry,
+    carrier: CarrierContext,
+    syncBufferFromCarrier: (carrier: CarrierContext) => void
+): Promise<void> => {
+    await waitForNotificationIdle(registry);
+    syncBufferFromCarrier(carrier);
+    scheduleCarrierCleanup(registry, carrier);
 };
 
 type RequestStoreContext<StateMap extends StoreStateMap> = {
     registry: StoreRegistry;
     snapshot: () => RequestSnapshot<StateMap>;
+    capture: () => RequestScopeCapture<StateMap>;
     hydrate: <T>(renderFn: () => T, options?: RequestHydrateOptions<StateMap>) => T;
+    bind: <Args extends unknown[], Result>(
+        callback: (...args: Args) => Result
+    ) => (...args: Args) => Result;
 };
 
 export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStateMap>(
@@ -95,49 +189,72 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
 ): RequestStoreContext<StateMap> => {
     const registry = createStoreRegistry("request");
     const buffer: RequestSnapshot<StateMap> = {};
-    const bufferedOptions: Record<string, StoreOptions<any>> = {};
-    const hasBuffered = (name: RequestStoreName<StateMap>): boolean =>
-        Object.prototype.hasOwnProperty.call(buffer, name);
-    const syncBufferFromCarrier = (carrier: CarrierContext): void => {
+    const bufferedOptions: RequestScopeOptionsInternal = Object.create(null);
+    let activeHydrateDepth = 0;
+    const syncCapture = (capture: RequestScopeCapture<StateMap>): void => {
         Object.keys(buffer).forEach((name) => {
             delete buffer[name as RequestStoreName<StateMap>];
         });
+        Object.keys(bufferedOptions).forEach((name) => {
+            delete bufferedOptions[name];
+        });
 
-        Object.keys(registry.metaEntries).forEach((name) => {
-            const value = Object.prototype.hasOwnProperty.call(carrier, name)
-                ? carrier[name]
-                : registry.stores[name];
-            buffer[name as RequestStoreName<StateMap>] =
-                deepClone(value) as RequestStoreValue<StateMap, RequestStoreName<StateMap>>;
+        Object.entries(capture.snapshot).forEach(([name, value]) => {
+            buffer[name as RequestStoreName<StateMap>] = deepClone(value) as RequestStoreValue<
+                StateMap,
+                RequestStoreName<StateMap>
+            >;
+        });
+        Object.entries(capture.options as RequestScopeOptionsInternal).forEach(([name, options]) => {
+            if (options !== undefined) {
+                bufferedOptions[name] = options;
+            }
         });
     };
-    const api: RequestStoreApi<StateMap> = {
-        create: (name, data, options = {}) => {
-            buffer[name] = deepClone(data) as RequestStoreValue<StateMap, typeof name>;
-            bufferedOptions[name] = { ...options } as StoreOptions<any>;
-            return buffer[name] as RequestStoreValue<StateMap, typeof name>;
-        },
-        set: (name, updater) => {
-            if (!hasBuffered(name)) {
-                throw new Error(`createStoreForRequest.set("${name}") requires create("${name}", initialState) first.`);
-            }
-            buffer[name] = typeof updater === "function"
-                ? produceClone(
-                    buffer[name] as RequestStoreValue<StateMap, typeof name>,
-                    updater as (draft: RequestStoreValue<StateMap, typeof name>) => void
-                )
-                : deepClone(updater) as RequestStoreValue<StateMap, typeof name>;
-            return buffer[name] as RequestStoreValue<StateMap, typeof name>;
-        },
-        get: (name) => (hasBuffered(name)
-            ? deepClone(buffer[name]) as RequestStoreValue<StateMap, typeof name>
-            : undefined),
-        snapshot: () => deepClone(buffer) as RequestSnapshot<StateMap>,
+    const syncBufferFromCarrier = (carrier: CarrierContext): void => {
+        syncCapture(captureRequestScopeFromRegistry<StateMap>(registry, carrier));
     };
+    const api: RequestStoreApi<StateMap> = createBufferedRequestStoreApi<StateMap>({
+        buffer,
+        bufferedOptions,
+    });
     if (typeof initializer === "function") initializer(api);
+    const bind = <Args extends unknown[], Result>(
+        callback: (...args: Args) => Result,
+    ): ((...args: Args) => Result) => {
+        return (...args: Args): Result => {
+            if (activeHydrateDepth <= 0) {
+                throw new Error("Bound request callback invoked outside request lifecycle.");
+            }
+            return serverRegistryContext.run(registry, () => {
+                const activeCarrier = memoizedCarrierByRegistry.get(registry);
+                if (!activeCarrier) {
+                    throw new Error("Bound request callback missing active request carrier.");
+                }
+                return withCarrierMemo(
+                    registry,
+                    activeCarrier,
+                    () => serverAsyncContext.run(activeCarrier, () => callback(...args)),
+                );
+            });
+        };
+    };
     return {
         registry,
-        snapshot: () => deepClone(buffer) as RequestSnapshot<StateMap>,
+        snapshot: () => cloneRequestScopeCapture({
+            snapshot: buffer,
+            options: bufferedOptions as RequestScopeOptions<StateMap>,
+        }).snapshot,
+        capture: () => {
+            const carrier = memoizedCarrierByRegistry.get(registry) ?? null;
+            if (carrier) {
+                return captureRequestScopeFromRegistry<StateMap>(registry, carrier);
+            }
+            return cloneRequestScopeCapture({
+                snapshot: buffer,
+                options: bufferedOptions as RequestScopeOptions<StateMap>,
+            });
+        },
         hydrate: <T>(
             renderFn: () => T,
             options: RequestHydrateOptions<StateMap> = {}
@@ -149,9 +266,9 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
 
             Object.keys(buffer).forEach((name) => {
                 const key = name as RequestStoreName<StateMap>;
-                const mergedOptions: StoreOptions<any> = {
-                    ...(options.default as StoreOptions<any> | undefined || {}),
-                    ...(options[key] as StoreOptions<any> | undefined || {}),
+                const mergedOptions: StoreOptions<unknown> = {
+                    ...(options.default as StoreOptions<unknown> | undefined || {}),
+                    ...(options[key] as StoreOptions<unknown> | undefined || {}),
                     ...(bufferedOptions[name] || {}),
                 };
                 merged[key] = mergedOptions;
@@ -159,31 +276,69 @@ export const createStoreForRequest = <StateMap extends StoreStateMap = StoreStat
 
             return serverRegistryContext.run(registry, () =>
                 serverAsyncContext.run(deepClone(buffer), () => {
-                    hydrateStores(
-                        buffer,
-                        merged as Parameters<typeof hydrateStores>[1],
-                        { allowTrusted: true }
-                    );
+                    activeHydrateDepth += 1;
                     const carrier = serverAsyncContext.getStore();
-                    if (!carrier) return renderFn();
-
-                    try {
-                        const rendered = renderFn();
-                        if (isPromiseLike(rendered)) {
-                            return Promise.resolve(rendered).finally(() => {
-                                syncBufferFromCarrier(carrier);
-                            }) as T;
+                    if (!carrier) {
+                        try {
+                            hydrateStores(
+                                buffer,
+                                merged as Parameters<typeof hydrateStores>[1],
+                                { allowTrusted: true }
+                            );
+                            return renderFn();
+                        } finally {
+                            activeHydrateDepth -= 1;
                         }
-                        syncBufferFromCarrier(carrier);
-                        return rendered;
-                    } catch (err) {
-                        syncBufferFromCarrier(carrier);
-                        throw err;
                     }
+
+                    return withCarrierMemo(registry, carrier, () => {
+                        hydrateStores(
+                            buffer,
+                            merged as Parameters<typeof hydrateStores>[1],
+                            { allowTrusted: true }
+                        );
+
+                        try {
+                            const rendered = renderFn();
+                            if (isPromiseLike(rendered)) {
+                                return Promise.resolve(rendered)
+                                    .finally(async () => {
+                                        try {
+                                            await finalizeHydrateAsync(registry, carrier, syncBufferFromCarrier);
+                                        } finally {
+                                            activeHydrateDepth -= 1;
+                                        }
+                                    }) as T;
+                            }
+                            try {
+                                finalizeHydrateSync(registry, carrier, syncBufferFromCarrier);
+                                return rendered;
+                            } finally {
+                                activeHydrateDepth -= 1;
+                            }
+                        } catch (err) {
+                            try {
+                                finalizeHydrateSync(registry, carrier, syncBufferFromCarrier);
+                                throw err;
+                            } finally {
+                                activeHydrateDepth -= 1;
+                            }
+                        }
+                    });
                 })
             );
         },
+        bind,
     };
 };
 
 export type { StoreRegistry } from "../core/store-registry.js";
+export type {
+    RequestHydrateOptions,
+    RequestScopeCapture,
+    RequestScopeOptions,
+    RequestSnapshot,
+    RequestStoreApi,
+    RequestStoreName,
+    RequestStoreValue,
+} from "./shared.js";

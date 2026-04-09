@@ -309,10 +309,14 @@ flowchart LR
 | Safari Private Mode | `BroadcastChannel` unavailable — Stroid warns and **no-ops** gracefully |
 | Node.js (no polyfill) | Same as above — no-op with warning |
 | `scope: "temp"` store | Sync is **automatically disabled** |
+| Fresh tab startup / listener registration race | First cross-tab message can be missed; Stroid requests the latest snapshot on setup, focus, and `online` to converge again |
 | Tab stored in BFCache | Open `BroadcastChannel` may reduce BFCache restore success |
 
 > [!WARNING]
 > **BFCache note:** Keeping a `BroadcastChannel` open can prevent instant back/forward cache restoration. In browsers that report BFCache blocking reasons, this may appear as `broadcastchannel-message`. If your app is highly sensitive to back/forward navigation performance, test sync-enabled pages with your browser's BFCache diagnostics tool.
+
+> [!NOTE]
+> `BroadcastChannel` is best-effort, not an acknowledged transport. Browser process timing can let one tab post before another finishes registering its listener. Stroid mitigates this by broadcasting a sync request on startup, focus, and reconnect, but if you need guaranteed delivery or history replay you still need a server-backed authority.
 
 ---
 

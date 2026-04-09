@@ -31,6 +31,9 @@ Layering rules:
 - Lower layers must not import higher layers.
 - Public API files (`src/index.ts`, `src/store.ts`, `src/async.ts`, `src/feature.ts`, `src/config.ts`) should be thin re-exports.
 - If you need shared logic across layers, move it to `src/internals` or `src/utils.ts`.
+- Inside the repo, prefer leaf imports such as `src/utils/*`, `src/async/*`, or `src/runtime-tools/*` over broad internal barrels when that avoids retaining unrelated code.
+- Keep bundle-sensitive helpers in dedicated pure modules. Current examples are `src/integrations/query-keys.ts` behind `src/query.ts`, and the `src/runtime-tools/core.ts` / `async.ts` / `graph.ts` split behind `src/runtime-tools/index.ts`.
+- Leaf feature entrypoints such as `src/persist.ts`, `src/sync.ts`, and `src/devtools/index.ts` should re-export their direct installers instead of routing through `src/install.ts`.
 - `src/features` can import `src/core`, `src/internals`, `src/utils.ts`, but should not import `src/react` or `src/server`.
 - `src/core` should not import `src/react`, `src/server`, or `src/devtools`.
 
@@ -104,6 +107,8 @@ Runtime hook flow:
 
 **Contribution Checklist**
 1. Update docs for public API changes (`docs/api/stroid.api.md` and any affected `docs/STROID_*/INDEX.md` guide).
-2. Add or update tests under `tests/`.
-3. Run `npm test` and `npm run test:types` before opening a PR.
-4. Keep new modules small and follow the LAYER boundaries above.
+2. Update `CHANGELOG.md`, `README.md`, and `docs/STROID/IMPORT.md` when import surfaces or bundle behavior change.
+3. If a public entrypoint changed, run a local bundle-closure probe against the built `dist/` output so the docs describe actual retention, not assumptions.
+4. Add or update tests under `tests/`.
+5. Run `npm test` and `npm run test:types` before opening a PR.
+6. Keep new modules small and follow the LAYER boundaries above.

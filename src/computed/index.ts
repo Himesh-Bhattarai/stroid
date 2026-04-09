@@ -63,8 +63,8 @@ const getComputedFlushMap = (registry: StoreRegistry): Map<string, number> => {
     return map;
 };
 
-type DepHandle = StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue>;
-type DepValue<T> = T extends StoreDefinition<string, infer S>
+export type DepHandle = StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue>;
+export type DepValue<T> = T extends StoreDefinition<string, infer S>
     ? Readonly<S> | null
     : T extends StoreKey<string, infer S>
         ? Readonly<S> | null

@@ -20,6 +20,8 @@ import { FORBIDDEN_OBJECT_KEYS } from "./validation.js";
 const MAX_DEPTH = 10;
 const WARN_DEPTH = 5;
 export type PathInput = string | readonly string[] | string[];
+const PATH_PARSE_CACHE_MAX = 1024;
+const pathParseCache = new Map<string, readonly string[]>();
 
 const _splitPath = (path: string): string[] => {
     const parts: string[] = [];
@@ -50,9 +52,24 @@ const _splitPath = (path: string): string[] => {
 };
 
 export const parsePath = (path: PathInput): string[] => {
-    if (Array.isArray(path)) return [...path] as string[];
-    if (typeof path === "string" && !path.includes(".")) return [path];
-    if (typeof path === "string") return _splitPath(path);
+    if (Array.isArray(path)) return path as string[];
+    if (typeof path === "string") {
+        const cached = pathParseCache.get(path);
+        if (cached) return cached as string[];
+
+        const parsed =
+            (!path.includes(".") && !path.includes("\\"))
+                ? [path]
+                : _splitPath(path);
+
+        // Keep a bounded cache to avoid unbounded growth on highly dynamic paths.
+        if (pathParseCache.size >= PATH_PARSE_CACHE_MAX) {
+            const oldest = pathParseCache.keys().next().value as string | undefined;
+            if (oldest) pathParseCache.delete(oldest);
+        }
+        pathParseCache.set(path, Object.freeze(parsed));
+        return parsed;
+    }
     return [String(path)];
 };
 
@@ -96,6 +113,31 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
         }
     }
 
+    // Hot path: single-segment writes are common (`setStore(name, "field", value)`).
+    if (parts.length === 1) {
+        const key = parts[0];
+        if (Array.isArray(obj)) {
+            const idx = Number(key);
+            if (!Number.isInteger(idx)) return obj;
+            if (Object.is(obj[idx], value)) return obj;
+            const clone = [...obj];
+            clone[idx] = value;
+            return clone as T;
+        }
+        if (obj && typeof obj === "object") {
+            if (FORBIDDEN_OBJECT_KEYS.has(key)) {
+                critical(`Blocked unsafe path segment "${String(key)}" while setting "${parts.join(".")}".`);
+                return obj;
+            }
+            const current = (obj as Record<string, unknown>)[key];
+            if (Object.is(current, value)) return obj;
+            const clone = Object.assign({}, obj as Record<string, unknown>);
+            clone[key] = value;
+            return clone as T;
+        }
+        return obj;
+    }
+
     const applyAt = (current: unknown, index: number): unknown => {
         const key = parts[index];
         const isLast = index === parts.length - 1;
@@ -117,7 +159,7 @@ export const setByPath = <T extends Record<string, unknown> | unknown[]>(obj: T,
                 critical(`Blocked unsafe path segment "${String(key)}" while setting "${parts.join(".")}".`);
                 return current;
             }
-            const clone: Record<string, unknown> = { ...(current as Record<string, unknown>) };
+            const clone: Record<string, unknown> = Object.assign({}, current as Record<string, unknown>);
             if (isLast) {
                 clone[key] = value;
                 return clone as unknown;

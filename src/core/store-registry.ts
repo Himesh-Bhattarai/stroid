@@ -18,6 +18,11 @@ import type { AsyncRegistry } from "../async/registry.js";
 import type { ComputedClassification } from "../computed/types.js";
 import { createAsyncRegistry, resetAsyncRegistry } from "../async/registry.js";
 import { registerTestResetHook } from "../internals/test-reset.js";
+import {
+    createHydrationRuntimeState,
+    resetHydrationRuntimeState,
+    type HydrationRuntimeState,
+} from "./hydration-consistency.js";
 
 export type RegistryStoreValue = unknown;
 export type RegistrySubscriber = (value: RegistryStoreValue | null) => void;
@@ -89,6 +94,7 @@ export type StoreRegistry = {
     lastRuntimePatches: RuntimePatch[];
     transaction: TransactionState;
     async: AsyncRegistry;
+    hydration: HydrationRuntimeState;
     notify: NotifyState;
     lifecycleListener: StoreLifecycleListener | null;
 };
@@ -184,6 +190,7 @@ export const createStoreRegistry = (scope: RegistryScope = "default"): StoreRegi
         lastRuntimePatches: [],
         transaction: createTransactionState(),
         async: createAsyncRegistry(),
+        hydration: createHydrationRuntimeState(),
         notify: createNotifyState(),
         lifecycleListener: null,
     };
@@ -236,6 +243,7 @@ export const clearStoreRegistries = (registry: StoreRegistry): void => {
     registry.lastRuntimePatches.length = 0;
     resetNotifyState(registry.notify);
     resetAsyncRegistry(registry.async);
+    resetHydrationRuntimeState(registry.hydration);
     registry.lifecycleListener = null;
 };
 
@@ -282,6 +290,7 @@ export const resetAllStoreRegistriesForTests = (): void => {
         registry.lastRuntimePatches.length = 0;
         resetNotifyState(registry.notify);
         resetAsyncRegistry(registry.async);
+        resetHydrationRuntimeState(registry.hydration);
     });
     _registries.clear();
 };
@@ -351,5 +360,3 @@ export const enterRegistry = (registry: StoreRegistry): void => {
         runner.enterWith(registry);
     }
 };
-
-

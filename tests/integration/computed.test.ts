@@ -16,7 +16,11 @@ import {
   deleteComputed,
   _resetComputedForTests,
 } from "../../src/computed/index.js";
-import { detectCycle, getTopoOrderedComputeds } from "../../src/computed/computed-graph.js";
+import {
+  _getComputedOrderCacheStatsForTests,
+  detectCycle,
+  getTopoOrderedComputeds,
+} from "../../src/computed/computed-graph.js";
 import { configureStroid, resetConfig } from "../../src/config.js";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -197,6 +201,40 @@ test("computed", async (t) => {
     assert.ok(rightIdx < combinedIdx);
   });
 
+  await runCase(t, "topo order cache avoids recompute when graph is unchanged", async () => {
+    createStore("src", 0);
+    createComputed("cachedLevel1", ["src"], (v) => v);
+    createComputed("cachedLevel2", ["cachedLevel1"], (v) => v);
+
+    const before = _getComputedOrderCacheStatsForTests();
+    const first = getTopoOrderedComputeds(["src"]);
+    const afterFirst = _getComputedOrderCacheStatsForTests();
+    const second = getTopoOrderedComputeds(["src"]);
+    const afterSecond = _getComputedOrderCacheStatsForTests();
+
+    assert.deepStrictEqual(first, ["cachedLevel1", "cachedLevel2"]);
+    assert.deepStrictEqual(second, ["cachedLevel1", "cachedLevel2"]);
+    assert.strictEqual(afterFirst.computeCount, before.computeCount + 1);
+    assert.strictEqual(afterSecond.computeCount, afterFirst.computeCount);
+    assert.ok(afterSecond.entryCount >= 1);
+  });
+
+  await runCase(t, "topo order cache invalidates when computed graph changes", async () => {
+    createStore("src", 0);
+    createComputed("cachedBase", ["src"], (v) => v);
+
+    getTopoOrderedComputeds(["src"]);
+    const first = _getComputedOrderCacheStatsForTests();
+
+    createComputed("cachedNew", ["cachedBase"], (v) => v);
+    const next = getTopoOrderedComputeds(["src"]);
+    const second = _getComputedOrderCacheStatsForTests();
+
+    assert.deepStrictEqual(next, ["cachedBase", "cachedNew"]);
+    assert.strictEqual(second.computeCount, first.computeCount + 1);
+    assert.ok(second.graphVersion > first.graphVersion);
+  });
+
   await runCase(t, "invalidateComputed forces recomputation", async () => {
     createStore("base", 1);
     let externalValue = 10;
@@ -337,7 +375,7 @@ test("computed", async (t) => {
         decrypt: (v: string) => v,
       },
     });
-    createComputed("derivedPersist", ["basePersist"], (v) => (v as any).value * 2);
+    createComputed("derivedPersist", ["basePersist"], (v) => (v as { value: number }).value * 2);
 
     replaceStore("basePersist", { value: 3 });
     await wait(20);
@@ -355,7 +393,7 @@ test("computed", async (t) => {
       if (calls === 2) {
         deleteStore("dep");
       }
-      return value ? (value as any).value * 2 : null;
+      return value ? (value as { value: number }).value * 2 : null;
     });
 
     replaceStore("dep", { value: 2 });

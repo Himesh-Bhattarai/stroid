@@ -19,12 +19,35 @@ const now = (): number =>
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
+type MinimalWindow = {
+  addEventListener: (...args: unknown[]) => void;
+  removeEventListener: (...args: unknown[]) => void;
+};
+
+type GlobalTestEnv = typeof globalThis & {
+  window?: Window | MinimalWindow;
+  BroadcastChannel?: unknown;
+};
+
+const g = globalThis as GlobalTestEnv;
+
+const mockWindow: MinimalWindow = {
+  addEventListener: (..._args: unknown[]) => {},
+  removeEventListener: (..._args: unknown[]) => {},
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isSyncStateMessage = (value: unknown): boolean =>
+  isRecord(value) && value["type"] === "sync-state";
+
 class MockBroadcastChannel {
   static channels = new Map<string, Set<MockBroadcastChannel>>();
-  static sent: Array<{ channel: string; data: any }> = [];
+  static sent: Array<{ channel: string; data: unknown }> = [];
 
   readonly name: string;
-  onmessage: ((event: MessageEvent) => void) | null = null;
+  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
 
   constructor(name: string) {
     this.name = name;
@@ -33,13 +56,13 @@ class MockBroadcastChannel {
     MockBroadcastChannel.channels.set(name, peers);
   }
 
-  postMessage(data: any) {
+  postMessage(data: unknown) {
     MockBroadcastChannel.sent.push({ channel: this.name, data });
     const peers = MockBroadcastChannel.channels.get(this.name) ?? new Set<MockBroadcastChannel>();
     peers.forEach((peer) => {
       if (peer === this) return;
       queueMicrotask(() => {
-        peer.onmessage?.({ data } as MessageEvent);
+        peer.onmessage?.({ data } as MessageEvent<unknown>);
       });
     });
   }
@@ -59,21 +82,18 @@ class MockBroadcastChannel {
 }
 
 const withMockSyncEnvironment = async <T>(fn: () => Promise<T>): Promise<T> => {
-  const originalWindow = (globalThis as any).window;
-  const originalBroadcastChannel = (globalThis as any).BroadcastChannel;
+  const originalWindow = g.window;
+  const originalBroadcastChannel = g.BroadcastChannel;
 
-  (globalThis as any).window = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  };
-  (globalThis as any).BroadcastChannel = MockBroadcastChannel;
+  g.window = mockWindow;
+  g.BroadcastChannel = MockBroadcastChannel;
 
   try {
     return await fn();
   } finally {
     MockBroadcastChannel.reset();
-    (globalThis as any).window = originalWindow;
-    (globalThis as any).BroadcastChannel = originalBroadcastChannel;
+    g.window = originalWindow;
+    g.BroadcastChannel = originalBroadcastChannel;
   }
 };
 
@@ -97,7 +117,7 @@ test("sync emits a broadcast for a local write under threshold", { timeout: 3000
       }
 
       const elapsed = now() - start;
-      const syncMessages = MockBroadcastChannel.sent.filter((entry) => entry.data?.type === "sync-state");
+      const syncMessages = MockBroadcastChannel.sent.filter((entry) => isSyncStateMessage(entry.data));
 
       assert.strictEqual(syncMessages.length, 1, `expected one sync-state message, got ${syncMessages.length}`);
       assert.ok(
@@ -131,12 +151,12 @@ test("sync dashboard batch emits ten broadcasts under threshold", { timeout: 300
 
       for (let attempt = 0; attempt < 100; attempt += 1) {
         await wait();
-        const syncMessages = MockBroadcastChannel.sent.filter((entry) => entry.data?.type === "sync-state");
+        const syncMessages = MockBroadcastChannel.sent.filter((entry) => isSyncStateMessage(entry.data));
         if (syncMessages.length >= storeNames.length) break;
       }
 
       const elapsed = now() - start;
-      const syncMessages = MockBroadcastChannel.sent.filter((entry) => entry.data?.type === "sync-state");
+      const syncMessages = MockBroadcastChannel.sent.filter((entry) => isSyncStateMessage(entry.data));
 
       assert.strictEqual(
         syncMessages.length,

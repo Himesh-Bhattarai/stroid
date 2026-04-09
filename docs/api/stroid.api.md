@@ -4,15 +4,50 @@
 
 ```ts
 
-// Warning: (ae-forgotten-export) The symbol "StroidConfig" needs to be exported by the entry point index.d.ts
-//
+// @public (undocumented)
+export type AsyncCloneMode = "none" | "shallow" | "deep";
+
+// @public (undocumented)
+export type AsyncMetricsSnapshot = {
+    cacheHits: number;
+    cacheMisses: number;
+    dedupes: number;
+    requests: number;
+    failures: number;
+    avgMs: number;
+    lastMs: number;
+};
+
+// @public (undocumented)
+export type BrandedStoreName = string & {
+    readonly [storeNameBrand]: true;
+};
+
+// @public (undocumented)
+export type ColdStoreReport = {
+    name: string;
+    createdAt: string;
+    lastReadAt: string | null;
+    updateCount: number;
+    readCount: number;
+    subscriberCount: number;
+    ageMs: number;
+    verdict: "cold" | "write-only" | "stale" | "active";
+};
+
+// @public (undocumented)
+export type ComputedClassification = "deterministic" | "opaque" | "asyncBoundary";
+
+// @public (undocumented)
+export type ComputedOptions = {
+    autoDispose?: boolean;
+    onError?: (err: unknown) => void;
+    classification?: ComputedClassification;
+};
+
 // @public (undocumented)
 export const configureStroid: (next?: StroidConfig) => void;
 
-// Warning: (ae-forgotten-export) The symbol "DepHandle" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "DepValue" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ComputedOptions" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function createComputed<TResult, Deps extends readonly (StoreName | DepHandle)[]>(name: string, deps: Deps, compute: (...args: {
     [K in keyof Deps]: DepValue<Deps[K]>;
@@ -23,9 +58,6 @@ export function createStore<Name extends string, State>(name: Name, initialData:
     lazy: true;
 }): StoreDefinition<Name, State> | undefined;
 
-// Warning: (ae-forgotten-export) The symbol "NonFunction" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "LazyDisallow" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function createStore<Name extends string, State, Opt extends StoreOptions<State>>(name: Name, initialData: NonFunction<State>, option?: LazyDisallow<Opt>): StoreDefinition<Name, State> | undefined;
 
@@ -50,14 +82,44 @@ export function deleteStore<Name extends string, State>(name: StoreKey<Name, Sta
 export function deleteStore<Name extends StoreName>(name: Name): void;
 
 // @public (undocumented)
+export type DepHandle = StoreDefinition<string, StoreValue> | StoreKey<string, StoreValue>;
+
+// @public (undocumented)
+export type DepValue<T> = T extends StoreDefinition<string, infer S> ? Readonly<S> | null : T extends StoreKey<string, infer S> ? Readonly<S> | null : T extends StoreName ? Readonly<StateFor<T>> | null : StoreValue | null;
+
+// @public (undocumented)
+export interface DevtoolsOptions<State = OptionStoreValue> {
+    // (undocumented)
+    enabled?: boolean;
+    // (undocumented)
+    historyLimit?: number;
+    // (undocumented)
+    redactor?: (state: State) => State;
+}
+
+// @public (undocumented)
+export interface FeatureMetrics {
+    // (undocumented)
+    lastNotifyMs: number;
+    // (undocumented)
+    lastResetMs: number;
+    // (undocumented)
+    notifyCount: number;
+    // (undocumented)
+    resetCount: number;
+    // (undocumented)
+    totalNotifyMs: number;
+    // (undocumented)
+    totalResetMs: number;
+}
+
+// @public (undocumented)
 export type FeatureOptions = Partial<FeatureOptionsMap> & Record<string, unknown>;
 
 // @public (undocumented)
 export interface FeatureOptionsMap {
 }
 
-// Warning: (ae-forgotten-export) The symbol "ColdStoreReport" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export const findColdStores: (options?: {
     unreadThresholdMs?: number;
@@ -65,23 +127,21 @@ export const findColdStores: (options?: {
 }) => ColdStoreReport[];
 
 // @public (undocumented)
-export const getAsyncMetrics: () => {
-    cacheHits: number;
-    cacheMisses: number;
-    dedupes: number;
-    requests: number;
-    failures: number;
-    avgMs: number;
-    lastMs: number;
+export type FlushConfig = {
+    chunkSize?: number;
+    chunkDelayMs?: number;
+    priorityStores?: string[];
 };
 
-// Warning: (ae-forgotten-export) The symbol "FeatureMetrics" needs to be exported by the entry point index.d.ts
-//
+// @public
+export function getAsyncMetrics(): AsyncMetricsSnapshot;
+
+// @public (undocumented)
+export function getAsyncMetrics(name: string): AsyncMetricsSnapshot | null;
+
 // @public (undocumented)
 export const getMetrics: (name: string) => FeatureMetrics | null;
 
-// Warning: (ae-forgotten-export) The symbol "StoreSnapshot" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function getStore<Name extends string, State, P extends Path<State>>(name: StoreDefinition<Name, State>, path: P): StoreSnapshot<PathValue<State, P>> | null;
 
@@ -100,9 +160,6 @@ export function getStore<Name extends StoreName, P extends Path<StateFor<Name>>>
 // @public (undocumented)
 export function getStore<Name extends StoreName>(name: Name, path?: undefined): StoreSnapshot<StateFor<Name>> | null;
 
-// Warning: (ae-forgotten-export) The symbol "StoreHealthEntry" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "StoreHealthReport" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export const getStoreHealth: (name?: string) => StoreHealthEntry | StoreHealthReport | null;
 
@@ -110,16 +167,113 @@ export const getStoreHealth: (name?: string) => StoreHealthEntry | StoreHealthRe
 export const hasStore: (name: string) => boolean;
 
 // @public (undocumented)
+export type HydrateOptions<Snapshot extends object> = Partial<{
+    [K in keyof Snapshot]: StoreOptions<Snapshot[K]>;
+}> & {
+    default?: StoreOptions;
+};
+
+// @public (undocumented)
+export type HydrateSnapshot = HydrateSnapshotFor<StoreStateMap & StrictStoreMap>;
+
+// @public (undocumented)
 export type HydrateSnapshotFor<Map extends object> = Partial<{
     [K in keyof Map & string]: Map[K];
 }>;
 
-// Warning: (ae-forgotten-export) The symbol "HydrateSnapshot" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "HydrateOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "HydrationTrust" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
-export const hydrateStores: <Snapshot extends object = HydrateSnapshot>(snapshot: Snapshot, options: HydrateOptions<Snapshot> | undefined, trust: HydrationTrust<Snapshot>) => HydrationResult;
+export const hydrateStores: <Snapshot extends object = HydrateSnapshot>(snapshot: Snapshot, options: HydrateOptions<Snapshot> | undefined, trust: HydrationTrust<Snapshot>, consistency?: HydrationConsistencyOptions<Snapshot>) => HydrationResult;
+
+// @public (undocumented)
+export type HydrationBlockReason = "transaction" | "untrusted" | "validation-error" | "validation-failed";
+
+// @public
+export type HydrationBootWindowControl = {
+    mode: HydrationBootWindowMode;
+    startedAtMs: number | null;
+    endsAtMs: number | null;
+    close: () => void;
+    isActive: () => boolean;
+};
+
+// @public
+export type HydrationBootWindowMode = "timer" | "manual";
+
+// @public
+export type HydrationBootWindowOptions = HydrationBootWindowMode | {
+    mode: HydrationBootWindowMode;
+    ms?: number;
+    fallbackMs?: number;
+};
+
+// @public (undocumented)
+export type HydrationConsistencyAuthority = "server-authoritative" | "client-authoritative" | "mergeable";
+
+// @public (undocumented)
+export type HydrationConsistencyContract<Snapshot extends object = Record<string, unknown>> = HydrationSnapshotMetadata & {
+    authority?: HydrationConsistencyAuthority;
+    stores?: Partial<{
+        [K in keyof Snapshot & string]: HydrationConsistencyStoreContract;
+    }>;
+};
+
+// @public (undocumented)
+export type HydrationConsistencyOptions<Snapshot extends object = Record<string, unknown>> = {
+    contract?: HydrationConsistencyContract<Snapshot>;
+    policyMap?: Partial<{
+        [K in keyof Snapshot & string]: HydrationConsistencyStorePolicy<Snapshot[K]>;
+    }>;
+    onDrift?: (event: HydrationDriftEvent<Snapshot>) => void;
+    bootWindowMs?: number;
+    bootWindow?: HydrationBootWindowOptions;
+    deferSources?: readonly HydrationConsistencySource[];
+    maxEvents?: number;
+};
+
+// @public (undocumented)
+export type HydrationConsistencyPolicy = "server_wins" | "client_wins" | "merge" | "invalidate_and_refetch";
+
+// @public (undocumented)
+export type HydrationConsistencyResolution = "stable" | "server_reverted" | "client_kept" | "merged" | "invalidated";
+
+// @public
+export type HydrationConsistencySource = "effect" | "storage" | "network" | "sync" | "hydrate" | "unknown";
+
+// @public (undocumented)
+export type HydrationConsistencyStoreContract = HydrationSnapshotMetadata & {
+    authority?: HydrationConsistencyAuthority;
+};
+
+// @public (undocumented)
+export type HydrationConsistencyStorePolicy<State = unknown> = HydrationConsistencyPolicy | {
+    policy: HydrationConsistencyPolicy;
+    merge?: (args: HydrationMergeArgs<State>) => State;
+    onInvalidate?: (args: HydrationInvalidateArgs<State>) => void;
+};
+
+// @public (undocumented)
+export type HydrationDriftEvent<Snapshot extends object = Record<string, unknown>> = {
+    id: string;
+    store: keyof Snapshot & string | string;
+    source: HydrationConsistencySource;
+    authority: HydrationConsistencyAuthority;
+    policy: HydrationConsistencyPolicy;
+    resolution: HydrationConsistencyResolution;
+    detectedAt: string;
+    detectedAtMs: number;
+    firstDivergedAt: string;
+    firstDivergedAtMs: number;
+    hydratedAt: string;
+    hydratedAtMs: number;
+    baselineHash: number;
+    liveHash: number;
+    resolvedHash: number;
+    invalidated: boolean;
+    metadata: HydrationSnapshotMetadata;
+    baseline: unknown;
+    live: unknown;
+    resolved: unknown;
+};
 
 // @public (undocumented)
 export type HydrationFailure = {
@@ -127,6 +281,25 @@ export type HydrationFailure = {
     reason: HydrationFailureReason;
     cause?: unknown;
     received?: unknown;
+};
+
+// @public (undocumented)
+export type HydrationFailureReason = "invalid-name" | "create-failed" | "merge-failed";
+
+// @public (undocumented)
+export type HydrationInvalidateArgs<State = unknown> = {
+    store: string;
+    baseline: State;
+    live: State;
+    source: HydrationConsistencySource;
+};
+
+// @public (undocumented)
+export type HydrationMergeArgs<State = unknown> = {
+    store: string;
+    baseline: State;
+    live: State;
+    source: HydrationConsistencySource;
 };
 
 // @public (undocumented)
@@ -138,6 +311,35 @@ export type HydrationResult = {
         reason: HydrationBlockReason;
         cause?: unknown;
     };
+    bootWindow?: HydrationBootWindowControl;
+};
+
+// @public (undocumented)
+export type HydrationSnapshotMetadata = {
+    snapshotVersion?: string | number;
+    timestamp?: number;
+    checksum?: string | number;
+    schemaSignature?: string;
+};
+
+// @public (undocumented)
+export type HydrationTrust<Snapshot extends object> = (HydrationTrustBase<Snapshot> & {
+    allowTrusted: true;
+}) | (HydrationTrustBase<Snapshot> & {
+    allowHydration: true;
+}) | (HydrationTrustBase<Snapshot> & {
+    allowUntrusted: true;
+}) | (HydrationTrustBase<Snapshot> & {
+    validate: (snapshot: Snapshot) => boolean;
+});
+
+// @public (undocumented)
+export type HydrationTrustBase<Snapshot extends object> = {
+    allowTrusted?: boolean;
+    allowHydration?: boolean;
+    allowUntrusted?: boolean;
+    validate?: (snapshot: Snapshot) => boolean;
+    onValidationError?: (error: unknown, snapshot: Snapshot) => boolean;
 };
 
 // @public (undocumented)
@@ -147,43 +349,205 @@ export const invalidateComputed: (name: string) => void;
 export const isComputedStore: (name: string) => boolean;
 
 // @public (undocumented)
+export type IsStoreNameLoose = string extends StoreName ? true : false;
+
+// @public (undocumented)
+export type LazyDisallow<T> = T extends {
+    lazy: true;
+} ? never : T;
+
+// @public (undocumented)
+export interface LifecycleOptions<State = OptionStoreValue> {
+    // (undocumented)
+    middleware?: Array<(ctx: MiddlewareCtx) => OptionStoreValue | void>;
+    // (undocumented)
+    onCreate?: (initial: State) => void;
+    // (undocumented)
+    onDelete?: (prev: State) => void;
+    // (undocumented)
+    onReset?: (prev: State, next: State) => void;
+    // (undocumented)
+    onSet?: (prev: State, next: State) => void;
+}
+
+// @public
+export type LogSink = {
+    log?: (msg: string, meta?: Record<string, unknown>) => void;
+    warn?: (msg: string, meta?: Record<string, unknown>) => void;
+    critical?: (msg: string, meta?: Record<string, unknown>) => void;
+};
+
+// @public (undocumented)
+export interface MiddlewareCtx {
+    // (undocumented)
+    action: string;
+    // (undocumented)
+    correlationId?: string;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    next: OptionStoreValue;
+    // (undocumented)
+    path: unknown;
+    // (undocumented)
+    prev: OptionStoreValue;
+    // (undocumented)
+    traceContext?: TraceContext;
+}
+
+// @public (undocumented)
 export const namespace: (ns: string) => {
     store: <Name extends string, State = unknown>(name: Name) => StoreKey<Name, State>;
     create: <Name extends string, State>(name: Name, data: NonFunction<State>, options?: StoreOptions<State>) => StoreDefinition<string, State> | undefined;
     createStrict: <Name extends string, State>(name: Name, data: NonFunction<State>, options?: StoreOptions<State>) => StoreDefinition<string, State>;
-    set: (name: any, ...rest: any[]) => any;
-    get: (name: any, ...rest: any[]) => any;
+    set: (name: string | StoreKey<string, StoreValue>, ...rest: unknown[]) => {
+        ok: true;
+    } | {
+        ok: false;
+        reason: "not-found" | "no-initial-state" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" | "lazy-uninitialized" | "unsupported-op" | "unsupported-path-shape";
+    } | {
+        readonly ok: false;
+        readonly reason: "invalid-args";
+    };
+    get: (name: string | StoreKey<string, StoreValue>, path?: string | readonly string[]) => unknown;
     delete: (name: string) => void;
     reset: (name: string) => WriteResult;
 };
 
-// Warning: (ae-forgotten-export) The symbol "Primitive" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type NonFunction<T> = T extends Function ? never : T;
+
+// @public (undocumented)
+export interface NormalizedOptions {
+    // (undocumented)
+    allowSSRGlobalStore?: boolean;
+    // (undocumented)
+    devtools: boolean;
+    // (undocumented)
+    explicitDevtools: boolean;
+    // (undocumented)
+    explicitPersist: boolean;
+    // (undocumented)
+    explicitSync: boolean;
+    // (undocumented)
+    features?: FeatureOptions;
+    // (undocumented)
+    historyLimit: number;
+    // (undocumented)
+    lazy: boolean;
+    // (undocumented)
+    middleware: Array<(ctx: MiddlewareCtx) => OptionStoreValue | void>;
+    // (undocumented)
+    migrations: Record<number, (state: OptionStoreValue) => OptionStoreValue>;
+    // (undocumented)
+    onCreate?: (initial: OptionStoreValue) => void;
+    // (undocumented)
+    onDelete?: (prev: OptionStoreValue) => void;
+    // (undocumented)
+    onError?: (err: string) => void;
+    // (undocumented)
+    onReset?: (prev: OptionStoreValue, next: OptionStoreValue) => void;
+    // (undocumented)
+    onSet?: (prev: OptionStoreValue, next: OptionStoreValue) => void;
+    // (undocumented)
+    pathCreate: boolean;
+    // (undocumented)
+    persist: PersistConfig | null;
+    // (undocumented)
+    redactor?: (state: OptionStoreValue) => OptionStoreValue;
+    // (undocumented)
+    resetClone: ResetCloneMode;
+    // (undocumented)
+    scope: StoreScope;
+    // (undocumented)
+    snapshot: SnapshotMode;
+    snapshotSafety?: "warn" | "throw" | "auto-clone";
+    // (undocumented)
+    sync?: boolean | SyncOptions;
+    // (undocumented)
+    validate?: ValidateOption;
+    // (undocumented)
+    version: number;
+}
+
+// @public
+export type OptionStoreValue = unknown;
+
 // @public (undocumented)
 export type PartialDeep<T> = T extends Primitive ? T : unknown extends T ? T : {
     [K in keyof T]?: PartialDeep<T[K]>;
 };
 
-// Warning: (ae-forgotten-export) The symbol "PathInternal" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type Path<T, Depth extends number = 10> = PathInternal<T, Depth>;
 
 // @public (undocumented)
+export type PathDepth<T, Depth extends number> = PathInternal<T, Depth>;
+
+// @public (undocumented)
+export type PathInternal<T, Depth extends number> = Depth extends 0 ? never : T extends Primitive ? never : {
+    [K in keyof T & (string | number)]: T[K] extends Primitive | Array<unknown> ? `${K}` : `${K}` | `${K}.${PathInternal<T[K], PrevDepth[Depth]>}`;
+}[keyof T & (string | number)];
+
+// @public (undocumented)
 export type PathValue<T, P extends Path<T>> = P extends `${infer K}.${infer Rest}` ? K extends keyof T ? Rest extends Path<T[K]> ? PathValue<T[K], Rest> : never : never : P extends keyof T ? T[P] : never;
 
-// Warning: (ae-forgotten-export) The symbol "StoreValue_2" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
-export interface PersistOptions<State = StoreValue_2> {
+export interface PersistConfig {
+    // (undocumented)
+    allowPlaintext?: boolean;
+    // (undocumented)
+    checksum: "hash" | "none" | "sha256";
+    // (undocumented)
+    decrypt: (v: string) => string;
+    // (undocumented)
+    decryptAsync?: (v: string) => Promise<string>;
+    // (undocumented)
+    deserialize: (v: string) => unknown;
+    // (undocumented)
+    driver: PersistDriver;
+    // (undocumented)
+    encrypt: (v: string) => string;
+    // (undocumented)
+    encryptAsync?: (v: string) => Promise<string>;
+    // (undocumented)
+    key: string;
+    // (undocumented)
+    maxSize?: number;
+    // (undocumented)
+    onMigrationFail?: "reset" | "keep" | ((state: unknown) => unknown);
+    // (undocumented)
+    onStorageCleared?: (info: {
+        name: string;
+        key: string;
+        reason: "clear" | "remove" | "missing";
+    }) => void;
+    // (undocumented)
+    sensitiveData?: boolean;
+    // (undocumented)
+    serialize: (v: unknown) => string;
+}
+
+// @public (undocumented)
+export interface PersistDriver {
+    // (undocumented)
+    [key: string]: unknown;
+    // (undocumented)
+    getItem?: (k: string) => string | null | Promise<string | null>;
+    // (undocumented)
+    removeItem?: (k: string) => void | Promise<void>;
+    // (undocumented)
+    setItem?: (k: string, v: string) => void | Promise<void>;
+}
+
+// @public (undocumented)
+export interface PersistOptions<State = OptionStoreValue> {
     allowPlaintext?: boolean;
     checksum?: "hash" | "none" | "sha256";
     decrypt?: (v: string) => string;
     decryptAsync?: (v: string) => Promise<string>;
     // (undocumented)
     deserialize?: (v: string) => unknown;
-    // Warning: (ae-forgotten-export) The symbol "PersistDriver" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     driver?: PersistDriver;
     encrypt?: (v: string) => string;
@@ -211,9 +575,21 @@ export interface PersistOptions<State = StoreValue_2> {
 }
 
 // @public (undocumented)
+export type PrevDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+// @public
+export type Primitive = string | number | boolean | bigint | symbol | null | undefined;
+
+// @public (undocumented)
 export namespace queryIntegrations {
     export { query_createReactQueryFetcher as createReactQueryFetcher, query_createSwrFetcher as createSwrFetcher, query_reactQueryKey as reactQueryKey, query_swrKey as swrKey };
 }
+
+// @public (undocumented)
+export type RegisteredStoreMap = StoreStateMap & StrictStoreMap;
+
+// @public (undocumented)
+export type ResetCloneMode = "deep" | "shallow" | "none";
 
 // @public (undocumented)
 export function resetStore<Name extends string, State>(name: StoreDefinition<Name, State>): WriteResult;
@@ -224,23 +600,44 @@ export function resetStore<Name extends string, State>(name: StoreKey<Name, Stat
 // @public (undocumented)
 export function resetStore<Name extends StoreName>(name: Name): WriteResult;
 
-// Warning: (ae-forgotten-export) The symbol "StoreTarget" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "StorePathForTarget" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "StorePathValueForTarget" needs to be exported by the entry point index.d.ts
-//
+// @public (undocumented)
+export type RevalidateOnFocusConfig = {
+    debounceMs?: number;
+    maxConcurrent?: number;
+    staggerMs?: number;
+};
+
+// @public (undocumented)
+export type SchemaValidateOption = {
+    safeParse: (value: unknown) => {
+        success: true;
+        data: unknown;
+    } | {
+        success: false;
+        error?: unknown;
+    };
+} | {
+    parse: (value: unknown) => unknown;
+} | {
+    validateSync: (value: unknown) => unknown;
+} | {
+    isValidSync: (value: unknown) => boolean;
+} | {
+    validate: (value: unknown) => unknown;
+};
+
 // @public (undocumented)
 export function setStore<T extends StoreTarget, P extends StorePathForTarget<T>>(name: T, path: P, value: StorePathValueForTarget<T, P>): WriteResult;
 
-// Warning: (ae-forgotten-export) The symbol "StoreUpdateForTarget" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function setStore<T extends StoreTarget>(name: T, update: StoreUpdateForTarget<T>): WriteResult;
 
 // @public (undocumented)
 export const setStoreBatch: (fn: () => unknown) => void;
 
-// Warning: (ae-forgotten-export) The symbol "RegisteredStoreMap" needs to be exported by the entry point index.d.ts
-//
+// @public (undocumented)
+export type SnapshotMode = "deep" | "shallow" | "ref";
+
 // @public (undocumented)
 export type StateFor<Name extends string> = Name extends keyof RegisteredStoreMap ? RegisteredStoreMap[Name] : StoreValue;
 
@@ -256,21 +653,74 @@ export interface StoreDefinition<Name extends string = string, State = StoreValu
 }
 
 // @public (undocumented)
+export interface StoreFeatureMeta {
+    // (undocumented)
+    createdAt: string;
+    // (undocumented)
+    lastCorrelationAt: string | null;
+    // (undocumented)
+    lastCorrelationAtMs: number | null;
+    // (undocumented)
+    lastCorrelationId: string | null;
+    // (undocumented)
+    lastReadAt: string | null;
+    // (undocumented)
+    lastReadAtMs: number | null;
+    // (undocumented)
+    lastTraceContext: TraceContext | null;
+    // (undocumented)
+    metrics: FeatureMetrics;
+    // (undocumented)
+    options: NormalizedOptions;
+    // (undocumented)
+    readCount: number;
+    // (undocumented)
+    updateCount: number;
+    // (undocumented)
+    updatedAt: string;
+    // (undocumented)
+    updatedAtMs: number;
+    // (undocumented)
+    version: number;
+}
+
+// @public (undocumented)
+export type StoreHealthEntry = {
+    name: string;
+    meta: StoreFeatureMeta | null;
+    metrics: StoreFeatureMeta["metrics"] | null;
+    async: {
+        inflight: number;
+        lastCorrelationId: string | null;
+        traceContext: StoreFeatureMeta["lastTraceContext"] | null;
+    };
+    persist: {
+        queueDepth: number;
+    };
+};
+
+// @public (undocumented)
+export type StoreHealthReport = {
+    stores: StoreHealthEntry[];
+    async: ReturnType<typeof getAsyncMetrics>;
+    registry: {
+        totalStores: number;
+        coldStores: ColdStoreReport[];
+    };
+};
+
+// @public (undocumented)
 export type StoreKey<Name extends string = string, State = StoreValue> = StoreDefinition<Name, State> & {
     __store?: true;
 };
 
-// Warning: (ae-forgotten-export) The symbol "BrandedStoreName" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type StoreName = (keyof RegisteredStoreMap & string) | BrandedStoreName;
 
 // @public (undocumented)
-export interface StoreOptions<State = StoreValue_2> {
+export interface StoreOptions<State = OptionStoreValue> {
     // (undocumented)
     allowSSRGlobalStore?: boolean;
-    // Warning: (ae-forgotten-export) The symbol "DevtoolsOptions" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     devtools?: boolean | DevtoolsOptions<State>;
     features?: FeatureOptions;
@@ -278,14 +728,10 @@ export interface StoreOptions<State = StoreValue_2> {
     historyLimit?: number;
     // (undocumented)
     lazy?: boolean;
-    // Warning: (ae-forgotten-export) The symbol "LifecycleOptions" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     lifecycle?: LifecycleOptions<State>;
-    // Warning: (ae-forgotten-export) The symbol "MiddlewareCtx" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
-    middleware?: Array<(ctx: MiddlewareCtx) => StoreValue_2 | void>;
+    middleware?: Array<(ctx: MiddlewareCtx) => OptionStoreValue | void>;
     // (undocumented)
     migrations?: Record<number, (state: State) => State>;
     // (undocumented)
@@ -303,19 +749,15 @@ export interface StoreOptions<State = StoreValue_2> {
     persist?: boolean | string | PersistOptions<State>;
     // (undocumented)
     redactor?: (state: State) => State;
+    resetClone?: ResetCloneMode;
     // @deprecated (undocumented)
     schema?: unknown;
-    // Warning: (ae-forgotten-export) The symbol "StoreScope" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     scope?: StoreScope;
-    // Warning: (ae-forgotten-export) The symbol "SnapshotMode" needs to be exported by the entry point index.d.ts
     snapshot?: SnapshotMode;
-    snapshotSafety?: 'warn' | 'throw' | 'auto-clone';
+    snapshotSafety?: "warn" | "throw" | "auto-clone";
     // (undocumented)
     sync?: boolean | SyncOptions;
-    // Warning: (ae-forgotten-export) The symbol "ValidateOption" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     validate?: ValidateOption<State>;
     // @deprecated (undocumented)
@@ -325,8 +767,29 @@ export interface StoreOptions<State = StoreValue_2> {
 }
 
 // @public (undocumented)
+export type StorePathForTarget<T> = T extends StoreDefinition<infer _Name extends string, infer S> ? Path<S> : T extends StoreKey<infer _Name extends string, infer S> ? Path<S> : (IsStoreNameLoose extends true ? string | string[] : (T extends StoreName ? Path<StateFor<T>> : string | string[]));
+
+// @public (undocumented)
+export type StorePathValueForTarget<T, P> = T extends StoreDefinition<infer _Name extends string, infer S> ? (P extends Path<S> ? PathValue<S, P> : never) : T extends StoreKey<infer _Name extends string, infer S> ? (P extends Path<S> ? PathValue<S, P> : never) : (IsStoreNameLoose extends true ? unknown : (T extends StoreName ? (P extends Path<StateFor<T>> ? PathValue<StateFor<T>, P> : never) : unknown));
+
+// @public (undocumented)
+export type StoreScope = "request" | "global" | "temp";
+
+// @public (undocumented)
+export type StoreSnapshot<T> = T extends object ? Readonly<T> : T;
+
+// @public (undocumented)
 export interface StoreStateMap {
 }
+
+// @public (undocumented)
+export type StoreTarget<Name extends string = string, State = StoreValue> = StoreDefinition<Name, State> | StoreKey<Name, State> | StoreName;
+
+// @public (undocumented)
+export type StoreUpdate<State> = State | Partial<State> | PartialDeep<State> | ((draft: State) => void);
+
+// @public (undocumented)
+export type StoreUpdateForTarget<T> = T extends StoreDefinition<infer _Name extends string, infer S> ? StoreUpdate<S> : T extends StoreKey<infer _Name extends string, infer S> ? StoreUpdate<S> : (IsStoreNameLoose extends true ? StoreUpdate<StoreValue> : (T extends StoreName ? StoreUpdate<StateFor<T>> : StoreUpdate<StoreValue>));
 
 // @public (undocumented)
 export type StoreValue = unknown;
@@ -336,6 +799,49 @@ export interface StrictStoreMap {
 }
 
 // @public (undocumented)
+export type StroidConfig = {
+    logSink?: LogSink;
+    flush?: FlushConfig;
+    revalidateOnFocus?: RevalidateOnFocusConfig;
+    namespace?: string;
+    strictMissingFeatures?: boolean;
+    strictFeatures?: boolean;
+    assertRuntime?: boolean;
+    strictMutatorReturns?: boolean;
+    asyncAutoCreate?: boolean;
+    asyncCloneResult?: AsyncCloneMode;
+    resetCloneMode?: ResetCloneMode;
+    autoCorrelationIds?: boolean;
+    acknowledgeLooseTypes?: boolean;
+    pathCacheSize?: number;
+    defaultSnapshotMode?: SnapshotMode;
+    snapshotStrategy?: SnapshotMode;
+    strictAsyncUsageErrors?: boolean;
+    middleware?: Array<(ctx: MiddlewareCtx) => OptionStoreValue | void>;
+    allowTrustedHydration?: boolean;
+    allowUntrustedHydration?: boolean;
+    allowHydration?: boolean;
+    mutatorProduce?: (<T>(base: T, recipe: (draft: T) => void) => T) | "immer";
+    selectorCloneFrozen?: boolean;
+};
+
+// @public (undocumented)
+export type SyncMessage = {
+    v: number;
+    protocol: number;
+    type: "sync-request" | "sync-state";
+    name: string;
+    clock: number;
+    source: string;
+    updatedAt?: number;
+    data?: OptionStoreValue;
+    checksum?: number | null;
+    auth?: unknown;
+    token?: string;
+    requestedAt?: number;
+};
+
+// @public (undocumented)
 export interface SyncOptions {
     authToken?: string;
     // (undocumented)
@@ -343,11 +849,11 @@ export interface SyncOptions {
     checksum?: "hash" | "none";
     // (undocumented)
     conflictResolver?: (args: {
-        local: StoreValue_2;
-        incoming: StoreValue_2;
+        local: OptionStoreValue;
+        incoming: OptionStoreValue;
         localUpdated: number;
         incomingUpdated: number;
-    }) => StoreValue_2 | void;
+    }) => OptionStoreValue | void;
     insecure?: boolean;
     loopGuard?: boolean | {
         windowMs?: number;
@@ -360,23 +866,29 @@ export interface SyncOptions {
         incomingUpdated: number | undefined;
         now: number;
     }) => number;
-    // Warning: (ae-forgotten-export) The symbol "SyncMessage" needs to be exported by the entry point index.d.ts
     sign?: (payload: SyncMessage) => unknown;
     verify?: (payload: SyncMessage) => boolean;
 }
+
+// @public (undocumented)
+export type TraceContext = {
+    traceId: string;
+    spanId: string;
+} & Record<string, unknown>;
+
+// @public (undocumented)
+export type ValidateFn<State = OptionStoreValue> = (next: State) => boolean | State;
+
+// @public (undocumented)
+export type ValidateOption<State = OptionStoreValue> = ValidateFn<State> | SchemaValidateOption;
 
 // @public (undocumented)
 export type WriteResult = {
     ok: true;
 } | {
     ok: false;
-    reason: "not-found" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" | "lazy-uninitialized" | "unsupported-op" | "unsupported-path-shape";
+    reason: "not-found" | "no-initial-state" | "validate" | "path" | "middleware" | "ssr" | "invalid-args" | "lazy-uninitialized" | "unsupported-op" | "unsupported-path-shape";
 };
-
-// Warnings were encountered during analysis:
-//
-// dist/types.d.ts:26:5 - (ae-forgotten-export) The symbol "HydrationFailureReason" needs to be exported by the entry point index.d.ts
-// dist/types.d.ts:36:9 - (ae-forgotten-export) The symbol "HydrationBlockReason" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 

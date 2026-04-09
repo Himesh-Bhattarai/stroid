@@ -29,7 +29,7 @@ test("subscribeWithSelector passes a mutable value to selector in dev mode", () 
     console.log("ok");
   `;
 
-  const res = spawnSync(process.execPath, ["--import", "tsx", "-e", script], {
+  const res = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
     cwd: process.cwd(),
     env: { ...process.env, NODE_ENV: "development" },
     encoding: "utf-8",

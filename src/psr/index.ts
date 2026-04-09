@@ -14,7 +14,8 @@ import { scheduleFlush } from "../notification/index.js";
 import { hasStore as hasStoreByName } from "../core/store-read.js";
 import { nameOf } from "../core/store-lifecycle/identity.js";
 import { getRegistry, getStoreValueRef } from "../core/store-lifecycle/registry.js";
-import { setStore, replaceStore } from "../core/store-write.js";
+import { setStoreWithContext, replaceStore } from "../core/store-write.js";
+import { store } from "../core/store-name.js";
 import {
     beginTransaction,
     endTransaction,
@@ -401,7 +402,7 @@ const applyStructuredRuntimePatch = (
     const transformed = transform(current);
     if (!transformed.ok) return failPatch(transformed.reason, failureId);
     return toPatchResult(
-        replaceStore(patch.store as any, transformed.value),
+        replaceStore(store(patch.store), transformed.value),
         failureId
     );
 };
@@ -453,15 +454,16 @@ const applyNormalizedPatch = (patch: RuntimePatch): PatchApplyResult => {
     if (patch.op === "set") {
         if (patch.path.length === 0) {
             return toPatchResult(
-                replaceStore(patch.store as any, patch.value),
+                replaceStore(store(patch.store), patch.value),
                 patch.id
             );
         }
         return toPatchResult(
-            setStore(
-                patch.store as any,
-                patch.path.map((segment) => String(segment)) as any,
-                patch.value
+            setStoreWithContext(
+                store(patch.store),
+                patch.path.map((segment) => String(segment)),
+                patch.value,
+                null
             ),
             patch.id
         );
@@ -469,7 +471,7 @@ const applyNormalizedPatch = (patch: RuntimePatch): PatchApplyResult => {
     if (patch.op === "merge") {
         if (patch.path.length === 0) {
             return toPatchResult(
-                setStore(patch.store as any, patch.value as Record<string, unknown>),
+                setStoreWithContext(store(patch.store), patch.value as Record<string, unknown>, undefined, null),
                 patch.id
             );
         }

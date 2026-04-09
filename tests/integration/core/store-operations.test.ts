@@ -24,7 +24,7 @@ test("setStore merges object data into object stores", () => {
   createStore("mergeStore", { a: 1, nested: { value: 1 } });
   const result = setStore("mergeStore", { b: 2 });
   assert.deepStrictEqual(result, { ok: true });
-  assert.strictEqual((getStore("mergeStore") as any).b, 2);
+  assert.strictEqual((getStore("mergeStore") as { b: number } | null)?.b, 2);
 });
 
 test("setStore rejects deep paths and invalid path values", () => {
@@ -34,7 +34,7 @@ test("setStore rejects deep paths and invalid path values", () => {
   const deepResult = setStore("pathStore", deepPath, 1);
   assert.deepStrictEqual(deepResult, { ok: false, reason: "invalid-args" });
 
-  const badValue = setStore("pathStore", "value", BigInt(1) as unknown as any);
+  const badValue = setStore("pathStore", "value", BigInt(1) as unknown as { nested: number });
   assert.deepStrictEqual(badValue, { ok: false, reason: "validate" });
 });
 
@@ -42,14 +42,14 @@ test("setStore validates mutator return values when strictMutatorReturns is fals
   clearAllStores();
   configureStroid({ strictMutatorReturns: false });
   createStore("mutReturn", { value: 1 });
-  const result = setStore("mutReturn", () => (() => {}) as unknown as any);
+  const result = setStore("mutReturn", () => (() => {}) as unknown as never);
   assert.deepStrictEqual(result, { ok: false, reason: "validate" });
 });
 
 test("setStore invalid args and invalid data branches", () => {
   clearAllStores();
   createStore("invalidArgs", { value: 1 });
-  const invalid = setStore("invalidArgs", 123 as unknown as any);
+  const invalid = setStore("invalidArgs", 123 as unknown as string);
   assert.deepStrictEqual(invalid, { ok: false, reason: "invalid-args" });
 
   createStore("invalidData", { value: 1 });
@@ -75,12 +75,12 @@ test("setStore handles mutator errors and merge validation failures", () => {
   });
   assert.deepStrictEqual(thrown, { ok: false, reason: "validate" });
 
-  createStore("mergePrimitive", 123 as unknown as any);
+  createStore("mergePrimitive", 123);
   const merge = setStore("mergePrimitive", { value: 1 });
   assert.deepStrictEqual(merge, { ok: false, reason: "validate" });
 
   createStore("mergeBad", { value: 1 });
-  const bad = setStore("mergeBad", { big: BigInt(1) } as unknown as any);
+  const bad = setStore("mergeBad", { big: BigInt(1) } as unknown as Partial<{ value: number }>);
   assert.deepStrictEqual(bad, { ok: false, reason: "validate" });
 });
 
@@ -91,7 +91,7 @@ test("createStore handles duplicates and createStoreStrict throws on failure", (
   assert.strictEqual(first?.name, "duplicate");
   assert.strictEqual(second?.name, "duplicate");
 
-  assert.throws(() => createStoreStrict("" as unknown as any, { value: 1 }), /createStoreStrict/);
+  assert.throws(() => createStoreStrict("", { value: 1 }), /createStoreStrict/);
 });
 
 test("setStore reports missing stores", () => {

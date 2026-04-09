@@ -17,11 +17,16 @@ const collectFiles = async (dir) => {
       files.push(fullPath);
     }
   }
-  return files;
+  return files.sort();
 };
 
 const renameHashedDts = async (files) => {
   const map = new Map();
+  const usedTargets = new Set(
+    files
+      .filter(isDtsFile)
+      .map((file) => path.relative(distDir, file))
+  );
   for (const file of files) {
     const base = path.basename(file);
     const match = base.match(hashPattern);
@@ -31,17 +36,22 @@ const renameHashedDts = async (files) => {
     const ext = match[3];
     if (!/[A-Z0-9]/.test(hash)) continue;
     const stablePrefix = prefix === "index" ? "index-internal" : prefix;
-    const target = path.join(path.dirname(file), `${stablePrefix}.d.${ext}`);
-    map.set(path.basename(file, `.d.${ext}`), stablePrefix);
-    try {
-      await fs.rename(file, target);
-    } catch (err) {
-      if ((err && err.code) === "EEXIST") {
-        await fs.unlink(file);
-      } else {
-        throw err;
-      }
+    let nextBase = stablePrefix;
+    let candidate = path.join(path.dirname(file), `${nextBase}.d.${ext}`);
+    let candidateRelative = path.relative(distDir, candidate);
+    let suffix = 1;
+
+    usedTargets.delete(path.relative(distDir, file));
+    while (usedTargets.has(candidateRelative)) {
+      nextBase = `${stablePrefix}-internal${suffix === 1 ? "" : `-${suffix}`}`;
+      candidate = path.join(path.dirname(file), `${nextBase}.d.${ext}`);
+      candidateRelative = path.relative(distDir, candidate);
+      suffix += 1;
     }
+
+    map.set(path.basename(file, `.d.${ext}`), nextBase);
+    await fs.rename(file, candidate);
+    usedTargets.add(candidateRelative);
   }
   return map;
 };
