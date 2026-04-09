@@ -7,9 +7,9 @@
 
 ---
 
->[!NOTE]
+>[!WARNING]
 ><details open>
-><summary><strong> Unreleased </strong></summary>
+><summary><strong>0.1.5 --> 2026-04-09</strong></summary>
 >
 >### Add
 >

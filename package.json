@@ -1,6 +1,6 @@
 {
   "name": "stroid",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Deterministic state engine for React and JavaScript with SSR-safe isolation, multi-store coordination, and decision-driven state workflows.",
   "keywords": [
     "state-management",
@@ -111,7 +111,7 @@
     "LICENSE"
   ],
   "publishConfig": {
-    "tag": "beta"
+    "tag": "latest"
   },
   "repository": {
     "type": "git",
