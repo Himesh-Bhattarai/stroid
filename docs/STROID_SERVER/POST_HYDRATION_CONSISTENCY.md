@@ -191,6 +191,8 @@ Use these helpers to answer:
 - whether manual close is available
 - how many writes were queued or replayed
 
+Runtime cost note: development includes full drift payload snapshots (`baseline/live/resolved`) for debugging, while production omits those snapshots as `null` and relies on hash fields for drift identity.
+
 ---
 
 ## Adoption Defaults

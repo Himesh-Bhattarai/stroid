@@ -212,7 +212,7 @@ test("hydration boot window defers slow network revalidation until replay", asyn
     status: "success",
   });
 
-  hydrateStores(
+  const hydration = hydrateStores(
     {
       remote: {
         data: "server",
@@ -224,7 +224,9 @@ test("hydration boot window defers slow network revalidation until replay", asyn
     {},
     { allowTrusted: true },
     {
-      bootWindowMs: 20,
+      bootWindow: {
+        mode: "manual",
+      },
       policyMap: {
         remote: "client_wins",
       },
@@ -263,6 +265,7 @@ test("hydration boot window defers slow network revalidation until replay", asyn
     status: "success",
   });
 
+  hydration.bootWindow?.close();
   await wait(20);
 
   const remote = getStore("remote") as RemoteState | null;

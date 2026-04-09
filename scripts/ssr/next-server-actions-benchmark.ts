@@ -1,3 +1,15 @@
+/**
+ * Next.js Server Actions Boundary Certification Benchmark
+ * 
+ * This benchmark validates the integrity of Stroid's state capture and resumption 
+ * mechanism specifically for Next.js App Router patterns. It simulates:
+ * 1. Concurrent SSR renders where state is initialized and captured.
+ * 2. Resumption of that state within a Server Action context.
+ * 3. Strict isolation between concurrent request pairs to ensure no cross-bleed 
+ *    occurs during the portable scope hand-off.
+ */
+
+
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 import {
@@ -12,6 +24,9 @@ import {
   summarizeSamples,
 } from "../guarantees/benchmark-guarantee-utils.js";
 
+/**
+ * Aggregated metrics and invariant results for the Server Actions benchmark.
+ */
 type BenchmarkResult = {
   name: string;
   pairs: number;
@@ -24,8 +39,16 @@ type BenchmarkResult = {
   };
 };
 
+/**
+ * Number of concurrent request pairs to execute. 
+ * Configurable via STROID_NEXT_SERVER_ACTION_PAIRS environment variable.
+ */
 const PAIRS = Number(process.env.STROID_NEXT_SERVER_ACTION_PAIRS ?? 48);
 
+/**
+ * Executes the Next.js Server Actions benchmark suite.
+ * @returns {Promise<BenchmarkResult>} The aggregated benchmark metrics and invariant audit.
+ */
 export const runNextServerActionsBenchmark = async (): Promise<BenchmarkResult> => {
   const renderPairDurations: number[] = [];
   const actionPairDurations: number[] = [];
@@ -104,6 +127,9 @@ export const runNextServerActionsBenchmark = async (): Promise<BenchmarkResult> 
   };
 };
 
+/**
+ * Main execution entry point for the benchmark script.
+ */
 const main = async () => {
   const result = await runNextServerActionsBenchmark();
   emitReport({

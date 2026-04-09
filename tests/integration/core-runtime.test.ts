@@ -714,6 +714,22 @@ test("hashState covers numeric and structural branches", () => {
   assert.strictEqual(hashState("string"), crc32(JSON.stringify("string")));
 });
 
+test("hashState plain-object fast path preserves accessor safety", () => {
+  let getterCalls = 0;
+  const value: Record<string, unknown> = { stable: 1 };
+  Object.defineProperty(value, "computed", {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      return "runtime";
+    },
+  });
+
+  const hash = hashState(value);
+  assert.strictEqual(typeof hash, "number");
+  assert.strictEqual(getterCalls, 0);
+});
+
 test("utils/validation covers schema, sanitize, and name helpers", () => {
   resetAllStoresForTest();
 

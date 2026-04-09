@@ -178,14 +178,39 @@ const hashValue = (state: HashState, value: unknown): void => {
     }
 
     mixToken(state, "object");
+    const proto = Object.getPrototypeOf(obj);
+    const isPlainObject = proto === Object.prototype || proto === null;
+    if (isPlainObject) {
+        const fastEntries: Array<[string, unknown]> = [];
+        const keys = Object.keys(obj as Record<string, unknown>);
+        for (const key of keys) {
+            if (FORBIDDEN_OBJECT_KEYS.has(key)) continue;
+            const descriptor = Object.getOwnPropertyDescriptor(obj, key);
+            if (!descriptor?.enumerable) continue;
+            if ("get" in descriptor || "set" in descriptor) {
+                fastEntries.length = 0;
+                break;
+            }
+            fastEntries.push([key, descriptor.value]);
+        }
+        if (fastEntries.length > 0 || keys.length === 0) {
+            mixHash(state, fastEntries.length);
+            for (const [key, entryValue] of fastEntries) {
+                mixString(state, key);
+                hashValue(state, entryValue);
+            }
+            return;
+        }
+    }
+
     const descriptors = Object.getOwnPropertyDescriptors(obj as Record<string, unknown>);
     const entries: Array<[string, PropertyDescriptor]> = [];
-    Object.entries(descriptors).forEach(([key, descriptor]) => {
-        if (!descriptor?.enumerable) return;
-        if (FORBIDDEN_OBJECT_KEYS.has(key)) return;
-        if ("get" in descriptor || "set" in descriptor) return;
+    for (const [key, descriptor] of Object.entries(descriptors)) {
+        if (!descriptor?.enumerable) continue;
+        if (FORBIDDEN_OBJECT_KEYS.has(key)) continue;
+        if ("get" in descriptor || "set" in descriptor) continue;
         entries.push([key, descriptor]);
-    });
+    }
     mixHash(state, entries.length);
     for (const [key, descriptor] of entries) {
         mixString(state, key);

@@ -1,3 +1,14 @@
+
+/**
+ * Serverless Provider Certification Benchmark
+ * 
+ * This benchmark validates that Stroid's request isolation and state cleanup 
+ * mechanisms function correctly across different serverless execution models:
+ * 1. AWS Lambda (Standard Node.js ALS)
+ * 2. Vercel (Hybrid Render + Portable Action hand-off)
+ * 3. Cloudflare Workers (Portable Scopes for Edge isolates)
+ */
+
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 import { getRequestCarrier } from "../../src/core/store-registry.js";
@@ -16,6 +27,9 @@ import {
   wait,
 } from "../guarantees/benchmark-guarantee-utils.js";
 
+/**
+ * State shape used to track mutation history and provider identity.
+ */
 type SessionState = {
   provider: string;
   requestId: number;
@@ -23,11 +37,17 @@ type SessionState = {
   trail: string[];
 };
 
+/**
+ * Result of a probe executed after the request lifecycle has ended.
+ */
 type DetachedProbeResult = {
   carrier: Record<string, unknown> | null;
   snapshot: unknown;
 };
 
+/**
+ * Aggregated results for a specific provider's simulation.
+ */
 type ProviderResult = {
   provider: "aws_lambda" | "vercel" | "cloudflare_workers";
   runtimeModel: string;
@@ -42,6 +62,9 @@ type ProviderResult = {
   };
 };
 
+/**
+ * Final benchmark report structure.
+ */
 type BenchmarkResult = {
   name: string;
   providers: ProviderResult[];
@@ -63,12 +86,20 @@ const buildSession = (requestId: number, provider: string): SessionState => ({
   trail: ["seed"],
 });
 
+/**
+ * Checks if any stores or registry metadata leaked into the global scope 
+ * after a request should have been purged.
+ */
 const hasGlobalResidualState = (): boolean => {
   const globalStores = listStores();
   const health = getStoreHealth() as { registry?: { totalStores?: number } } | null;
   return globalStores.length > 0 || (health?.registry?.totalStores ?? 0) > 0;
 };
 
+/**
+ * Simulates an AWS Lambda invocation using AsyncLocalStorage.
+ * Validates that state is preserved across microtasks but purged after the handler returns.
+ */
 const runLambdaInvocation = async (requestId: number): Promise<{ durationMs: number; detached: DetachedProbeResult[] }> => {
   const request = createStoreForRequest<{ session: SessionState }>((api) => {
     api.create("session", buildSession(requestId, "aws_lambda"));
@@ -122,6 +153,11 @@ const runLambdaInvocation = async (requestId: number): Promise<{ durationMs: num
   };
 };
 
+/**
+ * Simulates a Vercel-like environment where a standard SSR render 
+ * hands off its captured state to a Portable Scope (e.g., for a Server Action).
+ * Validates that state flows correctly between the two isolation models.
+ */
 const runVercelInvocation = async (requestId: number): Promise<{ durationMs: number; detached: DetachedProbeResult[] }> => {
   const request = createStoreForRequest<{ session: SessionState }>((api) => {
     api.create("session", buildSession(requestId, "vercel"));
@@ -184,6 +220,10 @@ const runVercelInvocation = async (requestId: number): Promise<{ durationMs: num
   };
 };
 
+/**
+ * Simulates a Cloudflare Workers environment using Portable Scopes.
+ * Validates isolation in environments where AsyncLocalStorage might be restricted or unavailable.
+ */
 const runWorkersInvocation = async (requestId: number): Promise<{ durationMs: number; detached: DetachedProbeResult[] }> => {
   const request = createRequestScope<{ session: SessionState }>({
     snapshot: {
@@ -223,6 +263,10 @@ const runWorkersInvocation = async (requestId: number): Promise<{ durationMs: nu
   };
 };
 
+/**
+ * Executes a suite of invocations for a specific provider and 
+ * audits for memory leaks and state contamination.
+ */
 const certifyProvider = async (args: {
   provider: ProviderResult["provider"];
   runtimeModel: string;
@@ -279,6 +323,9 @@ const certifyProvider = async (args: {
   };
 };
 
+/**
+ * Main entry point for the Serverless Provider Certification benchmark.
+ */
 export const runServerlessProviderCertification = async (): Promise<BenchmarkResult> => {
   const providers = [
     await certifyProvider({

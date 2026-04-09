@@ -1,3 +1,14 @@
+/**
+ * SSR ALS Audit Ladder Benchmark
+ * 
+ * This benchmark performs a rigorous "ladder" of tests to certify that Stroid's 
+ * AsyncLocalStorage (ALS) integration is robust across various Node.js async boundaries.
+ * It validates:
+ * 1. Context preservation across microtasks, timers, and MessageChannels.
+ * 2. Correct behavior of pre-bound callbacks (manual hand-offs).
+ * 3. Strict cleanup after request lifecycles to prevent memory leaks or cross-request pollution.
+ */
+
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { EventEmitter } from "node:events";
@@ -40,6 +51,9 @@ type ProbeRecord = {
   note?: string;
 };
 
+/**
+ * Results for a specific stage of the audit ladder.
+ */
 type StageResult = {
   name: string;
   checks: number;
@@ -49,6 +63,9 @@ type StageResult = {
   samples: ProbeRecord[];
 };
 
+/**
+ * Aggregated benchmark report.
+ */
 type BenchmarkResult = {
   name: string;
   seed: number;
@@ -57,6 +74,9 @@ type BenchmarkResult = {
   stages: StageResult[];
 };
 
+/**
+ * Custom error thrown when a certification stage fails.
+ */
 class LadderCertificationError extends Error {
   report: BenchmarkResult;
 
@@ -90,6 +110,9 @@ const deferred = <T>() => {
   return { promise, resolve, reject };
 };
 
+/**
+ * Wraps a promise with a timeout.
+ */
 const withTimeout = async <T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -104,6 +127,9 @@ const withTimeout = async <T>(
     }),
   ]);
 
+/**
+ * Captures the current Stroid request context for validation.
+ */
 const readStroidContext = (): { carrierRequestId: number | null; storeRequestId: number | null } => {
   const carrier = getRequestCarrier() as { session?: SessionState } | null;
   const carrierRequestId = carrier?.session?.requestId ?? null;
@@ -125,6 +151,9 @@ const pushFailure = (
   if (failures.length < MAX_SAMPLES) failures.push(entry);
 };
 
+/**
+ * Executes a callback within a specific async boundary.
+ */
 const runBoundary = async (
   boundary: Boundary,
   callback: () => void | Promise<void>,
@@ -180,6 +209,9 @@ const runBoundary = async (
   });
 };
 
+/**
+ * Establishes a baseline using Node's native AsyncLocalStorage.
+ */
 const runNativeAlsBaseline = async (requestCount: number): Promise<StageResult> => {
   const nativeAls = new AsyncLocalStorage<{ requestId: number }>();
   const boundaries: Boundary[] = ["promise", "nextTick", "setImmediate", "setTimeout", "messagechannel"];
@@ -221,6 +253,9 @@ const runNativeAlsBaseline = async (requestCount: number): Promise<StageResult> 
   };
 };
 
+/**
+ * Validates that Stroid preserves context across standard async boundaries.
+ */
 const runStroidInScopeBoundaries = async (requestCount: number): Promise<StageResult> => {
   resetAllStoresForTest();
   const boundaries: Boundary[] = ["promise", "nextTick", "setImmediate", "setTimeout", "messagechannel"];
@@ -268,6 +303,10 @@ const runStroidInScopeBoundaries = async (requestCount: number): Promise<StageRe
   };
 };
 
+/**
+ * Creates a test harness for triggering callbacks that were bound 
+ * to a specific request context.
+ */
 const createPreboundHarness = () => {
   const emitter = new EventEmitter();
   const channel = new MessageChannel();
@@ -316,6 +355,9 @@ const createPreboundHarness = () => {
   return { register, unregister, trigger, dispose };
 };
 
+/**
+ * Validates that manually bound callbacks correctly restore the request context.
+ */
 const runStroidPreboundCallbacks = async (requestCount: number): Promise<StageResult> => {
   resetAllStoresForTest();
   const boundaries: PreboundBoundary[] = ["preboundMessageChannel", "preboundEventEmitter"];
@@ -371,6 +413,9 @@ const runStroidPreboundCallbacks = async (requestCount: number): Promise<StageRe
   };
 };
 
+/**
+ * Validates that request state is NOT accessible after the hydration scope has closed.
+ */
 const runStroidPostScopeLeakCheck = async (requestCount: number): Promise<StageResult> => {
   resetAllStoresForTest();
   const boundaries: PostBoundary[] = ["setImmediate", "setTimeout", "messagechannel"];
@@ -448,6 +493,9 @@ const runStroidPostScopeLeakCheck = async (requestCount: number): Promise<StageR
   };
 };
 
+/**
+ * Validates context isolation under concurrent request pressure.
+ */
 const runConcurrentContentionCheck = async (requestCount: number): Promise<StageResult> => {
   resetAllStoresForTest();
   const durations: number[] = [];
@@ -509,6 +557,9 @@ const runConcurrentContentionCheck = async (requestCount: number): Promise<Stage
   };
 };
 
+/**
+ * Main entry point for the SSR ALS Audit Ladder.
+ */
 export const runSsrAlsAuditLadderBenchmark = async (): Promise<BenchmarkResult> => {
   const stages = [
     await runNativeAlsBaseline(REQUESTS),

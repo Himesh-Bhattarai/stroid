@@ -6,7 +6,7 @@
  *
  * Consumers: write paths and feature state application.
  */
-import { deepClone, hashState, warnAlways } from "../../utils.js";
+import { deepClone, hashState, isDev, warnAlways } from "../../utils.js";
 import type { StoreRegistry } from "../store-registry.js";
 import {
     cloneHydrationMetadata,
@@ -141,6 +141,20 @@ export const reconcileHydrationValue = (args: {
     entry.lastResolution = resolution;
     args.registry.hydration.metrics.reconciliations += 1;
 
+    let baselineSnapshot: unknown = null;
+    let liveSnapshot: unknown = null;
+    let resolvedSnapshot: unknown = null;
+    if (isDev()) {
+        baselineSnapshot = deepClone(entry.baseline);
+        liveSnapshot = deepClone(args.value);
+        resolvedSnapshot =
+            Object.is(resolved, args.value)
+                ? liveSnapshot
+                : Object.is(resolved, entry.baseline)
+                    ? baselineSnapshot
+                    : deepClone(resolved);
+    }
+
     const event = {
         id: `hydration-drift:${nowMs}:${nextHydrationSequence(args.registry.hydration)}`,
         store: args.store,
@@ -159,9 +173,9 @@ export const reconcileHydrationValue = (args: {
         resolvedHash,
         invalidated,
         metadata: cloneHydrationMetadata(entry),
-        baseline: deepClone(entry.baseline),
-        live: deepClone(args.value),
-        resolved: deepClone(resolved),
+        baseline: baselineSnapshot,
+        live: liveSnapshot,
+        resolved: resolvedSnapshot,
     };
 
     pushHydrationDriftEvent(args.registry.hydration, event);

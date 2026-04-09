@@ -74,6 +74,7 @@ const health = getStoreHealth("cart")
 - `getHydrationConsistency(name?)` returns one store report, all reports, or `null` when a named store was not hydrated under a consistency contract.
 - `getHydrationDriftEvents(limit?)` returns the most recent structured drift events.
 - `getHydrationDriftMetrics()` returns counters plus boot-window state (`pendingWrites`, `bootWindowActive`, `bootWindowMode`, `bootWindowEndsAtMs`, `manualCloseAvailable`).
+- Drift payload snapshots (`event.baseline`, `event.live`, `event.resolved`) are included in development, and omitted as `null` in production; hash fields remain available in both modes.
 
 ```ts
 import {
