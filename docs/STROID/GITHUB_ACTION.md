@@ -24,6 +24,7 @@ This document explains every workflow in `.github/workflows`, what each one does
 | `.github/workflows/dependabot-status-guard.yml` | `Dependabot STATUS Guard` | Enforces STATUS-style title/commit format for Dependabot PRs | PR open/edit/sync/reopen |
 | `.github/workflows/status-commit.yml` | `status-commit` | Enforces commit message format on pushes | push (except `release-please--**`) |
 | `.github/workflows/discussion-bot.yml` | `AI Discussion Bot (Gemini)` | Auto-replies in Discussions when owner is mentioned | discussion created/comment created |
+| `.github/workflows/gate-me.yml` | `Gate Me (status 010)` | On-demand full test + full benchmark sweep with one consolidated report | push/PR/manual (runs only when marker rule passes) |
 
 ---
 
@@ -49,6 +50,9 @@ This document explains every workflow in `.github/workflows`, what each one does
 
 7. I want help in Discussions:
 - Mention `@<repo-owner>` in a Discussion body/comment to trigger `AI Discussion Bot (Gemini)`.
+
+8. I need a one-off exhaustive gate:
+- Use `Gate Me (status 010)` with PR title or commit message containing `status(010): Gate me`, or run manually.
 
 ---
 
@@ -328,6 +332,39 @@ This document explains every workflow in `.github/workflows`, what each one does
 
 ---
 
+## 11) `gate-me.yml` (`Gate Me (status 010)`)
+
+**What it does**
+- Evaluates whether the marker `status(010): Gate me` is present in:
+  - Push head commit message
+  - PR title
+  - Any commit message in the PR
+- Runs the deep gate only when marker conditions pass (or manual dispatch):
+  - Full test script sweep (`test` and `test:*` except wrapper aliases)
+  - Full benchmark sweep (`benchmark:all`) plus `bench:stress:check`
+- Generates one consolidated report:
+  - `scripts/benchmark-results/gate-me-report.md`
+  - `scripts/benchmark-results/gate-me-report.json`
+  - Includes `benchmark:all` detailed table section
+
+**Trigger**
+- `push`
+- `pull_request`
+- `workflow_dispatch`
+
+**Run condition**
+- Automatic heavy run happens only when marker is matched.
+- If marker is not matched, workflow exits through a lightweight skip job.
+
+**When to use**
+- Certification PRs where you want all tests + all benchmarks without making every PR/push pay the runtime cost.
+- Final merge-candidate validation before release cuts.
+
+**Artifacts**
+- `gate-me-report` artifact with consolidated markdown/json report plus benchmark-all summaries.
+
+---
+
 ## CI Gate Coverage Snapshot
 
 This section documents which scripts are explicitly used by push/PR gates so workflow steps and npm scripts stay aligned.
@@ -350,6 +387,10 @@ This section documents which scripts are explicitly used by push/PR gates so wor
   - `npm run benchmark:ssr-als-audit`
   - `npm run benchmark:ssr-gaps`
   - `npm run test:stress:coverage` (PR only)
+- `Gate Me (status 010)` (`gate-me.yml`) [conditional]:
+  - Runs only when marker `status(010): Gate me` exists in push/PR metadata or via manual dispatch
+  - Executes full test sweep + `benchmark:all` + `bench:stress:check`
+  - Writes one consolidated report at `scripts/benchmark-results/gate-me-report.md`
 
 **Scripts intentionally outside default push gate**
 - Manual/local or dedicated release workflows:
@@ -402,6 +443,7 @@ This section documents which scripts are explicitly used by push/PR gates so wor
 | `Dependabot STATUS Guard` | `contents: read`, `pull-requests: read` | none |
 | `status-commit` | `contents: read` | none |
 | `AI Discussion Bot (Gemini)` | `discussions: write` | `GEMINI_API_KEY` |
+| `Gate Me (status 010)` | `contents: read` | none |
 
 ---
 
@@ -412,11 +454,13 @@ Manually runnable workflows:
 - `Publish`
 - `release-please`
 - `OpenSSF Scorecard`
+- `Gate Me (status 010)`
 
 Use manual runs when:
 - You need a recheck without new commits.
 - You want controlled publish timing (`Publish` on `main` only).
 - You need immediate security scan refresh (`Scorecard`).
+- You need on-demand exhaustive certification (`Gate Me`) without changing PR title/commit marker.
 
 ---
 

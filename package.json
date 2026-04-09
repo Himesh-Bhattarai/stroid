@@ -184,6 +184,7 @@
     "bench:stress:check": "node --import tsx scripts/core/check-benchmark-regression.bench.ts",
     "bench:stress:ci": "npm run bench:stress && npm run bench:stress:check",
     "bench:stress:update-baseline": "node -e \"const fs=require('fs'); const path=require('path'); const dir=path.resolve('scripts/benchmark-results'); fs.mkdirSync(dir,{recursive:true}); fs.copyFileSync(path.join(dir,'latest.json'), path.join(dir,'baseline.json')); console.log('updated scripts/benchmark-results/baseline.json');\"",
+    "ci:gate-me": "node scripts/ci/run-gate-me-suite.mjs",
     "test:all": "npm test && npm run test:types",
     "test:full": "npm run test:coverage && npm run test:types"
   },
